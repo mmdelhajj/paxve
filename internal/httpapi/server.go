@@ -27,9 +27,10 @@ const (
 	RoleAccountant = "accountant"
 	RoleDataEntry  = "data_entry"
 	RoleReadOnly   = "read_only"
+	RoleCollector  = "collector"
 )
 
-var validRoles = map[string]bool{RoleAdmin: true, RoleAccountant: true, RoleDataEntry: true, RoleReadOnly: true}
+var validRoles = map[string]bool{RoleAdmin: true, RoleAccountant: true, RoleDataEntry: true, RoleReadOnly: true, RoleCollector: true}
 
 // Languages the interface ships with. Adding one = adding a translation file in web/src/locales.
 var supportedLocales = map[string]bool{"en": true, "ar": true, "fr": true}
@@ -53,6 +54,7 @@ func (s *Server) Handler() http.Handler {
 	const v = "/api/v1"
 	write := []string{RoleAdmin, RoleAccountant}
 	entry := []string{RoleAdmin, RoleAccountant, RoleDataEntry}
+	field := []string{RoleAdmin, RoleAccountant, RoleDataEntry, RoleCollector}
 
 	mux.HandleFunc("GET /api/health", s.health)
 	mux.HandleFunc("GET "+v+"/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
@@ -62,15 +64,15 @@ func (s *Server) Handler() http.Handler {
 
 	// session (browser) auth
 	mux.HandleFunc("POST "+v+"/auth/login", s.login)
-	mux.Handle("POST "+v+"/auth/logout", s.auth(s.logout))
-	mux.Handle("GET "+v+"/me", s.auth(s.me))
-	mux.Handle("PATCH "+v+"/me", s.auth(sessionOnly(s.updateMe)))
+	mux.Handle("POST "+v+"/auth/logout", s.field(s.logout))
+	mux.Handle("GET "+v+"/me", s.field(s.me))
+	mux.Handle("PATCH "+v+"/me", s.field(sessionOnly(s.updateMe)))
 
 	// reference data
-	mux.Handle("GET "+v+"/currencies", s.auth(s.listCurrencies))
+	mux.Handle("GET "+v+"/currencies", s.field(s.listCurrencies))
 
 	// organisation
-	mux.Handle("GET "+v+"/companies", s.auth(s.listCompanies))
+	mux.Handle("GET "+v+"/companies", s.field(s.listCompanies))
 	mux.Handle("POST "+v+"/companies", s.auth(only(s.createCompany, RoleAdmin)))
 	mux.Handle("PATCH "+v+"/companies/{cid}", s.auth(only(s.updateCompany, RoleAdmin)))
 	mux.Handle("GET "+v+"/users", s.auth(only(s.listUsers, RoleAdmin)))
@@ -85,7 +87,7 @@ func (s *Server) Handler() http.Handler {
 
 	// exchange rates
 	mux.Handle("GET "+v+"/companies/{cid}/rates", s.auth(s.listRates))
-	mux.Handle("GET "+v+"/companies/{cid}/rates/latest", s.auth(s.latestRates))
+	mux.Handle("GET "+v+"/companies/{cid}/rates/latest", s.field(s.latestRates))
 	mux.Handle("POST "+v+"/companies/{cid}/rates", s.auth(only(s.upsertRate, write...)))
 
 	// chart of accounts
@@ -107,10 +109,10 @@ func (s *Server) Handler() http.Handler {
 	// billing setup
 	mux.Handle("GET "+v+"/companies/{cid}/billing/settings", s.auth(s.getBillingSettings))
 	mux.Handle("PUT "+v+"/companies/{cid}/billing/settings", s.auth(only(s.putBillingSettings, write...)))
-	mux.Handle("GET "+v+"/companies/{cid}/payment-methods", s.auth(s.listMethods))
+	mux.Handle("GET "+v+"/companies/{cid}/payment-methods", s.field(s.listMethods))
 	mux.Handle("POST "+v+"/companies/{cid}/payment-methods", s.auth(only(s.createMethod, write...)))
 	mux.Handle("PATCH "+v+"/companies/{cid}/payment-methods/{id}", s.auth(only(s.updateMethod, write...)))
-	mux.Handle("GET "+v+"/companies/{cid}/areas", s.auth(s.listAreas))
+	mux.Handle("GET "+v+"/companies/{cid}/areas", s.field(s.listAreas))
 	mux.Handle("POST "+v+"/companies/{cid}/areas", s.auth(only(s.createArea, entry...)))
 	mux.Handle("PATCH "+v+"/companies/{cid}/areas/{id}", s.auth(only(s.updateArea, entry...)))
 	mux.Handle("GET "+v+"/companies/{cid}/plans", s.auth(s.listPlans))
@@ -118,14 +120,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PATCH "+v+"/companies/{cid}/plans/{id}", s.auth(only(s.updatePlan, write...)))
 
 	// customers, subscriptions, meter readings
-	mux.Handle("GET "+v+"/companies/{cid}/customers", s.auth(s.listCustomers))
+	mux.Handle("GET "+v+"/companies/{cid}/customers", s.field(s.listCustomers))
 	mux.Handle("POST "+v+"/companies/{cid}/customers", s.auth(only(s.createCustomer, entry...)))
-	mux.Handle("GET "+v+"/companies/{cid}/customers/{id}", s.auth(s.getCustomer))
+	mux.Handle("GET "+v+"/companies/{cid}/customers/{id}", s.field(s.getCustomer))
 	mux.Handle("PATCH "+v+"/companies/{cid}/customers/{id}", s.auth(only(s.updateCustomer, entry...)))
 	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/subscriptions", s.auth(only(s.createSubscription, entry...)))
 	mux.Handle("PATCH "+v+"/companies/{cid}/subscriptions/{id}", s.auth(only(s.updateSubscription, entry...)))
-	mux.Handle("GET "+v+"/companies/{cid}/readings", s.auth(s.readingSheet))
-	mux.Handle("POST "+v+"/companies/{cid}/readings", s.auth(only(s.saveReadings, entry...)))
+	mux.Handle("GET "+v+"/companies/{cid}/readings", s.field(s.readingSheet))
+	mux.Handle("POST "+v+"/companies/{cid}/readings", s.field(only(s.saveReadings, field...)))
 
 	// invoices and payments
 	mux.Handle("POST "+v+"/companies/{cid}/billing/run", s.auth(only(s.runBilling, write...)))
@@ -133,14 +135,23 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST "+v+"/companies/{cid}/invoices", s.auth(only(s.createInvoice, write...)))
 	mux.Handle("GET "+v+"/companies/{cid}/invoices/{id}", s.auth(s.getInvoice))
 	mux.Handle("POST "+v+"/companies/{cid}/invoices/{id}/void", s.auth(only(s.voidInvoice, write...)))
-	mux.Handle("GET "+v+"/companies/{cid}/payments", s.auth(s.listPayments))
-	mux.Handle("POST "+v+"/companies/{cid}/payments", s.auth(only(s.createPayment, entry...)))
-	mux.Handle("GET "+v+"/companies/{cid}/payments/{id}", s.auth(s.getPayment))
+	mux.Handle("GET "+v+"/companies/{cid}/payments", s.field(s.listPayments))
+	mux.Handle("POST "+v+"/companies/{cid}/payments", s.field(only(s.createPayment, field...)))
+	mux.Handle("GET "+v+"/companies/{cid}/payments/{id}", s.field(s.getPayment))
 	mux.Handle("POST "+v+"/companies/{cid}/payments/{id}/void", s.auth(only(s.voidPayment, write...)))
 
 	// reports
 	mux.Handle("GET "+v+"/companies/{cid}/reports/trial-balance", s.auth(s.trialBalance))
 	mux.Handle("GET "+v+"/companies/{cid}/reports/ledger/{account}", s.auth(s.accountLedger))
+	mux.Handle("GET "+v+"/companies/{cid}/reports/profit-loss", s.auth(s.profitLoss))
+	mux.Handle("GET "+v+"/companies/{cid}/reports/balance-sheet", s.auth(s.balanceSheet))
+	mux.Handle("GET "+v+"/companies/{cid}/reports/aging", s.auth(s.agingReport))
+	mux.Handle("GET "+v+"/companies/{cid}/reports/collections", s.auth(s.collectionsReport))
+
+	// cash boxes: balances and transfers (collector handover)
+	mux.Handle("GET "+v+"/companies/{cid}/cash/balances", s.field(s.cashBalances))
+	mux.Handle("GET "+v+"/companies/{cid}/cash/transfers", s.auth(s.listTransfers))
+	mux.Handle("POST "+v+"/companies/{cid}/cash/transfers", s.auth(only(s.createTransfer, write...)))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { writeErr(w, http.StatusNotFound, "not_found") })
 	mux.Handle("/", spa(s.WebDir))
@@ -194,8 +205,19 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 	return p, err
 }
 
-// auth accepts either a browser session cookie or "Authorization: Bearer pxv_..." API key.
-func (s *Server) auth(next http.HandlerFunc) http.Handler {
+// auth: any signed-in office user (collectors are refused). field: also collectors.
+func (s *Server) auth(next http.HandlerFunc) http.Handler  { return s.authenticate(next, false) }
+func (s *Server) field(next http.HandlerFunc) http.Handler { return s.authenticate(next, true) }
+
+// authenticate accepts either a browser session cookie or "Authorization: Bearer pxv_..." API key.
+func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) http.Handler {
+	next := func(w http.ResponseWriter, r *http.Request) {
+		if !allowCollector && principal(r).Role == RoleCollector {
+			writeErr(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		handler(w, r)
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
@@ -225,6 +247,8 @@ func (s *Server) auth(next http.HandlerFunc) http.Handler {
 		next(w, r.WithContext(context.WithValue(ctx, principalKey{}, p)))
 	})
 }
+
+func isCollector(r *http.Request) bool { return principal(r).Role == RoleCollector }
 
 func only(next http.HandlerFunc, roles ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

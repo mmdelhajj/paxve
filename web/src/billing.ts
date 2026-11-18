@@ -15,7 +15,7 @@ export interface Area { id: string; name: string; collector_id: string | null; c
 
 export interface PaymentMethod {
   id: string; name: string; kind: 'cash' | 'wallet' | 'bank' | 'card'; currency: string; account_id: string;
-  account_code: string; account_name: string; is_active: boolean; sort: number;
+  account_code: string; account_name: string; is_active: boolean; sort: number; user_id: string | null; user_name: string | null;
 }
 
 export interface Subscription {

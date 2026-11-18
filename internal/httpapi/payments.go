@@ -29,21 +29,23 @@ type paymentIn struct {
 	Tenders        []tenderIn `json:"tenders"`
 	ChangeMethodID string     `json:"change_method_id"`
 	Notes          string     `json:"notes"`
+	ClientRef      string     `json:"client_ref"` // set by offline devices; the same ref is stored only once
 }
 
 type method struct {
 	ID, Name, Currency, Account string
+	UserID                      *string
 	Active                      bool
 }
 
 func loadMethods(ctx context.Context, tx pgx.Tx, cid string) (map[string]method, error) {
-	rows, err := tx.Query(ctx, `SELECT id::text, name, currency::text, account_id::text, is_active FROM payment_methods WHERE company_id = $1`, cid)
+	rows, err := tx.Query(ctx, `SELECT id::text, name, currency::text, account_id::text, user_id::text, is_active FROM payment_methods WHERE company_id = $1`, cid)
 	if err != nil {
 		return nil, err
 	}
 	list, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (method, error) {
 		var m method
-		err := row.Scan(&m.ID, &m.Name, &m.Currency, &m.Account, &m.Active)
+		err := row.Scan(&m.ID, &m.Name, &m.Currency, &m.Account, &m.UserID, &m.Active)
 		return m, err
 	})
 	out := map[string]method{}
@@ -67,13 +69,34 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 	if in.Date == "" {
 		in.Date = today()
 	}
+	in.ClientRef = strings.TrimSpace(in.ClientRef)
 	if !validDate(in.Date) || !currencyRe.MatchString(in.Currency) || len(in.Tenders) == 0 || len(in.Tenders) > 10 ||
-		(in.ChangeMethodID != "" && !isUUID(in.ChangeMethodID)) {
+		(in.ChangeMethodID != "" && !isUUID(in.ChangeMethodID)) || (in.ClientRef != "" && (len(in.ClientRef) < 8 || len(in.ClientRef) > 64)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
 	cid := r.PathValue("cid")
+	collector := isCollector(r)
+	me := principal(r).ID
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		if in.ClientRef != "" {
+			var existing string
+			err := tx.QueryRow(ctx, `SELECT id::text FROM payments WHERE client_ref = $1 AND company_id = $2`, in.ClientRef, cid).Scan(&existing)
+			if err == nil {
+				return loadPayment(ctx, tx, cid, existing) // already received (phone retried after going offline)
+			}
+			if err != pgx.ErrNoRows {
+				return nil, err
+			}
+		}
+		if collector {
+			var mine bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM customers c JOIN areas a ON a.id = c.area_id
+				WHERE c.id = $1 AND a.collector_id = app_user())`, in.CustomerID).Scan(&mine); err != nil || !mine {
+				return nil, &apiError{status: http.StatusForbidden, code: "forbidden"}
+			}
+		}
+		usable := func(m method) bool { return m.Active && (!collector || m.UserID == nil || *m.UserID == me) }
 		set, err := loadBillingSettings(ctx, tx, cid)
 		if err != nil {
 			return nil, err
@@ -105,7 +128,7 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 		for _, t := range in.Tenders {
 			m, ok := methods[t.MethodID]
 			amt, ok2 := money(t.Amount)
-			if !ok || !m.Active || !ok2 || !amt.IsPositive() {
+			if !ok || !usable(m) || !ok2 || !amt.IsPositive() {
 				return nil, badRequest("invalid_tender")
 			}
 			given := strings.TrimSpace(t.Rate)
@@ -148,7 +171,7 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 				return nil, badRequest("change_method_required")
 			}
 			m, ok := methods[in.ChangeMethodID]
-			if !ok || !m.Active {
+			if !ok || !usable(m) {
 				return nil, badRequest("change_method_required")
 			}
 			crS, err := resolveRate(ctx, tx, cid, set.Base, m.Currency, in.Date, "")
@@ -188,10 +211,10 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 		}
 		var id string
 		if err := tx.QueryRow(ctx, `INSERT INTO payments (company_id, number, customer_id, payment_date, currency, amount,
-			change_method_id, change_currency, change_amount, journal_entry_id, notes)
-			VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, $9::numeric, $10, $11) RETURNING id::text`,
+			change_method_id, change_currency, change_amount, journal_entry_id, notes, client_ref)
+			VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, $9::numeric, $10, $11, nullif($12, '')) RETURNING id::text`,
 			cid, number, in.CustomerID, in.Date, in.Currency, applied.String(), changeMethod, changeCur, changeAmt.String(),
-			je, strings.TrimSpace(in.Notes)).Scan(&id); err != nil {
+			je, strings.TrimSpace(in.Notes), in.ClientRef).Scan(&id); err != nil {
 			return nil, err
 		}
 		for _, t := range tenders {
@@ -237,6 +260,13 @@ func loadPayment(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 
 func (s *Server) getPayment(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		if isCollector(r) {
+			var mine bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM payments WHERE id::text = $1 AND received_by = app_user())`,
+				r.PathValue("id")).Scan(&mine); err != nil || !mine {
+				return nil, notFound()
+			}
+		}
 		return loadPayment(ctx, tx, r.PathValue("cid"), r.PathValue("id"))
 	})
 }
@@ -255,9 +285,16 @@ func (s *Server) listPayments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit, offset := queryInt(r, "limit", 200, 2000), queryInt(r, "offset", 0, 1<<30)
+	mineSQL := "true"
+	if isCollector(r) {
+		mineSQL = "p.received_by = app_user()"
+	} else if by := q.Get("received_by"); isUUID(by) {
+		mineSQL = "p.received_by = '" + by + "'" // validated uuid
+	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		cond := `p.company_id = $1 AND p.payment_date BETWEEN $2::date AND $3::date AND ($4 = '' OR p.customer_id = $4::uuid)
-			AND ($5 = '' OR c.name ILIKE '%' || $5 || '%' OR c.code ILIKE $5 || '%' OR p.number::text = $5)`
+			AND ($5 = '' OR c.name ILIKE '%' || $5 || '%' OR c.code ILIKE $5 || '%' OR p.number::text = $5)
+			AND (`+mineSQL+`)`
 		rows, err := queryJSON(ctx, tx, `SELECT `+paymentCols+` FROM payments p JOIN customers c ON c.id = p.customer_id
 			LEFT JOIN users u ON u.id = p.received_by WHERE `+cond+` ORDER BY p.payment_date DESC, p.number DESC LIMIT $6 OFFSET $7`,
 			r.PathValue("cid"), from, to, customer, search, limit, offset)
@@ -265,13 +302,15 @@ func (s *Server) listPayments(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		// cash actually received per method and currency (what each cash box should hold)
-		byMethod, err := queryJSON(ctx, tx, `SELECT m.name AS method, t.currency, sum(t.amount)::text AS received,
-			coalesce((SELECT sum(p2.change_amount) FROM payments p2 JOIN customers c2 ON c2.id = p2.customer_id
-			          WHERE p2.change_method_id = m.id AND p2.status = 'posted' AND p2.company_id = $1
-			            AND p2.payment_date BETWEEN $2::date AND $3::date AND ($4 = '' OR p2.customer_id = $4::uuid)), 0)::text AS change_given
-			FROM payment_tenders t JOIN payments p ON p.id = t.payment_id JOIN customers c ON c.id = p.customer_id
-			JOIN payment_methods m ON m.id = t.method_id
-			WHERE `+cond+` AND p.status = 'posted' GROUP BY m.id, m.name, t.currency ORDER BY m.name`,
+		byMethod, err := queryJSON(ctx, tx, `SELECT method, currency, sum(received)::text AS received, sum(change)::text AS change_given FROM (
+			  SELECT m.name AS method, t.currency, t.amount AS received, 0::numeric AS change
+			  FROM payment_tenders t JOIN payments p ON p.id = t.payment_id JOIN customers c ON c.id = p.customer_id
+			  JOIN payment_methods m ON m.id = t.method_id WHERE `+cond+` AND p.status = 'posted'
+			  UNION ALL
+			  SELECT m.name, p.change_currency, 0, p.change_amount
+			  FROM payments p JOIN customers c ON c.id = p.customer_id JOIN payment_methods m ON m.id = p.change_method_id
+			  WHERE `+cond+` AND p.status = 'posted' AND p.change_amount > 0
+			) x GROUP BY method, currency ORDER BY method`,
 			r.PathValue("cid"), from, to, customer, search)
 		if err != nil {
 			return nil, err

@@ -6,7 +6,7 @@ const fr: Messages = {
   nav: {
     dashboard: 'Tableau de bord', accounting: 'Comptabilité', accounts: 'Plan comptable', journal: 'Écritures',
     rates: 'Taux de change', trialBalance: 'Balance', settings: 'Paramètres', companies: 'Sociétés',
-    users: 'Utilisateurs', audit: "Journal d'audit", developers: 'Développeurs (API)',
+    users: 'Utilisateurs', audit: "Journal d'audit", developers: 'Développeurs (API)', cash: 'Caisses',
   },
   common: {
     save: 'Enregistrer', cancel: 'Annuler', close: 'Fermer', confirm: 'Confirmer', active: 'Actif', inactive: 'Inactif',
@@ -14,7 +14,7 @@ const fr: Messages = {
     changePassword: 'Changer le mot de passe', language: 'Langue', you: 'vous', company: 'Société', all: 'Tous',
     edit: 'Modifier', yes: 'Oui', no: 'Non', search: 'Rechercher', optional: 'facultatif',
   },
-  roles: { admin: 'Administrateur', accountant: 'Comptable', data_entry: 'Saisie', read_only: 'Lecture seule' },
+  roles: { admin: 'Administrateur', accountant: 'Comptable', data_entry: 'Saisie', read_only: 'Lecture seule', collector: 'Encaisseur' },
   dashboard: {
     welcome: 'Bienvenue, {{name}}', companies: 'Sociétés', users: 'Utilisateurs', role: 'Votre rôle',
     nextTitle: 'Prochainement',
@@ -101,6 +101,7 @@ const fr: Messages = {
   methods: {
     title: 'Moyens de paiement', new: 'Nouveau moyen de paiement', name: 'Nom', kind: 'Type', currency: 'Devise', account: 'Compte',
     kinds: { cash: 'Espèces', wallet: 'Portefeuille', bank: 'Banque', card: 'Carte' },
+    owner: 'Appartient à (caisse encaisseur)', shared: 'Caisse partagée',
   },
   setup: {
     title: 'Paramètres de facturation', accounts: 'Comptes par défaut', ar: 'Créances clients', fxGain: 'Gains de change',
@@ -134,6 +135,24 @@ const fr: Messages = {
     byMethod: 'Encaissé par caisse', changeGiven: 'Monnaie rendue', net: 'Net', receivedBy: 'Encaissé par', thanks: 'Merci',
     owed: 'Actuellement dû', noMethods: "Ajoutez d'abord des moyens de paiement dans Paramètres de facturation.",
   },
+  reports2: {
+    nav: 'Rapports', pl: 'Compte de résultat', bs: 'Bilan', aging: 'Balance âgée', collections: 'Encaissements',
+    income: 'Produits', expenses: 'Charges', totalIncome: 'Total produits', totalExpense: 'Total charges', profit: 'Bénéfice net',
+    loss: 'Perte nette', asOf: 'Au', totalAssets: 'Total actif', totalLiabilities: 'Total dettes',
+    currentResult: 'Résultat de la période (non clôturé)', totalLE: 'Passif + capitaux propres', byCollector: 'Par encaisseur', byDay: 'Par jour',
+    buckets: { current: 'Non échu', d30: '1–30 jours de retard', d60: '31–60 jours', d90: '61–90 jours', over90: 'Plus de 90 jours' },
+  },
+  cash: {
+    title: 'Caisses', transfer: "Virement / remise de l'encaisseur", from: 'De la caisse', to: 'Vers la caisse', move: 'Transférer',
+    all: 'Tout', history: 'Virements',
+  },
+  collector: {
+    mode: 'Mode encaisseur', offline: 'Hors ligne', printer: 'Imprimante Bluetooth', paper: 'Largeur du papier', myDay: 'Ma journée',
+    today: "Aujourd'hui", myBox: 'Ma caisse', queued: "En attente d'envoi", waiting: 'En attente', syncNow: 'Envoyer',
+    synced: '{{n}} encaissements hors ligne envoyés', pendingSync: 'Enregistré sur le téléphone. Envoi au retour d’internet.',
+    willSync: "Pas d'internet : l'encaissement sera gardé sur le téléphone et envoyé automatiquement.",
+    confirm: "Confirmer l'encaissement", printBt: 'Imprimer (Bluetooth)',
+  },
   errors: {
     billing_not_setup: "La facturation n'est pas paramétrée pour cette société (voir Paramètres de facturation).",
     invalid_customer: 'Abonné invalide',
@@ -146,6 +165,7 @@ const fr: Messages = {
     invoice_has_payments: "Annulez d'abord les paiements de cette facture",
     insufficient_payment: 'Le montant reçu ({{detail}}) est inférieur au montant à imputer',
     change_method_required: "Choisissez d'où la monnaie est rendue",
+    currency_mismatch: 'Both boxes must have the same currency',
     invalid_tender: 'Vérifiez les lignes de montants reçus',
     invalid_credentials: 'E-mail ou mot de passe incorrect',
     too_many_attempts: 'Trop de tentatives. Réessayez dans 15 minutes.',

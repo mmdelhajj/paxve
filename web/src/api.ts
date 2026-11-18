@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'accountant' | 'data_entry' | 'read_only';
+export type Role = 'admin' | 'accountant' | 'data_entry' | 'read_only' | 'collector';
 
 export interface Me {
   id: string;

@@ -4,7 +4,7 @@ const en = {
   nav: {
     dashboard: 'Dashboard', accounting: 'Accounting', accounts: 'Chart of accounts', journal: 'Journal entries',
     rates: 'Exchange rates', trialBalance: 'Trial balance', settings: 'Settings', companies: 'Companies',
-    users: 'Users', audit: 'Audit log', developers: 'Developers (API)',
+    users: 'Users', audit: 'Audit log', developers: 'Developers (API)', cash: 'Cash boxes',
   },
   common: {
     save: 'Save', cancel: 'Cancel', close: 'Close', confirm: 'Confirm', active: 'Active', inactive: 'Inactive',
@@ -12,7 +12,7 @@ const en = {
     changePassword: 'Change password', language: 'Language', you: 'you', company: 'Company', all: 'All',
     edit: 'Edit', yes: 'Yes', no: 'No', search: 'Search', optional: 'optional',
   },
-  roles: { admin: 'Admin', accountant: 'Accountant', data_entry: 'Data entry', read_only: 'Read only' },
+  roles: { admin: 'Admin', accountant: 'Accountant', data_entry: 'Data entry', read_only: 'Read only', collector: 'Collector' },
   dashboard: {
     welcome: 'Welcome, {{name}}', companies: 'Companies', users: 'Users', role: 'Your role',
     nextTitle: 'Coming next',
@@ -99,6 +99,7 @@ const en = {
   methods: {
     title: 'Payment methods', new: 'New payment method', name: 'Name', kind: 'Kind', currency: 'Currency', account: 'Account',
     kinds: { cash: 'Cash', wallet: 'Wallet', bank: 'Bank', card: 'Card' },
+    owner: 'Belongs to (collector box)', shared: 'Shared box',
   },
   setup: {
     title: 'Billing setup', accounts: 'Default accounts', ar: 'Receivables (customers)', fxGain: 'Exchange gain',
@@ -132,6 +133,24 @@ const en = {
     byMethod: 'Money received per box', changeGiven: 'Change given', net: 'Net', receivedBy: 'Received by', thanks: 'Thank you',
     owed: 'Currently due', noMethods: 'Add payment methods in Billing setup first.',
   },
+  reports2: {
+    nav: 'Reports', pl: 'Profit and loss', bs: 'Balance sheet', aging: 'Who owes (aging)', collections: 'Collections',
+    income: 'Income', expenses: 'Expenses', totalIncome: 'Total income', totalExpense: 'Total expenses', profit: 'Net profit',
+    loss: 'Net loss', asOf: 'As of', totalAssets: 'Total assets', totalLiabilities: 'Total liabilities',
+    currentResult: 'Result of the period (not closed)', totalLE: 'Liabilities + equity', byCollector: 'By collector', byDay: 'By day',
+    buckets: { current: 'Not due yet', d30: '1–30 days late', d60: '31–60 days', d90: '61–90 days', over90: 'Over 90 days' },
+  },
+  cash: {
+    title: 'Cash boxes', transfer: 'Move money / collector handover', from: 'From box', to: 'To box', move: 'Move',
+    all: 'Everything', history: 'Transfers',
+  },
+  collector: {
+    mode: 'Collector mode', offline: 'Offline', printer: 'Bluetooth printer', paper: 'Paper width', myDay: 'My day',
+    today: 'Today', myBox: 'My cash box', queued: 'Waiting to be sent', waiting: 'Waiting', syncNow: 'Send now',
+    synced: '{{n}} offline payments sent', pendingSync: 'Saved on the phone. It will be sent when internet is back.',
+    willSync: 'No internet: the payment will be saved on the phone and sent automatically later.',
+    confirm: 'Confirm payment', printBt: 'Print (Bluetooth)',
+  },
   errors: {
     billing_not_setup: 'Billing is not set up for this company (see Billing setup).',
     invalid_customer: 'Invalid customer',
@@ -144,6 +163,7 @@ const en = {
     invoice_has_payments: 'Void the payments of this invoice first',
     insufficient_payment: 'Money received ({{detail}}) is less than the amount to apply',
     change_method_required: 'Choose where the change is given from',
+    currency_mismatch: 'Both boxes must have the same currency',
     invalid_tender: 'Check the money received lines',
     invalid_credentials: 'Wrong email or password',
     too_many_attempts: 'Too many attempts. Try again in 15 minutes.',

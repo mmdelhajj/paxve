@@ -94,7 +94,7 @@ export default function Setup({ me }: { me: Me }) {
             <Table.Tbody>
               {methods.map((m) => (
                 <Table.Tr key={m.id} style={{ opacity: m.is_active ? 1 : 0.5 }}>
-                  <Table.Td fw={500}>{m.name}</Table.Td>
+                  <Table.Td fw={500}>{m.name}{m.user_name && <Text size="xs" c="dimmed">{m.user_name}</Text>}</Table.Td>
                   <Table.Td><Badge variant="light">{m.currency}</Badge></Table.Td>
                   <Table.Td c="dimmed" ff="monospace" dir="ltr">{m.account_code}</Table.Td>
                   <Table.Td>{canManage && <Button size="compact-xs" variant="subtle" onClick={() => setEdit({ kind: 'method', item: m })}>{t('common.edit')}</Button>}</Table.Td>
@@ -121,7 +121,7 @@ export default function Setup({ me }: { me: Me }) {
 
       {edit?.kind === 'plan' && <PlanForm plan={edit.item as Plan | null} postable={postable} currencies={currencies.map((c) => c.code)}
         onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
-      {edit?.kind === 'method' && <MethodForm method={edit.item as PaymentMethod | null} postable={postable} currencies={currencies.map((c) => c.code)}
+      {edit?.kind === 'method' && <MethodForm method={edit.item as PaymentMethod | null} postable={postable} currencies={currencies.map((c) => c.code)} users={users}
         onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
       {edit?.kind === 'area' && <AreaForm area={edit.item as Area | null} users={users}
         onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
@@ -203,14 +203,14 @@ function PlanForm({ plan, postable, currencies, onClose, onSaved }: {
   );
 }
 
-function MethodForm({ method, postable, currencies, onClose, onSaved }: {
-  method: PaymentMethod | null; postable: { value: string; label: string }[]; currencies: string[]; onClose: () => void; onSaved: () => void;
+function MethodForm({ method, postable, currencies, users, onClose, onSaved }: {
+  method: PaymentMethod | null; postable: { value: string; label: string }[]; currencies: string[]; users: User[]; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const { company } = useCompany();
   const [f, setF] = useState({
     name: method?.name ?? '', kind: method?.kind ?? 'cash', currency: method?.currency ?? company?.base_currency ?? 'USD',
-    account_id: method?.account_id ?? '', is_active: method?.is_active ?? true,
+    account_id: method?.account_id ?? '', is_active: method?.is_active ?? true, user_id: method?.user_id ?? '',
   });
   const { busy, save } = useSave(`/companies/${company?.id}/payment-methods${method ? `/${method.id}` : ''}`, !method, onSaved);
   const set = (k: keyof typeof f) => (v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
@@ -225,6 +225,11 @@ function MethodForm({ method, postable, currencies, onClose, onSaved }: {
             <Select label={t('methods.currency')} searchable data={currencies} value={f.currency} allowDeselect={false} onChange={(v) => v && set('currency')(v)} />
           </Group>
           <Select label={t('methods.account')} required searchable data={postable} value={f.account_id || null} onChange={(v) => set('account_id')(v ?? '')} />
+          {users.length > 0 && (
+            <Select label={t('methods.owner')} clearable placeholder={t('methods.shared')} value={f.user_id || null}
+              data={users.filter((u) => u.is_active).map((u) => ({ value: u.id, label: `${u.full_name} · ${t(`roles.${u.role}`)}` }))}
+              onChange={(v) => set('user_id')(v ?? '')} />
+          )}
           {method && <Switch label={t('common.active')} checked={f.is_active} onChange={(e) => set('is_active')(e.currentTarget.checked)} />}
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>

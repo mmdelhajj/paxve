@@ -30,10 +30,14 @@ import Readings from './pages/billing/Readings';
 import Invoices from './pages/billing/Invoices';
 import Payments from './pages/billing/Payments';
 import BillingSetup from './pages/billing/Setup';
-import { IconCash, IconFileInvoice, IconGauge, IconSettings, IconUserCircle } from '@tabler/icons-react';
+import { IconCash, IconFileInvoice, IconGauge, IconSettings, IconUserCircle, IconReportMoney, IconChartBar, IconHourglass, IconMoneybag, IconBuildingBank, IconDeviceMobile } from '@tabler/icons-react';
+import { ProfitLoss, BalanceSheet, Aging, Collections } from './pages/Reports';
+import Cash from './pages/Cash';
+import CollectorApp from './pages/collector/CollectorApp';
 
 type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | 'ledger' | 'companies' | 'users' |
-  'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup';
+  'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup' |
+  'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
@@ -46,6 +50,8 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'readings', label: 'bill.readings', icon: IconGauge },
       { key: 'invoices', label: 'bill.invoices', icon: IconFileInvoice },
       { key: 'payments', label: 'bill.payments', icon: IconCash },
+      { key: 'cash', label: 'nav.cash', icon: IconBuildingBank },
+      { key: 'collect', label: 'collector.mode', icon: IconDeviceMobile },
       { key: 'billing-setup', label: 'bill.setup', icon: IconSettings },
     ],
   },
@@ -54,8 +60,17 @@ const sections: { label?: string; items: NavItem[] }[] = [
     items: [
       { key: 'journal', label: 'nav.journal', icon: IconListDetails },
       { key: 'accounts', label: 'nav.accounts', icon: IconBook2 },
-      { key: 'trial-balance', label: 'nav.trialBalance', icon: IconScale },
       { key: 'rates', label: 'nav.rates', icon: IconArrowsExchange },
+    ],
+  },
+  {
+    label: 'reports2.nav',
+    items: [
+      { key: 'profit-loss', label: 'reports2.pl', icon: IconReportMoney },
+      { key: 'balance-sheet', label: 'reports2.bs', icon: IconChartBar },
+      { key: 'trial-balance', label: 'nav.trialBalance', icon: IconScale },
+      { key: 'aging', label: 'reports2.aging', icon: IconHourglass },
+      { key: 'collections', label: 'reports2.collections', icon: IconMoneybag },
     ],
   },
   {
@@ -70,7 +85,8 @@ const sections: { label?: string; items: NavItem[] }[] = [
 ];
 
 const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users',
-  'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup'];
+  'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss',
+  'balance-sheet', 'aging', 'collections', 'cash', 'collect'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -93,6 +109,10 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   const allowed = (i: NavItem) => !i.roles || i.roles.includes(me.role);
   const blocked = sections.flatMap((s) => s.items).some((i) => i.key === page && !allowed(i));
   const current: Page = blocked ? 'dashboard' : page;
+
+  if (me.role === 'collector' || current === 'collect') {
+    return <CollectorApp me={me} onLogout={me.role === 'collector' ? onLogout : () => { window.location.hash = '#/dashboard'; }} />;
+  }
 
   async function logout() {
     try {
@@ -209,6 +229,11 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'invoices' && <Invoices me={me} />}
         {current === 'payments' && <Payments me={me} />}
         {current === 'billing-setup' && <BillingSetup me={me} />}
+        {current === 'profit-loss' && <ProfitLoss />}
+        {current === 'balance-sheet' && <BalanceSheet />}
+        {current === 'aging' && <Aging />}
+        {current === 'collections' && <Collections />}
+        {current === 'cash' && <Cash me={me} />}
       </AppShell.Main>
 
       <ChangePassword opened={pwOpen} onClose={pw.close} />

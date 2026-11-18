@@ -6,7 +6,7 @@ const ar: Messages = {
   nav: {
     dashboard: 'لوحة التحكم', accounting: 'المحاسبة', accounts: 'دليل الحسابات', journal: 'القيود اليومية',
     rates: 'أسعار الصرف', trialBalance: 'ميزان المراجعة', settings: 'الإعدادات', companies: 'الشركات',
-    users: 'المستخدمون', audit: 'سجل التدقيق', developers: 'المطورون (API)',
+    users: 'المستخدمون', audit: 'سجل التدقيق', developers: 'المطورون (API)', cash: 'الصناديق',
   },
   common: {
     save: 'حفظ', cancel: 'إلغاء', close: 'إغلاق', confirm: 'تأكيد', active: 'فعّال', inactive: 'موقوف',
@@ -14,7 +14,7 @@ const ar: Messages = {
     changePassword: 'تغيير كلمة المرور', language: 'اللغة', you: 'أنت', company: 'الشركة', all: 'الكل',
     edit: 'تعديل', yes: 'نعم', no: 'لا', search: 'بحث', optional: 'اختياري',
   },
-  roles: { admin: 'مدير', accountant: 'محاسب', data_entry: 'إدخال بيانات', read_only: 'قراءة فقط' },
+  roles: { admin: 'مدير', accountant: 'محاسب', data_entry: 'إدخال بيانات', read_only: 'قراءة فقط', collector: 'جابي' },
   dashboard: {
     welcome: 'أهلاً، {{name}}', companies: 'الشركات', users: 'المستخدمون', role: 'دورك',
     nextTitle: 'قريباً',
@@ -101,6 +101,7 @@ const ar: Messages = {
   methods: {
     title: 'طرق الدفع', new: 'طريقة دفع جديدة', name: 'الاسم', kind: 'النوع', currency: 'العملة', account: 'الحساب',
     kinds: { cash: 'نقدي', wallet: 'محفظة', bank: 'مصرف', card: 'بطاقة' },
+    owner: 'يخص (صندوق جابي)', shared: 'صندوق مشترك',
   },
   setup: {
     title: 'إعدادات الفوترة', accounts: 'الحسابات الافتراضية', ar: 'الذمم المدينة (الزبائن)', fxGain: 'أرباح فروقات الصرف',
@@ -134,6 +135,24 @@ const ar: Messages = {
     byMethod: 'المقبوض حسب الصندوق', changeGiven: 'الباقي المُرجع', net: 'الصافي', receivedBy: 'استلمها', thanks: 'شكراً لكم',
     owed: 'المستحق حالياً', noMethods: 'أضف طرق الدفع في إعدادات الفوترة أولاً.',
   },
+  reports2: {
+    nav: 'التقارير', pl: 'الأرباح والخسائر', bs: 'الميزانية العمومية', aging: 'أعمار الديون', collections: 'التحصيلات',
+    income: 'الإيرادات', expenses: 'المصاريف', totalIncome: 'مجموع الإيرادات', totalExpense: 'مجموع المصاريف', profit: 'صافي الربح',
+    loss: 'صافي الخسارة', asOf: 'بتاريخ', totalAssets: 'مجموع الأصول', totalLiabilities: 'مجموع الخصوم',
+    currentResult: 'نتيجة الفترة (غير مقفلة)', totalLE: 'الخصوم + حقوق الملكية', byCollector: 'حسب الجابي', byDay: 'حسب اليوم',
+    buckets: { current: 'غير مستحق بعد', d30: 'متأخر 1–30 يوماً', d60: '31–60 يوماً', d90: '61–90 يوماً', over90: 'أكثر من 90 يوماً' },
+  },
+  cash: {
+    title: 'الصناديق', transfer: 'نقل أموال / تسليم الجابي', from: 'من صندوق', to: 'إلى صندوق', move: 'نقل',
+    all: 'كامل المبلغ', history: 'التحويلات',
+  },
+  collector: {
+    mode: 'وضع الجابي', offline: 'بدون إنترنت', printer: 'طابعة بلوتوث', paper: 'عرض الورق', myDay: 'يومي',
+    today: 'اليوم', myBox: 'صندوقي', queued: 'بانتظار الإرسال', waiting: 'بالانتظار', syncNow: 'أرسل الآن',
+    synced: 'تم إرسال {{n}} دفعة محفوظة', pendingSync: 'محفوظة على الهاتف. ستُرسل عند عودة الإنترنت.',
+    willSync: 'لا يوجد إنترنت: ستُحفظ الدفعة على الهاتف وتُرسل تلقائياً لاحقاً.',
+    confirm: 'تأكيد الدفع', printBt: 'طباعة (بلوتوث)',
+  },
   errors: {
     billing_not_setup: 'الفوترة غير مهيأة لهذه الشركة (راجع إعدادات الفوترة).',
     invalid_customer: 'مشترك غير صالح',
@@ -146,6 +165,7 @@ const ar: Messages = {
     invoice_has_payments: 'ألغِ دفعات هذه الفاتورة أولاً',
     insufficient_payment: 'المبلغ المستلم ({{detail}}) أقل من المبلغ المراد تسديده',
     change_method_required: 'اختر من أين يُرجع الباقي',
+    currency_mismatch: 'Both boxes must have the same currency',
     invalid_tender: 'تحقق من أسطر المبالغ المستلمة',
     invalid_credentials: 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
     too_many_attempts: 'محاولات كثيرة. حاول مجدداً بعد 15 دقيقة.',

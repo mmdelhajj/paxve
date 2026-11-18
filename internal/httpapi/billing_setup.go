@@ -71,12 +71,14 @@ func requirePostable(ctx context.Context, tx pgx.Tx, cid, account string) error 
 
 // ---- payment methods ----
 
-const methodCols = `m.id, m.name, m.kind, m.currency, m.account_id, a.code AS account_code, a.name AS account_name, m.is_active, m.sort`
+const methodCols = `m.id, m.name, m.kind, m.currency, m.account_id, a.code AS account_code, a.name AS account_name, m.is_active, m.sort,
+	m.user_id, (SELECT full_name FROM users WHERE id = m.user_id) AS user_name`
 
 func (s *Server) listMethods(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		return queryJSON(ctx, tx, `SELECT `+methodCols+` FROM payment_methods m JOIN accounts a ON a.id = m.account_id
-			WHERE m.company_id = $1 ORDER BY m.is_active DESC, m.sort, m.name`, r.PathValue("cid"))
+			WHERE m.company_id = $1 AND (NOT $2 OR m.user_id IS NULL OR m.user_id = app_user())
+			ORDER BY m.is_active DESC, m.sort, m.name`, r.PathValue("cid"), isCollector(r))
 	})
 }
 
@@ -87,6 +89,7 @@ type methodIn struct {
 	AccountID *string `json:"account_id"`
 	IsActive  *bool   `json:"is_active"`
 	Sort      *int    `json:"sort"`
+	UserID    *string `json:"user_id"` // "" = shared box
 }
 
 var methodKinds = map[string]bool{"cash": true, "wallet": true, "bank": true, "card": true}
@@ -98,7 +101,7 @@ func (in *methodIn) valid(create bool) bool {
 	return (in.Name == nil || strings.TrimSpace(*in.Name) != "") &&
 		(in.Kind == nil || methodKinds[*in.Kind]) &&
 		(in.Currency == nil || currencyRe.MatchString(*in.Currency)) &&
-		(in.AccountID == nil || isUUID(*in.AccountID))
+		(in.AccountID == nil || isUUID(*in.AccountID)) && optUUID(in.UserID)
 }
 
 func (s *Server) createMethod(w http.ResponseWriter, r *http.Request) {
@@ -120,9 +123,9 @@ func (s *Server) createMethod(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO payment_methods (company_id, name, kind, currency, account_id, sort)
-			VALUES ($1, $2, $3, $4, $5, coalesce($6, 0)) RETURNING id::text`,
-			cid, strings.TrimSpace(*in.Name), kind, *in.Currency, *in.AccountID, in.Sort).Scan(&id); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO payment_methods (company_id, name, kind, currency, account_id, sort, user_id)
+			VALUES ($1, $2, $3, $4, $5, coalesce($6, 0), nullif($7, '')::uuid) RETURNING id::text`,
+			cid, strings.TrimSpace(*in.Name), kind, *in.Currency, *in.AccountID, in.Sort, deref(in.UserID)).Scan(&id); err != nil {
 			return nil, err
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+methodCols+` FROM payment_methods m JOIN accounts a ON a.id = m.account_id WHERE m.id = $1`, id)
@@ -147,8 +150,9 @@ func (s *Server) updateMethod(w http.ResponseWriter, r *http.Request) {
 		}
 		tag, err := tx.Exec(ctx, `UPDATE payment_methods SET name = coalesce(trim($3), name), kind = coalesce($4, kind),
 			currency = coalesce($5, currency), account_id = coalesce($6::uuid, account_id),
-			is_active = coalesce($7, is_active), sort = coalesce($8, sort)
-			WHERE id = $1 AND company_id = $2`, id, cid, in.Name, in.Kind, in.Currency, in.AccountID, in.IsActive, in.Sort)
+			is_active = coalesce($7, is_active), sort = coalesce($8, sort),
+			user_id = CASE WHEN $9::text IS NULL THEN user_id ELSE nullif($9, '')::uuid END
+			WHERE id = $1 AND company_id = $2`, id, cid, in.Name, in.Kind, in.Currency, in.AccountID, in.IsActive, in.Sort, in.UserID)
 		if err != nil {
 			return nil, err
 		}

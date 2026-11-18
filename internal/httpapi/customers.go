@@ -45,7 +45,8 @@ func (s *Server) listCustomers(w http.ResponseWriter, r *http.Request) {
 			  AND ($3 = '' OR c.area_id = $3::uuid)
 			  AND ($4 = '' OR c.status = $4)
 			  AND (NOT $5 OR EXISTS (SELECT 1 FROM invoices i WHERE i.customer_id = c.id AND i.status IN ('open', 'partial')))
-			ORDER BY c.name LIMIT $6 OFFSET $7`, r.PathValue("cid"), search, area, status, onlyDue, limit, offset)
+			  AND (NOT $8 OR c.area_id IN (SELECT id FROM areas WHERE collector_id = app_user()))
+			ORDER BY c.name LIMIT $6 OFFSET $7`, r.PathValue("cid"), search, area, status, onlyDue, limit, offset, isCollector(r))
 	})
 }
 
@@ -153,7 +154,8 @@ func (s *Server) getCustomer(w http.ResponseWriter, r *http.Request) {
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		cust, err := queryJSONOne(ctx, tx, `SELECT `+customerCols+` FROM customers c LEFT JOIN areas ar ON ar.id = c.area_id
-			WHERE c.id = $1 AND c.company_id = $2`, id, cid)
+			WHERE c.id = $1 AND c.company_id = $2
+			  AND (NOT $3 OR c.area_id IN (SELECT id FROM areas WHERE collector_id = app_user()))`, id, cid, isCollector(r))
 		if err != nil {
 			return nil, err
 		}
@@ -299,7 +301,8 @@ func (s *Server) readingSheet(w http.ResponseWriter, r *http.Request) {
 			LEFT JOIN areas ar ON ar.id = c.area_id
 			WHERE s.company_id = $1 AND s.status = 'active' AND c.status = 'active'
 			  AND ($3 = '' OR c.area_id = $3::uuid)
-			ORDER BY ar.name NULLS LAST, c.name`, r.PathValue("cid"), period, area)
+			  AND (NOT $4 OR ar.collector_id = app_user())
+			ORDER BY ar.name NULLS LAST, c.name`, r.PathValue("cid"), period, area, isCollector(r))
 	})
 }
 
@@ -334,7 +337,8 @@ func (s *Server) saveReadings(w http.ResponseWriter, r *http.Request) {
 				       coalesce(nullif(s.meter_no, ''), c.name),
 				       EXISTS (SELECT 1 FROM invoices i WHERE i.subscription_id = s.id AND i.period = $3 AND i.status <> 'void')
 				FROM subscriptions s JOIN customers c ON c.id = s.customer_id
-				WHERE s.id = $1 AND s.company_id = $2`, rd.SubscriptionID, cid, in.Period).Scan(&prevS, &meter, &invoiced)
+				WHERE s.id = $1 AND s.company_id = $2
+				  AND (NOT $4 OR c.area_id IN (SELECT id FROM areas WHERE collector_id = app_user()))`, rd.SubscriptionID, cid, in.Period, isCollector(r)).Scan(&prevS, &meter, &invoiced)
 			if err == pgx.ErrNoRows {
 				return nil, badRequest("bad_request")
 			}
