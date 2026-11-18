@@ -189,6 +189,9 @@ func (s *Server) createCreditNote(w http.ResponseWriter, r *http.Request) {
 			cid, number, customer, in.Date, currency, amount.String(), entry, reason, invID, arRate).Scan(&id); err != nil {
 			return nil, err
 		}
+		if err := returnSaleStock(ctx, tx, cid, set, invID, id, number, invNumber, in.Date, amount.Equal(left), amount.Div(total)); err != nil {
+			return nil, err
+		}
 		paid, _ := decimal.NewFromString(paidS)
 		if open := total.Sub(paid); open.IsPositive() {
 			apply := decimal.Min(open, amount)
@@ -217,6 +220,119 @@ func (s *Server) createCreditNote(w http.ResponseWriter, r *http.Request) {
 		}
 		return loadPayment(ctx, tx, cid, id)
 	})
+}
+
+// returnSaleStock: a credit note on an invoice that sold stock items brings that share of the goods back into stock
+// at the cost they left with (Dr inventory / Cr cost of sales). all: this credit note completes the invoice, so
+// everything not yet returned comes back (no rounding residue); otherwise ratio = credited amount / invoice total.
+func returnSaleStock(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings, invID, cnID string, cnNumber, invNumber int64,
+	date string, all bool, ratio decimal.Decimal) error {
+	type mv struct {
+		item, wh, name, kind string
+		inv, exp             *string
+		qty, value           decimal.Decimal // still out (positive)
+		soldQty, soldValue   decimal.Decimal
+	}
+	rows, err := tx.Query(ctx, `SELECT m.item_id::text, m.warehouse_id::text, it.name, it.kind, it.inventory_account_id::text, it.expense_account_id::text,
+		(-sum(m.quantity))::text, (-sum(m.value))::text,
+		(-sum(m.quantity) FILTER (WHERE m.source = 'sale'))::text, (-sum(m.value) FILTER (WHERE m.source = 'sale'))::text
+		FROM stock_moves m JOIN items it ON it.id = m.item_id
+		WHERE (m.source = 'sale' AND m.source_id = $1)
+		   OR (m.source IN ('credit_note', 'credit_note_void')
+		       AND m.source_id IN (SELECT p.id FROM payments p WHERE p.invoice_id = $1 AND p.kind = 'credit_note'))
+		GROUP BY m.item_id, m.warehouse_id, it.name, it.kind, it.inventory_account_id, it.expense_account_id
+		HAVING sum(m.quantity) FILTER (WHERE m.source = 'sale') < 0`, invID)
+	if err != nil {
+		return err
+	}
+	moves, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (mv, error) {
+		var m mv
+		var q, v, sq, sv string
+		err := row.Scan(&m.item, &m.wh, &m.name, &m.kind, &m.inv, &m.exp, &q, &v, &sq, &sv)
+		m.qty, _ = decimal.NewFromString(q)
+		m.value, _ = decimal.NewFromString(v)
+		m.soldQty, _ = decimal.NewFromString(sq)
+		m.soldValue, _ = decimal.NewFromString(sv)
+		return m, err
+	})
+	if err != nil || len(moves) == 0 {
+		return err
+	}
+	ps, err := loadPurchSettings(ctx, tx, cid)
+	if err != nil {
+		return err
+	}
+	type back struct {
+		m          mv
+		qty, value decimal.Decimal
+	}
+	backs := []back{}
+	jl := []jline{}
+	for _, m := range moves {
+		if !m.qty.IsPositive() || m.inv == nil {
+			continue
+		}
+		q, v := m.qty, m.value
+		if !all {
+			q = decimal.Min(m.soldQty.Mul(ratio).Round(4), m.qty)
+			v = decimal.Min(m.soldValue.Mul(ratio).Round(4), m.value)
+		}
+		if !q.IsPositive() {
+			continue
+		}
+		cogs := ""
+		if m.exp != nil {
+			cogs = *m.exp
+		} else if ps.COGS != nil {
+			cogs = *ps.COGS
+		}
+		if cogs == "" {
+			return notSetup("cogs")
+		}
+		backs = append(backs, back{m, q, v})
+		if v.IsPositive() {
+			jl = append(jl, jline{Account: *m.inv, Desc: m.name, Currency: set.Base, Debit: v},
+				jline{Account: cogs, Desc: m.name, Currency: set.Base, Credit: v})
+		}
+	}
+	var je *string
+	if len(jl) > 0 {
+		id, err := postJournal(ctx, tx, cid, set, date, fmt.Sprintf("Goods returned - credit note #%d, invoice #%d", cnNumber, invNumber),
+			fmt.Sprintf("CN-%d", cnNumber), "sale", jl)
+		if err != nil {
+			return err
+		}
+		je = &id
+	}
+	for _, b := range backs {
+		if err := stockIn(ctx, tx, cid, b.m.item, b.m.wh, b.qty, b.value, date, "credit_note", cnID, je,
+			fmt.Sprintf("Credit note #%d (invoice #%d)", cnNumber, invNumber)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// voidCreditNoteStock takes back out the goods a voided credit note had returned, and reverses that cost entry.
+func voidCreditNoteStock(ctx context.Context, tx pgx.Tx, cid, cnID string, number int64) error {
+	var je *string
+	err := tx.QueryRow(ctx, `SELECT journal_entry_id::text FROM stock_moves WHERE source = 'credit_note' AND source_id = $1 LIMIT 1`, cnID).Scan(&je)
+	if err == pgx.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var rev *string
+	if je != nil {
+		var rid string
+		if err := tx.QueryRow(ctx, `SELECT reverse_journal_entry($1, current_date, $2)::text`, *je,
+			fmt.Sprintf("Void credit note #%d - goods", number)).Scan(&rid); err != nil {
+			return err
+		}
+		rev = &rid
+	}
+	return reverseStockMoves(ctx, tx, cid, "credit_note", "credit_note_void", cnID, rev, fmt.Sprintf("Void credit note #%d", number))
 }
 
 // ---------------- refunds ----------------
@@ -550,7 +666,7 @@ func (s *Server) createDebitNote(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 		}
-		if err := autoAllocateSupplier(ctx, tx, supplier, currency); err != nil {
+		if err := autoAllocateSupplier(ctx, tx, cid, supplier, currency); err != nil {
 			return nil, err
 		}
 		return loadBill(ctx, tx, cid, billID)

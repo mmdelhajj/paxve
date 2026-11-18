@@ -272,6 +272,7 @@ func (s *Server) StartMessageWorker(ctx context.Context) {
 
 type queuedMsg struct {
 	ID, Tenant, Phone, Body, Event string
+	Channel, Email, Subject        string
 	Attempts                       int
 	Kind                           *string
 	Config, Params                 []byte
@@ -282,7 +283,8 @@ func (s *Server) sendBatch(ctx context.Context) (int, error) {
 	var batch []queuedMsg
 	err := pgx.BeginFunc(ctx, s.OwnerPool, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
-			SELECT m.id::text, m.tenant_id::text, m.phone, m.body, m.event, m.attempts, p.kind, p.config, m.params, t.wa_template, t.locale
+			SELECT m.id::text, m.tenant_id::text, m.phone, m.body, m.event, m.attempts, p.kind, p.config, m.params, t.wa_template, t.locale,
+			       m.channel, m.email, m.subject
 			FROM messages m
 			LEFT JOIN message_providers p ON p.id = m.provider_id AND p.is_active
 			LEFT JOIN message_templates t ON t.id = m.template_id
@@ -295,7 +297,8 @@ func (s *Server) sendBatch(ctx context.Context) (int, error) {
 		}
 		batch, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (queuedMsg, error) {
 			var q queuedMsg
-			err := row.Scan(&q.ID, &q.Tenant, &q.Phone, &q.Body, &q.Event, &q.Attempts, &q.Kind, &q.Config, &q.Params, &q.WATemplate, &q.Locale)
+			err := row.Scan(&q.ID, &q.Tenant, &q.Phone, &q.Body, &q.Event, &q.Attempts, &q.Kind, &q.Config, &q.Params, &q.WATemplate, &q.Locale,
+				&q.Channel, &q.Email, &q.Subject)
 			return q, err
 		})
 		if err != nil || len(batch) == 0 {
@@ -322,6 +325,17 @@ func (s *Server) deliver(ctx context.Context, q queuedMsg) {
 	var sendErr error
 	if q.Kind == nil {
 		sendErr = errors.New("no_provider: add a WhatsApp/SMS provider in Messages settings")
+	} else if q.Channel == "email" || *q.Kind == "smtp" {
+		if *q.Kind != "smtp" || q.Channel != "email" {
+			sendErr = errors.New("no_provider: e-mail needs an SMTP provider, WhatsApp/SMS cannot use it")
+		} else {
+			cfg := map[string]any{}
+			_ = json.Unmarshal(q.Config, &cfg)
+			cfg = openConfig(cfg)
+			sctx, cancel := context.WithTimeout(ctx, 25*time.Second)
+			providerID, sendErr = sendSMTP(sctx, cfg, mailMsg{To: q.Email, Subject: q.Subject, Body: q.Body}, s.AllowPrivateRouters)
+			cancel()
+		}
 	} else {
 		cfg := map[string]any{}
 		_ = json.Unmarshal(q.Config, &cfg)

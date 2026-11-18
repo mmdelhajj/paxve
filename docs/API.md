@@ -72,6 +72,27 @@ curl -s "https://paxve.com/api/v1/companies/$CID/reports/stock-moves?from=2026-1
 # any table to Excel: {title, columns:[{label,numeric}], rows:[[...]], footer:[[...]]} → .xlsx
 curl -s -X POST https://paxve.com/api/v1/export/xlsx -H "$H" -H "$J" -o report.xlsx -d '{"title":"Test","columns":[{"label":"A"}],"rows":[["x"]]}'
 
+# sales: quotation -> confirm (sales order) -> deliver (stock out, cost of sales) -> invoice (all or per line)
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/sales/orders -H "$H" -H "$J" -d '{"customer_id":"<id>","currency":"USD",
+  "lines":[{"item_id":"<router>","quantity":"3","unit_price":"60","discount_pct":"5"},{"description":"Installation","quantity":"1","unit_price":"25","tax_rate_id":"<vat>"}]}'
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/sales/orders/<id>/confirm -H "$H" -H "$J" -d '{}'          # also send | cancel | reopen | done
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/sales/orders/<id>/deliver -H "$H" -H "$J" -d '{"lines":[{"line_id":"<id>","quantity":"2"}]}'
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/sales/orders/<id>/invoice -H "$H" -H "$J" -d '{}'          # {} = everything not yet invoiced
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/sales/deliveries/<id>/void -H "$H" -H "$J" -d '{}'
+
+# customer statement (opening balance, movements, running balance, closing per currency) and bulk statements
+curl -s "https://paxve.com/api/v1/companies/$CID/customers/<id>/statement?from=2026-11-01&to=2026-11-30" -H "$H"
+curl -s "https://paxve.com/api/v1/companies/$CID/statements?from=2026-11-01&to=2026-11-30&only_balance=1" -H "$H"
+
+# send a document to the customer: kind quote | order | invoice | statement; channel whatsapp | sms | email | link (text + wa.me link only)
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/send-document -H "$H" -H "$J" -d '{"kind":"invoice","id":"<invoice id>","channel":"email","locale":"fr"}'
+
+# CRM: stages, leads (pipeline), activities / notes, lead -> customer
+curl -s https://paxve.com/api/v1/companies/$CID/crm/leads?status=open -H "$H"
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/crm/leads -H "$H" -H "$J" -d '{"title":"Office network","organisation":"Cedar Clinic","phone":"03111222","expected_revenue":"500","currency":"USD"}'
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/crm/activities -H "$H" -H "$J" -d '{"lead_id":"<id>","kind":"call","summary":"Call back","due_date":"2026-11-20"}'
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/crm/leads/<id>/convert -H "$H" -H "$J" -d '{}'
+
 # a balanced journal entry, posted immediately
 curl -s -X POST https://paxve.com/api/v1/companies/$CID/journal -H "$H" -H "$J" -d '{
   "date":"2026-11-18", "memo":"Owner contribution", "post":true,

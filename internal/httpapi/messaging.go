@@ -16,7 +16,7 @@ import (
 var placeholderRe = regexp.MustCompile(`\{\{\s*(\w+)\s*\}\}`)
 
 var msgEvents = map[string]bool{"invoice_issued": true, "payment_received": true, "reminder": true, "custom": true}
-var providerKinds = map[string]bool{"whatsapp_cloud": true, "twilio_sms": true, "generic_http": true, "log": true}
+var providerKinds = map[string]bool{"whatsapp_cloud": true, "twilio_sms": true, "generic_http": true, "log": true, "smtp": true}
 
 // Default templates created the first time a company opens Messages.
 var defaultTemplates = []struct{ Event, Locale, Name, Body string }{
@@ -266,7 +266,7 @@ func pickProvider(ctx context.Context, tx pgx.Tx, cid, providerID string) (*prov
 	if providerID != "" {
 		err = tx.QueryRow(ctx, `SELECT id::text, kind FROM message_providers WHERE id = $1 AND company_id = $2 AND is_active`, providerID, cid).Scan(&p.ID, &p.Kind)
 	} else {
-		err = tx.QueryRow(ctx, `SELECT id::text, kind FROM message_providers WHERE company_id = $1 AND is_active
+		err = tx.QueryRow(ctx, `SELECT id::text, kind FROM message_providers WHERE company_id = $1 AND is_active AND kind <> 'smtp'
 			ORDER BY is_default DESC, created_at LIMIT 1`, cid).Scan(&p.ID, &p.Kind)
 	}
 	if err == pgx.ErrNoRows {
@@ -730,7 +730,7 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	limit, offset := queryInt(r, "limit", 200, 1000), queryInt(r, "offset", 0, 1<<30)
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		rows, err := queryJSON(ctx, tx, `SELECT m.id, m.customer_id, c.name AS customer_name, m.phone, m.channel, m.event, m.body,
+		rows, err := queryJSON(ctx, tx, `SELECT m.id, m.customer_id, c.name AS customer_name, m.phone, m.email, m.subject, m.channel, m.event, m.body,
 			m.status, m.error, m.attempts, m.created_at, m.sent_at, p.name AS provider_name, u.full_name AS created_by
 			FROM messages m LEFT JOIN customers c ON c.id = m.customer_id LEFT JOIN message_providers p ON p.id = m.provider_id
 			LEFT JOIN users u ON u.id = m.created_by

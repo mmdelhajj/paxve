@@ -15,7 +15,7 @@ import PageHeader from '../../components/PageHeader';
 import type { Area } from '../../billing';
 
 interface Msg {
-  id: string; customer_id: string | null; customer_name: string | null; phone: string; channel: string; event: string; body: string;
+  id: string; customer_id: string | null; customer_name: string | null; phone: string; email?: string; channel: string; event: string; body: string;
   status: 'queued' | 'sending' | 'sent' | 'failed'; error: string; attempts: number; created_at: string; sent_at: string | null;
   provider_name: string | null; created_by: string | null;
 }
@@ -31,6 +31,7 @@ const providerFields: Record<string, { key: string; secret?: boolean }[]> = {
   whatsapp_cloud: [{ key: 'phone_number_id' }, { key: 'token', secret: true }, { key: 'api_version' }],
   twilio_sms: [{ key: 'account_sid' }, { key: 'auth_token', secret: true }, { key: 'from' }],
   generic_http: [{ key: 'url' }, { key: 'bearer', secret: true }],
+  smtp: [{ key: 'host' }, { key: 'port' }, { key: 'security' }, { key: 'username' }, { key: 'password', secret: true }, { key: 'from_email' }, { key: 'from_name' }],
   log: [],
 };
 
@@ -113,7 +114,7 @@ function Outbox({ canRetry }: { canRetry: boolean }) {
                   <Table.Tr key={m.id}>
                     <Table.Td style={{ whiteSpace: 'nowrap' }}><Text size="sm">{formatDateTime(m.created_at)}</Text>
                       <Text size="xs" c="dimmed">{t(`msg.events.${m.event}`, { defaultValue: m.event })} · {m.channel}</Text></Table.Td>
-                    <Table.Td><Text size="sm" fw={500}>{m.customer_name ?? '—'}</Text><Text size="xs" c="dimmed" dir="ltr">{m.phone}</Text></Table.Td>
+                    <Table.Td><Text size="sm" fw={500}>{m.customer_name ?? '—'}</Text><Text size="xs" c="dimmed" dir="ltr">{m.channel === 'email' ? m.email : m.phone}</Text></Table.Td>
                     <Table.Td maw={420}><Text size="sm" lineClamp={2}>{m.body}</Text>
                       {m.error && <Text size="xs" c="red" lineClamp={1}>{m.error}</Text>}</Table.Td>
                     <Table.Td><Badge color={statusColor[m.status]} variant="light">{t(`msg.status.${m.status}`)}</Badge>
@@ -332,7 +333,12 @@ function ProviderForm({ p, onClose, onSaved }: { p: Provider | null; onClose: ()
         <Select label={t('msg.kind')} value={kind} allowDeselect={false} onChange={(v) => v && setKind(v)}
           data={Object.keys(providerFields).map((k) => ({ value: k, label: t(`msg.kinds.${k}`) }))} />
         <TextInput label={t('methods.name')} required value={name} onChange={(e) => setName(e.currentTarget.value)} />
-        {providerFields[kind].map((f) => f.secret ? (
+        {kind === 'smtp' && (
+          <Select label="security" value={cfg.security || 'starttls'} allowDeselect={false}
+            data={[{ value: 'starttls', label: 'STARTTLS (587)' }, { value: 'tls', label: 'SSL/TLS (465)' }, { value: 'none', label: t('msg.smtpNone') }]}
+            onChange={(v) => setCfg((c) => ({ ...c, security: v ?? 'starttls' }))} />
+        )}
+        {providerFields[kind].filter((f) => !(kind === 'smtp' && f.key === 'security')).map((f) => f.secret ? (
           <PasswordInput key={f.key} label={f.key} dir="ltr" value={cfg[f.key] ?? ''} onChange={(e) => { const v = e.currentTarget.value; setCfg((c) => ({ ...c, [f.key]: v })); }} />
         ) : (
           <TextInput key={f.key} label={f.key} dir="ltr" value={cfg[f.key] ?? ''} onChange={(e) => { const v = e.currentTarget.value; setCfg((c) => ({ ...c, [f.key]: v })); }} />

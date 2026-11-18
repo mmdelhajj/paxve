@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Anchor, Badge, Button, Center, Grid, Group, Loader, Modal, Paper, Select, Stack, Table, Tabs, Text, TextInput, Title,
 } from '@mantine/core';
-import { IconArrowBack, IconCash, IconEdit, IconFileInvoice, IconPlus } from '@tabler/icons-react';
+import { IconArrowBack, IconCash, IconEdit, IconFileDescription, IconFileInvoice, IconFileText, IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
@@ -12,6 +12,9 @@ import { CustomerForm } from './Customers';
 import { InvoiceView, MoneyList, NewInvoice, PaymentView, ReceivePayment } from './docs';
 import { WhatsAppButton } from './Messages';
 import PortalShare from '../../components/PortalShare';
+import { OrderEditor, OrderView, type Order } from '../sales/Sales';
+import { orderColor } from '../sales/common';
+import { Activities } from '../crm/Crm';
 
 interface Detail { customer: Customer; subscriptions: Subscription[]; invoices: Invoice[]; payments: Payment[] }
 
@@ -20,7 +23,9 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
   const { company, decimalsOf } = useCompany();
   const [d, setD] = useState<Detail | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
-  const [modal, setModal] = useState<null | 'edit' | 'pay' | 'invoice' | 'sub' | 'refund'>(null);
+  const [modal, setModal] = useState<null | 'edit' | 'pay' | 'invoice' | 'sub' | 'refund' | 'quote'>(null);
+  const [orders, setOrders] = useState<Order[] | null>(null);
+  const [viewOrder, setViewOrder] = useState<string | null>(null);
   const [editSub, setEditSub] = useState<Subscription | null>(null);
   const [viewInvoice, setViewInvoice] = useState<string | null>(null);
   const [viewPayment, setViewPayment] = useState<string | null>(null);
@@ -30,7 +35,8 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
   const load = useCallback(() => {
     if (!company) return;
     api<Detail>(`/companies/${company.id}/customers/${id}`).then(setD).catch((e) => notifyError(t, e));
-  }, [company, id, t]);
+    if (me.role !== 'collector') api<{ rows: Order[] }>(`/companies/${company.id}/sales/orders?kind=&customer_id=${id}`).then((r) => setOrders(r.rows)).catch(() => setOrders([]));
+  }, [company, id, t, me.role]);
   useEffect(load, [load]);
   useEffect(() => {
     if (company) api<Area[]>(`/companies/${company.id}/areas`).then(setAreas).catch(() => {});
@@ -58,6 +64,8 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
             <Button variant="default" leftSection={<IconEdit size={16} />} onClick={() => setModal('edit')}>{t('common.edit')}</Button>
             <WhatsAppButton customerId={c.id} />
             <PortalShare customerId={c.id} phone={c.phone} canRegenerate={me.role !== 'collector'} />
+            <Button variant="default" leftSection={<IconFileText size={16} />} component="a" href={`#/statement/${c.id}`}>{t('stmt.title')}</Button>
+            <Button variant="default" leftSection={<IconFileDescription size={16} />} onClick={() => setModal('quote')}>{t('sales.newQuote')}</Button>
             {canManage && <Button variant="default" leftSection={<IconFileInvoice size={16} />} onClick={() => setModal('invoice')}>{t('customers.newInvoice')}</Button>}
             <Button leftSection={<IconCash size={16} />} onClick={() => setModal('pay')}>{t('customers.receivePayment')}</Button>
           </Group>
@@ -91,7 +99,31 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
           <Tabs.Tab value="subs">{t('customers.subscriptions')} ({d.subscriptions.length})</Tabs.Tab>
           <Tabs.Tab value="inv">{t('bill.invoices')} ({d.invoices.length})</Tabs.Tab>
           <Tabs.Tab value="pay">{t('bill.payments')} ({d.payments.length})</Tabs.Tab>
+          <Tabs.Tab value="sales">{t('sales.quotes')} ({orders?.length ?? 0})</Tabs.Tab>
+          <Tabs.Tab value="crm">{t('crm.activitiesNotes')}</Tabs.Tab>
         </Tabs.List>
+
+        <Tabs.Panel value="sales" pt="md">
+          <Paper withBorder>
+            {!orders || orders.length === 0 ? <Text c="dimmed" ta="center" p="lg">{t('common.empty')}</Text> : (
+              <Table verticalSpacing="xs" highlightOnHover>
+                <Table.Tbody>
+                  {orders.map((o) => (
+                    <Table.Tr key={o.id} style={{ cursor: 'pointer' }} onClick={() => setViewOrder(o.id)}>
+                      <Table.Td ff="monospace">{o.order_number && o.status !== 'draft' && o.status !== 'sent' ? `SO-${o.order_number}` : `Q-${o.number}`}</Table.Td>
+                      <Table.Td>{formatDate(o.order_date ?? o.quote_date)}</Table.Td>
+                      <Table.Td><Badge variant="light" color={orderColor[o.status]}>{t(`sales.st.${o.status}`)}</Badge></Table.Td>
+                      <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(o.total, decimalsOf(o.currency))} {o.currency}</Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            )}
+          </Paper>
+        </Tabs.Panel>
+        <Tabs.Panel value="crm" pt="md">
+          <Activities customerId={c.id} canEdit={canEdit} />
+        </Tabs.Panel>
 
         <Tabs.Panel value="subs" pt="md">
           <Paper withBorder>
@@ -219,6 +251,8 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
       {modal === 'sub' && <SubscriptionForm customerId={c.id} sub={editSub} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />}
       {viewInvoice && <InvoiceView id={viewInvoice} canVoid={canManage} onClose={() => setViewInvoice(null)} onChanged={load} />}
       {viewPayment && <PaymentView id={viewPayment} canVoid={canManage} onClose={() => setViewPayment(null)} onChanged={load} />}
+      {modal === 'quote' && <OrderEditor customer={{ id: c.id, name: c.name, code: c.code }} onClose={() => setModal(null)} onDone={(oid) => { setModal(null); load(); setViewOrder(oid); }} />}
+      {viewOrder && <OrderView id={viewOrder} me={me} onClose={() => setViewOrder(null)} onChanged={load} />}
     </Stack>
   );
 }

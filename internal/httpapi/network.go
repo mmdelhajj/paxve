@@ -726,12 +726,21 @@ func (s *Server) vatReport(w http.ResponseWriter, r *http.Request) {
 			  coalesce((SELECT sum(l.base_debit - l.base_credit) FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
 			            WHERE l.account_id = t.purchase_account_id AND t.purchase_account_id IS DISTINCT FROM t.account_id
 			              AND e.company_id = $1 AND e.entry_date BETWEEN $2::date AND $3::date), 0)::text AS recoverable,
-			  coalesce((SELECT sum(il.amount) FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id
-			            WHERE il.tax_rate_id = t.id AND i.status <> 'void' AND i.issue_date BETWEEN $2::date AND $3::date), 0)::text AS taxable_sales,
-			  (coalesce((SELECT sum(bl.amount) FROM bill_lines bl JOIN bills b ON b.id = bl.bill_id
+			  -- taxable bases in base currency (each document at its own booking rate), less credit / debit notes in the period
+			  round(coalesce((SELECT sum(il.amount / `+docRate("i")+`) FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id
+			            WHERE il.tax_rate_id = t.id AND i.status <> 'void' AND i.issue_date BETWEEN $2::date AND $3::date), 0)
+			  - coalesce((SELECT sum(p.amount / nullif(i.total, 0) * (SELECT sum(il.amount) FROM invoice_lines il WHERE il.invoice_id = i.id AND il.tax_rate_id = t.id)
+			                         / `+docRate("i")+`)
+			            FROM payments p JOIN invoices i ON i.id = p.invoice_id
+			            WHERE p.kind = 'credit_note' AND p.status = 'posted' AND p.payment_date BETWEEN $2::date AND $3::date), 0), 4)::text AS taxable_sales,
+			  round(coalesce((SELECT sum(bl.amount / `+docRate("b")+`) FROM bill_lines bl JOIN bills b ON b.id = bl.bill_id
 			            WHERE bl.tax_rate_id = t.id AND b.status <> 'void' AND b.bill_date BETWEEN $2::date AND $3::date), 0)
-			  + coalesce((SELECT sum(e.amount - e.tax_amount) FROM expenses e
-			            WHERE e.tax_rate_id = t.id AND e.status = 'posted' AND e.expense_date BETWEEN $2::date AND $3::date), 0))::text AS taxable_purchases
+			  - coalesce((SELECT sum(p.amount / nullif(b.total, 0) * (SELECT sum(bl.amount) FROM bill_lines bl WHERE bl.bill_id = b.id AND bl.tax_rate_id = t.id)
+			                         / `+docRate("b")+`)
+			            FROM supplier_payments p JOIN bills b ON b.id = p.bill_id
+			            WHERE p.kind = 'debit_note' AND p.status = 'posted' AND p.payment_date BETWEEN $2::date AND $3::date), 0)
+			  + coalesce((SELECT sum((e.amount - e.tax_amount) / `+docRate("e")+`) FROM expenses e
+			            WHERE e.tax_rate_id = t.id AND e.status = 'posted' AND e.expense_date BETWEEN $2::date AND $3::date), 0), 4)::text AS taxable_purchases
 			FROM tax_rates t WHERE t.company_id = $1 ORDER BY t.name`, cid, from, to)
 		if err != nil {
 			return nil, err
@@ -750,6 +759,12 @@ func (s *Server) vatReport(w http.ResponseWriter, r *http.Request) {
 		return map[string]any{"base_currency": base, "from": from, "to": to, "rows": rows,
 			"collected": collected, "recoverable": recoverable, "net": c.Sub(rc).StringFixed(4)}, nil
 	})
+}
+
+// docRate: SQL for the booking rate (document currency per base) of document alias a, from its own journal entry.
+func docRate(a string) string {
+	return `coalesce((SELECT l.rate FROM journal_lines l WHERE l.entry_id = ` + a + `.journal_entry_id AND l.currency = ` + a +
+		`.currency ORDER BY l.line_no LIMIT 1), 1)`
 }
 
 // generatorReport: per generator hours run, fuel used, litres/hour, outages; per station kWh billed and fuel cost per kWh.

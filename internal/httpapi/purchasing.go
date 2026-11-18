@@ -342,42 +342,89 @@ func lockSupplier(ctx context.Context, tx pgx.Tx, cid, id string) (string, error
 	return name, err
 }
 
-// autoAllocateSupplier applies unallocated supplier payments to open bills of the same currency, oldest first.
-func autoAllocateSupplier(ctx context.Context, tx pgx.Tx, supplierID, currency string) error {
+// autoAllocateSupplier applies unallocated supplier payments (and debit notes) to open bills of the same currency,
+// oldest first. For a foreign currency, when the payment's payables debit used another rate than the bill's payables
+// credit, the base-currency difference is booked as realized exchange gain/loss so payables keep no residue.
+func autoAllocateSupplier(ctx context.Context, tx pgx.Tx, cid, supplierID, currency string) error {
 	type open struct {
-		id     string
-		amount decimal.Decimal
+		id, date, rate string
+		number         int64
+		amount         decimal.Decimal
+	}
+	set, err := loadBillingSettings(ctx, tx, cid)
+	if err != nil {
+		return err
+	}
+	ps, err := loadPurchSettings(ctx, tx, cid)
+	if err != nil {
+		return err
+	}
+	ap := ""
+	if ps.AP != nil {
+		ap = *ps.AP
 	}
 	collect := func(sql string) ([]open, error) {
-		rows, err := tx.Query(ctx, sql, supplierID, currency)
+		rows, err := tx.Query(ctx, sql, supplierID, currency, ap)
 		if err != nil {
 			return nil, err
 		}
 		return pgx.CollectRows(rows, func(row pgx.CollectableRow) (open, error) {
 			var o open
 			var s string
-			err := row.Scan(&o.id, &s)
+			err := row.Scan(&o.id, &o.date, &o.rate, &o.number, &s)
 			o.amount, _ = decimal.NewFromString(s)
 			return o, err
 		})
 	}
-	pays, err := collect(`SELECT p.id::text, (p.amount - coalesce(sum(a.amount), 0))::text
-		FROM supplier_payments p LEFT JOIN supplier_allocations a ON a.payment_id = p.id
+	pays, err := collect(`SELECT p.id::text, p.payment_date::text,
+		coalesce((SELECT trim_scale(l.rate)::text FROM journal_lines l WHERE l.entry_id = p.journal_entry_id
+		          AND l.account_id::text = $3 AND l.debit > 0 LIMIT 1), ''), p.number,
+		(p.amount - coalesce((SELECT sum(a.amount) FROM supplier_allocations a WHERE a.payment_id = p.id), 0))::text
+		FROM supplier_payments p
 		WHERE p.supplier_id = $1 AND p.currency = $2 AND p.status = 'posted'
-		GROUP BY p.id HAVING p.amount - coalesce(sum(a.amount), 0) > 0 ORDER BY p.payment_date, p.created_at`)
+		  AND p.amount - coalesce((SELECT sum(a.amount) FROM supplier_allocations a WHERE a.payment_id = p.id), 0) > 0
+		ORDER BY p.payment_date, p.created_at`)
 	if err != nil || len(pays) == 0 {
 		return err
 	}
-	bills, err := collect(`SELECT id::text, (total - paid)::text FROM bills
-		WHERE supplier_id = $1 AND currency = $2 AND status IN ('open', 'partial') ORDER BY bill_date, number`)
+	bills, err := collect(`SELECT b.id::text, b.bill_date::text,
+		coalesce((SELECT trim_scale(l.rate)::text FROM journal_lines l WHERE l.entry_id = b.journal_entry_id
+		          AND l.account_id::text = $3 AND l.credit > 0 LIMIT 1), ''), b.number, (b.total - b.paid)::text FROM bills b
+		WHERE b.supplier_id = $1 AND b.currency = $2 AND b.status IN ('open', 'partial') ORDER BY b.bill_date, b.number`)
 	if err != nil {
 		return err
 	}
 	i, j := 0, 0
 	for i < len(pays) && j < len(bills) {
 		amt := decimal.Min(pays[i].amount, bills[j].amount)
-		if _, err := tx.Exec(ctx, `INSERT INTO supplier_allocations (payment_id, bill_id, amount) VALUES ($1, $2, $3::numeric)`,
-			pays[i].id, bills[j].id, amt.String()); err != nil {
+		var fx *string
+		if ap != "" && currency != set.Base && pays[i].rate != "" && bills[j].rate != "" {
+			rp, _ := decimal.NewFromString(pays[i].rate)
+			rb, _ := decimal.NewFromString(bills[j].rate)
+			if rp.IsPositive() && rb.IsPositive() {
+				residue := amt.DivRound(rb, 4).Sub(amt.DivRound(rp, 4)) // base credit left on payables minus base debit
+				if !residue.IsZero() {
+					date := pays[i].date
+					if bills[j].date > date {
+						date = bills[j].date
+					}
+					line := jline{Account: ap, Desc: "FX on settlement", Currency: set.Base, Rate: "1"}
+					if residue.IsPositive() {
+						line.Debit = residue
+					} else {
+						line.Credit = residue.Neg()
+					}
+					je, err := postJournal(ctx, tx, cid, set, date, fmt.Sprintf("Exchange difference - supplier payment #%d to bill #%d", pays[i].number, bills[j].number),
+						fmt.Sprintf("SFX-%d-%d", pays[i].number, bills[j].number), "fx", []jline{line})
+					if err != nil {
+						return err
+					}
+					fx = &je
+				}
+			}
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO supplier_allocations (payment_id, bill_id, amount, fx_entry_id) VALUES ($1, $2, $3::numeric, $4)`,
+			pays[i].id, bills[j].id, amt.String(), fx); err != nil {
 			return err
 		}
 		pays[i].amount = pays[i].amount.Sub(amt)
@@ -396,6 +443,9 @@ func autoAllocateSupplier(ctx context.Context, tx pgx.Tx, supplierID, currency s
 
 const itemCols = `it.id, it.code, it.name, it.name_i18n, it.kind, it.unit, it.sale_price::text AS sale_price, it.sale_currency,
 	it.inventory_account_id, it.expense_account_id, it.revenue_account_id, it.is_active,
+	it.is_sellable, it.is_purchasable, it.sale_tax_rate_id, it.description,
+	coalesce((SELECT json_agg(json_build_object('currency', ip.currency, 'price', ip.price::text) ORDER BY ip.currency)
+	          FROM item_prices ip WHERE ip.item_id = it.id), '[]'::json) AS prices,
 	coalesce((SELECT sum(st.quantity) FROM stock st WHERE st.item_id = it.id), 0)::text AS quantity,
 	coalesce((SELECT sum(st.value) FROM stock st WHERE st.item_id = it.id), 0)::text AS value,
 	coalesce((SELECT CASE WHEN sum(st.quantity) > 0 THEN round(sum(st.value) / sum(st.quantity), 6) END
@@ -423,6 +473,14 @@ func (s *Server) saveItem(w http.ResponseWriter, r *http.Request) {
 		ExpenseAccountID   *string           `json:"expense_account_id"`
 		RevenueAccountID   *string           `json:"revenue_account_id"`
 		IsActive           *bool             `json:"is_active"`
+		IsSellable         *bool             `json:"is_sellable"`
+		IsPurchasable      *bool             `json:"is_purchasable"`
+		SaleTaxRateID      *string           `json:"sale_tax_rate_id"` // "" removes
+		Description        *string           `json:"description"`
+		Prices             *[]struct {
+			Currency string `json:"currency"`
+			Price    string `json:"price"`
+		} `json:"prices"` // replaces the per-currency prices
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -432,6 +490,19 @@ func (s *Server) saveItem(w http.ResponseWriter, r *http.Request) {
 	okMoney := in.SalePrice == nil || *in.SalePrice == ""
 	if !okMoney {
 		_, okMoney = money(*in.SalePrice)
+	}
+	if in.Prices != nil {
+		seen := map[string]bool{}
+		for _, p := range *in.Prices {
+			v, ok := money(p.Price)
+			if !ok || v.IsNegative() || !currencyRe.MatchString(p.Currency) || seen[p.Currency] || len(*in.Prices) > 50 {
+				okMoney = false
+			}
+			seen[p.Currency] = true
+		}
+	}
+	if !optUUID(in.SaleTaxRateID) {
+		okMoney = false
 	}
 	if (create && (in.Name == nil || strings.TrimSpace(*in.Name) == "")) || (in.Name != nil && strings.TrimSpace(*in.Name) == "") ||
 		(in.Kind != nil && *in.Kind != "stock" && *in.Kind != "service" && *in.Kind != "consumable") || !okMoney ||
@@ -521,6 +592,28 @@ func (s *Server) saveItem(w http.ResponseWriter, r *http.Request) {
 			}
 			if tag.RowsAffected() == 0 {
 				return nil, notFound()
+			}
+		}
+		if in.SaleTaxRateID != nil && *in.SaleTaxRateID != "" {
+			if _, err := loadTaxRate(ctx, tx, cid, *in.SaleTaxRateID, "sales"); err != nil {
+				return nil, err
+			}
+		}
+		if _, err := tx.Exec(ctx, `UPDATE items SET is_sellable = coalesce($2, is_sellable), is_purchasable = coalesce($3, is_purchasable),
+			sale_tax_rate_id = CASE WHEN $4::text IS NULL THEN sale_tax_rate_id ELSE nullif($4, '')::uuid END,
+			description = coalesce(trim($5), description) WHERE id = $1`,
+			id, in.IsSellable, in.IsPurchasable, in.SaleTaxRateID, in.Description); err != nil {
+			return nil, err
+		}
+		if in.Prices != nil {
+			if _, err := tx.Exec(ctx, `DELETE FROM item_prices WHERE item_id = $1`, id); err != nil {
+				return nil, err
+			}
+			for _, p := range *in.Prices {
+				if _, err := tx.Exec(ctx, `INSERT INTO item_prices (item_id, currency, price) VALUES ($1, $2, $3::numeric)`,
+					id, p.Currency, p.Price); err != nil {
+					return nil, err
+				}
 			}
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+itemCols+` FROM items it WHERE it.id = $1`, id)
@@ -777,7 +870,7 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		if err := autoAllocateSupplier(ctx, tx, in.SupplierID, in.Currency); err != nil {
+		if err := autoAllocateSupplier(ctx, tx, cid, in.SupplierID, in.Currency); err != nil {
 			return nil, err
 		}
 		return loadBill(ctx, tx, cid, id)
@@ -1053,7 +1146,7 @@ func (s *Server) createSupplierPayment(w http.ResponseWriter, r *http.Request) {
 			strings.TrimSpace(in.Notes)).Scan(&id); err != nil {
 			return nil, err
 		}
-		if err := autoAllocateSupplier(ctx, tx, in.SupplierID, in.Currency); err != nil {
+		if err := autoAllocateSupplier(ctx, tx, cid, in.SupplierID, in.Currency); err != nil {
 			return nil, err
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+supPayCols+`,
@@ -1102,6 +1195,20 @@ func (s *Server) voidSupplierPayment(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, err := lockSupplier(ctx, tx, cid, supplier); err != nil {
 			return nil, err
+		}
+		fxRows, err := tx.Query(ctx, `SELECT a.fx_entry_id::text FROM supplier_allocations a JOIN journal_entries e ON e.id = a.fx_entry_id
+			WHERE a.payment_id = $1 AND e.reversed_by IS NULL AND e.status = 'posted'`, id)
+		if err != nil {
+			return nil, err
+		}
+		fxs, err := pgx.CollectRows(fxRows, pgx.RowTo[string])
+		if err != nil {
+			return nil, err
+		}
+		for _, fx := range fxs {
+			if _, err := tx.Exec(ctx, `SELECT reverse_journal_entry($1, current_date, $2)`, fx, fmt.Sprintf("Void supplier payment #%d FX", number)); err != nil {
+				return nil, err
+			}
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO supplier_allocations (payment_id, bill_id, amount)
 			SELECT payment_id, bill_id, -sum(amount) FROM supplier_allocations WHERE payment_id = $1

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Anchor, Badge, Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Switch, Table, Text, TextInput, Title,
+  ActionIcon, Anchor, Badge, Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Switch, Table, Text, Textarea, TextInput, Title,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconArrowBack, IconEdit, IconPlus, IconSearch, IconSettings } from '@tabler/icons-react';
+import { IconArrowBack, IconEdit, IconPlus, IconSearch, IconSettings, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
@@ -76,10 +76,15 @@ function ItemForm({ item, onClose, onSaved }: { item?: Item; onClose: () => void
     sale_price: item ? String(Number(item.sale_price)) : '', sale_currency: item?.sale_currency ?? '',
     inventory_account_id: item?.inventory_account_id ?? '', expense_account_id: item?.expense_account_id ?? '',
     revenue_account_id: item?.revenue_account_id ?? '', is_active: item?.is_active ?? true,
+    is_sellable: item?.is_sellable ?? true, is_purchasable: item?.is_purchasable ?? true,
+    sale_tax_rate_id: item?.sale_tax_rate_id ?? '', description: item?.description ?? '',
   });
+  const [prices, setPrices] = useState<{ currency: string; price: string }[]>((item?.prices ?? []).map((p) => ({ currency: p.currency, price: String(Number(p.price)) })));
+  const [taxes, setTaxes] = useState<{ id: string; name: string; applies_to: string; is_active: boolean }[]>([]);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (company) api<Account[]>(`/companies/${company.id}/accounts`).then((a) => setAccounts(a.filter((x) => x.is_postable && x.is_active))).catch(() => {});
+    if (company) api<typeof taxes>(`/companies/${company.id}/tax-rates`).then((x) => setTaxes(x.filter((r) => r.is_active && r.applies_to !== 'purchases'))).catch(() => {});
   }, [company]);
   const opts = (types: string[]) => accounts.filter((a) => types.includes(a.type)).map((a) => ({ value: a.id, label: accountLabel(a) }));
   const set = (k: keyof typeof f) => (v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
@@ -89,7 +94,8 @@ function ItemForm({ item, onClose, onSaved }: { item?: Item; onClose: () => void
     if (!company) return;
     setBusy(true);
     try {
-      const body = item ? { ...f, kind: undefined } : { ...f, is_active: undefined };
+      const all = { ...f, prices: prices.filter((p) => p.currency && p.price !== '') };
+      const body = item ? { ...all, kind: undefined } : { ...all, is_active: undefined };
       if (item) await api(`/companies/${company.id}/items/${item.id}`, { method: 'PATCH', body });
       else await api(`/companies/${company.id}/items`, { method: 'POST', body });
       notifySaved(t);
@@ -122,6 +128,31 @@ function ItemForm({ item, onClose, onSaved }: { item?: Item; onClose: () => void
             value={f.inventory_account_id || null} onChange={(v) => set('inventory_account_id')(v ?? '')} />}
           <Select label={t('pur.expenseAccount')} searchable clearable data={opts(['expense'])} value={f.expense_account_id || null} onChange={(v) => set('expense_account_id')(v ?? '')} />
           <Select label={t('pur.revenueAccount')} searchable clearable data={opts(['income'])} value={f.revenue_account_id || null} onChange={(v) => set('revenue_account_id')(v ?? '')} />
+          <Group grow>
+            <Switch label={t('catalog.sellable')} checked={f.is_sellable} onChange={(e) => set('is_sellable')(e.currentTarget.checked)} />
+            <Switch label={t('catalog.purchasable')} checked={f.is_purchasable} onChange={(e) => set('is_purchasable')(e.currentTarget.checked)} />
+          </Group>
+          {f.is_sellable && <>
+            <Select label={t('catalog.saleTax')} clearable placeholder={t('net.noTax')} data={taxes.map((x) => ({ value: x.id, label: x.name }))}
+              value={f.sale_tax_rate_id || null} onChange={(v) => set('sale_tax_rate_id')(v ?? '')} />
+            <Textarea label={t('catalog.description')} autosize minRows={2} value={f.description} onChange={(e) => set('description')(e.currentTarget.value)}
+              description={t('catalog.descriptionHint')} />
+            <Stack gap={4}>
+              <Text size="sm" fw={500}>{t('catalog.prices')}</Text>
+              <Text size="xs" c="dimmed">{t('catalog.pricesHint')}</Text>
+              {prices.map((p, i) => (
+                <Group key={i} gap="xs" wrap="nowrap">
+                  <Select w={110} searchable data={currencies.map((c) => c.code)} value={p.currency || null}
+                    onChange={(v) => setPrices((ps) => ps.map((x, j) => (j === i ? { ...x, currency: v ?? '' } : x)))} />
+                  <TextInput style={{ flex: 1 }} dir="ltr" value={p.price}
+                    onChange={(e) => { const v = e.currentTarget.value.replace(/[^\d.]/g, ''); setPrices((ps) => ps.map((x, j) => (j === i ? { ...x, price: v } : x))); }} />
+                  <ActionIcon variant="subtle" color="gray" onClick={() => setPrices((ps) => ps.filter((_, j) => j !== i))}><IconTrash size={14} /></ActionIcon>
+                </Group>
+              ))}
+              <Button size="compact-xs" variant="subtle" leftSection={<IconPlus size={12} />} style={{ alignSelf: 'flex-start' }}
+                onClick={() => setPrices((ps) => [...ps, { currency: '', price: '' }])}>{t('catalog.addPrice')}</Button>
+            </Stack>
+          </>}
           {item && <Switch label={t('common.active')} checked={f.is_active} onChange={(e) => set('is_active')(e.currentTarget.checked)} />}
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>

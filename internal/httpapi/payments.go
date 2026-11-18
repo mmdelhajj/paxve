@@ -412,6 +412,11 @@ func (s *Server) voidPayment(w http.ResponseWriter, r *http.Request) {
 			}
 			rev = &rid
 		}
+		if kind == "credit_note" {
+			if err := voidCreditNoteStock(ctx, tx, cid, id, number); err != nil {
+				return nil, err
+			}
+		}
 		if _, err := tx.Exec(ctx, `UPDATE payments SET status = 'void', void_entry_id = $2,
 			notes = CASE WHEN $3 = '' THEN notes ELSE trim(notes || ' ' || $3) END WHERE id = $1`, id, rev, strings.TrimSpace(in.Reason)); err != nil {
 			return nil, err

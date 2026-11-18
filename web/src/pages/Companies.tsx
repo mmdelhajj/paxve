@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Group, Loader, Modal, Paper, Stack, Switch, Table, Text, TextInput, Title } from '@mantine/core';
+import { Badge, Button, FileButton, Group, Loader, Modal, NumberInput, Paper, Stack, Switch, Table, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconPlus } from '@tabler/icons-react';
+import { IconFileDescription, IconPlus, IconUpload } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Company, type Me } from '../api';
+import { api, ApiError, type Company, type Me } from '../api';
 import { formatDate, notifyError, notifySaved } from '../util';
 import { useCompany } from '../company';
 import { Select } from '@mantine/core';
@@ -13,6 +13,7 @@ export default function Companies({ me }: { me: Me }) {
   const { reload } = useCompany();
   const [rows, setRows] = useState<Company[] | null>(null);
   const [opened, modal] = useDisclosure(false);
+  const [docs, setDocs] = useState<Company | null>(null);
   const isAdmin = me.role === 'admin';
 
   const load = useCallback(() => {
@@ -66,6 +67,7 @@ export default function Companies({ me }: { me: Me }) {
                   <Table.Th>{t('common.status')}</Table.Th>
                   <Table.Th>{t('common.created')}</Table.Th>
                   <Table.Th>{t('companies.lockDate')}</Table.Th>
+                  <Table.Th />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -96,6 +98,7 @@ export default function Companies({ me }: { me: Me }) {
                           onBlur={(e) => { const v = e.currentTarget.value; if (v !== (c.lock_date ?? '')) void setLock(c, v); }} />
                       ) : (c.lock_date ? formatDate(c.lock_date) : '—')}
                     </Table.Td>
+                    <Table.Td>{isAdmin && <Button size="compact-xs" variant="subtle" leftSection={<IconFileDescription size={12} />} onClick={() => setDocs(c)}>{t('docs.title')}</Button>}</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
@@ -104,6 +107,7 @@ export default function Companies({ me }: { me: Me }) {
         )}
       </Paper>
       <NewCompany opened={opened} onClose={modal.close} onCreated={load} />
+      {docs && <DocSettings company={docs} onClose={() => setDocs(null)} />}
     </Stack>
   );
 }
@@ -151,6 +155,75 @@ function NewCompany({ opened, onClose, onCreated }: { opened: boolean; onClose: 
           </Group>
         </Stack>
       </form>
+    </Modal>
+  );
+}
+
+interface DocSettingsData { logo: string; doc_header: string; doc_footer: string; doc_terms: string; tax_id: string; quote_valid_days: number }
+
+/** Logo, header / footer text, terms and tax number printed on quotations, invoices and statements. */
+function DocSettings({ company, onClose }: { company: Company; onClose: () => void }) {
+  const { t } = useTranslation();
+  const [f, setF] = useState<DocSettingsData | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api<DocSettingsData>(`/companies/${company.id}/documents/settings`).then(setF).catch((e) => { notifyError(t, e); onClose(); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company.id]);
+
+  function pickLogo(file: File | null) {
+    if (!file || !f) return;
+    if (file.size > 280_000) {
+      notifyError(t, new ApiError(400, 'logo_too_big'));
+      return;
+    }
+    const r = new FileReader();
+    r.onload = () => setF({ ...f, logo: String(r.result) });
+    r.readAsDataURL(file);
+  }
+
+  async function save() {
+    if (!f) return;
+    setBusy(true);
+    try {
+      setF(await api<DocSettingsData>(`/companies/${company.id}/documents/settings`, { method: 'PUT', body: f }));
+      notifySaved(t);
+      onClose();
+    } catch (e) {
+      notifyError(t, e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal opened onClose={onClose} size="lg" title={`${t('docs.title')} · ${company.name_en}`}>
+      {!f ? <Group justify="center" p="xl"><Loader size="sm" /></Group> : (
+        <Stack>
+          <Text size="sm" c="dimmed">{t('docs.intro')}</Text>
+          <Group align="center">
+            {f.logo ? <img src={f.logo} alt="" style={{ maxHeight: 72, maxWidth: 200, objectFit: 'contain', border: '1px solid #eee', padding: 4 }} />
+              : <Text size="sm" c="dimmed">{t('docs.noLogo')}</Text>}
+            <FileButton onChange={pickLogo} accept="image/png,image/jpeg,image/webp,image/svg+xml">
+              {(props) => <Button {...props} variant="default" size="xs" leftSection={<IconUpload size={14} />}>{t('docs.uploadLogo')}</Button>}
+            </FileButton>
+            {f.logo && <Button size="xs" variant="subtle" color="red" onClick={() => setF({ ...f, logo: '' })}>{t('docs.removeLogo')}</Button>}
+          </Group>
+          <TextInput label={t('docs.taxId')} value={f.tax_id} onChange={(e) => setF({ ...f, tax_id: e.currentTarget.value })} />
+          <Textarea label={t('docs.header')} description={t('docs.headerHint')} autosize minRows={2} value={f.doc_header}
+            onChange={(e) => setF({ ...f, doc_header: e.currentTarget.value })} />
+          <Textarea label={t('docs.footer')} description={t('docs.footerHint')} autosize minRows={2} value={f.doc_footer}
+            onChange={(e) => setF({ ...f, doc_footer: e.currentTarget.value })} />
+          <Textarea label={t('docs.terms')} description={t('docs.termsHint')} autosize minRows={3} value={f.doc_terms}
+            onChange={(e) => setF({ ...f, doc_terms: e.currentTarget.value })} />
+          <NumberInput label={t('docs.validDays')} min={1} max={365} w={200} value={f.quote_valid_days}
+            onChange={(v) => setF({ ...f, quote_valid_days: Number(v) || 30 })} />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
+            <Button loading={busy} onClick={() => void save()}>{t('common.save')}</Button>
+          </Group>
+        </Stack>
+      )}
     </Modal>
   );
 }

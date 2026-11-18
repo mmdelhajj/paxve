@@ -22,6 +22,7 @@ import {
   IconHourglass, IconMoneybag, IconBuildingBank, IconDeviceMobile, IconWorld, IconMessage, IconTruck, IconReceipt,
   IconCashBanknote, IconReceiptTax, IconPackage, IconGasStation, IconPackages, IconChartPie, IconUserDollar, IconBolt,
   IconTopologyStar3, IconReceipt2, IconEngine, IconRepeat, IconId, IconCoins, IconBuildingFactory2,
+  IconTargetArrow, IconFileDescription, IconShoppingCart, IconFileText, IconChartLine,
 } from '@tabler/icons-react';
 import TrialBanner from './components/TrialBanner';
 
@@ -76,6 +77,12 @@ const Assets = lazy(() => import('./pages/assets/Assets'));
 const AssetRegister = lazy(() => named(import('./pages/assets/Assets'), 'AssetRegister'));
 const Recurring = lazy(() => import('./pages/accounting/Recurring'));
 const BankRec = lazy(() => import('./pages/accounting/BankRec'));
+const Quotes = lazy(() => import('./pages/sales/Sales'));
+const SalesReport = lazy(() => named(import('./pages/sales/Sales'), 'SalesReport'));
+const Statements = lazy(() => import('./pages/sales/Statements'));
+const CustomerStatement = lazy(() => named(import('./pages/sales/Statements'), 'CustomerStatement'));
+const Crm = lazy(() => import('./pages/crm/Crm'));
+const ActivitiesPage = lazy(() => named(import('./pages/crm/Crm'), 'ActivitiesPage'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -84,7 +91,8 @@ type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | '
   'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform' | 'import' | 'messages' |
   'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'stock-moves' | 'expenses-report' |
   'network' | 'tariffs' | 'vat-report' | 'generator-report' | 'print-bills' |
-  'employees' | 'payroll' | 'assets' | 'asset-register' | 'recurring' | 'bank-rec';
+  'employees' | 'payroll' | 'assets' | 'asset-register' | 'recurring' | 'bank-rec' |
+  'crm' | 'activities' | 'quotes' | 'orders' | 'statements' | 'statement' | 'sales-report';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
@@ -103,6 +111,15 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'cash', label: 'nav.cash', icon: IconBuildingBank },
       { key: 'collect', label: 'collector.mode', icon: IconDeviceMobile },
       { key: 'billing-setup', label: 'bill.setup', icon: IconSettings },
+    ],
+  },
+  {
+    label: 'sales.nav',
+    items: [
+      { key: 'crm', label: 'crm.title', icon: IconTargetArrow },
+      { key: 'quotes', label: 'sales.quotes', icon: IconFileDescription },
+      { key: 'orders', label: 'sales.orders', icon: IconShoppingCart },
+      { key: 'statements', label: 'stmt.bulk', icon: IconFileText },
     ],
   },
   {
@@ -145,6 +162,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'trial-balance', label: 'nav.trialBalance', icon: IconScale },
       { key: 'aging', label: 'reports2.aging', icon: IconHourglass },
       { key: 'collections', label: 'reports2.collections', icon: IconMoneybag },
+      { key: 'sales-report', label: 'sales.report', icon: IconChartLine },
       { key: 'ap-aging', label: 'pur.apAging', icon: IconUserDollar },
       { key: 'stock-valuation', label: 'pur.valuation', icon: IconPackages },
       { key: 'stock-moves', label: 'gap.moves', icon: IconPackages },
@@ -172,7 +190,8 @@ const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-ba
   'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform', 'import', 'messages',
   'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'stock-moves', 'expenses-report',
   'network', 'tariffs', 'vat-report', 'generator-report', 'print-bills',
-  'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec'];
+  'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec',
+  'crm', 'activities', 'quotes', 'orders', 'statements', 'statement', 'sales-report'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -298,7 +317,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
                     href={`#/${p.key}`}
                     label={t(p.label)}
                     leftSection={<p.icon size={18} stroke={1.6} />}
-                    active={current === p.key || (current === 'ledger' && p.key === 'trial-balance') || (current === 'customer' && p.key === 'customers') || (current === 'supplier' && p.key === 'suppliers') || (current === 'item' && p.key === 'items')}
+                    active={current === p.key || (current === 'ledger' && p.key === 'trial-balance') || (current === 'customer' && p.key === 'customers') || (current === 'supplier' && p.key === 'suppliers') || (current === 'item' && p.key === 'items') || (current === 'activities' && p.key === 'crm') || (current === 'statement' && p.key === 'statements')}
                     onClick={close}
                     style={{ borderRadius: 'var(--mantine-radius-md)' }}
                   />
@@ -357,6 +376,13 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'asset-register' && <AssetRegister />}
         {current === 'recurring' && <Recurring me={me} />}
         {current === 'bank-rec' && <BankRec me={me} />}
+        {current === 'crm' && <Crm me={me} />}
+        {current === 'activities' && <ActivitiesPage me={me} />}
+        {current === 'quotes' && <Quotes me={me} kind="quotes" key="quotes" />}
+        {current === 'orders' && <Quotes me={me} kind="orders" key="orders" />}
+        {current === 'statements' && <Statements me={me} />}
+        {current === 'statement' && <CustomerStatement id={param} key={param} />}
+        {current === 'sales-report' && <SalesReport />}
         {current === 'platform' && me.is_platform_admin && <Platform />}
         </Suspense>
       </AppShell.Main>

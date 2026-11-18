@@ -40,6 +40,8 @@ export interface InvoiceDetail {
     customer_phone: string; customer_address: string; area_name: string | null; meter_no: string | null;
     company_name: string; company_name_ar: string;
     local_currency: string | null; local_rate: string | null; local_currency_total: string | null; box_code: string | null;
+    customer_email?: string; company_logo?: string; company_header?: string; company_footer?: string; company_tax_id?: string;
+    sales_order_id?: string | null; order_number?: number | null;
   };
   lines: { line_no: number; kind: 'fee' | 'usage' | 'other'; description: string; quantity: string; unit_price: string; amount: string;
     meta: Record<string, string>; tax_amount?: string; tax_name?: string | null }[];

@@ -25,19 +25,36 @@ type invLine struct {
 	Meta        map[string]any
 	Tax         *taxInfo // optional sales tax on this line
 	TaxAmount   decimal.Decimal
+	Revenue     string  // optional revenue account of this line ("" = the invoice's revenue account)
+	OrderLineID *string // sales order line billed by this line
 }
 
 // issueInvoice numbers, books (Dr receivables / Cr revenue) and stores an invoice, then applies any customer credit.
 func issueInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings, customerID, customerName string,
 	subscriptionID, period *string, issue, due, currency, revenue, notes string, lines []invLine) (string, int64, error) {
+	return issueInvoiceFor(ctx, tx, cid, set, customerID, customerName, subscriptionID, period, nil, issue, due, currency, revenue, notes, lines)
+}
+
+// issueInvoiceFor is issueInvoice with an optional sales order the invoice bills.
+func issueInvoiceFor(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings, customerID, customerName string,
+	subscriptionID, period, salesOrderID *string, issue, due, currency, revenue, notes string, lines []invLine) (string, int64, error) {
 	if err := set.requireAR(); err != nil {
 		return "", 0, err
 	}
-	total, net := decimal.Zero, decimal.Zero
+	total := decimal.Zero
 	taxByAccount := map[string]decimal.Decimal{}
 	taxOrder := []string{}
+	revByAccount := map[string]decimal.Decimal{}
+	revOrder := []string{}
 	for _, l := range lines {
-		net = net.Add(l.Amount)
+		acc := revenue
+		if l.Revenue != "" {
+			acc = l.Revenue
+		}
+		if _, ok := revByAccount[acc]; !ok {
+			revOrder = append(revOrder, acc)
+		}
+		revByAccount[acc] = revByAccount[acc].Add(l.Amount)
 		total = total.Add(l.Amount).Add(l.TaxAmount)
 		if l.Tax != nil && l.TaxAmount.IsPositive() {
 			if _, ok := taxByAccount[l.Tax.Account]; !ok {
@@ -63,8 +80,10 @@ func issueInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSettin
 		return "", 0, err
 	}
 	jl := []jline{{Account: *set.AR, Desc: customerName, Currency: currency, Debit: total, Rate: rate}}
-	if net.IsPositive() {
-		jl = append(jl, jline{Account: revenue, Desc: customerName, Currency: currency, Credit: net, Rate: rate})
+	for _, acc := range revOrder {
+		if v := revByAccount[acc]; v.IsPositive() {
+			jl = append(jl, jline{Account: acc, Desc: customerName, Currency: currency, Credit: v, Rate: rate})
+		}
 	}
 	for _, acc := range taxOrder {
 		jl = append(jl, jline{Account: acc, Desc: "Tax · " + customerName, Currency: currency, Credit: taxByAccount[acc], Rate: rate})
@@ -76,10 +95,10 @@ func issueInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSettin
 	localCur, localRate, localTotal := localSnapshot(ctx, tx, cid, set, currency, issue, total)
 	var id string
 	if err := tx.QueryRow(ctx, `INSERT INTO invoices (company_id, number, customer_id, subscription_id, period, issue_date, due_date,
-		currency, total, journal_entry_id, notes, local_currency, local_rate, local_currency_total)
-		VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9::numeric, $10, $11, $12, $13::numeric, $14::numeric) RETURNING id::text`,
+		currency, total, journal_entry_id, notes, local_currency, local_rate, local_currency_total, sales_order_id)
+		VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9::numeric, $10, $11, $12, $13::numeric, $14::numeric, $15) RETURNING id::text`,
 		cid, number, customerID, subscriptionID, period, issue, due, currency, total.String(), je, notes,
-		localCur, localRate, localTotal).Scan(&id); err != nil {
+		localCur, localRate, localTotal, salesOrderID).Scan(&id); err != nil {
 		return "", 0, err
 	}
 	for i, l := range lines {
@@ -91,9 +110,9 @@ func issueInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSettin
 		if l.Tax != nil {
 			taxID = &l.Tax.ID
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO invoice_lines (invoice_id, line_no, kind, description, quantity, unit_price, amount, meta, tax_rate_id, tax_amount)
-			VALUES ($1, $2, $3, $4, $5::numeric, $6::numeric, $7::numeric, $8, $9, $10::numeric)`,
-			id, i+1, l.Kind, l.Description, l.Quantity.String(), l.UnitPrice.String(), l.Amount.String(), meta, taxID, l.TaxAmount.String()); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO invoice_lines (invoice_id, line_no, kind, description, quantity, unit_price, amount, meta, tax_rate_id, tax_amount, order_line_id)
+			VALUES ($1, $2, $3, $4, $5::numeric, $6::numeric, $7::numeric, $8, $9, $10::numeric, $11)`,
+			id, i+1, l.Kind, l.Description, l.Quantity.String(), l.UnitPrice.String(), l.Amount.String(), meta, taxID, l.TaxAmount.String(), l.OrderLineID); err != nil {
 			return "", 0, err
 		}
 	}
@@ -169,6 +188,7 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 		for _, l := range in.Lines {
 			q, ok1 := money(l.Quantity)
 			p, ok2 := money(l.UnitPrice)
+			lineRev := ""
 			if l.ItemID != "" {
 				it, err := loadItem(ctx, tx, cid, l.ItemID)
 				if err != nil {
@@ -180,6 +200,9 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 				if it.Kind == "stock" && ok1 && q.IsPositive() {
 					sales = append(sales, saleLine{ItemID: it.ID, WarehouseID: l.WarehouseID, Qty: q})
 				}
+				if it.Revenue != nil && in.RevenueAccountID == "" {
+					lineRev = *it.Revenue
+				}
 			}
 			if !ok1 || !ok2 || strings.TrimSpace(l.Description) == "" {
 				return nil, badRequest("bad_request")
@@ -190,7 +213,7 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 			}
 			amt := q.Mul(p).Round(dec)
 			lines = append(lines, invLine{Kind: "other", Description: strings.TrimSpace(l.Description), Quantity: q, UnitPrice: p, Amount: amt,
-				Tax: tax, TaxAmount: taxOn(amt, tax, dec)})
+				Tax: tax, TaxAmount: taxOn(amt, tax, dec), Revenue: lineRev})
 		}
 		id, number, err := issueInvoice(ctx, tx, cid, set, in.CustomerID, name, nil, nil, in.IssueDate, in.DueDate, in.Currency, rev, in.Notes, lines)
 		if err != nil {
@@ -212,7 +235,7 @@ func (s *Server) listInvoices(w http.ResponseWriter, r *http.Request) {
 	}
 	limit, offset := queryInt(r, "limit", 200, 2000), queryInt(r, "offset", 0, 1<<30)
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		cond := `i.company_id = $1 AND ($2 = '' OR i.period = $2) AND ($4 = '' OR i.customer_id = $4::uuid)
+		cond := `i.company_id = $1 AND ($2 = '' OR i.period = $2 OR (i.period IS NULL AND to_char(i.issue_date, 'YYYY-MM') = $2)) AND ($4 = '' OR i.customer_id = $4::uuid)
 			AND ($5 = '' OR c.name ILIKE '%' || $5 || '%' OR c.code ILIKE $5 || '%' OR i.number::text = $5)
 			AND (CASE $3 WHEN '' THEN true WHEN 'unpaid' THEN i.status IN ('open', 'partial') ELSE i.status = $3 END)`
 		rows, err := queryJSON(ctx, tx, `SELECT `+invoiceCols+` FROM invoices i JOIN customers c ON c.id = i.customer_id
@@ -234,8 +257,10 @@ func loadInvoice(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 	if !isUUID(id) {
 		return nil, notFound()
 	}
-	inv, err := queryJSONOne(ctx, tx, `SELECT `+invoiceCols+`, c.phone AS customer_phone, c.address AS customer_address,
+	inv, err := queryJSONOne(ctx, tx, `SELECT `+invoiceCols+`, c.phone AS customer_phone, c.address AS customer_address, c.email AS customer_email,
 		ar.name AS area_name, s.meter_no, co.name_en AS company_name, co.name_ar AS company_name_ar,
+		co.logo AS company_logo, co.doc_header AS company_header, co.doc_footer AS company_footer, co.tax_id AS company_tax_id,
+		i.sales_order_id, (SELECT so.order_number FROM sales_orders so WHERE so.id = i.sales_order_id) AS order_number,
 		i.local_currency, trim_scale(i.local_rate)::text AS local_rate, i.local_currency_total::text AS local_currency_total,
 		bx.code AS box_code
 		FROM invoices i JOIN customers c ON c.id = i.customer_id JOIN companies co ON co.id = i.company_id
@@ -320,6 +345,9 @@ func (s *Server) voidInvoice(w http.ResponseWriter, r *http.Request) {
 			rev = &rid
 		}
 		if err := reverseSaleCOGS(ctx, tx, cid, id, number); err != nil {
+			return nil, err
+		}
+		if err := releaseOrderInvoice(ctx, tx, id); err != nil {
 			return nil, err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE invoices SET status = 'void', void_entry_id = $2,

@@ -11,6 +11,7 @@ import { autoApply, formatAmount, formatDate, notifyError, notifySaved, roundCha
 import { Confirm } from '../../components/PageHeader';
 import { invoiceColor, type InvoiceDetail, type Money, type PaymentDetail, type PaymentMethod, type TaxRate } from '../../billing';
 import { WhatsAppButton } from './Messages';
+import { DocFooter, DocHeader, itemPrice, SendDocButton, type SaleItem } from '../sales/common';
 
 export function MoneyList({ items, kind = 'due' }: { items: Money[]; kind?: 'due' | 'credit' }) {
   const { decimalsOf } = useCompany();
@@ -89,17 +90,13 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
       {!d || !inv ? <Center p="xl"><Loader size="sm" /></Center> : (
         <Stack>
           <div className="print-doc" dir={rtl ? 'rtl' : 'ltr'}>
-            <Group justify="space-between" align="flex-start">
-              <div>
-                <Text fw={700} size="lg">{rtl && inv.company_name_ar ? inv.company_name_ar : inv.company_name}</Text>
-                <Text size="sm">{inv.kind === 'refund' ? t('gap.refund') : t('invoices.invoice')} #{inv.number}{inv.period ? ` · ${inv.period}` : ''}</Text>
-              </div>
-              <div style={{ textAlign: 'end' }}>
-                <Text size="sm">{t('invoices.date')}: {formatDate(inv.issue_date)}</Text>
-                <Text size="sm">{t('invoices.due')}: {formatDate(inv.due_date)}</Text>
-                <Badge color={invoiceColor[inv.status]} variant="light" className="no-print">{t(`invoices.statuses.${inv.status}`)}</Badge>
-              </div>
-            </Group>
+            <DocHeader c={inv} title={`${inv.kind === 'refund' ? t('gap.refund') : t('invoices.invoice')} #${inv.number}`} lines={[
+              ...(inv.period ? [inv.period] : []),
+              ...(inv.order_number ? [`${t('sales.order')} SO-${inv.order_number}`] : []),
+              `${t('invoices.date')}: ${formatDate(inv.issue_date)}`,
+              `${t('invoices.due')}: ${formatDate(inv.due_date)}`,
+              <Badge key="st" color={invoiceColor[inv.status]} variant="light" className="no-print">{t(`invoices.statuses.${inv.status}`)}</Badge>,
+            ]} />
             <Divider my="sm" />
             <Text fw={600}>{inv.customer_name} <Text span c="dimmed" size="sm">({inv.customer_code})</Text></Text>
             <Text size="sm">{[inv.customer_phone, inv.area_name, inv.customer_address].filter(Boolean).join(' · ')}</Text>
@@ -134,6 +131,7 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
               </tfoot>
             </table>
             {inv.status === 'void' && <Text c="red" fw={700} mt="sm">{t('invoices.statuses.void')} {inv.notes}</Text>}
+            <DocFooter c={inv} />
           </div>
 
           {d.payments.length > 0 && (
@@ -180,6 +178,7 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
                 ? <Button variant="subtle" color="orange" onClick={openCredit}>{t('gap.creditNote')}</Button> : null}
             </Group>
             <Group gap="xs">
+              {inv.status !== 'void' && inv.kind !== 'refund' && <SendDocButton kind="invoice" id={inv.id} email={inv.customer_email} />}
               {inv.status !== 'void' && <WhatsAppButton customerId={inv.customer_id} invoiceId={inv.id} event="invoice_issued" />}
               <Button variant="default" onClick={onClose}>{t('common.close')}</Button>
               <Button leftSection={<IconPrinter size={16} />} onClick={() => void printPage()}>{t('invoices.print')}</Button>
@@ -458,7 +457,6 @@ export function ReceivePayment({ customerId, customerName, due, onClose, onDone 
 // ---------- manual invoice ----------
 
 interface ManualLine { key: number; description: string; quantity: string; unit_price: string; item_id?: string | null; tax_rate_id?: string | null }
-interface SaleItem { id: string; code: string; name: string; unit: string; kind: string; sale_price: string; quantity: string; is_active: boolean }
 
 export function NewInvoice({ customerId, customerName, onClose, onDone }: {
   customerId: string; customerName: string; onClose: () => void; onDone: (id: string) => void;
@@ -472,7 +470,7 @@ export function NewInvoice({ customerId, customerName, onClose, onDone }: {
   const [items, setItems] = useState<SaleItem[]>([]);
   const [taxes, setTaxes] = useState<TaxRate[]>([]);
   useEffect(() => {
-    if (company) api<SaleItem[]>(`/companies/${company.id}/items`).then((x) => setItems(x.filter((i) => i.is_active))).catch(() => {});
+    if (company) api<SaleItem[]>(`/companies/${company.id}/items`).then((x) => setItems(x.filter((i) => i.is_active && i.is_sellable !== false))).catch(() => {});
     if (company) api<TaxRate[]>(`/companies/${company.id}/tax-rates`).then((x) => setTaxes(x.filter((i) => i.is_active && i.applies_to !== 'purchases'))).catch(() => {});
   }, [company]);
   const rateOf = (id?: string | null) => Number(taxes.find((x) => x.id === id)?.rate ?? 0);
@@ -519,7 +517,8 @@ export function NewInvoice({ customerId, customerName, onClose, onDone }: {
                           const it = items.find((i) => i.id === v);
                           setLines((ls) => ls.map((x) => (x.key === l.key ? {
                             ...x, item_id: v, description: it ? it.name : x.description,
-                            unit_price: it && Number(it.sale_price) ? String(Number(it.sale_price)) : x.unit_price,
+                            unit_price: it ? itemPrice(it, currency ?? company?.base_currency ?? 'USD', company?.base_currency ?? 'USD') || x.unit_price : x.unit_price,
+                            tax_rate_id: it?.sale_tax_rate_id ?? x.tax_rate_id,
                           } : x)));
                         }} />
                     )}

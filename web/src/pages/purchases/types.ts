@@ -10,6 +10,8 @@ export interface Item {
   unit: string; sale_price: string; sale_currency: string | null; inventory_account_id: string | null;
   expense_account_id: string | null; revenue_account_id: string | null; is_active: boolean;
   quantity: string; value: string; avg_cost: string;
+  is_sellable?: boolean; is_purchasable?: boolean; sale_tax_rate_id?: string | null; description?: string;
+  prices?: { currency: string; price: string }[];
 }
 
 export interface Warehouse { id: string; name: string; is_active: boolean; value: string }

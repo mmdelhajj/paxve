@@ -83,7 +83,14 @@ func (s *Server) portal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.runScoped(w, r, sc, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		company, err := queryJSONOne(ctx, tx, `SELECT name_en, name_ar, base_currency, local_currency FROM companies WHERE id = $1`, cid)
+		company, err := queryJSONOne(ctx, tx, `SELECT name_en, name_ar, base_currency, local_currency, logo, doc_header, doc_footer, tax_id
+			FROM companies WHERE id = $1`, cid)
+		if err != nil {
+			return nil, err
+		}
+		quotes, err := queryJSON(ctx, tx, `SELECT o.id, o.number, o.order_number, o.status, o.quote_date, o.valid_until, o.currency,
+			o.total::text AS total, o.accepted_at FROM sales_orders o
+			WHERE o.customer_id = $1 AND o.status IN ('sent', 'confirmed', 'done') ORDER BY o.quote_date DESC LIMIT 20`, customer)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +114,8 @@ func (s *Server) portal(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]json.RawMessage{"company": company, "customer": cust, "open_invoices": open, "paid_invoices": paid, "payments": pays}, nil
+		return map[string]json.RawMessage{"company": company, "customer": cust, "open_invoices": open, "paid_invoices": paid, "payments": pays,
+			"quotes": quotes}, nil
 	})
 }
 
