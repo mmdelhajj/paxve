@@ -113,7 +113,7 @@ func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) {
 		type sub struct {
 			ID, Customer, CustomerName, Plan, PlanName, Type, Currency, Revenue, UnitLabel string
 			Fee, Price, Initial                                                            string
-			Override, Current, Previous                                                   *string
+			Override, Current, Previous                                                    *string
 		}
 		rows, err := tx.Query(ctx, `
 			SELECT s.id::text, s.customer_id::text, c.name, p.id::text, p.name, p.billing_type, p.currency::text,
@@ -186,7 +186,7 @@ func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) {
 					lines = append(lines, invLine{Kind: "usage",
 						Description: fmt.Sprintf("%s → %s = %s %s × %s", prev.String(), cur.String(), used.String(), x.UnitLabel, price.String()),
 						Quantity:    used, UnitPrice: price, Amount: used.Mul(price).Round(dec),
-						Meta:        map[string]any{"previous": prev.String(), "current": cur.String(), "used": used.String(), "unit": x.UnitLabel}})
+						Meta: map[string]any{"previous": prev.String(), "current": cur.String(), "used": used.String(), "unit": x.UnitLabel}})
 				}
 			}
 			sum := decimal.Zero

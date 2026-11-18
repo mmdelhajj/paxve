@@ -24,6 +24,8 @@ import Rates from './pages/Rates';
 import TrialBalance from './pages/TrialBalance';
 import Ledger from './pages/Ledger';
 import Developers from './pages/Developers';
+import Import from './pages/Import';
+import { IconFileImport } from '@tabler/icons-react';
 import Customers from './pages/billing/Customers';
 import CustomerDetail from './pages/billing/CustomerDetail';
 import Readings from './pages/billing/Readings';
@@ -40,7 +42,7 @@ import CollectorApp from './pages/collector/CollectorApp';
 
 type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | 'ledger' | 'companies' | 'users' |
   'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup' |
-  'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform';
+  'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform' | 'import';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
@@ -82,6 +84,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'companies', label: 'nav.companies', icon: IconBuilding },
       { key: 'users', label: 'nav.users', icon: IconUsers, roles: ['admin'] },
       { key: 'audit', label: 'nav.audit', icon: IconHistory, roles: ['admin', 'accountant'] },
+      { key: 'import', label: 'nav.import', icon: IconFileImport, roles: ['admin', 'accountant'] },
       { key: 'developers', label: 'nav.developers', icon: IconApi, roles: ['admin'] },
       { key: 'platform', label: 'platform.title', icon: IconWorld },
     ],
@@ -90,7 +93,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
 
 const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users',
   'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss',
-  'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform'];
+  'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform', 'import'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -228,6 +231,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'users' && <Users me={me} />}
         {current === 'audit' && <Audit />}
         {current === 'developers' && <Developers />}
+        {current === 'import' && <Import />}
         {current === 'customers' && <Customers me={me} />}
         {current === 'customer' && <CustomerDetail me={me} id={param} key={param} />}
         {current === 'readings' && <Readings me={me} />}

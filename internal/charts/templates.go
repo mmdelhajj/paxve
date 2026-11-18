@@ -15,7 +15,7 @@ type Template struct {
 	Accounts []Account         `json:"-"`
 	Count    int               `json:"count"`
 	// Billing defaults (account codes) set on the company when the template is loaded.
-	AR, FXGain, FXLoss, Revenue string `json:"-"`
+	AR, FXGain, FXLoss, Revenue string   `json:"-"`
 	Methods                     []Method `json:"-"`
 }
 
