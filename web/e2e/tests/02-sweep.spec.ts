@@ -9,8 +9,12 @@ const pages = ['dashboard', 'customers', 'readings', 'invoices', 'payments', 'ne
   'suppliers', 'bills', 'supplier-payments', 'expenses', 'items', 'stock', 'journal', 'accounts', 'rates', 'recurring', 'bank-rec',
   'employees', 'payroll', 'assets', 'profit-loss', 'balance-sheet', 'trial-balance', 'aging', 'collections', 'ap-aging',
   'stock-valuation', 'expenses-report', 'vat-report', 'generator-report', 'asset-register', 'companies', 'users', 'audit',
-  'import', 'developers', 'print-bills'];
-const mobilePages = ['dashboard', 'customers', 'invoices', 'payments', 'readings', 'journal', 'aging', 'expenses'];
+  'import', 'developers', 'print-bills',
+  // modules L-Q: stock moves, sales and CRM, statements, point of sale (office side), Magic import, security, approvals, consolidation
+  'stock-moves', 'crm', 'activities', 'quotes', 'orders', 'statements', 'sales-report', 'pos-setup', 'pos-sessions', 'pos-report',
+  'magic-import', 'security', 'approvals', 'consolidated'];
+const mobilePages = ['dashboard', 'customers', 'invoices', 'payments', 'readings', 'journal', 'aging', 'expenses',
+  'quotes', 'crm', 'statements', 'approvals', 'security', 'audit'];
 
 test('every page in every language', async ({ browser }) => {
   test.setTimeout(900_000);

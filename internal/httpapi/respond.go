@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -80,6 +81,12 @@ func fail(w http.ResponseWriter, r *http.Request, err error) {
 		case "PXSTA":
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "wrong_status", "detail": pg.Message})
 			return
+		case "PXNFD", "42501":
+			// a referenced document of another company (hidden by company_scope), or a write refused by it
+			if pg.Code == "PXNFD" || strings.Contains(pg.Message, "row-level security") {
+				writeErr(w, http.StatusNotFound, "not_found")
+				return
+			}
 		case "23505":
 			writeErr(w, http.StatusConflict, "duplicate")
 			return

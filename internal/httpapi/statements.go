@@ -142,6 +142,8 @@ func (s *Server) listCustomerStatements(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	onlyBalance := q.Get("only_balance") == "1"
+	// one page of customers at a time (100 by default; each statement is a few queries); has_more says if there are others
+	limit, offset := queryInt(r, "limit", 100, 2000), queryInt(r, "offset", 0, 1<<30)
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		rows, err := tx.Query(ctx, `SELECT c.id::text FROM customers c WHERE c.company_id = $1 AND c.status <> 'closed'
@@ -149,13 +151,17 @@ func (s *Server) listCustomerStatements(w http.ResponseWriter, r *http.Request) 
 			AND (EXISTS (SELECT 1 FROM invoices i WHERE i.customer_id = c.id AND i.status IN ('open', 'partial'))
 			     OR (NOT $5 AND (EXISTS (SELECT 1 FROM invoices i WHERE i.customer_id = c.id AND i.status <> 'void' AND i.issue_date BETWEEN $3::date AND $4::date)
 			                     OR EXISTS (SELECT 1 FROM payments p WHERE p.customer_id = c.id AND p.status = 'posted' AND p.payment_date BETWEEN $3::date AND $4::date))))
-			ORDER BY c.name LIMIT 2000`, cid, area, from, to, onlyBalance)
+			ORDER BY c.name, c.id LIMIT $6 OFFSET $7`, cid, area, from, to, onlyBalance, limit+1, offset)
 		if err != nil {
 			return nil, err
 		}
 		ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
 		if err != nil {
 			return nil, err
+		}
+		hasMore := len(ids) > limit
+		if hasMore {
+			ids = ids[:limit]
 		}
 		out := []map[string]any{}
 		for _, id := range ids {
@@ -170,7 +176,7 @@ func (s *Server) listCustomerStatements(w http.ResponseWriter, r *http.Request) 
 			}
 			out = append(out, map[string]any{"customer": cust, "currencies": st})
 		}
-		return map[string]any{"from": from, "to": to, "rows": out}, nil
+		return map[string]any{"from": from, "to": to, "rows": out, "has_more": hasMore, "offset": offset}, nil
 	})
 }
 

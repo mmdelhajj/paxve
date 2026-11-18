@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -53,7 +54,7 @@ func (s *Server) portalScope(w http.ResponseWriter, r *http.Request) (db.Scope, 
 		serverErr(w, r, err)
 		return db.Scope{}, "", "", false
 	}
-	return db.Scope{TenantID: tid, IP: ip}, cid, customer, true
+	return db.Scope{TenantID: tid, IP: ip, CompanyID: cid}, cid, customer, true
 }
 
 func (s *Server) runScoped(w http.ResponseWriter, r *http.Request, sc db.Scope, fn func(ctx context.Context, tx pgx.Tx) (any, error)) {
@@ -194,8 +195,14 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		kpis, err := queryJSON(ctx, tx, `
-			WITH cur AS (SELECT DISTINCT currency AS c FROM invoices WHERE company_id = $1
-			             UNION SELECT DISTINCT currency FROM payments WHERE company_id = $1)
+			-- the currencies used, by skipping through the (company_id, currency) indexes
+			WITH RECURSIVE ic AS (
+			    SELECT (SELECT min(currency) FROM invoices WHERE company_id = $1) AS c
+			    UNION ALL SELECT (SELECT min(currency) FROM invoices WHERE company_id = $1 AND currency > ic.c) FROM ic WHERE ic.c IS NOT NULL),
+			  pc AS (
+			    SELECT (SELECT min(currency) FROM payments WHERE company_id = $1) AS c
+			    UNION ALL SELECT (SELECT min(currency) FROM payments WHERE company_id = $1 AND currency > pc.c) FROM pc WHERE pc.c IS NOT NULL),
+			  cur AS (SELECT c FROM ic WHERE c IS NOT NULL UNION SELECT c FROM pc WHERE c IS NOT NULL)
 			SELECT cur.c AS currency,
 			  coalesce((SELECT sum(total) FROM invoices WHERE company_id = $1 AND currency = cur.c AND status <> 'void' AND kind = 'invoice'
 			            AND issue_date BETWEEN $2::date AND $3::date), 0)::text AS billed,
@@ -209,6 +216,12 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
+		key := cid + "|" + month
+		if hv, ok := dashCache.get(key); ok {
+			return map[string]any{"month": month, "base_currency": base, "kpis": kpis, "counts": hv.counts,
+				"series": hv.series, "collectors": hv.collectors, "outstanding_by_area": hv.areas, "summary_at": hv.at}, nil
+		}
+		started := time.Now()
 		counts, err := queryJSONOne(ctx, tx, `SELECT
 			(SELECT count(*) FROM subscriptions WHERE company_id = $1 AND status = 'active') AS active_subscriptions,
 			(SELECT count(*) FROM customers WHERE company_id = $1 AND status = 'active') AS active_customers,
@@ -249,8 +262,12 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
+		hv := dashHeavy{counts: counts, series: series, collectors: collectors, areas: areas, at: time.Now()}
+		if time.Since(started) > 300*time.Millisecond {
+			dashCache.put(key, hv) // large company: the charts and counts are reused for a minute
+		}
 		return map[string]any{"month": month, "base_currency": base, "kpis": kpis, "counts": counts,
-			"series": series, "collectors": collectors, "outstanding_by_area": areas}, nil
+			"series": series, "collectors": collectors, "outstanding_by_area": areas, "summary_at": hv.at}, nil
 	})
 }
 
@@ -296,4 +313,38 @@ func (s *Server) printInvoices(w http.ResponseWriter, r *http.Request) {
 		}
 		return map[string]any{"company": company, "rows": rows, "portal_base": publicURL() + "/#/p/"}, nil
 	})
+}
+
+// dashHeavy: the slow, slowly-changing parts of the dashboard (counts, 12-month charts, rankings).
+// For large companies (those parts take > 300 ms) they are kept for a minute per company and month;
+// the money figures at the top (kpis) are always read fresh.
+type dashHeavy struct {
+	counts, series, collectors, areas json.RawMessage
+	at                                time.Time
+}
+
+type dashStore struct {
+	mu sync.Mutex
+	m  map[string]dashHeavy
+}
+
+var dashCache = &dashStore{m: map[string]dashHeavy{}}
+
+func (d *dashStore) get(key string) (dashHeavy, bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	v, ok := d.m[key]
+	if !ok || time.Since(v.at) > time.Minute {
+		return dashHeavy{}, false
+	}
+	return v, true
+}
+
+func (d *dashStore) put(key string, v dashHeavy) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if len(d.m) > 5000 {
+		d.m = map[string]dashHeavy{}
+	}
+	d.m[key] = v
 }

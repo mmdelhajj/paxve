@@ -143,13 +143,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/reports/consolidated", s.auth(s.consolidatedReport))
 
 	// outbound webhooks
-	mux.Handle("GET "+v+"/companies/{cid}/webhooks", s.auth(sessionOnly(s.listWebhooks)))
-	mux.Handle("POST "+v+"/companies/{cid}/webhooks", s.auth(sessionOnly(s.saveWebhook)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/webhooks/{id}", s.auth(sessionOnly(s.saveWebhook)))
-	mux.Handle("POST "+v+"/companies/{cid}/webhooks/{id}/rotate", s.auth(sessionOnly(s.rotateWebhookSecret)))
-	mux.Handle("POST "+v+"/companies/{cid}/webhooks/{id}/test", s.auth(sessionOnly(s.testWebhook)))
-	mux.Handle("GET "+v+"/companies/{cid}/webhooks/{id}/deliveries", s.auth(sessionOnly(s.listDeliveries)))
-	mux.Handle("POST "+v+"/companies/{cid}/webhook-deliveries/{id}/retry", s.auth(sessionOnly(s.retryDelivery)))
+	// (API keys may manage webhooks too, within their scopes: api.view / api.create)
+	mux.Handle("GET "+v+"/companies/{cid}/webhooks", s.auth(s.listWebhooks))
+	mux.Handle("POST "+v+"/companies/{cid}/webhooks", s.auth(s.saveWebhook))
+	mux.Handle("PATCH "+v+"/companies/{cid}/webhooks/{id}", s.auth(s.saveWebhook))
+	mux.Handle("POST "+v+"/companies/{cid}/webhooks/{id}/rotate", s.auth(s.rotateWebhookSecret))
+	mux.Handle("POST "+v+"/companies/{cid}/webhooks/{id}/test", s.auth(s.testWebhook))
+	mux.Handle("GET "+v+"/companies/{cid}/webhooks/{id}/deliveries", s.auth(s.listDeliveries))
+	mux.Handle("POST "+v+"/companies/{cid}/webhook-deliveries/{id}/retry", s.auth(s.retryDelivery))
 
 	// reference data
 	mux.Handle("GET "+v+"/currencies", s.field(s.listCurrencies))
@@ -225,7 +226,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/companies/{cid}/billing/jobs", s.auth(s.listBillingJobs))
 	mux.Handle("GET "+v+"/companies/{cid}/billing/jobs/{id}", s.auth(s.getBillingJob))
 	mux.Handle("POST "+v+"/companies/{cid}/invoices/{id}/credit-note", s.auth(s.approvable("credit_note", s.createCreditNote)))
-	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/refunds", s.auth(s.approvable("credit_note,payment", s.createRefund)))
+	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/refunds", s.auth(s.approvable("credit_note,refund,payment", s.createRefund)))
 	mux.Handle("POST "+v+"/companies/{cid}/bills/{id}/debit-note", s.auth(s.approvable("credit_note", s.createDebitNote)))
 	mux.Handle("POST "+v+"/companies/{cid}/stock/docs/{id}/void", s.auth(s.approvable("void", s.voidStockDoc)))
 	mux.Handle("GET "+v+"/companies/{cid}/stock/transfers", s.auth(s.listStockTransfers))
@@ -353,7 +354,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/companies/{cid}/pos/orders", s.field(s.listPosOrders))
 	mux.Handle("POST "+v+"/companies/{cid}/pos/orders", s.field(s.createPosOrder))
 	mux.Handle("GET "+v+"/companies/{cid}/pos/orders/{id}", s.field(s.getPosOrder))
-	mux.Handle("POST "+v+"/companies/{cid}/pos/orders/{id}/refund", s.field(s.refundPosOrder))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/orders/{id}/refund", s.field(s.approvable("refund", s.refundPosOrder)))
 	mux.Handle("POST "+v+"/companies/{cid}/pos/customers", s.field(s.posQuickCustomer))
 	mux.Handle("GET "+v+"/companies/{cid}/reports/pos", s.auth(s.posReport))
 
@@ -509,16 +510,38 @@ type principalKey struct{}
 // context values, so clients cannot forge it.
 type approvedExecKey struct{}
 
+// approvedExec: the stored call runs as the person who asked (requester), with all of their permission
+// and company checks, and the approver is recorded next to them (audit log, documents).
 type approvedExec struct {
-	p       *Principal
-	pattern string
+	p          *Principal // requester, loaded fresh when the request is approved
+	approverID string
+	approvalID string
+	pattern    string
 }
 
 func principal(r *http.Request) *Principal { return r.Context().Value(principalKey{}).(*Principal) }
 
 func scope(r *http.Request) db.Scope {
 	p := principal(r)
-	return db.Scope{TenantID: p.TenantID, UserID: p.ID, APIKeyID: p.APIKeyID, IP: clientIP(r)}
+	sc := db.Scope{TenantID: p.TenantID, UserID: p.ID, APIKeyID: p.APIKeyID, IP: clientIP(r),
+		CompanyID: urlCompany(r), CompanyIDs: p.CompanyIDs}
+	if ex, ok := r.Context().Value(approvedExecKey{}).(*approvedExec); ok {
+		sc.ApprovedBy, sc.ApprovalID = ex.approverID, ex.approvalID
+	}
+	return sc
+}
+
+// urlCompany: the {cid} of the route ("" when the route has none). A malformed id becomes the nil UUID,
+// so row-level security shows nothing rather than everything.
+func urlCompany(r *http.Request) string {
+	cid := r.PathValue("cid")
+	if cid == "" {
+		return ""
+	}
+	if !isUUID(cid) {
+		return "00000000-0000-0000-0000-000000000000"
+	}
+	return cid
 }
 
 func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, error) {
@@ -618,7 +641,7 @@ func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) htt
 				writeErr(w, http.StatusForbidden, "forbidden")
 				return
 			}
-			next(w, r, ex.p, true)
+			next(w, r, ex.p, false) // the requester must still hold the permission and the company
 			return
 		}
 		if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {

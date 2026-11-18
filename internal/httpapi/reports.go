@@ -5,9 +5,16 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/shopspring/decimal"
 
 	"github.com/mmdelhajj/paxve/internal/db"
 )
+
+// ledgerTotals: posted totals per account and currency of company cid between two dates (SQL arguments),
+// joined to the account as "a" (see account_totals, migration 00023).
+func ledgerTotals(cid, from, to string) string {
+	return `account_totals(` + cid + `, ` + from + `::date, ` + to + `::date) l JOIN accounts a ON a.id = l.account_id`
+}
 
 type tbRow struct {
 	AccountID string `json:"account_id"`
@@ -52,11 +59,9 @@ func (s *Server) trialBalance(w http.ResponseWriter, r *http.Request) {
 		rows, err := tx.Query(ctx, `
 			SELECT a.id::text, a.code, a.name, a.type,
 			       sum(l.base_debit)::text, sum(l.base_credit)::text, (sum(l.base_debit) - sum(l.base_credit))::text
-			FROM journal_lines l
-			JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
-			JOIN accounts a ON a.id = l.account_id
-			WHERE e.company_id = $1 AND e.entry_date BETWEEN $2::date AND $3::date
+			FROM `+ledgerTotals("$1", "$2", "$3")+`
 			GROUP BY a.id, a.code, a.name, a.type
+			HAVING sum(l.base_debit) <> 0 OR sum(l.base_credit) <> 0
 			ORDER BY a.code`, cid, from, to)
 		if err != nil {
 			return err
@@ -64,10 +69,14 @@ func (s *Server) trialBalance(w http.ResponseWriter, r *http.Request) {
 		if out, err = pgx.CollectRows(rows, pgx.RowToStructByPos[tbRow]); err != nil {
 			return err
 		}
-		return tx.QueryRow(ctx, `
-			SELECT coalesce(sum(l.base_debit), 0)::text, coalesce(sum(l.base_credit), 0)::text
-			FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
-			WHERE e.company_id = $1 AND e.entry_date BETWEEN $2::date AND $3::date`, cid, from, to).Scan(&totalDr, &totalCr)
+		dr, cr := decimal.Zero, decimal.Zero
+		for _, row := range out {
+			d, _ := decimal.NewFromString(row.Debit)
+			c, _ := decimal.NewFromString(row.Credit)
+			dr, cr = dr.Add(d), cr.Add(c)
+		}
+		totalDr, totalCr = dr.StringFixed(4), cr.StringFixed(4)
+		return nil
 	})
 	if err != nil {
 		fail(w, r, err)
@@ -113,10 +122,16 @@ func (s *Server) accountLedger(w http.ResponseWriter, r *http.Request) {
 		if base, err = companyBase(ctx, tx, cid); err != nil {
 			return err
 		}
+		var known bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM accounts WHERE id = $1 AND company_id = $2)`, acc, cid).Scan(&known); err != nil {
+			return err
+		}
+		if !known {
+			return notFound()
+		}
 		if err := tx.QueryRow(ctx, `
 			SELECT coalesce(sum(l.base_debit - l.base_credit), 0)::text
-			FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
-			WHERE e.company_id = $1 AND l.account_id = $2 AND e.entry_date < $3::date`, cid, acc, from).Scan(&opening); err != nil {
+			FROM account_totals($1, '0001-01-01'::date, $3::date - 1) l WHERE l.account_id = $2`, cid, acc, from).Scan(&opening); err != nil {
 			return err
 		}
 		rows, err := tx.Query(ctx, `

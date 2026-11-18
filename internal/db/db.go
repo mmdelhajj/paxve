@@ -16,6 +16,29 @@ type Scope struct {
 	UserID   string
 	APIKeyID string
 	IP       string
+	// CompanyID: the company of the request URL. When set, row-level security hides every other
+	// company's rows (policy company_scope), whatever the query says.
+	CompanyID string
+	// CompanyIDs: the companies the user may open (nil = all). Enforced the same way.
+	CompanyIDs []string
+	// ApprovedBy / ApprovalID: set while an approved request is executed for its requester.
+	ApprovedBy string
+	ApprovalID string
+}
+
+// companyList renders CompanyIDs as a PostgreSQL array literal ("" = no limit).
+func (s Scope) companyList() string {
+	if s.CompanyIDs == nil {
+		return ""
+	}
+	out := "{"
+	for i, c := range s.CompanyIDs {
+		if i > 0 {
+			out += ","
+		}
+		out += c
+	}
+	return out + "}"
 }
 
 // InTenant runs fn in a transaction where every query only sees the rows of
@@ -30,8 +53,12 @@ func InTenant(ctx context.Context, pool *pgxpool.Pool, s Scope, fn func(pgx.Tx) 
 			`SELECT set_config('app.tenant_id', $1, true),
 			        set_config('app.user_id', $2, true),
 			        set_config('app.ip', $3, true),
-			        set_config('app.api_key_id', $4, true)`,
-			s.TenantID, s.UserID, s.IP, s.APIKeyID)
+			        set_config('app.api_key_id', $4, true),
+			        set_config('app.company_id', $5, true),
+			        set_config('app.company_ids', $6, true),
+			        set_config('app.approved_by', $7, true),
+			        set_config('app.approval_id', $8, true)`,
+			s.TenantID, s.UserID, s.IP, s.APIKeyID, s.CompanyID, s.companyList(), s.ApprovedBy, s.ApprovalID)
 		if err != nil {
 			return err
 		}

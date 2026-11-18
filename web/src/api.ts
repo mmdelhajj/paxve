@@ -77,6 +77,9 @@ export interface AuditEntry {
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   ip: string | null;
+  company_id?: string | null;
+  approved_by?: string | null;
+  approval_id?: string | null;
 }
 
 export interface Currency {

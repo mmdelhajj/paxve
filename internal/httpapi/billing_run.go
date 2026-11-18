@@ -257,7 +257,7 @@ func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) {
 	}
 	if jobID != "" {
 		sc := scope(r)
-		go s.processBillingJob(context.WithoutCancel(r.Context()), db.Scope{TenantID: sc.TenantID, UserID: sc.UserID, IP: sc.IP}, cid, jobID)
+		go s.processBillingJob(context.WithoutCancel(r.Context()), db.Scope{TenantID: sc.TenantID, UserID: sc.UserID, IP: sc.IP, CompanyID: cid}, cid, jobID)
 		s.run(w, r, status, func(ctx context.Context, tx pgx.Tx) (any, error) {
 			return loadBillingJob(ctx, tx, cid, jobID)
 		})
@@ -405,6 +405,6 @@ func (s *Server) ResumeBillingJobs(ctx context.Context) {
 		return
 	}
 	for _, j := range jobs {
-		go s.processBillingJob(ctx, db.Scope{TenantID: j.tenant, UserID: j.user}, j.company, j.id)
+		go s.processBillingJob(ctx, db.Scope{TenantID: j.tenant, UserID: j.user, CompanyID: j.company}, j.company, j.id)
 	}
 }

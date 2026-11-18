@@ -15,6 +15,9 @@ Live: https://paxve.com
 | **Billing** | Customers, areas, plans (fixed monthly or metered: base fee + kWh × price), subscriptions, meter-reading sheets, one-click monthly billing run, manual invoices, printable invoices |
 | **Payments** | Pay in several currencies at once (e.g. USD + LBP), automatic change (rounded to 1,000 / 5,000 LBP if wanted), oldest invoices paid first, customer balances per currency, aging report |
 | **Collectors** | Collector role limited to their areas; mobile collector mode (PWA, works offline, payments queued and synced once — idempotent); Bluetooth ESC/POS receipts (Arabic rendered as image); personal cash boxes and handover |
+| **Sales & CRM** | Product / service catalogue with prices per currency and default tax; quotations → sales orders → deliveries (stock out at average cost) → invoices (full or partial); quotes accepted by the customer on their portal link; customer statements (one or many, print / WhatsApp / SMS / e-mail); leads pipeline (drag-and-drop stages), activities with due dates and owners, notes; logo, header, footer and terms on every printed document |
+| **Credit notes & returns** | Credit notes by amount or by line (stock comes back at its original cost), refunds from a cash box, returns to suppliers, VAT reversed; cancelling any of them undoes it |
+| **Reports & export** | Every report (trial balance, ledger, P&L, balance sheet, aging, VAT, stock, POS, sales…) exports to Excel (RTL in Arabic), CSV or print / PDF; financial reports read daily ledger totals, so they stay fast on millions of journal lines |
 | **Purchases & stock** | Suppliers, purchase bills (AP), supplier payments, expenses, items and warehouses with weighted-average cost, fuel consumption, stock adjustments, stock valuation, AP aging |
 | **Point of sale** | Touch / tablet / phone till: product grid with categories and photos, search, barcode (USB/Bluetooth scanner or camera), discounts, walk-in or named customer, on-account sales, mixed USD/LBP payment with change, offline sales sent once when back online; cashier role, sessions with opening float and counted closing (over/short posted), X/Z reports, returns by line, Bluetooth or printer receipts, POS report by day / session / cashier / product / payment method |
 | **HR & payroll** | Employees (USD or LBP salaries, transport, NSSF flag), advances with monthly recovery, monthly payroll (editable drafts, configurable NSSF rates, posted to 641/645/421/431), salary payment per cash box / bank, payslip print |
@@ -40,7 +43,9 @@ Browser / phone (React 19 + Mantine, PWA)  ──HTTPS──>  Caddy (TLS, HSTS)
   - every business table has `tenant_id` + forced row-level security; the app connects as `paxve_app` (no superuser, no BYPASSRLS, no DELETE on business tables);
   - posted journals balance (deferred constraint trigger) and are immutable; invoices/payments/bills cannot be edited or deleted, only voided (reversal);
   - `paid <= total`, stock never negative, gap-free document numbers, period lock;
-  - every change is written to an append-only `audit_log` (user, API key, IP, before/after).
+  - every change is written to an append-only `audit_log` (user, API key, IP, company, before/after, and the approver when the change came from an approved request);
+  - **company isolation**: each request under `/companies/{cid}/…` sets `app.company_id` (and a user limited to some companies sets `app.company_ids`); a restrictive row-level policy then hides and refuses every row of any other company, and every foreign key between company tables also matches on `company_id`, so no document can point to another company's customer, account or item (checked route by route by `TestCompanyIsolationEveryRoute`);
+  - `ledger_daily` keeps posted totals per day / account / currency (filled by a background worker in journal-number order); `account_totals()` adds the few entries posted since, so reports are exact and fast.
 - Money is `numeric` everywhere (decimal strings in JSON), never floating point.
 
 ## Layout

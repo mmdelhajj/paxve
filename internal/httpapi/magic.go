@@ -397,7 +397,7 @@ func (s *Server) commitMagicImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sc := scope(r)
-	go s.processMagicImport(context.WithoutCancel(r.Context()), db.Scope{TenantID: sc.TenantID, UserID: sc.UserID, IP: sc.IP}, id, d, work, opt)
+	go s.processMagicImport(context.WithoutCancel(r.Context()), db.Scope{TenantID: sc.TenantID, UserID: sc.UserID, IP: sc.IP, CompanyIDs: sc.CompanyIDs}, id, d, work, opt)
 	s.run(w, r, http.StatusAccepted, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		return queryJSONOne(ctx, tx, `SELECT `+magicCols+` FROM magic_imports WHERE id = $1`, id)
 	})

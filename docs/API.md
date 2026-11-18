@@ -137,7 +137,8 @@ it is done when an approver calls `POST /companies/{cid}/approvals/{id}/approve`
 
 ## Webhooks
 
-Register an URL per company (Developers page or `POST /companies/{cid}/webhooks`) for the events
+Register an URL per company (Developers page, or `POST /companies/{cid}/webhooks` with a session or an API key that holds
+`api.create`; `api.view` lists them and their deliveries) for the events
 `invoice.created`, `payment.created`, `customer.created`, `pos.order.created`. Paxve POSTs JSON:
 
 ```json
@@ -161,4 +162,26 @@ def verify(secret, header, body):
 
 These are enforced inside PostgreSQL, so they hold for the API, the web app and any future client:
 balanced and immutable journal entries, period lock, no deletion of issued documents (void = reversal),
-invoices never paid above their total, stock never negative, tenant isolation (row-level security).
+invoices never paid above their total, stock never negative, tenant isolation (row-level security) **and company
+isolation**: under `/companies/{cid}/…` only that company's rows exist for the query, and ids of another company
+(in the path or in the body) answer `404 not_found` — also for users limited to some companies.
+
+## Paging and large companies
+
+- Lists take `limit` / `offset`: customers (100, max 1000), invoices and payments (200, max 2000),
+  journal (100, max 500; also `from` / `to` / `status=draft|posted`).
+- `GET /companies/{cid}/statements` returns 100 customers per call (`limit` up to 2000, `offset`) and `has_more`.
+- `GET /companies/{cid}/reports/aging` returns the 500 largest balances (`limit` up to 5000, `offset`), `has_more`;
+  `totals` always cover everyone.
+- `GET /audit` takes `limit` (max 500), `before=<id>` (older page), `company_id`, `entity_id`; each entry has
+  `company_id`, `approved_by` (name) and `approval_id` when the change came from an approved request.
+- The dashboard's `summary_at` says when its counts and charts were computed (kept up to a minute for very large companies).
+
+## Approvals
+
+A call that needs approval answers `202 {"approval_required":true,"approval_id":…,"kind":…}` (kinds: `void`,
+`credit_note`, `refund`, `payment`). Rules per company: `PUT /companies/{cid}/approval-rules`
+`{"void":true,"credit_note":true,"refunds":true,"payment_over":"500"}` (amount in the base currency; a payment given
+only as `paid_amount` from a cash box is converted from that box's currency). On approval the stored call runs **as
+the requester** — their permissions and company access are checked again at that moment — and the audit log keeps
+the approver.

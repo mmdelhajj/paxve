@@ -1795,16 +1795,16 @@ func (s *Server) expensesReport(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		rows, err := queryJSON(ctx, tx, `SELECT a.id, a.code, a.name, a.name_i18n, sum(l.base_debit - l.base_credit)::text AS amount,
-			count(DISTINCT e.id) AS entries
-			FROM `+postedLines+`
-			WHERE e.company_id = $1 AND a.type = 'expense' AND e.entry_date BETWEEN $2::date AND $3::date
-			GROUP BY a.id ORDER BY sum(l.base_debit - l.base_credit) DESC`, cid, from, to)
+			sum(l.entries) AS entries
+			FROM `+ledgerTotals("$1", "$2", "$3")+`
+			WHERE a.type = 'expense'
+			GROUP BY a.id HAVING sum(l.base_debit - l.base_credit) <> 0 ORDER BY sum(l.base_debit - l.base_credit) DESC`, cid, from, to)
 		if err != nil {
 			return nil, err
 		}
 		var total string
-		if err := tx.QueryRow(ctx, `SELECT coalesce(sum(l.base_debit - l.base_credit), 0)::text FROM `+postedLines+`
-			WHERE e.company_id = $1 AND a.type = 'expense' AND e.entry_date BETWEEN $2::date AND $3::date`, cid, from, to).Scan(&total); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT coalesce(sum(l.base_debit - l.base_credit), 0)::text FROM `+ledgerTotals("$1", "$2", "$3")+`
+			WHERE a.type = 'expense'`, cid, from, to).Scan(&total); err != nil {
 			return nil, err
 		}
 		return map[string]any{"base_currency": base, "from": from, "to": to, "rows": rows, "total": total}, nil

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Center, Grid, Group, Loader, Paper, SimpleGrid, Stack, Table, Text, TextInput, Title } from '@mantine/core';
+import { Badge, Button, Center, Grid, Group, Loader, Paper, SimpleGrid, Stack, Table, Text, TextInput, Title } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { useCompany } from '../company';
@@ -157,7 +157,25 @@ export function Aging() {
   const { t, i18n } = useTranslation();
   const { company, decimalsOf } = useCompany();
   const [asOf, setAsOf] = useState(today());
-  const d = useReport<{ rows: AgingRow[]; totals: AgingRow[] }>(company ? `/companies/${company.id}/reports/aging?as_of=${asOf}` : null);
+  const page = useReport<{ rows: AgingRow[]; totals: AgingRow[]; has_more?: boolean }>(company ? `/companies/${company.id}/reports/aging?as_of=${asOf}` : null);
+  // the server sends the 500 largest balances first; "show more" adds the next ones
+  const [extra, setExtra] = useState<{ rows: AgingRow[]; hasMore: boolean } | null>(null);
+  const [moreBusy, setMoreBusy] = useState(false);
+  useEffect(() => setExtra(null), [page]);
+  const d = page && { ...page, rows: [...page.rows, ...(extra?.rows ?? [])] };
+  const hasMore = extra ? extra.hasMore : !!page?.has_more;
+  async function loadMore() {
+    if (!company || !d) return;
+    setMoreBusy(true);
+    try {
+      const r = await api<{ rows: AgingRow[]; has_more?: boolean }>(`/companies/${company.id}/reports/aging?as_of=${asOf}&offset=${d.rows.length}`);
+      setExtra({ rows: [...(extra?.rows ?? []), ...r.rows], hasMore: !!r.has_more });
+    } catch (e) {
+      notifyError(t, e);
+    } finally {
+      setMoreBusy(false);
+    }
+  }
   if (!company) return null;
   const buckets = ['current', 'd30', 'd60', 'd90', 'over90'] as const;
   return (
@@ -215,6 +233,11 @@ export function Aging() {
               </Table.ScrollContainer>
             )}
           </Paper>
+          {hasMore && (
+            <Group justify="center" className="no-print">
+              <Button variant="default" loading={moreBusy} onClick={() => void loadMore()}>{t('common.showMore')}</Button>
+            </Group>
+          )}
         </>
       )}
     </Stack>

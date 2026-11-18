@@ -122,13 +122,13 @@ func (s *Server) consolidatedReport(w http.ResponseWriter, r *http.Request) {
 		}
 		byCode := map[string]*line{}
 		var types []string
-		dateSQL := `e.entry_date BETWEEN $2::date AND $3::date`
+		fromSQL := "$2"
 		switch report {
 		case "profit-loss":
 			types = []string{"income", "expense"}
 		case "balance-sheet":
 			types = []string{"asset", "liability", "equity", "income", "expense"}
-			dateSQL = `e.entry_date <= $3::date AND $2::date IS NOT NULL`
+			fromSQL = "'0001-01-01'"
 		default:
 			types = []string{"asset", "liability", "equity", "income", "expense"}
 		}
@@ -136,10 +136,8 @@ func (s *Server) consolidatedReport(w http.ResponseWriter, r *http.Request) {
 		for _, c := range comps {
 			rows, err := tx.Query(ctx, `
 				SELECT a.code, a.name, a.type, sum(l.base_debit)::text, sum(l.base_credit)::text
-				FROM journal_lines l
-				JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
-				JOIN accounts a ON a.id = l.account_id
-				WHERE e.company_id = $1 AND `+dateSQL+` AND a.type = ANY ($4::text[])
+				FROM `+ledgerTotals("$1", fromSQL, "$3")+`
+				WHERE a.type = ANY ($4::text[]) AND $2::date IS NOT NULL
 				GROUP BY a.code, a.name, a.type`, c.ID, from, to, types)
 			if err != nil {
 				return nil, err

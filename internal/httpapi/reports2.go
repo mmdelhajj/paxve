@@ -14,10 +14,6 @@ import (
 
 // Financial statements in the company base currency, from posted journal lines.
 
-const postedLines = `journal_lines l
-	JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
-	JOIN accounts a ON a.id = l.account_id`
-
 // profitLoss: income (credit - debit) and expenses (debit - credit) for a period.
 func (s *Server) profitLoss(w http.ResponseWriter, r *http.Request) {
 	from, to, ok := dateRange(r)
@@ -34,8 +30,8 @@ func (s *Server) profitLoss(w http.ResponseWriter, r *http.Request) {
 		rows, err := queryJSON(ctx, tx, `
 			SELECT a.id, a.code, a.name, a.name_i18n, a.type,
 			       (CASE WHEN a.type = 'income' THEN sum(l.base_credit - l.base_debit) ELSE sum(l.base_debit - l.base_credit) END)::text AS amount
-			FROM `+postedLines+`
-			WHERE e.company_id = $1 AND a.type IN ('income', 'expense') AND e.entry_date BETWEEN $2::date AND $3::date
+			FROM `+ledgerTotals("$1", "$2", "$3")+`
+			WHERE a.type IN ('income', 'expense')
 			GROUP BY a.id ORDER BY a.code`, cid, from, to)
 		if err != nil {
 			return nil, err
@@ -44,7 +40,7 @@ func (s *Server) profitLoss(w http.ResponseWriter, r *http.Request) {
 		if err := tx.QueryRow(ctx, `
 			SELECT coalesce(sum(l.base_credit - l.base_debit) FILTER (WHERE a.type = 'income'), 0)::text,
 			       coalesce(sum(l.base_debit - l.base_credit) FILTER (WHERE a.type = 'expense'), 0)::text
-			FROM `+postedLines+` WHERE e.company_id = $1 AND e.entry_date BETWEEN $2::date AND $3::date`, cid, from, to).Scan(&income, &expense); err != nil {
+			FROM `+ledgerTotals("$1", "$2", "$3"), cid, from, to).Scan(&income, &expense); err != nil {
 			return nil, err
 		}
 		inc, _ := decimal.NewFromString(income)
@@ -73,8 +69,8 @@ func (s *Server) balanceSheet(w http.ResponseWriter, r *http.Request) {
 		rows, err := queryJSON(ctx, tx, `
 			SELECT a.id, a.code, a.name, a.name_i18n, a.type,
 			       (CASE WHEN a.type = 'asset' THEN sum(l.base_debit - l.base_credit) ELSE sum(l.base_credit - l.base_debit) END)::text AS amount
-			FROM `+postedLines+`
-			WHERE e.company_id = $1 AND a.type IN ('asset', 'liability', 'equity') AND e.entry_date <= $2::date
+			FROM `+ledgerTotals("$1", "'0001-01-01'", "$2")+`
+			WHERE a.type IN ('asset', 'liability', 'equity')
 			GROUP BY a.id HAVING sum(l.base_debit - l.base_credit) <> 0 ORDER BY a.code`, cid, to)
 		if err != nil {
 			return nil, err
@@ -85,7 +81,7 @@ func (s *Server) balanceSheet(w http.ResponseWriter, r *http.Request) {
 			       coalesce(sum(l.base_credit - l.base_debit) FILTER (WHERE a.type = 'liability'), 0)::text,
 			       coalesce(sum(l.base_credit - l.base_debit) FILTER (WHERE a.type = 'equity'), 0)::text,
 			       coalesce(sum(l.base_credit - l.base_debit) FILTER (WHERE a.type IN ('income', 'expense')), 0)::text
-			FROM `+postedLines+` WHERE e.company_id = $1 AND e.entry_date <= $2::date`, cid, to).Scan(&assets, &liab, &equity, &result); err != nil {
+			FROM `+ledgerTotals("$1", "'0001-01-01'", "$2"), cid, to).Scan(&assets, &liab, &equity, &result); err != nil {
 			return nil, err
 		}
 		l, _ := decimal.NewFromString(liab)
@@ -104,6 +100,7 @@ func (s *Server) agingReport(w http.ResponseWriter, r *http.Request) {
 		asOf = today()
 	}
 	area := r.URL.Query().Get("area_id")
+	limit, offset := queryInt(r, "limit", 500, 5000), queryInt(r, "offset", 0, 1<<30)
 	if !validDate(asOf) || (area != "" && !isUUID(area)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
@@ -123,7 +120,7 @@ func (s *Server) agingReport(w http.ResponseWriter, r *http.Request) {
 			FROM invoices i JOIN customers c ON c.id = i.customer_id LEFT JOIN areas ar ON ar.id = c.area_id
 			WHERE `+where+`
 			GROUP BY c.id, c.code, c.name, c.phone, ar.name, i.currency
-			ORDER BY sum(i.total - i.paid) DESC`, cid, asOf, area)
+			ORDER BY sum(i.total - i.paid) DESC, c.id LIMIT $4 OFFSET $5`, cid, asOf, area, limit+1, offset)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +129,16 @@ func (s *Server) agingReport(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"as_of": asOf, "rows": rows, "totals": totals}, nil
+		var list []json.RawMessage
+		_ = json.Unmarshal(rows, &list)
+		hasMore := len(list) > limit
+		if hasMore {
+			list = list[:limit]
+		}
+		if list == nil {
+			list = []json.RawMessage{}
+		}
+		return map[string]any{"as_of": asOf, "rows": list, "totals": totals, "has_more": hasMore, "offset": offset}, nil
 	})
 }
 
@@ -173,10 +179,11 @@ func (s *Server) cashBalances(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		return queryJSON(ctx, tx, `
 			SELECT m.id, m.name, m.kind, m.currency, m.user_id, u.full_name AS user_name, a.code AS account_code,
-			       coalesce((SELECT sum(l.debit - l.credit) FROM journal_lines l
-			                 JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
-			                 WHERE l.account_id = m.account_id AND l.currency = m.currency), 0)::text AS balance
+			       coalesce(t.balance, 0)::text AS balance
 			FROM payment_methods m JOIN accounts a ON a.id = m.account_id LEFT JOIN users u ON u.id = m.user_id
+			LEFT JOIN (SELECT account_id, currency, sum(debit - credit) AS balance
+			           FROM account_totals($1, '0001-01-01'::date, '9999-12-31'::date) GROUP BY account_id, currency) t
+			  ON t.account_id = m.account_id AND t.currency = m.currency
 			WHERE m.company_id = $1 AND m.is_active AND (NOT $2 OR m.user_id = app_user())
 			ORDER BY m.user_id NULLS FIRST, m.sort, m.name`, cid, isCollector(r))
 	})

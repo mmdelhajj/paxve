@@ -720,12 +720,11 @@ func (s *Server) vatReport(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		rows, err := queryJSON(ctx, tx, `
+			WITH tot AS MATERIALIZED (SELECT * FROM account_totals($1, $2::date, $3::date))
 			SELECT t.id, t.name, trim_scale(t.rate)::text AS rate,
-			  coalesce((SELECT sum(l.base_credit - l.base_debit) FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
-			            WHERE l.account_id = t.account_id AND e.company_id = $1 AND e.entry_date BETWEEN $2::date AND $3::date), 0)::text AS collected,
-			  coalesce((SELECT sum(l.base_debit - l.base_credit) FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
-			            WHERE l.account_id = t.purchase_account_id AND t.purchase_account_id IS DISTINCT FROM t.account_id
-			              AND e.company_id = $1 AND e.entry_date BETWEEN $2::date AND $3::date), 0)::text AS recoverable,
+			  coalesce((SELECT sum(l.base_credit - l.base_debit) FROM tot l WHERE l.account_id = t.account_id), 0)::text AS collected,
+			  coalesce((SELECT sum(l.base_debit - l.base_credit) FROM tot l
+			            WHERE l.account_id = t.purchase_account_id AND t.purchase_account_id IS DISTINCT FROM t.account_id), 0)::text AS recoverable,
 			  -- taxable bases in base currency (each document at its own booking rate), less credit / debit notes in the period
 			  round(coalesce((SELECT sum(il.amount / `+docRate("i")+`) FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id
 			            WHERE il.tax_rate_id = t.id AND i.status <> 'void' AND i.issue_date BETWEEN $2::date AND $3::date), 0)
@@ -750,8 +749,7 @@ func (s *Server) vatReport(w http.ResponseWriter, r *http.Request) {
 			SELECT coalesce(sum(l.base_credit - l.base_debit) FILTER (WHERE l.account_id IN (SELECT account_id FROM tax_rates WHERE company_id = $1)), 0)::text,
 			       coalesce(sum(l.base_debit - l.base_credit) FILTER (WHERE l.account_id IN (SELECT purchase_account_id FROM tax_rates WHERE company_id = $1)
 			                AND l.account_id NOT IN (SELECT account_id FROM tax_rates WHERE company_id = $1 AND account_id IS NOT NULL)), 0)::text
-			FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
-			WHERE e.company_id = $1 AND e.entry_date BETWEEN $2::date AND $3::date`, cid, from, to).Scan(&collected, &recoverable); err != nil {
+			FROM account_totals($1, $2::date, $3::date) l`, cid, from, to).Scan(&collected, &recoverable); err != nil {
 			return nil, err
 		}
 		c, _ := decimal.NewFromString(collected)

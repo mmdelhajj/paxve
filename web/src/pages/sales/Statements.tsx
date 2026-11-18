@@ -138,6 +138,8 @@ export default function Statements({ me }: { me: Me }) {
   const [channel, setChannel] = useState('whatsapp');
   const [busy, setBusy] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [more, setMore] = useState(false);
 
   useEffect(() => {
     if (company) api<Area[]>(`/companies/${company.id}/areas`).then(setAreas).catch(() => {});
@@ -145,11 +147,28 @@ export default function Statements({ me }: { me: Me }) {
   const load = useCallback(() => {
     if (!company) return;
     setRows(null);
-    api<{ rows: { customer: StmtCustomer; currencies: StmtCurrency[] }[] }>(
+    api<{ rows: { customer: StmtCustomer; currencies: StmtCurrency[] }[]; has_more?: boolean }>(
       `/companies/${company.id}/statements?from=${from}&to=${to}&area_id=${area ?? ''}&only_balance=${onlyBalance ? 1 : 0}`)
-      .then((r) => { setRows(r.rows); setPicked(new Set(r.rows.map((x) => x.customer.id))); }).catch((e) => notifyError(t, e));
+      .then((r) => { setRows(r.rows); setHasMore(!!r.has_more); setPicked(new Set(r.rows.map((x) => x.customer.id))); }).catch((e) => notifyError(t, e));
   }, [company, from, to, area, onlyBalance, t]);
   useEffect(load, [load]);
+
+  /** next page of customers (the server sends 200 at a time) */
+  async function loadMore() {
+    if (!company || !rows) return;
+    setMore(true);
+    try {
+      const r = await api<{ rows: { customer: StmtCustomer; currencies: StmtCurrency[] }[]; has_more?: boolean }>(
+        `/companies/${company.id}/statements?from=${from}&to=${to}&area_id=${area ?? ''}&only_balance=${onlyBalance ? 1 : 0}&offset=${rows.length}`);
+      setRows([...rows, ...r.rows]);
+      setHasMore(!!r.has_more);
+      setPicked((p) => { const n = new Set(p); r.rows.forEach((x) => n.add(x.customer.id)); return n; });
+    } catch (e) {
+      notifyError(t, e);
+    } finally {
+      setMore(false);
+    }
+  }
 
   async function send() {
     if (!company) return;
@@ -226,6 +245,11 @@ export default function Statements({ me }: { me: Me }) {
           </Table.ScrollContainer>
         )}
       </Paper>
+      {hasMore && (
+        <Group justify="center" className="no-print">
+          <Button variant="default" loading={more} onClick={() => void loadMore()}>{t('common.showMore')}</Button>
+        </Group>
+      )}
       {printing && docC && (
         <div className="print-doc">
           {chosen.map((r) => (

@@ -68,20 +68,59 @@ func (s *Server) listEntries(w http.ResponseWriter, r *http.Request) {
 		offset = 0
 	}
 	status := q.Get("status")
+	from, to := q.Get("from"), q.Get("to")
+	if from == "" {
+		from = "0001-01-01"
+	}
+	if to == "" {
+		to = "9999-12-31"
+	}
+	if !validDate(from) || !validDate(to) || (status != "" && status != "draft" && status != "posted") {
+		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
 	out := []entrySummary{}
 	err := db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
 		if _, err := companyBase(ctx, tx, cid); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT `+entrySummaryCols+` FROM journal_entries e
-			WHERE e.company_id = $1 AND ($2 = '' OR e.status = $2)
-			ORDER BY e.status = 'posted', e.entry_date DESC, e.number DESC NULLS FIRST, e.created_at DESC
-			LIMIT $3 OFFSET $4`, cid, status, limit, offset)
-		if err != nil {
-			return err
+		// drafts first (newest first), then posted entries newest first; each part read through its own
+		// index so a company with a million entries still answers at once
+		if status == "" || status == "draft" {
+			rows, err := tx.Query(ctx, `SELECT `+entrySummaryCols+` FROM journal_entries e
+				WHERE e.company_id = $1 AND e.status = 'draft' AND e.entry_date BETWEEN $2::date AND $3::date
+				ORDER BY e.entry_date DESC, e.created_at DESC LIMIT $4`, cid, from, to, offset+limit)
+			if err != nil {
+				return err
+			}
+			drafts, err := pgx.CollectRows(rows, pgx.RowToStructByPos[entrySummary])
+			if err != nil {
+				return err
+			}
+			if offset < len(drafts) {
+				out = append(out, drafts[offset:]...)
+				offset = 0
+			} else {
+				offset -= len(drafts)
+			}
 		}
-		out, err = pgx.CollectRows(rows, pgx.RowToStructByPos[entrySummary])
-		return err
+		if (status == "" || status == "posted") && len(out) < limit {
+			rows, err := tx.Query(ctx, `SELECT `+entrySummaryCols+` FROM journal_entries e
+				WHERE e.company_id = $1 AND e.status = 'posted' AND e.entry_date BETWEEN $2::date AND $3::date
+				ORDER BY e.entry_date DESC, e.number DESC LIMIT $4 OFFSET $5`, cid, from, to, limit-len(out), offset)
+			if err != nil {
+				return err
+			}
+			posted, err := pgx.CollectRows(rows, pgx.RowToStructByPos[entrySummary])
+			if err != nil {
+				return err
+			}
+			out = append(out, posted...)
+		}
+		if len(out) > limit {
+			out = out[:limit]
+		}
+		return nil
 	})
 	if err != nil {
 		fail(w, r, err)

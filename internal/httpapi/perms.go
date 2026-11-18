@@ -29,7 +29,7 @@ var moduleActions = []struct {
 	{"collections", []string{"view", "create", "edit", "void", "approve"}},
 	{"sales", []string{"view", "create", "void", "approve"}},
 	{"crm", []string{"view", "create", "edit", "manage"}},
-	{"pos", []string{"view", "create", "void", "manage"}},
+	{"pos", []string{"view", "create", "void", "manage", "approve"}},
 	{"suppliers", []string{"view", "create", "edit"}},
 	{"purchasing", []string{"view", "create", "void", "manage", "approve"}},
 	{"expenses", []string{"view", "create", "void", "approve"}},

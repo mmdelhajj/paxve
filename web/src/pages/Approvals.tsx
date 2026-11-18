@@ -9,7 +9,7 @@ import { formatAmount, formatDateTime, notifyError, notifySaved } from '../util'
 
 interface Approval {
   id: string;
-  kind: 'void' | 'credit_note' | 'payment';
+  kind: 'void' | 'credit_note' | 'payment' | 'refund';
   permission: string;
   method: string;
   path: string;
@@ -32,12 +32,25 @@ const statusColor: Record<Approval['status'], string> = {
   pending: 'yellow', approved: 'teal', rejected: 'red', cancelled: 'gray', failed: 'red',
 };
 
-/** What the stored call does, in words: "Void · invoices" etc. */
+/** The stored call, as a route shape (ids replaced) -> translated action name. */
+const ACTIONS: Record<string, string> = {
+  'invoices/:id/void': 'act_invoice_void', 'payments/:id/void': 'act_payment_void', 'journal/:id/reverse': 'act_journal_reverse',
+  'invoices/:id/credit-note': 'act_credit_note', 'customers/:id/refunds': 'act_customer_refund', 'bills/:id/debit-note': 'act_debit_note',
+  'stock/docs/:id/void': 'act_stock_doc_void', 'stock/transfers/:id/void': 'act_stock_transfer_void',
+  'sales/deliveries/:id/void': 'act_delivery_void', 'bills/:id/void': 'act_bill_void', 'supplier-payments': 'act_supplier_payment',
+  'supplier-payments/:id/void': 'act_supplier_payment_void', 'expenses/:id/void': 'act_expense_void',
+  'payroll/:id/void': 'act_payroll_void', 'assets/:id/dispose': 'act_asset_dispose', 'pos/orders/:id/refund': 'act_pos_refund',
+  'payments': 'act_customer_payment',
+};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** What the stored call does, in words ("Void invoice"), in the user's language. */
 function actionLabel(t: (k: string) => string, a: Approval): string {
-  const parts = a.path.split('/').filter(Boolean); // api v1 companies <cid> <thing> <id> <action>
-  const thing = parts[4] ?? '';
-  const act = parts[6] ?? (a.method === 'POST' ? 'create' : a.method.toLowerCase());
-  return `${t(`perm.modules.${a.permission.split('.')[0]}`)} · ${thing} · ${act}`;
+  const parts = a.path.split('/').filter(Boolean).slice(4); // after api / v1 / companies / <cid>
+  const shape = parts.map((p) => (UUID.test(p) ? ':id' : p)).join('/');
+  const key = ACTIONS[shape];
+  if (key) return t(`sec.${key}`);
+  return `${t(`perm.modules.${a.permission.split('.')[0]}`)} · ${parts.filter((p) => !UUID.test(p)).join(' · ')}`;
 }
 
 export default function Approvals({ me }: { me: Me }) {
@@ -133,7 +146,7 @@ function Decide({ me, cid, a, onClose, onDone }: { me: Me; cid: string; a: Appro
           <Code block dir="ltr" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(a.body, null, 2)}</Code>
         )}
         {a.status !== 'pending' && (
-          <Text size="sm">{t(`sec.st_${a.status}`)}{a.decided_by_name ? ` · ${a.decided_by_name}` : ''}{a.note ? ` — ${a.note}` : ''}</Text>
+          <Text size="sm">{t(`sec.st_${a.status}`)}{a.decided_by_name ? ` · ${a.status === 'approved' || a.status === 'failed' ? `${t('sec.approvedBy')}: ` : ''}${a.decided_by_name}` : ''}{a.note ? ` — ${a.note}` : ''}</Text>
         )}
         {a.error && <Code block dir="ltr" c="red">{a.error}</Code>}
         {a.status === 'pending' && a.can_decide && !mine && (
@@ -157,7 +170,7 @@ function Decide({ me, cid, a, onClose, onDone }: { me: Me; cid: string; a: Appro
 
 function ApprovalRules({ cid }: { cid: string }) {
   const { t } = useTranslation();
-  const [rules, setRules] = useState<{ void: boolean; credit_note: boolean; payment_over: string | null } | null>(null);
+  const [rules, setRules] = useState<{ void: boolean; credit_note: boolean; refunds: boolean; payment_over: string | null } | null>(null);
   const [base, setBase] = useState('');
   const [limit, setLimit] = useState('');
   useEffect(() => {
@@ -181,6 +194,7 @@ function ApprovalRules({ cid }: { cid: string }) {
         <Title order={5}>{t('sec.approvalRules')}</Title>
         <Checkbox label={t('sec.ruleVoid')} checked={rules.void} onChange={(e) => void save({ ...rules, void: e.currentTarget.checked })} />
         <Checkbox label={t('sec.ruleCredit')} checked={rules.credit_note} onChange={(e) => void save({ ...rules, credit_note: e.currentTarget.checked })} />
+        <Checkbox label={t('sec.ruleRefunds')} checked={!!rules.refunds} onChange={(e) => void save({ ...rules, refunds: e.currentTarget.checked })} />
         <Group align="flex-end">
           <TextInput label={t('sec.rulePayment')} description={t('sec.rulePaymentHelp', { currency: base })} dir="ltr" w={320}
             inputMode="decimal" value={limit} onChange={(e) => setLimit(e.currentTarget.value.replace(/[^\d.]/g, ''))} rightSection={<Text size="xs">{base}</Text>} />

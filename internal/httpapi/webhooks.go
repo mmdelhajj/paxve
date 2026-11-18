@@ -167,6 +167,13 @@ func (s *Server) listDeliveries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		var known bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM webhooks WHERE id = $1 AND company_id = $2)`, id, cid).Scan(&known); err != nil {
+			return nil, err
+		}
+		if !known {
+			return nil, notFound()
+		}
 		return queryJSON(ctx, tx, `SELECT id, event, status, attempts, response_code, last_error, created_at, sent_at,
 			next_attempt_at, payload FROM webhook_deliveries WHERE webhook_id = $1 AND company_id = $2
 			ORDER BY created_at DESC LIMIT 100`, id, cid)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Badge, Group, Loader, Paper, Stack, Table, Text, Title } from '@mantine/core';
+import { Badge, Button, Group, Loader, Paper, Stack, Table, Text, Title } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { api, type AuditEntry } from '../api';
@@ -35,10 +35,27 @@ function changes(e: AuditEntry, t: TFunction): string {
 export default function Audit() {
   const { t, i18n } = useTranslation();
   const [rows, setRows] = useState<AuditEntry[] | null>(null);
+  const [more, setMore] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const PAGE = 200;
 
   useEffect(() => {
-    api<AuditEntry[]>('/audit').then(setRows).catch((e) => notifyError(t, e));
+    api<AuditEntry[]>(`/audit?limit=${PAGE}`).then((r) => { setRows(r); setMore(r.length === PAGE); }).catch((e) => notifyError(t, e));
   }, [t]);
+
+  async function loadMore() {
+    if (!rows || rows.length === 0) return;
+    setBusy(true);
+    try {
+      const r = await api<AuditEntry[]>(`/audit?limit=${PAGE}&before=${rows[rows.length - 1].id}`);
+      setRows([...rows, ...r]);
+      setMore(r.length === PAGE);
+    } catch (e) {
+      notifyError(t, e);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Stack gap="lg" maw={1100}>
@@ -64,7 +81,10 @@ export default function Audit() {
                 {rows.map((e) => (
                   <Table.Tr key={e.id}>
                     <Table.Td style={{ whiteSpace: 'nowrap' }} c="dimmed">{formatDateTime(e.at)}</Table.Td>
-                    <Table.Td>{e.actor ?? t('audit.system')}</Table.Td>
+                    <Table.Td>
+                      {e.actor ?? t('audit.system')}
+                      {e.approved_by && <Text size="xs" c="dimmed">{t('audit.approvedBy', { name: e.approved_by })}</Text>}
+                    </Table.Td>
                     <Table.Td>
                       <Badge variant="light" color={actionColor[e.action] ?? 'gray'}>
                         {t(`audit.actions.${e.action}`, { defaultValue: e.action })}
@@ -79,6 +99,11 @@ export default function Audit() {
           </Table.ScrollContainer>
         )}
       </Paper>
+      {more && (
+        <Group justify="center">
+          <Button variant="default" loading={busy} onClick={() => void loadMore()}>{t('common.showMore')}</Button>
+        </Group>
+      )}
     </Stack>
   );
 }

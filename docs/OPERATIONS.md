@@ -36,6 +36,28 @@ risky releases: `/usr/local/bin/paxve-backup`.
 
 After changing `deploy/Caddyfile`: `docker compose restart caddy`.
 
+## Background workers
+
+The app runs these in-process (owner connection): message sender, recurring entries (hourly), ISP router actions,
+webhook deliveries, and the **ledger summary** (every 10 s). The ledger worker adds newly posted journal entries to
+`ledger_daily` in journal-number order and stores how far it got in `ledger_watermark`; reports read
+`account_totals()` = summary + entries posted since, so they are exact even if the worker is behind or stopped.
+After a restore or a manual data fix, rebuild the summary for one company:
+
+```sh
+docker compose exec -T db psql -U paxve -d paxve -c "DELETE FROM ledger_daily WHERE company_id = '<cid>'" \
+  -c "DELETE FROM ledger_watermark WHERE company_id = '<cid>'"     # the worker refills it within seconds
+```
+
+## Performance (measured 2026-11-18, this 4 vCPU / 3 GB server)
+
+A throwaway company with 50,000 customers, 600,000 bills, 500,000 payments and 2.2 million journal lines:
+trial balance 0.1 s (was 5.2 s), balance sheet / P&L 0.16 s (5.9 / 4.8 s), journal list < 0.1 s (5 s), cash boxes 0.1 s,
+dashboard 0.35 s (4.4 s; its charts are kept for a minute for such large companies), statements page 0.45 s
+(100 customers per page), aging 1 s (500 rows per page). JIT is turned off for `paxve_app` (it cost up to 1 s per
+report query). Unfiltered payment lists (API only, the screen always sends a date range) still take ~4 s on that size.
+To repeat: `tools/perf/` (README there) — it uses its own postgres container on 127.0.0.1:55433, never production.
+
 ## Health checks
 
 - `GET /api/health` — process up and database reachable.
@@ -94,3 +116,7 @@ create databases and set the `paxve_app` password.
   (AES-256-GCM, `APP_SECRET_KEY`), masked in API responses and excluded from the audit log.
 - Router "test connection" refuses private/loopback/link-local addresses unless `ALLOW_PRIVATE_ROUTERS=true`.
 - CSP `default-src 'self'`, HSTS, X-Frame-Options DENY, nosniff.
+- Company isolation is enforced by PostgreSQL (policy `company_scope` + same-company foreign keys), not only by
+  the handlers; `TestCompanyIsolationEveryRoute` calls every id route of the API with another company's ids.
+- Approved requests run in the requester's name with the requester's current permissions; the audit log records
+  the approver (`approved_by`) and the approval request.

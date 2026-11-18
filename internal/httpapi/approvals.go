@@ -24,6 +24,7 @@ import (
 type approvalRules struct {
 	Void        bool    `json:"void"`
 	CreditNote  bool    `json:"credit_note"`
+	Refunds     bool    `json:"refunds"`      // money paid back to customers: refunds and point-of-sale returns
 	PaymentOver *string `json:"payment_over"` // amount in the company base currency; null = no limit
 }
 
@@ -74,7 +75,7 @@ func (s *Server) putApprovalRules(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// approvable wraps an action. kinds: "void", "credit_note", "payment" or several separated by commas.
+// approvable wraps an action. kinds: "void", "credit_note", "refund", "payment" or several separated by commas.
 func (s *Server) approvable(kinds string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, replay := r.Context().Value(approvedExecKey{}).(*approvedExec); replay {
@@ -96,6 +97,7 @@ func (s *Server) approvable(kinds string, next http.HandlerFunc) http.HandlerFun
 			Amount     string `json:"amount"`
 			PaidAmount string `json:"paid_amount"`
 			Currency   string `json:"currency"`
+			MethodID   string `json:"method_id"`
 			Reason     string `json:"reason"`
 		}
 		_ = json.Unmarshal(body, &fields)
@@ -119,16 +121,28 @@ func (s *Server) approvable(kinds string, next http.HandlerFunc) http.HandlerFun
 					if rules.CreditNote {
 						need = "credit_note"
 					}
+				case "refund":
+					if rules.Refunds {
+						need = "refund"
+					}
 				case "payment":
 					if rules.PaymentOver == nil {
 						continue
 					}
 					limit, _ := decimal.NewFromString(*rules.PaymentOver)
 					amt, ok := money(fields.Amount)
-					if !ok {
-						amt, ok = money(fields.PaidAmount)
-					}
 					cur := strings.ToUpper(fields.Currency)
+					if !ok {
+						// only the amount taken out of the cash box is given: it is in that box's currency
+						amt, ok = money(fields.PaidAmount)
+						if ok && isUUID(fields.MethodID) {
+							var mc string
+							if err := tx.QueryRow(r.Context(), `SELECT currency::text FROM payment_methods WHERE id = $1 AND company_id = $2`,
+								fields.MethodID, cid).Scan(&mc); err == nil && mc != "" {
+								cur = mc
+							}
+						}
+					}
 					if !ok || !currencyRe.MatchString(cur) {
 						continue // the action itself will refuse a bad amount
 					}
@@ -298,9 +312,16 @@ func (s *Server) approveRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// replay the stored call as the approver
+	// replay the stored call for the requester (their permissions and companies are checked again, as of
+	// now), with the approver recorded beside them
+	rq, err := s.loadPrincipal(ctx, db.Scope{TenantID: p.TenantID, UserID: a.requestedBy, IP: clientIP(r)})
+	if err != nil || !rq.Active {
+		s.finishApproval(ctx, r, id, "failed", nil, "requester no longer active")
+		writeJSON(w, http.StatusOK, map[string]any{"status": "failed", "http_status": http.StatusForbidden, "result": nil})
+		return
+	}
 	req, err := http.NewRequestWithContext(context.WithValue(context.WithoutCancel(ctx), approvedExecKey{},
-		&approvedExec{p: p, pattern: a.pattern}), a.method, a.path, bytes.NewReader(a.body))
+		&approvedExec{p: rq, approverID: p.ID, approvalID: id, pattern: a.pattern}), a.method, a.path, bytes.NewReader(a.body))
 	if err != nil {
 		serverErr(w, r, err)
 		return
@@ -317,16 +338,19 @@ func (s *Server) approveRequest(w http.ResponseWriter, r *http.Request) {
 	if !json.Valid(result) {
 		result = nil
 	}
-	err = db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `UPDATE approval_requests SET status = $2, result = $3, error = nullif(left($4, 1000), '') WHERE id = $1`,
-			id, status, result, errText)
-		return err
-	})
-	if err != nil {
+	if err := s.finishApproval(ctx, r, id, status, result, errText); err != nil {
 		serverErr(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": status, "http_status": rec.Code, "result": json.RawMessage(nonEmptyJSON(result))})
+}
+
+func (s *Server) finishApproval(ctx context.Context, r *http.Request, id, status string, result []byte, errText string) error {
+	return db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE approval_requests SET status = $2, result = $3, error = nullif(left($4, 1000), '') WHERE id = $1`,
+			id, status, result, errText)
+		return err
+	})
 }
 
 func nonEmptyJSON(b []byte) []byte {
