@@ -299,6 +299,24 @@ const fr: Messages = {
     genReport: 'Performance des groupes', hours: 'Heures de marche', perHour: 'Par heure', fuelCost: 'Coût carburant', kwhBilled: 'kWh facturés',
     costPerKwh: 'Coût carburant par kWh', genHint: 'Les kWh facturés proviennent des factures au compteur des abonnements reliés aux boîtiers de la station.',
   },
+  dash: {
+    billed: 'Facturé ce mois', billedShort: 'Facturé', collectedShort: 'Encaissé', collected: 'Encaissé ce mois', outstanding: 'Reste dû (tous les mois)',
+    rate: "Taux d'encaissement", rateHint: 'part des factures du mois déjà payée', activeSubs: 'Abonnements actifs',
+    owing: 'Abonnés débiteurs', late60: 'Retard de plus de 60 jours', trend: 'Facturé vs encaissé — 12 derniers mois',
+    byCollector: 'Encaissements par encaisseur (ce mois)', byArea: 'Reste dû par zone',
+    emptyTitle: 'Pas encore de factures', emptyHint: 'Configurez formules et caisses, ajoutez les abonnés, puis générez les factures du mois.',
+    noBillsHint: 'Utilisez « Générer les factures du mois » pour facturer tous les abonnements actifs.',
+  },
+  portal: {
+    invalid: "Ce lien n'est plus valide. Demandez un nouveau lien à votre fournisseur.", youOwe: 'Montant dû',
+    unpaid: 'Factures impayées', paid: 'Factures payées', poweredBy: 'Propulsé par', share: "Lien de l'abonné",
+    shareHint: "Toute personne ayant ce lien peut voir les factures et paiements de cet abonné (sans mot de passe). Envoyez-le par WhatsApp ou SMS.",
+    shareText: 'Vos factures et paiements :', regen: 'Créer un nouveau lien', regenConfirm: "L'ancien lien ne fonctionnera plus. Continuer ?",
+  },
+  bulk: {
+    title: 'Imprimer les factures', a4: 'A4 (3 par page)', thermal: 'Thermique 80 mm', load: 'Afficher', previous: 'Solde impayé précédent',
+    totalDue: 'Total dû', inLocal: 'Total en {{cur}} (taux {{rate}})', scan: 'Scannez le code pour voir votre compte en ligne',
+  },
   errors: {
     invalid_tax: 'Cette taxe ne peut pas être utilisée ici',
     invalid_station: 'Station invalide',

@@ -49,6 +49,7 @@ type Server struct {
 	OwnerPool      *pgxpool.Pool
 	platformAdmins map[string]bool
 	signupLimiter  *limiter
+	portalLimiter  *limiter
 }
 
 func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir string, platformAdmins []string) *Server {
@@ -59,7 +60,7 @@ func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir str
 		}
 	}
 	return &Server{Pool: pool, OwnerPool: ownerPool, Sessions: sessions, WebDir: webDir,
-		limiter: newLimiter(10, 15*time.Minute), signupLimiter: newLimiter(5, time.Hour), platformAdmins: admins}
+		limiter: newLimiter(10, 15*time.Minute), signupLimiter: newLimiter(5, time.Hour), portalLimiter: newLimiter(120, 10*time.Minute), platformAdmins: admins}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -78,6 +79,14 @@ func (s *Server) Handler() http.Handler {
 
 	// SaaS: self sign-up and platform owner console
 	mux.HandleFunc("POST "+v+"/signup", s.signup)
+
+	// customer portal (public, secret link) and dashboard
+	mux.HandleFunc("GET "+v+"/portal/{token}", s.portal)
+	mux.HandleFunc("GET "+v+"/portal/{token}/invoices/{id}", s.portalInvoice)
+	mux.Handle("GET "+v+"/companies/{cid}/customers/{id}/portal", s.field(s.customerPortal))
+	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/portal", s.auth(only(s.customerPortal, entry...)))
+	mux.Handle("GET "+v+"/companies/{cid}/dashboard", s.auth(s.dashboard))
+	mux.Handle("GET "+v+"/companies/{cid}/invoices/print", s.auth(s.printInvoices))
 	mux.Handle("GET "+v+"/platform/tenants", s.auth(s.platformOnly(s.platformTenants)))
 	mux.Handle("PATCH "+v+"/platform/tenants/{id}", s.auth(s.platformOnly(s.platformUpdateTenant)))
 

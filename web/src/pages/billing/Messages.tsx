@@ -185,7 +185,7 @@ function SendWizard() {
           </SimpleGrid>
           {event === 'custom' && (
             <Textarea label={t('msg.text')} autosize minRows={3} value={body} onChange={(e) => setBody(e.currentTarget.value)}
-              description={`${t('msg.placeholders')} {{customer}} {{amount}} {{currency}} {{period}} {{due_date}} {{balance}} {{number}} {{company}}`} />
+              description={`${t('msg.placeholders')} {{customer}} {{amount}} {{currency}} {{period}} {{due_date}} {{balance}} {{number}} {{company}} {{portal_link}}`} />
           )}
           <Group justify="flex-end">
             <Button variant="default" loading={busy} onClick={() => run(true)}>{t('msg.preview')}</Button>
@@ -379,7 +379,7 @@ function TemplateForm({ tp, onClose, onSaved }: { tp: Template | null; onClose: 
         </Group>
         <TextInput label={t('methods.name')} value={f.name} onChange={(e) => setF({ ...f, name: e.currentTarget.value })} />
         <Textarea label={t('msg.text')} autosize minRows={4} dir={f.locale === 'ar' ? 'rtl' : 'ltr'} value={f.body}
-          onChange={(e) => setF({ ...f, body: e.currentTarget.value })} description={`${t('msg.placeholders')} {{customer}} {{amount}} {{currency}} {{period}} {{due_date}} {{balance}} {{number}} {{company}}`} />
+          onChange={(e) => setF({ ...f, body: e.currentTarget.value })} description={`${t('msg.placeholders')} {{customer}} {{amount}} {{currency}} {{period}} {{due_date}} {{balance}} {{number}} {{company}} {{portal_link}}`} />
         <TextInput label={t('msg.waTemplate')} dir="ltr" value={f.wa_template} onChange={(e) => setF({ ...f, wa_template: e.currentTarget.value })}
           description={t('msg.waTemplateHelp')} />
         {tp && <Switch label={t('common.active')} checked={f.is_active} onChange={(e) => setF({ ...f, is_active: e.currentTarget.checked })} />}

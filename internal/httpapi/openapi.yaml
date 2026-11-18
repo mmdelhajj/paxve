@@ -474,7 +474,7 @@ paths:
     patch: { summary: "End or edit an outage {ended_at: 'now' | RFC3339}", responses: { "200": { description: OK } } }
   /companies/{cid}/boxes:
     parameters: [{ $ref: '#/components/parameters/cid' }]
-    get: { summary: Distribution boxes (filter ?station_id=), responses: { "200": { description: OK } } }
+    get: { summary: "Distribution boxes (filter ?station_id=)", responses: { "200": { description: OK } } }
     post: { summary: "Create a box {station_id, code, location}", responses: { "201": { description: Created } } }
   /companies/{cid}/boxes/{id}:
     parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
@@ -495,7 +495,33 @@ paths:
     patch: { summary: Update a tax rate, responses: { "200": { description: OK } } }
   /companies/{cid}/reports/vat:
     parameters: [{ $ref: '#/components/parameters/cid' }]
-    get: { summary: VAT collected vs recoverable for a period (?from&to), responses: { "200": { description: OK } } }
+    get: { summary: "VAT collected vs recoverable for a period (?from&to)", responses: { "200": { description: OK } } }
   /companies/{cid}/reports/generators:
     parameters: [{ $ref: '#/components/parameters/cid' }]
     get: { summary: "Generator performance: hours run, fuel, litres/hour, outages; kWh billed and fuel cost per kWh per station", responses: { "200": { description: OK } } }
+  /companies/{cid}/dashboard:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get:
+      summary: "Home dashboard in one call (?month=YYYY-MM): KPIs per currency (billed, billed_paid, collected, outstanding), counts, 12-month billed/collected series, collections by collector, outstanding by area"
+      responses: { "200": { description: OK } }
+  /companies/{cid}/invoices/print:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get:
+      summary: "Bills for bulk printing (?period, area_id, box_id, station_id, unpaid=1): invoices with lines, previous unpaid balance, LBP total and portal token (max 3000)"
+      responses: { "200": { description: OK } }
+  /companies/{cid}/customers/{id}/portal:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: "The customer's secret portal link {token, url}", responses: { "200": { description: OK } } }
+    post: { summary: "Regenerate the portal link (the old link stops working)", responses: { "200": { description: OK } } }
+  /portal/{token}:
+    parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+    get:
+      summary: "Public customer portal (no authentication, rate limited): company, customer balance, open and paid invoices, recent payments"
+      security: []
+      responses: { "200": { description: OK }, "404": { description: Unknown or revoked link } }
+  /portal/{token}/invoices/{id}:
+    parameters: [{ name: token, in: path, required: true, schema: { type: string } }, { $ref: '#/components/parameters/id' }]
+    get:
+      summary: "Printable invoice of that customer (public, no authentication)"
+      security: []
+      responses: { "200": { description: OK }, "404": { description: Not found } }

@@ -20,12 +20,12 @@ export function notifySaved(t: TFunction) {
 const intl = () => langInfo(i18n.language).intl;
 
 export function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat(intl(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+  return new Intl.DateTimeFormat(intl(), { dateStyle: 'medium', timeStyle: 'short', numberingSystem: 'latn' }).format(new Date(iso));
 }
 
 export function formatDate(iso: string): string {
   const d = iso.length === 10 ? new Date(iso + 'T00:00:00') : new Date(iso);
-  return new Intl.DateTimeFormat(intl(), { dateStyle: 'medium' }).format(d);
+  return new Intl.DateTimeFormat(intl(), { dateStyle: 'medium', numberingSystem: 'latn' }).format(d);
 }
 
 export function today(): string {
@@ -38,7 +38,9 @@ export function formatAmount(v: string | number | null | undefined, decimals = 2
   if (v === null || v === undefined || v === '') return '';
   const n = typeof v === 'number' ? v : Number(v);
   if (!Number.isFinite(n)) return String(v);
-  return new Intl.NumberFormat(intl(), {
+  // Money always uses Latin digits with '.' decimals and ',' grouping (how USD/LBP amounts are written in Lebanon),
+  // except French, which uses its own separators.
+  return new Intl.NumberFormat(intl().startsWith('fr') ? 'fr-FR' : 'en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
     numberingSystem: 'latn',

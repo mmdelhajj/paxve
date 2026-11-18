@@ -12,7 +12,11 @@ import App from './App';
 applyLang(i18n.language);
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    // precache all code chunks of this build so the app keeps working offline
+    navigator.serviceWorker.ready.then((reg) => reg.active?.postMessage('sync')).catch(() => {});
+  });
 }
 
 createRoot(document.getElementById('root')!).render(

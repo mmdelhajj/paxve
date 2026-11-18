@@ -3,7 +3,8 @@ import {
   Alert, Badge, Button, Center, Group, List, Loader, Modal, Paper, SegmentedControl, SimpleGrid, Stack, Table, Text, TextInput,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconBolt, IconSearch } from '@tabler/icons-react';
+import { IconBolt, IconPrinter, IconSearch } from '@tabler/icons-react';
+import { EmptyState, ListSkeleton } from '../../components/ListState';
 import { useTranslation } from 'react-i18next';
 import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
@@ -41,6 +42,7 @@ export default function Invoices({ me }: { me: Me }) {
   return (
     <Stack gap="lg" maw={1200}>
       <PageHeader title={t('invoices.title')} subtitle={company.name_en}>
+        <Button variant="default" leftSection={<IconPrinter size={16} />} component="a" href={`#/print-bills/${period}`}>{t('bulk.title')}</Button>
         {canManage && <Button leftSection={<IconBolt size={16} />} onClick={() => setRunOpen(true)}>{t('billing.run')}</Button>}
       </PageHeader>
       <Group gap="sm" wrap="wrap">
@@ -66,8 +68,8 @@ export default function Invoices({ me }: { me: Me }) {
         </SimpleGrid>
       )}
       <Paper withBorder>
-        {data === null ? <Center p="xl"><Loader size="sm" /></Center> : data.rows.length === 0 ? (
-          <Text c="dimmed" ta="center" p="xl">{t('common.empty')}</Text>
+        {data === null ? <ListSkeleton /> : data.rows.length === 0 ? (
+          <EmptyState hint={canManage ? t('dash.noBillsHint') : undefined} />
         ) : (
           <Table.ScrollContainer minWidth={760}>
             <Table verticalSpacing="xs" highlightOnHover key={i18n.language}>

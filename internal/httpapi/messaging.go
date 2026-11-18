@@ -20,9 +20,9 @@ var providerKinds = map[string]bool{"whatsapp_cloud": true, "twilio_sms": true, 
 
 // Default templates created the first time a company opens Messages.
 var defaultTemplates = []struct{ Event, Locale, Name, Body string }{
-	{"reminder", "ar", "تذكير", "عزيزي {{customer}}، فاتورتك عن شهر {{period}} بقيمة {{amount}} {{currency}} مستحقة. الرصيد: {{balance}}. شكراً - {{company}}"},
-	{"reminder", "en", "Reminder", "Dear {{customer}}, your bill for {{period}} of {{amount}} {{currency}} is due. Balance: {{balance}}. Thank you - {{company}}"},
-	{"reminder", "fr", "Rappel", "Cher(e) {{customer}}, votre facture de {{period}} de {{amount}} {{currency}} est due. Solde : {{balance}}. Merci - {{company}}"},
+	{"reminder", "ar", "تذكير", "عزيزي {{customer}}، فاتورتك عن شهر {{period}} بقيمة {{amount}} {{currency}} مستحقة. الرصيد: {{balance}}. التفاصيل: {{portal_link}} شكراً - {{company}}"},
+	{"reminder", "en", "Reminder", "Dear {{customer}}, your bill for {{period}} of {{amount}} {{currency}} is due. Balance: {{balance}}. Details: {{portal_link}} Thank you - {{company}}"},
+	{"reminder", "fr", "Rappel", "Cher(e) {{customer}}, votre facture de {{period}} de {{amount}} {{currency}} est due. Solde : {{balance}}. Détails : {{portal_link}} Merci - {{company}}"},
 	{"invoice_issued", "ar", "فاتورة جديدة", "عزيزي {{customer}}، صدرت فاتورتك رقم {{number}} عن شهر {{period}} بقيمة {{amount}} {{currency}}، تستحق في {{due_date}}. {{company}}"},
 	{"invoice_issued", "en", "New bill", "Dear {{customer}}, your bill #{{number}} for {{period}} is {{amount}} {{currency}}, due {{due_date}}. {{company}}"},
 	{"invoice_issued", "fr", "Nouvelle facture", "Cher(e) {{customer}}, votre facture n°{{number}} de {{period}} s'élève à {{amount}} {{currency}}, échéance {{due_date}}. {{company}}"},
@@ -127,8 +127,9 @@ func (r *renderer) company() string {
 // customerContext loads the values used by templates for one customer (and optional invoice/payment).
 func (r *renderer) customerContext(ctx context.Context, tx pgx.Tx, customerID string, invoiceID, paymentID *string) (*msgCtx, error) {
 	m := &msgCtx{CustomerID: customerID, Vars: map[string]string{}, InvoiceID: invoiceID, PaymentID: paymentID}
-	if err := tx.QueryRow(ctx, `SELECT name, phone FROM customers WHERE id = $1 AND company_id = $2`, customerID, r.cid).
-		Scan(&m.Name, &m.Phone); err != nil {
+	var portalToken string
+	if err := tx.QueryRow(ctx, `SELECT name, phone, portal_token FROM customers WHERE id = $1 AND company_id = $2`, customerID, r.cid).
+		Scan(&m.Name, &m.Phone, &portalToken); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, badRequest("invalid_customer")
 		}
@@ -136,6 +137,7 @@ func (r *renderer) customerContext(ctx context.Context, tx pgx.Tx, customerID st
 	}
 	m.Vars["customer"] = m.Name
 	m.Vars["company"] = r.company()
+	m.Vars["portal_link"] = portalLink(portalToken)
 
 	// balance per currency
 	rows, err := tx.Query(ctx, `SELECT currency::text, sum(total - paid)::text FROM invoices

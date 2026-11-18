@@ -297,6 +297,24 @@ const en = {
     genReport: 'Generator performance', hours: 'Hours run', perHour: 'Per hour', fuelCost: 'Fuel cost', kwhBilled: 'kWh billed',
     costPerKwh: 'Fuel cost per kWh', genHint: 'kWh billed comes from metered bills of subscriptions connected to the station boxes.',
   },
+  dash: {
+    billed: 'Billed this month', billedShort: 'Billed', collectedShort: 'Collected', collected: 'Collected this month', outstanding: 'Outstanding (all months)',
+    rate: 'Collection rate', rateHint: "share of this month's bills already paid", activeSubs: 'Active subscriptions',
+    owing: 'Customers owing', late60: 'Late more than 60 days', trend: 'Billed vs collected — last 12 months',
+    byCollector: 'Collections by collector (this month)', byArea: 'Outstanding by area',
+    emptyTitle: 'No bills yet', emptyHint: 'Set up plans and cash boxes, add customers, then create the monthly bills.',
+    noBillsHint: 'Use “Create monthly bills” to bill all active subscriptions for a month.',
+  },
+  portal: {
+    invalid: 'This link is not valid any more. Please ask your provider for a new one.', youOwe: 'Amount due',
+    unpaid: 'Unpaid bills', paid: 'Paid bills', poweredBy: 'Powered by', share: 'Customer link',
+    shareHint: 'Anyone with this link can see this customer’s bills and payments (no password). Send it by WhatsApp or SMS.',
+    shareText: 'Your bills and payments:', regen: 'Create a new link', regenConfirm: 'The old link will stop working. Continue?',
+  },
+  bulk: {
+    title: 'Print bills', a4: 'A4 (3 per page)', thermal: 'Thermal 80 mm', load: 'Show', previous: 'Previous unpaid balance',
+    totalDue: 'Total due', inLocal: 'Total in {{cur}} (rate {{rate}})', scan: 'Scan the code to see your account online',
+  },
   errors: {
     invalid_tax: 'This tax cannot be used here',
     invalid_station: 'Invalid station',

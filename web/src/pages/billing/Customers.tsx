@@ -7,6 +7,7 @@ import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { notifyError, notifySaved } from '../../util';
 import PageHeader from '../../components/PageHeader';
+import { EmptyState, ListSkeleton } from '../../components/ListState';
 import StationSelect from '../../components/StationSelect';
 import type { Area, Customer } from '../../billing';
 import { MoneyList } from './docs';
@@ -50,8 +51,8 @@ export default function Customers({ me }: { me: Me }) {
         <Checkbox label={t('customers.onlyDue')} checked={onlyDue} onChange={(e) => setOnlyDue(e.currentTarget.checked)} />
       </Group>
       <Paper withBorder>
-        {rows === null ? <Center p="xl"><Loader size="sm" /></Center> : rows.length === 0 ? (
-          <Text c="dimmed" ta="center" p="xl">{t('common.empty')}</Text>
+        {rows === null ? <ListSkeleton /> : rows.length === 0 ? (
+          <EmptyState />
         ) : (
           <Table.ScrollContainer minWidth={760}>
             <Table verticalSpacing="sm" highlightOnHover key={i18n.language}>

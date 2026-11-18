@@ -14,50 +14,68 @@ import { useCompany } from './company';
 import { notifyError, notifySaved } from './util';
 import LangSwitch from './components/LangSwitch';
 import Logo from './components/Logo';
-import Dashboard from './pages/Dashboard';
-import Companies from './pages/Companies';
-import Users from './pages/Users';
-import Audit from './pages/Audit';
-import Accounts from './pages/Accounts';
-import Journal from './pages/Journal';
-import Rates from './pages/Rates';
-import TrialBalance from './pages/TrialBalance';
-import Ledger from './pages/Ledger';
-import Developers from './pages/Developers';
-import Import from './pages/Import';
-import { IconFileImport } from '@tabler/icons-react';
-import Customers from './pages/billing/Customers';
-import CustomerDetail from './pages/billing/CustomerDetail';
-import Readings from './pages/billing/Readings';
-import Invoices from './pages/billing/Invoices';
-import Payments from './pages/billing/Payments';
-import BillingSetup from './pages/billing/Setup';
-import { IconCash, IconFileInvoice, IconGauge, IconSettings, IconUserCircle, IconReportMoney, IconChartBar, IconHourglass, IconMoneybag, IconBuildingBank, IconDeviceMobile } from '@tabler/icons-react';
-import { ProfitLoss, BalanceSheet, Aging, Collections } from './pages/Reports';
-import Cash from './pages/Cash';
-import Platform from './pages/Platform';
+import { lazy, Suspense } from 'react';
+import { Center, Loader } from '@mantine/core';
+import {
+  IconFileImport, IconCash, IconFileInvoice, IconGauge, IconSettings, IconUserCircle, IconReportMoney, IconChartBar,
+  IconHourglass, IconMoneybag, IconBuildingBank, IconDeviceMobile, IconWorld, IconMessage, IconTruck, IconReceipt,
+  IconCashBanknote, IconReceiptTax, IconPackage, IconGasStation, IconPackages, IconChartPie, IconUserDollar, IconBolt,
+  IconTopologyStar3, IconReceipt2, IconEngine,
+} from '@tabler/icons-react';
 import TrialBanner from './components/TrialBanner';
-import { IconWorld } from '@tabler/icons-react';
-import CollectorApp from './pages/collector/CollectorApp';
-import Messages from './pages/billing/Messages';
-import { IconMessage, IconTruck, IconReceipt, IconCashBanknote, IconReceiptTax, IconPackage, IconGasStation, IconPackages, IconChartPie, IconUserDollar } from '@tabler/icons-react';
-import Suppliers, { SupplierDetail } from './pages/purchases/Suppliers';
-import Bills from './pages/purchases/Bills';
-import SupplierPayments from './pages/purchases/SupplierPayments';
-import Expenses from './pages/purchases/Expenses';
-import Items, { ItemDetail } from './pages/purchases/Items';
-import Stock from './pages/purchases/Stock';
-import { APAging, StockValuation, ExpensesReport } from './pages/purchases/PurchReports';
-import Network from './pages/network/Network';
-import Tariffs from './pages/network/Tariffs';
-import { VatReport, GeneratorReport } from './pages/network/NetReports';
-import { IconBolt, IconTopologyStar3, IconReceipt2, IconEngine } from '@tabler/icons-react';
+
+// Pages are loaded on demand (code splitting) so the first screen downloads only what it needs.
+const named = <T extends Record<string, unknown>>(p: Promise<T>, k: keyof T) =>
+  p.then((m) => ({ default: m[k] as React.ComponentType<any> })); // eslint-disable-line @typescript-eslint/no-explicit-any
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Companies = lazy(() => import('./pages/Companies'));
+const Users = lazy(() => import('./pages/Users'));
+const Audit = lazy(() => import('./pages/Audit'));
+const Accounts = lazy(() => import('./pages/Accounts'));
+const Journal = lazy(() => import('./pages/Journal'));
+const Rates = lazy(() => import('./pages/Rates'));
+const TrialBalance = lazy(() => import('./pages/TrialBalance'));
+const Ledger = lazy(() => import('./pages/Ledger'));
+const Developers = lazy(() => import('./pages/Developers'));
+const Import = lazy(() => import('./pages/Import'));
+const Customers = lazy(() => import('./pages/billing/Customers'));
+const CustomerDetail = lazy(() => import('./pages/billing/CustomerDetail'));
+const Readings = lazy(() => import('./pages/billing/Readings'));
+const Invoices = lazy(() => import('./pages/billing/Invoices'));
+const BulkPrint = lazy(() => import('./pages/billing/BulkPrint'));
+const Payments = lazy(() => import('./pages/billing/Payments'));
+const BillingSetup = lazy(() => import('./pages/billing/Setup'));
+const Messages = lazy(() => import('./pages/billing/Messages'));
+const ProfitLoss = lazy(() => named(import('./pages/Reports'), 'ProfitLoss'));
+const BalanceSheet = lazy(() => named(import('./pages/Reports'), 'BalanceSheet'));
+const Aging = lazy(() => named(import('./pages/Reports'), 'Aging'));
+const Collections = lazy(() => named(import('./pages/Reports'), 'Collections'));
+const Cash = lazy(() => import('./pages/Cash'));
+const Platform = lazy(() => import('./pages/Platform'));
+const CollectorApp = lazy(() => import('./pages/collector/CollectorApp'));
+const Suppliers = lazy(() => import('./pages/purchases/Suppliers'));
+const SupplierDetail = lazy(() => named(import('./pages/purchases/Suppliers'), 'SupplierDetail'));
+const Bills = lazy(() => import('./pages/purchases/Bills'));
+const SupplierPayments = lazy(() => import('./pages/purchases/SupplierPayments'));
+const Expenses = lazy(() => import('./pages/purchases/Expenses'));
+const Items = lazy(() => import('./pages/purchases/Items'));
+const ItemDetail = lazy(() => named(import('./pages/purchases/Items'), 'ItemDetail'));
+const Stock = lazy(() => import('./pages/purchases/Stock'));
+const APAging = lazy(() => named(import('./pages/purchases/PurchReports'), 'APAging'));
+const StockValuation = lazy(() => named(import('./pages/purchases/PurchReports'), 'StockValuation'));
+const ExpensesReport = lazy(() => named(import('./pages/purchases/PurchReports'), 'ExpensesReport'));
+const Network = lazy(() => import('./pages/network/Network'));
+const Tariffs = lazy(() => import('./pages/network/Tariffs'));
+const VatReport = lazy(() => named(import('./pages/network/NetReports'), 'VatReport'));
+const GeneratorReport = lazy(() => named(import('./pages/network/NetReports'), 'GeneratorReport'));
+
+const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
 type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | 'ledger' | 'companies' | 'users' |
   'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup' |
   'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform' | 'import' | 'messages' |
   'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'expenses-report' |
-  'network' | 'tariffs' | 'vat-report' | 'generator-report';
+  'network' | 'tariffs' | 'vat-report' | 'generator-report' | 'print-bills';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
@@ -129,7 +147,7 @@ const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-ba
   'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform', 'import', 'messages',
   'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'expenses-report',
-  'network', 'tariffs', 'vat-report', 'generator-report'];
+  'network', 'tariffs', 'vat-report', 'generator-report', 'print-bills'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -154,7 +172,10 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   const current: Page = blocked ? 'dashboard' : page;
 
   if (me.role === 'collector' || current === 'collect') {
-    return <CollectorApp me={me} onLogout={me.role === 'collector' ? onLogout : () => { window.location.hash = '#/dashboard'; }} />;
+    return <Suspense fallback={pageFallback}><CollectorApp me={me} onLogout={me.role === 'collector' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
+  }
+  if (current === 'print-bills') {
+    return <Suspense fallback={pageFallback}><BulkPrint initialPeriod={param} /></Suspense>;
   }
 
   async function logout() {
@@ -257,6 +278,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
 
       <AppShell.Main bg="var(--mantine-color-gray-0)">
         <TrialBanner me={me} />
+        <Suspense fallback={pageFallback}>
         {current === 'dashboard' && <Dashboard me={me} />}
         {current === 'accounts' && <Accounts me={me} />}
         {current === 'journal' && <Journal me={me} openId={param} />}
@@ -296,6 +318,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'vat-report' && <VatReport />}
         {current === 'generator-report' && <GeneratorReport />}
         {current === 'platform' && me.is_platform_admin && <Platform />}
+        </Suspense>
       </AppShell.Main>
 
       <ChangePassword opened={pwOpen} onClose={pw.close} />

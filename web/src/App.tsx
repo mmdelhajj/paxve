@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Center, DirectionProvider, Loader, MantineProvider, createTheme, useDirection } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
@@ -6,9 +6,16 @@ import { api, UNAUTHORIZED_EVENT, type Me } from './api';
 import { applyLang, langInfo } from './i18n';
 import { CompanyProvider } from './company';
 import Login from './pages/Login';
-import Landing from './pages/public/Landing';
-import Signup from './pages/public/Signup';
-import Shell from './Shell';
+const Landing = lazy(() => import('./pages/public/Landing'));
+const Signup = lazy(() => import('./pages/public/Signup'));
+const Portal = lazy(() => import('./pages/public/Portal'));
+const Shell = lazy(() => import('./Shell'));
+
+const fullPageLoader = (
+  <Center h="100vh">
+    <Loader />
+  </Center>
+);
 
 const font = '"IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif';
 
@@ -42,6 +49,7 @@ function usePublicRoute(): string {
 function Root() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const route = usePublicRoute();
+  const portalToken = route === 'p' ? window.location.hash.replace(/^#\/?/, '').split('/')[1] ?? '' : '';
 
   useEffect(() => {
     api<Me>('/me')
@@ -55,13 +63,9 @@ function Root() {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
 
-  if (me === undefined) {
-    return (
-      <Center h="100vh">
-        <Loader />
-      </Center>
-    );
-  }
+  // the customer portal is public: it works whether or not someone is signed in on this browser
+  if (portalToken) return <Suspense fallback={fullPageLoader}><Portal token={portalToken} /></Suspense>;
+  if (me === undefined) return fullPageLoader;
   if (me === null) {
     const signedIn = (m: Me) => {
       applyLang(m.locale);
@@ -69,12 +73,14 @@ function Root() {
       setMe(m);
     };
     if (route === 'login') return <Login onLogin={signedIn} />;
-    if (route === 'signup') return <Signup onSignedUp={signedIn} />;
-    return <Landing />;
+    if (route === 'signup') return <Suspense fallback={fullPageLoader}><Signup onSignedUp={signedIn} /></Suspense>;
+    return <Suspense fallback={fullPageLoader}><Landing /></Suspense>;
   }
   return (
     <CompanyProvider>
-      <Shell me={me} onMe={setMe} onLogout={() => setMe(null)} />
+      <Suspense fallback={fullPageLoader}>
+        <Shell me={me} onMe={setMe} onLogout={() => setMe(null)} />
+      </Suspense>
     </CompanyProvider>
   );
 }

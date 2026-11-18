@@ -7,6 +7,7 @@ import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, today } from '../../util';
 import PageHeader from '../../components/PageHeader';
+import { EmptyState, ListSkeleton } from '../../components/ListState';
 import type { Payment } from '../../billing';
 import { PaymentView } from './docs';
 
@@ -61,8 +62,8 @@ export default function Payments({ me }: { me: Me }) {
         </>
       )}
       <Paper withBorder>
-        {data === null ? <Center p="xl"><Loader size="sm" /></Center> : data.rows.length === 0 ? (
-          <Text c="dimmed" ta="center" p="xl">{t('common.empty')}</Text>
+        {data === null ? <ListSkeleton /> : data.rows.length === 0 ? (
+          <EmptyState />
         ) : (
           <Table.ScrollContainer minWidth={700}>
             <Table verticalSpacing="xs" highlightOnHover key={i18n.language}>

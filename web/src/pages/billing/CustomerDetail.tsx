@@ -11,6 +11,7 @@ import { invoiceColor, type Area, type Customer, type Invoice, type Payment, typ
 import { CustomerForm } from './Customers';
 import { InvoiceView, MoneyList, NewInvoice, PaymentView, ReceivePayment } from './docs';
 import { WhatsAppButton } from './Messages';
+import PortalShare from '../../components/PortalShare';
 
 interface Detail { customer: Customer; subscriptions: Subscription[]; invoices: Invoice[]; payments: Payment[] }
 
@@ -56,6 +57,7 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
           <Group gap="xs">
             <Button variant="default" leftSection={<IconEdit size={16} />} onClick={() => setModal('edit')}>{t('common.edit')}</Button>
             <WhatsAppButton customerId={c.id} />
+            <PortalShare customerId={c.id} phone={c.phone} canRegenerate={me.role !== 'collector'} />
             {canManage && <Button variant="default" leftSection={<IconFileInvoice size={16} />} onClick={() => setModal('invoice')}>{t('customers.newInvoice')}</Button>}
             <Button leftSection={<IconCash size={16} />} onClick={() => setModal('pay')}>{t('customers.receivePayment')}</Button>
           </Group>
