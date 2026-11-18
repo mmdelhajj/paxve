@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Center, Checkbox, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Table, Text, TextInput } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Account, type Me } from '../../api';
+import { can, api, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { accountLabel, accountName, formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader, { Confirm } from '../../components/PageHeader';
@@ -20,8 +20,8 @@ export default function Expenses({ me }: { me: Me }) {
   const [data, setData] = useState<{ rows: Expense[]; totals: Total[] } | null>(null);
   const [creating, setCreating] = useState(false);
   const [voiding, setVoiding] = useState<string | null>(null);
-  const canEdit = me.role !== 'read_only';
-  const canManage = me.role === 'admin' || me.role === 'accountant';
+  const canEdit = can(me, 'expenses.create');
+  const canManage = can(me, 'expenses.void');
 
   const load = useCallback(() => {
     if (!company) return;

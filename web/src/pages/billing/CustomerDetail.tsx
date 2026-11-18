@@ -4,7 +4,7 @@ import {
 } from '@mantine/core';
 import { IconArrowBack, IconCash, IconEdit, IconFileDescription, IconFileInvoice, IconFileText, IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import { invoiceColor, type Area, type Customer, type Invoice, type Payment, type Plan, type Subscription } from '../../billing';
@@ -29,14 +29,14 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
   const [editSub, setEditSub] = useState<Subscription | null>(null);
   const [viewInvoice, setViewInvoice] = useState<string | null>(null);
   const [viewPayment, setViewPayment] = useState<string | null>(null);
-  const canEdit = me.role !== 'read_only';
-  const canManage = me.role === 'admin' || me.role === 'accountant';
+  const canEdit = can(me, 'customers.edit');
+  const canManage = can(me, 'billing.create');
 
   const load = useCallback(() => {
     if (!company) return;
     api<Detail>(`/companies/${company.id}/customers/${id}`).then(setD).catch((e) => notifyError(t, e));
-    if (me.role !== 'collector') api<{ rows: Order[] }>(`/companies/${company.id}/sales/orders?kind=&customer_id=${id}`).then((r) => setOrders(r.rows)).catch(() => setOrders([]));
-  }, [company, id, t, me.role]);
+    if (can(me, 'sales.view')) api<{ rows: Order[] }>(`/companies/${company.id}/sales/orders?kind=&customer_id=${id}`).then((r) => setOrders(r.rows)).catch(() => setOrders([]));
+  }, [company, id, t, me]);
   useEffect(load, [load]);
   useEffect(() => {
     if (company) api<Area[]>(`/companies/${company.id}/areas`).then(setAreas).catch(() => {});
@@ -63,7 +63,7 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
           <Group gap="xs">
             <Button variant="default" leftSection={<IconEdit size={16} />} onClick={() => setModal('edit')}>{t('common.edit')}</Button>
             <WhatsAppButton customerId={c.id} />
-            <PortalShare customerId={c.id} phone={c.phone} canRegenerate={me.role !== 'collector'} />
+            <PortalShare customerId={c.id} phone={c.phone} canRegenerate={me.role !== 'collector' && can(me, 'customers.create')} />
             <Button variant="default" leftSection={<IconFileText size={16} />} component="a" href={`#/statement/${c.id}`}>{t('stmt.title')}</Button>
             <Button variant="default" leftSection={<IconFileDescription size={16} />} onClick={() => setModal('quote')}>{t('sales.newQuote')}</Button>
             {canManage && <Button variant="default" leftSection={<IconFileInvoice size={16} />} onClick={() => setModal('invoice')}>{t('customers.newInvoice')}</Button>}

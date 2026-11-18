@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Center, Group, Loader, Paper, SegmentedControl, Select, SimpleGrid, Stack, Table, Text, TextInput, Title } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
-import { api, type Me, type Rate } from '../api';
+import { can, api, type Me, type Rate } from '../api';
 import { useCompany } from '../company';
 import { formatAmount, formatDate, notifyError, notifySaved, today } from '../util';
 import PageHeader from '../components/PageHeader';
@@ -16,7 +16,7 @@ export default function Rates({ me }: { me: Me }) {
   const [kind, setKind] = useState('official');
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
-  const canEdit = me.role === 'admin' || me.role === 'accountant';
+  const canEdit = can(me, 'accounting.manage');
   const base = company?.base_currency ?? 'USD';
 
   const load = useCallback(() => {

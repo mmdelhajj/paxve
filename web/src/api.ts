@@ -11,6 +11,23 @@ export interface Me {
   plan: 'trial' | 'starter' | 'business' | 'pro';
   trial_ends_at: string | null;
   is_platform_admin: boolean;
+  role_id: string | null;
+  role_name: string;
+  permissions: string[];
+  company_ids: string[] | null;
+  mfa_enabled: boolean;
+  mfa_required: boolean;
+  mfa_setup_required: boolean;
+}
+
+/** The signed-in user holds this permission ("module.action"). The server checks it again on every call. */
+export function can(me: Pick<Me, 'permissions'> | null | undefined, perm: string): boolean {
+  return !!me && me.permissions.includes(perm);
+}
+
+/** Any of the permissions. */
+export function canAny(me: Pick<Me, 'permissions'> | null | undefined, ...perms: string[]): boolean {
+  return perms.some((p) => can(me, p));
 }
 
 export interface Company {
@@ -32,6 +49,22 @@ export interface User {
   locale: string;
   is_active: boolean;
   created_at: string;
+  role_id: string | null;
+  role_name: string | null;
+  company_ids: string[] | null;
+  mfa_enabled: boolean;
+  last_seen_at: string | null;
+}
+
+export interface CustomRole {
+  id: string;
+  name: string;
+  base: Role;
+  permissions: string[];
+  description: string;
+  is_active: boolean;
+  created_at: string;
+  users: number;
 }
 
 export interface AuditEntry {
@@ -122,6 +155,7 @@ export interface APIKey {
   created_at: string;
   last_used_at: string | null;
   revoked_at: string | null;
+  scopes: string[] | null;
 }
 
 export class ApiError extends Error {
@@ -131,6 +165,8 @@ export class ApiError extends Error {
 }
 
 export const UNAUTHORIZED_EVENT = 'paxve:unauthorized';
+/** Fired when an action was stored for approval instead of being done (HTTP 202 approval_required). */
+export const APPROVAL_EVENT = 'paxve:approval';
 export const API_BASE = '/api/v1';
 
 export async function api<T>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
@@ -153,6 +189,11 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
       window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
     }
     throw new ApiError(res.status, err.error ?? 'server_error', err.detail);
+  }
+  if (res.status === 202 && (data as { approval_required?: boolean } | null)?.approval_required) {
+    // not done yet: the caller must not treat it as success
+    window.dispatchEvent(new Event(APPROVAL_EVENT));
+    throw new ApiError(202, 'approval_required');
   }
   return data as T;
 }

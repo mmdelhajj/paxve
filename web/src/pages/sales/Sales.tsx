@@ -6,7 +6,7 @@ import {
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconCheck, IconFileInvoice, IconPencil, IconPlus, IconPrinter, IconSearch, IconTrash, IconTruckDelivery, IconX } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { printPage } from '../../native';
 import { formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
@@ -52,7 +52,7 @@ export default function Quotes({ me, kind: initialKind }: { me: Me; kind?: strin
   const [data, setData] = useState<{ rows: Order[]; totals: { status: string; currency: string; count: number; total: string }[] } | null>(null);
   const [view, setView] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const canEdit = me.role !== 'read_only';
+  const canEdit = can(me, 'sales.create');
 
   const load = useCallback(() => {
     if (!company) return;
@@ -293,8 +293,8 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
   const [editing, setEditing] = useState(false);
   const [step, setStep] = useState<null | 'deliver' | 'invoice' | 'cancel'>(null);
   const [invoice, setInvoice] = useState<string | null>(null);
-  const canEdit = me.role !== 'read_only';
-  const canInvoice = me.role === 'admin' || me.role === 'accountant';
+  const canEdit = can(me, 'sales.create');
+  const canInvoice = can(me, 'billing.create');
 
   const reload = useCallback(() => {
     if (company) api<OrderDetail>(`/companies/${company.id}/sales/orders/${id}`).then(setD).catch((e) => { notifyError(t, e); onClose(); });

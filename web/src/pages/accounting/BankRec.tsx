@@ -5,7 +5,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { IconFileImport, IconWand } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Account, type Me } from '../../api';
+import { can, api, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -48,7 +48,7 @@ export default function BankRec({ me }: { me: Me }) {
   const [open, setOpen] = useState<string | null>(null);
   const [rec, setRec] = useState<Rec | null>(null);
   const [importing, setImporting] = useState(false);
-  const canEdit = me.role === 'admin' || me.role === 'accountant';
+  const canEdit = can(me, 'bank.edit');
 
   useEffect(() => {
     if (!method && methods.length) setMethod((methods.find((m) => m.kind === 'bank') ?? methods[0]).id);

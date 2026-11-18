@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { api, type Me } from '../api';
+import { can, canAny, api, type Me } from '../api';
 import { useCompany } from '../company';
 import { formatAmount, notifyError } from '../util';
 import { currentPeriod } from '../billing';
@@ -70,7 +70,7 @@ export default function Dashboard({ me }: { me: Me }) {
   const others = (field: keyof Kpi) => d?.kpis.filter((x) => x.currency !== cur && Number(x[field]) !== 0)
     .map((x) => `${formatAmount(x[field], decimalsOf(x.currency))} ${x.currency}`).join(' · ');
   const empty = d && d.kpis.length === 0;
-  const canBill = me.role === 'admin' || me.role === 'accountant';
+  const canBill = can(me, 'billing.create');
 
   return (
     <Stack gap="lg" maw={1200}>
@@ -87,7 +87,7 @@ export default function Dashboard({ me }: { me: Me }) {
         </Group>
       </Group>
 
-      {(me.role === 'admin' || me.role === 'accountant') && <GettingStarted me={me} />}
+      {canAny(me, 'settings.manage', 'billing.manage') && <GettingStarted me={me} />}
 
       <Group gap="xs" wrap="wrap">
         <Button size="xs" variant="light" component="a" href="#/customers" leftSection={<IconUserPlus size={14} />}>{t('bill.customers')}</Button>

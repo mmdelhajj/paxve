@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/base32"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -50,6 +51,29 @@ func (s *Server) authAPIKey(ctx context.Context, key, ip string) (*Principal, bo
 	if err != nil || !p.Active {
 		return nil, false
 	}
+	var scopes []string
+	_ = db.InTenant(ctx, s.Pool, db.Scope{TenantID: tid, UserID: createdBy, APIKeyID: id, IP: ip}, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT scopes FROM api_keys WHERE id = $1`, id).Scan(&scopes)
+	})
+	// A key may do what its role allows, limited to its scopes, and never more than the person who
+	// created it can do today (a creator who loses rights takes them away from the key too).
+	keyPerms := permSet(presets[role])
+	if scopes != nil {
+		keyPerms = permSet(scopes)
+		for perm := range keyPerms {
+			if !slices.Contains(presets[role], perm) {
+				delete(keyPerms, perm)
+			}
+		}
+	}
+	for perm := range keyPerms {
+		if !p.perms[perm] {
+			delete(keyPerms, perm)
+		}
+	}
+	p.perms = keyPerms
+	p.Permissions = sortedPerms(keyPerms)
+	p.MFASetupRequired = false
 	p.Role = role // the key's role, never more than set when it was created
 	p.APIKeyID = id
 	p.FullName = "API · " + name
@@ -71,9 +95,10 @@ type apiKey struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	LastUsedAt *time.Time `json:"last_used_at"`
 	RevokedAt  *time.Time `json:"revoked_at"`
+	Scopes     []string   `json:"scopes"` // nil = everything the role allows
 }
 
-const apiKeyCols = `k.id::text, k.name, k.prefix, k.role, u.full_name, k.created_at, k.last_used_at, k.revoked_at`
+const apiKeyCols = `k.id::text, k.name, k.prefix, k.role, u.full_name, k.created_at, k.last_used_at, k.revoked_at, k.scopes`
 
 func (s *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -97,12 +122,35 @@ func (s *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createAPIKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var in struct {
-		Name string `json:"name"`
-		Role string `json:"role"`
+		Name   string   `json:"name"`
+		Role   string   `json:"role"`
+		Scopes []string `json:"scopes"` // optional: limit the key to these permissions
 	}
 	// collector scoping follows the signed-in person's areas, which has no meaning for a key
 	if err := decode(w, r, &in); err != nil || strings.TrimSpace(in.Name) == "" || !validRoles[in.Role] || in.Role == RoleCollector || in.Role == RoleCashier {
 		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	if in.Scopes != nil {
+		if len(in.Scopes) == 0 {
+			writeErr(w, http.StatusBadRequest, "bad_request")
+			return
+		}
+		for _, sc := range in.Scopes {
+			if !slices.Contains(presets[in.Role], sc) {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad_request", "detail": sc})
+				return
+			}
+		}
+		in.Scopes = slices.Compact(slices.Sorted(slices.Values(in.Scopes)))
+	}
+	// nobody creates a key that can do more than they can
+	granted := permSet(presets[in.Role])
+	if in.Scopes != nil {
+		granted = permSet(in.Scopes)
+	}
+	if err := noEscalation(principal(r), granted, principal(r).CompanyIDs); err != nil {
+		fail(w, r, err)
 		return
 	}
 	prefix := randToken(5) // 8 chars
@@ -110,9 +158,9 @@ func (s *Server) createAPIKey(w http.ResponseWriter, r *http.Request) {
 	var k apiKey
 	err := db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
 		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO api_keys (name, prefix, key_hash, role, created_by)
-			VALUES ($1, $2, $3, $4, app_user()) RETURNING id::text`,
-			strings.TrimSpace(in.Name), prefix, hashKey(key), in.Role).Scan(&id); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO api_keys (name, prefix, key_hash, role, created_by, scopes)
+			VALUES ($1, $2, $3, $4, app_user(), $5) RETURNING id::text`,
+			strings.TrimSpace(in.Name), prefix, hashKey(key), in.Role, in.Scopes).Scan(&id); err != nil {
 			return err
 		}
 		rows, err := tx.Query(ctx, `SELECT `+apiKeyCols+` FROM api_keys k JOIN users u ON u.id = k.created_by WHERE k.id = $1`, id)

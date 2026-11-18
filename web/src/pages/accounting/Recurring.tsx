@@ -4,7 +4,7 @@ import {
 } from '@mantine/core';
 import { IconPlayerPlay, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Account, type Me } from '../../api';
+import { can, api, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -22,7 +22,7 @@ export default function Recurring({ me }: { me: Me }) {
   const { company, decimalsOf } = useCompany();
   const [rows, setRows] = useState<Tpl[] | null>(null);
   const [edit, setEdit] = useState<Tpl | 'new' | null>(null);
-  const canEdit = me.role === 'admin' || me.role === 'accountant';
+  const canEdit = can(me, 'accounting.edit');
 
   const load = useCallback(() => {
     if (!company) return;

@@ -4,7 +4,7 @@ import {
 } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Account, type Me, type User } from '../../api';
+import { can, api, type Account, type Me, type User } from '../../api';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, notifyError, notifySaved } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -24,7 +24,7 @@ export default function Setup({ me }: { me: Me }) {
   const [users, setUsers] = useState<User[]>([]);
   const [taxes, setTaxes] = useState<TaxRate[]>([]);
   const [edit, setEdit] = useState<{ kind: 'plan' | 'area' | 'method' | 'tax'; item: Plan | Area | PaymentMethod | TaxRate | null } | null>(null);
-  const canManage = me.role === 'admin' || me.role === 'accountant';
+  const canManage = can(me, 'billing.manage');
 
   const load = useCallback(() => {
     if (!company) return;
@@ -35,8 +35,8 @@ export default function Setup({ me }: { me: Me }) {
     api<Area[]>(`${base}/areas`).then(setAreas).catch(() => {});
     api<PaymentMethod[]>(`${base}/payment-methods`).then(setMethods).catch(() => {});
     api<TaxRate[]>(`${base}/tax-rates`).then(setTaxes).catch(() => {});
-    if (me.role === 'admin') api<User[]>('/users').then(setUsers).catch(() => {});
-  }, [company, me.role]);
+    if (can(me, 'users.view')) api<User[]>('/users').then(setUsers).catch(() => {});
+  }, [company, me]);
   useEffect(load, [load]);
 
   if (!company) return null;
@@ -110,7 +110,7 @@ export default function Setup({ me }: { me: Me }) {
             </Table.Tbody>
           </Table>
         </Section>
-        <Section title={t('areas.title')} onAdd={me.role !== 'read_only' ? () => setEdit({ kind: 'area', item: null }) : undefined} addLabel={t('areas.new')}>
+        <Section title={t('areas.title')} onAdd={can(me, 'customers.edit') ? () => setEdit({ kind: 'area', item: null }) : undefined} addLabel={t('areas.new')}>
           <Table verticalSpacing="xs">
             <Table.Tbody>
               {areas.map((a) => (
@@ -118,7 +118,7 @@ export default function Setup({ me }: { me: Me }) {
                   <Table.Td fw={500}>{a.name}</Table.Td>
                   <Table.Td c="dimmed">{a.collector_name ?? '—'}</Table.Td>
                   <Table.Td>{a.customers}</Table.Td>
-                  <Table.Td>{me.role !== 'read_only' && <Button size="compact-xs" variant="subtle" onClick={() => setEdit({ kind: 'area', item: a })}>{t('common.edit')}</Button>}</Table.Td>
+                  <Table.Td>{can(me, 'customers.edit') && <Button size="compact-xs" variant="subtle" onClick={() => setEdit({ kind: 'area', item: a })}>{t('common.edit')}</Button>}</Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>

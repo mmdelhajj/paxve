@@ -4,7 +4,7 @@ import {
 } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -33,7 +33,7 @@ export default function Employees({ me }: { me: Me }) {
   const [rows, setRows] = useState<Employee[] | null>(null);
   const [edit, setEdit] = useState<Employee | null | 'new'>(null);
   const [view, setView] = useState<string | null>(null);
-  const canEdit = me.role === 'admin' || me.role === 'accountant';
+  const canEdit = can(me, 'payroll.edit');
 
   const load = useCallback(() => {
     if (!company) return;

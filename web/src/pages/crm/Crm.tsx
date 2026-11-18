@@ -9,7 +9,7 @@ import {
   IconTrophy, IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, formatDateTime, notifyError, notifySaved, today } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -63,7 +63,7 @@ export default function Crm({ me }: { me: Me }) {
   const [open, setOpen] = useState<string | 'new' | null>(null);
   const [summary, setSummary] = useState<{ activities: { overdue: number; today: number; mine: number }; leads: { won_30d: number; lost_30d: number; open: number } } | null>(null);
   const [drag, setDrag] = useState<string | null>(null);
-  const canEdit = me.role !== 'read_only';
+  const canEdit = can(me, 'crm.edit');
 
   const load = useCallback(() => {
     if (!company) return;
@@ -197,7 +197,7 @@ function LeadView({ id, me, stages, onClose, onChanged, onCreated }: {
   const [lost, setLost] = useState<string | null>(null);
   const [quote, setQuote] = useState<{ id: string; name: string; code: string } | null>(null);
   const [orderView, setOrderView] = useState<string | null>(null);
-  const canEdit = me.role !== 'read_only';
+  const canEdit = can(me, 'crm.edit');
 
   const reload = useCallback(() => {
     if (!company || !id) return;
@@ -487,7 +487,7 @@ export function ActivitiesPage({ me }: { me: Me }) {
                       </Text>
                     </Table.Td>
                     <Table.Td w={130}>{a.due_date ? <Text size="sm" c={dueColor(a.due_date)}>{formatDate(a.due_date)}</Text> : <Text size="sm" c="dimmed">—</Text>}</Table.Td>
-                    <Table.Td w={90}>{me.role !== 'read_only' && <Button size="compact-xs" variant="light" color="teal" leftSection={<IconCheck size={12} />} onClick={() => void done(a)}>{t('crm.done')}</Button>}</Table.Td>
+                    <Table.Td w={90}>{can(me, 'crm.edit') && <Button size="compact-xs" variant="light" color="teal" leftSection={<IconCheck size={12} />} onClick={() => void done(a)}>{t('crm.done')}</Button>}</Table.Td>
                   </Table.Tr>
                 );
               })}

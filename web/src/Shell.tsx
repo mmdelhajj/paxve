@@ -10,7 +10,7 @@ import {
   IconListDetails, IconLogout, IconScale, IconUsers,
 } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me, type Role } from './api';
+import { api, can, type Me } from './api';
 import { useCompany } from './company';
 import { notifyError, notifySaved } from './util';
 import LangSwitch from './components/LangSwitch';
@@ -23,6 +23,7 @@ import {
   IconCashBanknote, IconReceiptTax, IconPackage, IconGasStation, IconPackages, IconChartPie, IconUserDollar, IconBolt,
   IconTopologyStar3, IconReceipt2, IconEngine, IconRepeat, IconId, IconCoins, IconBuildingFactory2,
   IconTargetArrow, IconFileDescription, IconShoppingCart, IconFileText, IconChartLine, IconCashRegister,
+  IconChecklist, IconBuildingSkyscraper, IconShieldLock,
 } from '@tabler/icons-react';
 import TrialBanner from './components/TrialBanner';
 
@@ -88,6 +89,9 @@ const PosApp = lazy(() => import('./pages/pos/PosApp'));
 const PosSetup = lazy(() => import('./pages/pos/PosAdmin'));
 const PosSessions = lazy(() => named(import('./pages/pos/PosAdmin'), 'PosSessions'));
 const PosReport = lazy(() => named(import('./pages/pos/PosAdmin'), 'PosReport'));
+const MySecurity = lazy(() => import('./pages/Security'));
+const Approvals = lazy(() => import('./pages/Approvals'));
+const Consolidated = lazy(() => import('./pages/Consolidated'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -97,75 +101,75 @@ type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | '
   'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'stock-moves' | 'expenses-report' |
   'network' | 'tariffs' | 'vat-report' | 'generator-report' | 'print-bills' |
   'employees' | 'payroll' | 'assets' | 'asset-register' | 'recurring' | 'bank-rec' |
-  'crm' | 'activities' | 'quotes' | 'orders' | 'statements' | 'statement' | 'sales-report' | 'pos' | 'pos-setup' | 'pos-sessions' | 'pos-report' | 'magic-import';
+  'crm' | 'activities' | 'quotes' | 'orders' | 'statements' | 'statement' | 'sales-report' | 'pos' | 'pos-setup' | 'pos-sessions' | 'pos-report' | 'magic-import' | 'security' | 'approvals' | 'consolidated';
 
-interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
+interface NavItem { key: Page; label: string; icon: typeof IconBuilding; perm?: string }
 
 const sections: { label?: string; items: NavItem[] }[] = [
-  { items: [{ key: 'dashboard', label: 'nav.dashboard', icon: IconLayoutDashboard }] },
+  { items: [{ key: 'dashboard', label: 'nav.dashboard', icon: IconLayoutDashboard, perm: 'reports.view' }] },
   {
     label: 'bill.nav',
     items: [
-      { key: 'customers', label: 'bill.customers', icon: IconUserCircle },
-      { key: 'readings', label: 'bill.readings', icon: IconGauge },
-      { key: 'invoices', label: 'bill.invoices', icon: IconFileInvoice },
-      { key: 'payments', label: 'bill.payments', icon: IconCash },
-      { key: 'network', label: 'net.title', icon: IconTopologyStar3 },
-      { key: 'tariffs', label: 'net.tariffs', icon: IconBolt },
-      { key: 'messages', label: 'msg.nav', icon: IconMessage },
-      { key: 'cash', label: 'nav.cash', icon: IconBuildingBank },
-      { key: 'collect', label: 'collector.mode', icon: IconDeviceMobile },
-      { key: 'billing-setup', label: 'bill.setup', icon: IconSettings },
+      { key: 'customers', label: 'bill.customers', icon: IconUserCircle, perm: 'customers.view' },
+      { key: 'readings', label: 'bill.readings', icon: IconGauge, perm: 'collections.view' },
+      { key: 'invoices', label: 'bill.invoices', icon: IconFileInvoice, perm: 'billing.view' },
+      { key: 'payments', label: 'bill.payments', icon: IconCash, perm: 'collections.view' },
+      { key: 'network', label: 'net.title', icon: IconTopologyStar3, perm: 'network.view' },
+      { key: 'tariffs', label: 'net.tariffs', icon: IconBolt, perm: 'billing.view' },
+      { key: 'messages', label: 'msg.nav', icon: IconMessage, perm: 'messaging.view' },
+      { key: 'cash', label: 'nav.cash', icon: IconBuildingBank, perm: 'collections.view' },
+      { key: 'collect', label: 'collector.mode', icon: IconDeviceMobile, perm: 'collections.create' },
+      { key: 'billing-setup', label: 'bill.setup', icon: IconSettings, perm: 'billing.view' },
     ],
   },
   {
     label: 'sales.nav',
     items: [
-      { key: 'crm', label: 'crm.title', icon: IconTargetArrow },
-      { key: 'quotes', label: 'sales.quotes', icon: IconFileDescription },
-      { key: 'orders', label: 'sales.orders', icon: IconShoppingCart },
-      { key: 'statements', label: 'stmt.bulk', icon: IconFileText },
+      { key: 'crm', label: 'crm.title', icon: IconTargetArrow, perm: 'crm.view' },
+      { key: 'quotes', label: 'sales.quotes', icon: IconFileDescription, perm: 'sales.view' },
+      { key: 'orders', label: 'sales.orders', icon: IconShoppingCart, perm: 'sales.view' },
+      { key: 'statements', label: 'stmt.bulk', icon: IconFileText, perm: 'customers.view' },
     ],
   },
   {
     label: 'pos.nav',
     items: [
-      { key: 'pos', label: 'pos.open', icon: IconCashRegister, roles: ['admin', 'accountant', 'data_entry'] },
-      { key: 'pos-sessions', label: 'pos.sessions', icon: IconReceipt2 },
-      { key: 'pos-setup', label: 'pos.setup', icon: IconSettings, roles: ['admin', 'accountant'] },
+      { key: 'pos', label: 'pos.open', icon: IconCashRegister, perm: 'pos.create' },
+      { key: 'pos-sessions', label: 'pos.sessions', icon: IconReceipt2, perm: 'reports.view' },
+      { key: 'pos-setup', label: 'pos.setup', icon: IconSettings, perm: 'pos.manage' },
     ],
   },
   {
     label: 'pur.nav',
     items: [
-      { key: 'suppliers', label: 'pur.suppliers', icon: IconTruck },
-      { key: 'bills', label: 'pur.bills', icon: IconReceipt },
-      { key: 'supplier-payments', label: 'pur.supplierPayments', icon: IconCashBanknote },
-      { key: 'expenses', label: 'pur.expenses', icon: IconReceiptTax },
-      { key: 'items', label: 'pur.items', icon: IconPackage },
-      { key: 'stock', label: 'pur.stock', icon: IconGasStation },
+      { key: 'suppliers', label: 'pur.suppliers', icon: IconTruck, perm: 'suppliers.view' },
+      { key: 'bills', label: 'pur.bills', icon: IconReceipt, perm: 'purchasing.view' },
+      { key: 'supplier-payments', label: 'pur.supplierPayments', icon: IconCashBanknote, perm: 'purchasing.view' },
+      { key: 'expenses', label: 'pur.expenses', icon: IconReceiptTax, perm: 'expenses.view' },
+      { key: 'items', label: 'pur.items', icon: IconPackage, perm: 'stock.view' },
+      { key: 'stock', label: 'pur.stock', icon: IconGasStation, perm: 'stock.view' },
     ],
   },
   {
     label: 'nav.accounting',
     items: [
-      { key: 'journal', label: 'nav.journal', icon: IconListDetails },
-      { key: 'accounts', label: 'nav.accounts', icon: IconBook2 },
-      { key: 'rates', label: 'nav.rates', icon: IconArrowsExchange },
-      { key: 'recurring', label: 'rec.nav', icon: IconRepeat },
-      { key: 'bank-rec', label: 'bank.nav', icon: IconBuildingBank, roles: ['admin', 'accountant'] },
+      { key: 'journal', label: 'nav.journal', icon: IconListDetails, perm: 'accounting.view' },
+      { key: 'accounts', label: 'nav.accounts', icon: IconBook2, perm: 'accounting.view' },
+      { key: 'rates', label: 'nav.rates', icon: IconArrowsExchange, perm: 'accounting.view' },
+      { key: 'recurring', label: 'rec.nav', icon: IconRepeat, perm: 'accounting.view' },
+      { key: 'bank-rec', label: 'bank.nav', icon: IconBuildingBank, perm: 'bank.edit' },
     ],
   },
   {
     label: 'hr.nav',
     items: [
-      { key: 'employees', label: 'hr.employees', icon: IconId, roles: ['admin', 'accountant'] },
-      { key: 'payroll', label: 'hr.payroll', icon: IconCoins, roles: ['admin', 'accountant'] },
+      { key: 'employees', label: 'hr.employees', icon: IconId, perm: 'payroll.view' },
+      { key: 'payroll', label: 'hr.payroll', icon: IconCoins, perm: 'payroll.view' },
     ],
   },
   {
     label: 'fa.nav',
-    items: [{ key: 'assets', label: 'fa.title', icon: IconBuildingFactory2 }],
+    items: [{ key: 'assets', label: 'fa.title', icon: IconBuildingFactory2, perm: 'assets.view' }],
   },
   {
     label: 'reports2.nav',
@@ -184,17 +188,19 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'vat-report', label: 'net.vatReport', icon: IconReceipt2 },
       { key: 'generator-report', label: 'net.genReport', icon: IconEngine },
       { key: 'asset-register', label: 'fa.register', icon: IconBuildingFactory2 },
+      { key: 'consolidated', label: 'sec.consolidated', icon: IconBuildingSkyscraper },
     ],
   },
   {
     label: 'nav.settings',
     items: [
-      { key: 'companies', label: 'nav.companies', icon: IconBuilding },
-      { key: 'users', label: 'nav.users', icon: IconUsers, roles: ['admin'] },
-      { key: 'audit', label: 'nav.audit', icon: IconHistory, roles: ['admin', 'accountant'] },
-      { key: 'import', label: 'nav.import', icon: IconFileImport, roles: ['admin', 'accountant'] },
-      { key: 'magic-import', label: 'nav.magicImport', icon: IconDatabaseImport, roles: ['admin'] },
-      { key: 'developers', label: 'nav.developers', icon: IconApi, roles: ['admin'] },
+      { key: 'companies', label: 'nav.companies', icon: IconBuilding, perm: 'settings.view' },
+      { key: 'users', label: 'nav.users', icon: IconUsers, perm: 'users.view' },
+      { key: 'approvals', label: 'sec.approvals', icon: IconChecklist },
+      { key: 'audit', label: 'nav.audit', icon: IconHistory, perm: 'audit.view' },
+      { key: 'import', label: 'nav.import', icon: IconFileImport, perm: 'import.create' },
+      { key: 'magic-import', label: 'nav.magicImport', icon: IconDatabaseImport, perm: 'import.manage' },
+      { key: 'developers', label: 'nav.developers', icon: IconApi, perm: 'api.view' },
       { key: 'platform', label: 'platform.title', icon: IconWorld },
     ],
   },
@@ -206,7 +212,7 @@ const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-ba
   'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'stock-moves', 'expenses-report',
   'network', 'tariffs', 'vat-report', 'generator-report', 'print-bills',
   'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec',
-  'crm', 'activities', 'quotes', 'orders', 'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import'];
+  'crm', 'activities', 'quotes', 'orders', 'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals', 'consolidated'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -226,9 +232,12 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
     return () => window.removeEventListener('hashchange', f);
   }, []);
 
-  const allowed = (i: NavItem) => (i.key === 'platform' ? me.is_platform_admin : !i.roles || i.roles.includes(me.role));
-  const blocked = sections.flatMap((s) => s.items).some((i) => i.key === page && !allowed(i));
-  const current: Page = blocked ? 'dashboard' : page;
+  // menu entries follow the user's permissions (the server checks them again on every call)
+  const allowed = (i: NavItem) => (i.key === 'platform' ? me.is_platform_admin : i.key === 'approvals' ? true : can(me, i.perm ?? 'reports.view'));
+  const navItems = sections.flatMap((s) => s.items);
+  const blocked = navItems.some((i) => i.key === page && !allowed(i));
+  const home: Page = navItems.find(allowed)?.key ?? 'security';
+  const current: Page = blocked || (page === 'dashboard' && !can(me, 'reports.view')) ? home : page;
 
   if (me.role === 'cashier' || current === 'pos') {
     return <Suspense fallback={pageFallback}><PosApp me={me} onLogout={me.role === 'cashier' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
@@ -294,7 +303,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
               </Menu.Target>
               <Menu.Dropdown>
                 <Menu.Label>
-                  {me.tenant_name} · {t(`roles.${me.role}`)}
+                  {me.tenant_name} · {me.role_name || t(`roles.${me.role}`)}
                 </Menu.Label>
                 <Menu.Label>{me.email}</Menu.Label>
                 <Box hiddenFrom="sm">
@@ -305,6 +314,9 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
                   ))}
                   <Menu.Divider />
                 </Box>
+                <Menu.Item leftSection={<IconShieldLock size={16} />} component="a" href="#/security">
+                  {t('sec.mySecurity')}
+                </Menu.Item>
                 <Menu.Item leftSection={<IconKey size={16} />} onClick={pw.open}>
                   {t('common.changePassword')}
                 </Menu.Item>
@@ -406,6 +418,9 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'pos-sessions' && <PosSessions />}
         {current === 'pos-report' && <PosReport />}
         {current === 'platform' && me.is_platform_admin && <Platform />}
+        {current === 'security' && <MySecurity me={me} onMe={onMe} />}
+        {current === 'approvals' && <Approvals me={me} />}
+        {current === 'consolidated' && <Consolidated />}
         </Suspense>
       </AppShell.Main>
 

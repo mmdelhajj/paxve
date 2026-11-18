@@ -429,7 +429,4 @@ func (s *Server) reverseEntry(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, e)
 }
 
-func canPost(r *http.Request) bool {
-	role := principal(r).Role
-	return role == RoleAdmin || role == RoleAccountant
-}
+func canPost(r *http.Request) bool { return can(r, "accounting.edit") }

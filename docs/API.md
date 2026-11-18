@@ -117,6 +117,46 @@ curl -s "https://paxve.com/api/v1/companies/$CID/reports/trial-balance?from=2026
 curl -s "https://paxve.com/api/v1/companies/$CID/reports/aging" -H "$H"
 ```
 
+## Permissions, keys and security
+
+Every endpoint needs one permission `module.action` (see `GET /permissions`). Built-in roles are fixed
+permission sets; an admin can make **custom roles** (Users → Roles & permissions) and limit users to some
+companies. A request without the permission gets `403 forbidden`; a company you may not open answers `404`.
+
+An API key acts with its role, optionally narrowed to **scopes** (a list of permissions), and never with more
+than the person who created it can do today:
+
+```sh
+curl -s -X POST https://paxve.com/api/v1/api-keys -H "$J" -b cookies.txt \
+  -d '{"name":"Website","role":"accountant","scopes":["customers.view","collections.view"]}'
+```
+
+When a company has **approval rules** (voids, credit notes, payments out above an amount), such a call by
+someone without `<module>.approve` is stored and answers `202 {"approval_required":true,"approval_id":"…"}`;
+it is done when an approver calls `POST /companies/{cid}/approvals/{id}/approve`.
+
+## Webhooks
+
+Register an URL per company (Developers page or `POST /companies/{cid}/webhooks`) for the events
+`invoice.created`, `payment.created`, `customer.created`, `pos.order.created`. Paxve POSTs JSON:
+
+```json
+{"id":"…","event":"payment.created","created_at":"2026-11-18T10:00:00Z","company_id":"…","data":{ "...the record..." }}
+```
+
+Headers: `X-Paxve-Event`, `X-Paxve-Delivery` (unique id, use it to ignore duplicates) and
+`X-Paxve-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256(secret, "<t>.<raw body>")>`.
+Answer 2xx within 15 s. Failures are retried 8 times (2, 4, 8 … 128 minutes). Addresses on private networks
+are refused.
+
+```python
+import hmac, hashlib, time
+def verify(secret, header, body):
+    t, v1 = [p.split("=", 1)[1] for p in header.split(",")]
+    mac = hmac.new(secret.encode(), f"{t}.".encode() + body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(mac, v1) and abs(time.time() - int(t)) < 300
+```
+
 ## Rules the API cannot bypass
 
 These are enforced inside PostgreSQL, so they hold for the API, the web app and any future client:

@@ -475,7 +475,7 @@ func (s *Server) listTemplates(w http.ResponseWriter, r *http.Request) {
 		if _, err := companyBase(ctx, tx, cid); err != nil {
 			return nil, err
 		}
-		if principal(r).Role == RoleAdmin || principal(r).Role == RoleAccountant {
+		if can(r, "messaging.manage") {
 			if err := seedTemplates(ctx, tx, cid); err != nil {
 				return nil, err
 			}

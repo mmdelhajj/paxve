@@ -1,0 +1,463 @@
+package httpapi
+
+import (
+	"net/http"
+	"slices"
+	"sort"
+	"strings"
+)
+
+// Permissions are "<module>.<action>". Every protected API route declares exactly one permission
+// (routePerms); authenticate() refuses a request whose principal does not hold it. The built-in roles
+// are presets: fixed permission sets that reproduce the original role rules. Tenants can add custom
+// roles (table roles) with any subset of the catalogue; a custom role keeps a built-in "base" role,
+// which only decides whether the user is office staff, a collector or a cashier (screens and data
+// scoping), never what they may do.
+
+// permAny marks routes open to every signed-in user (profile, reference data). It is still declared
+// explicitly, so a route can never be added without thinking about who may use it.
+const permAny = "*"
+
+// moduleActions is the catalogue shown in the role editor (order = display order).
+var moduleActions = []struct {
+	Module  string   `json:"module"`
+	Actions []string `json:"actions"`
+}{
+	{"accounting", []string{"view", "create", "edit", "void", "manage", "approve"}},
+	{"customers", []string{"view", "create", "edit"}},
+	{"billing", []string{"view", "create", "void", "manage", "approve"}},
+	{"collections", []string{"view", "create", "edit", "void", "approve"}},
+	{"sales", []string{"view", "create", "void", "approve"}},
+	{"crm", []string{"view", "create", "edit", "manage"}},
+	{"pos", []string{"view", "create", "void", "manage"}},
+	{"suppliers", []string{"view", "create", "edit"}},
+	{"purchasing", []string{"view", "create", "void", "manage", "approve"}},
+	{"expenses", []string{"view", "create", "void", "approve"}},
+	{"stock", []string{"view", "create", "void", "manage", "approve"}},
+	{"assets", []string{"view", "create", "edit", "void", "approve"}},
+	{"payroll", []string{"view", "create", "edit", "void", "approve"}},
+	{"bank", []string{"view", "create", "edit"}},
+	{"network", []string{"view", "create", "manage"}},
+	{"messaging", []string{"view", "create", "manage"}},
+	{"reports", []string{"view", "export"}},
+	{"import", []string{"create", "manage"}},
+	{"settings", []string{"view", "manage"}},
+	{"users", []string{"view", "create", "edit"}},
+	{"audit", []string{"view"}},
+	{"api", []string{"view", "create", "void"}},
+}
+
+var allPerms = func() map[string]bool {
+	m := map[string]bool{}
+	for _, ma := range moduleActions {
+		for _, a := range ma.Actions {
+			m[ma.Module+"."+a] = true
+		}
+	}
+	return m
+}()
+
+func validPerm(p string) bool { return allPerms[p] }
+
+// ---- presets (built-in roles) ----
+
+// The preset sets are written as unions of these groups. They match the role lists the routes used
+// before permissions existed (TestPresetsMatchLegacyRoles checks every route).
+var (
+	// read access to the office modules (every office role, read-only included)
+	officeView = []string{"accounting.view", "customers.view", "billing.view", "collections.view", "sales.view",
+		"crm.view", "suppliers.view", "purchasing.view", "expenses.view", "stock.view", "assets.view", "bank.view",
+		"network.view", "messaging.view", "reports.view", "reports.export", "settings.view"}
+	// day-to-day data entry
+	entryPerms = []string{"accounting.create", "customers.create", "customers.edit", "collections.create",
+		"sales.create", "crm.create", "crm.edit", "pos.view", "pos.create", "pos.void", "suppliers.create",
+		"suppliers.edit", "expenses.create", "stock.create", "network.create", "messaging.create"}
+	// accountant: money, posting, voids, configuration of the modules
+	writePerms = []string{"accounting.edit", "accounting.void", "accounting.manage", "billing.create", "billing.void",
+		"billing.manage", "collections.edit", "collections.void", "sales.void", "crm.manage", "pos.manage",
+		"purchasing.create", "purchasing.void", "purchasing.manage", "expenses.void", "stock.void", "stock.manage",
+		"assets.create", "assets.edit", "assets.void", "payroll.view", "payroll.create", "payroll.edit", "payroll.void",
+		"bank.create", "bank.edit", "network.manage", "messaging.manage", "import.create", "audit.view"}
+)
+
+var presets = func() map[string][]string {
+	all := make([]string, 0, len(allPerms))
+	for p := range allPerms {
+		all = append(all, p)
+	}
+	join := func(groups ...[]string) []string {
+		var out []string
+		for _, g := range groups {
+			out = append(out, g...)
+		}
+		sort.Strings(out)
+		return slices.Compact(out)
+	}
+	sort.Strings(all)
+	return map[string][]string{
+		RoleAdmin:      all,
+		RoleAccountant: join(officeView, entryPerms, writePerms),
+		RoleDataEntry:  join(officeView, entryPerms),
+		RoleReadOnly:   join(officeView),
+		RoleCollector:  {"collections.create", "collections.view", "customers.view", "network.view"},
+		RoleCashier:    {"collections.view", "customers.view", "network.view", "pos.create", "pos.view", "pos.void"},
+	}
+}()
+
+// permSet turns a list into a lookup set, keeping only known permissions.
+func permSet(list []string) map[string]bool {
+	m := make(map[string]bool, len(list))
+	for _, p := range list {
+		if allPerms[p] {
+			m[p] = true
+		}
+	}
+	return m
+}
+
+func sortedPerms(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for p := range m {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// can reports whether the request's principal holds permission p.
+func can(r *http.Request, p string) bool {
+	pr := principal(r)
+	return p == permAny || pr.perms[p]
+}
+
+// approvePermFor: the permission that approves a request guarded by perm (same module).
+func approvePermFor(perm string) string {
+	mod, _, _ := strings.Cut(perm, ".")
+	return mod + ".approve"
+}
+
+// ---- route → permission ----
+
+const v1 = "/api/v1"
+
+// routePerms maps every protected route pattern (as registered on the mux) to its permission.
+var routePerms = map[string]string{
+	// profile, reference data, platform console (platformOnly checks the owner list itself)
+	"POST /auth/logout":                 permAny,
+	"GET /me":                           permAny,
+	"PATCH /me":                         permAny,
+	"GET /currencies":                   permAny,
+	"GET /companies":                    permAny,
+	"GET /companies/{cid}/rates/latest": permAny,
+	"GET /companies/{cid}/documents/settings":      permAny,
+	"GET /platform/tenants":                        permAny,
+	"PATCH /platform/tenants/{id}":                 permAny,
+	"GET /me/sessions":                             permAny,
+	"POST /me/sessions/{id}/revoke":                permAny,
+	"POST /me/sessions/revoke-others":              permAny,
+	"POST /me/mfa/setup":                           permAny,
+	"POST /me/mfa/enable":                          permAny,
+	"POST /me/mfa/disable":                         permAny,
+	"POST /me/mfa/recovery-codes":                  permAny,
+	"GET /permissions":                             permAny,
+	"GET /companies/{cid}/approvals":               permAny, // each user sees what they asked for, approvers see the rest
+	"GET /companies/{cid}/approvals/{id}":          permAny,
+	"POST /companies/{cid}/approvals/{id}/cancel":  permAny,
+	"POST /companies/{cid}/approvals/{id}/approve": permAny, // the module's .approve permission is checked inside
+	"POST /companies/{cid}/approvals/{id}/reject":  permAny,
+
+	// dashboard, onboarding, demo data, bulk print
+	"GET /companies/{cid}/dashboard":      "reports.view",
+	"GET /companies/{cid}/onboarding":     "settings.view",
+	"POST /demo-data":                     "settings.manage",
+	"GET /companies/{cid}/invoices/print": "billing.view",
+
+	// organisation, users, roles, security
+	"POST /companies":                     "settings.manage",
+	"PATCH /companies/{cid}":              "settings.manage",
+	"GET /companies/{cid}/approval-rules": "settings.view",
+	"PUT /companies/{cid}/approval-rules": "settings.manage",
+	"GET /security/settings":              "users.view",
+	"PUT /security/settings":              "users.edit",
+	"GET /users":                          "users.view",
+	"POST /users":                         "users.create",
+	"PATCH /users/{id}":                   "users.edit",
+	"GET /users/{id}/sessions":            "users.view",
+	"POST /users/{id}/sessions/revoke":    "users.edit",
+	"POST /users/{id}/reset-link":         "users.edit",
+	"POST /users/{id}/mfa/reset":          "users.edit",
+	"GET /roles":                          "users.view",
+	"POST /roles":                         "users.edit",
+	"PATCH /roles/{id}":                   "users.edit",
+	"GET /audit":                          "audit.view",
+
+	// developer API keys and webhooks
+	"GET /api-keys":                                       "api.view",
+	"POST /api-keys":                                      "api.create",
+	"POST /api-keys/{id}/revoke":                          "api.void",
+	"GET /companies/{cid}/webhooks":                       "api.view",
+	"POST /companies/{cid}/webhooks":                      "api.create",
+	"PATCH /companies/{cid}/webhooks/{id}":                "api.create",
+	"POST /companies/{cid}/webhooks/{id}/rotate":          "api.create",
+	"POST /companies/{cid}/webhooks/{id}/test":            "api.create",
+	"GET /companies/{cid}/webhooks/{id}/deliveries":       "api.view",
+	"POST /companies/{cid}/webhook-deliveries/{id}/retry": "api.create",
+
+	// accounting
+	"GET /companies/{cid}/rates":                   "accounting.view",
+	"POST /companies/{cid}/rates":                  "accounting.manage",
+	"GET /companies/{cid}/accounts":                "accounting.view",
+	"POST /companies/{cid}/accounts":               "accounting.manage",
+	"PATCH /companies/{cid}/accounts/{id}":         "accounting.manage",
+	"GET /chart-templates":                         "accounting.view",
+	"POST /companies/{cid}/accounts/load-template": "accounting.manage",
+	"GET /companies/{cid}/journal":                 "accounting.view",
+	"POST /companies/{cid}/journal":                "accounting.create",
+	"GET /companies/{cid}/journal/{id}":            "accounting.view",
+	"PUT /companies/{cid}/journal/{id}":            "accounting.create",
+	"DELETE /companies/{cid}/journal/{id}":         "accounting.create",
+	"POST /companies/{cid}/journal/{id}/post":      "accounting.edit",
+	"POST /companies/{cid}/journal/{id}/reverse":   "accounting.void",
+	"GET /companies/{cid}/recurring":               "accounting.view",
+	"POST /companies/{cid}/recurring":              "accounting.edit",
+	"PATCH /companies/{cid}/recurring/{id}":        "accounting.edit",
+	"POST /companies/{cid}/recurring/{id}/run":     "accounting.edit",
+	"GET /companies/{cid}/backoffice/settings":     "accounting.view",
+	"PUT /companies/{cid}/backoffice/settings":     "accounting.manage",
+
+	// billing setup
+	"GET /companies/{cid}/billing/settings":       "billing.view",
+	"PUT /companies/{cid}/billing/settings":       "billing.manage",
+	"GET /companies/{cid}/payment-methods":        "collections.view",
+	"POST /companies/{cid}/payment-methods":       "billing.manage",
+	"PATCH /companies/{cid}/payment-methods/{id}": "billing.manage",
+	"GET /companies/{cid}/areas":                  "customers.view",
+	"POST /companies/{cid}/areas":                 "customers.edit",
+	"PATCH /companies/{cid}/areas/{id}":           "customers.edit",
+	"GET /companies/{cid}/plans":                  "billing.view",
+	"POST /companies/{cid}/plans":                 "billing.manage",
+	"PATCH /companies/{cid}/plans/{id}":           "billing.manage",
+	"GET /companies/{cid}/tariffs":                "billing.view",
+	"POST /companies/{cid}/tariffs":               "billing.manage",
+	"POST /companies/{cid}/tariffs/{id}/apply":    "billing.manage",
+	"GET /companies/{cid}/tax-rates":              "billing.view",
+	"POST /companies/{cid}/tax-rates":             "billing.manage",
+	"PATCH /companies/{cid}/tax-rates/{id}":       "billing.manage",
+
+	// customers, subscriptions, portal links, statements
+	"GET /companies/{cid}/customers":                     "customers.view",
+	"POST /companies/{cid}/customers":                    "customers.create",
+	"GET /companies/{cid}/customers/{id}":                "customers.view",
+	"PATCH /companies/{cid}/customers/{id}":              "customers.edit",
+	"POST /companies/{cid}/customers/{id}/subscriptions": "customers.create",
+	"PATCH /companies/{cid}/subscriptions/{id}":          "customers.edit",
+	"GET /companies/{cid}/customers/{id}/portal":         "customers.view",
+	"POST /companies/{cid}/customers/{id}/portal":        "customers.create",
+	"GET /companies/{cid}/customers/{id}/statement":      "customers.view",
+	"GET /companies/{cid}/statements":                    "customers.view",
+
+	// meter readings, payments, cash boxes
+	"GET /companies/{cid}/readings":            "collections.view",
+	"POST /companies/{cid}/readings":           "collections.create",
+	"GET /companies/{cid}/payments":            "collections.view",
+	"POST /companies/{cid}/payments":           "collections.create",
+	"GET /companies/{cid}/payments/{id}":       "collections.view",
+	"POST /companies/{cid}/payments/{id}/void": "collections.void",
+	"GET /companies/{cid}/cash/balances":       "collections.view",
+	"GET /companies/{cid}/cash/transfers":      "collections.view",
+	"POST /companies/{cid}/cash/transfers":     "collections.edit",
+
+	// invoices
+	"POST /companies/{cid}/billing/run":               "billing.create",
+	"GET /companies/{cid}/billing/jobs":               "billing.view",
+	"GET /companies/{cid}/billing/jobs/{id}":          "billing.view",
+	"GET /companies/{cid}/invoices":                   "billing.view",
+	"POST /companies/{cid}/invoices":                  "billing.create",
+	"GET /companies/{cid}/invoices/{id}":              "billing.view",
+	"POST /companies/{cid}/invoices/{id}/void":        "billing.void",
+	"POST /companies/{cid}/invoices/{id}/credit-note": "billing.void",
+	"POST /companies/{cid}/customers/{id}/refunds":    "billing.void",
+
+	// reports
+	"GET /companies/{cid}/reports/trial-balance":    "reports.view",
+	"GET /companies/{cid}/reports/ledger/{account}": "reports.view",
+	"GET /companies/{cid}/reports/profit-loss":      "reports.view",
+	"GET /companies/{cid}/reports/balance-sheet":    "reports.view",
+	"GET /companies/{cid}/reports/aging":            "reports.view",
+	"GET /companies/{cid}/reports/collections":      "reports.view",
+	"GET /companies/{cid}/reports/vat":              "reports.view",
+	"GET /companies/{cid}/reports/generators":       "reports.view",
+	"GET /companies/{cid}/reports/stock-moves":      "reports.view",
+	"GET /companies/{cid}/reports/sales":            "reports.view",
+	"GET /companies/{cid}/reports/pos":              "reports.view",
+	"GET /companies/{cid}/reports/ap-aging":         "reports.view",
+	"GET /companies/{cid}/reports/stock-valuation":  "reports.view",
+	"GET /companies/{cid}/reports/expenses":         "reports.view",
+	"GET /companies/{cid}/reports/assets":           "reports.view",
+	"GET /reports/consolidated":                     "reports.view",
+	"POST /export/xlsx":                             "reports.export",
+
+	// network (generators / ISP)
+	"GET /companies/{cid}/stations":                        "network.view",
+	"POST /companies/{cid}/stations":                       "network.create",
+	"PATCH /companies/{cid}/stations/{id}":                 "network.create",
+	"GET /companies/{cid}/generators":                      "network.view",
+	"POST /companies/{cid}/generators":                     "network.create",
+	"PATCH /companies/{cid}/generators/{id}":               "network.create",
+	"GET /companies/{cid}/generators/{id}/log":             "network.view",
+	"POST /companies/{cid}/generators/{id}/hours":          "network.create",
+	"POST /companies/{cid}/generators/{id}/outages":        "network.create",
+	"PATCH /companies/{cid}/generators/{id}/outages/{oid}": "network.create",
+	"GET /companies/{cid}/boxes":                           "network.view",
+	"POST /companies/{cid}/boxes":                          "network.create",
+	"PATCH /companies/{cid}/boxes/{id}":                    "network.create",
+	"GET /companies/{cid}/routers":                         "network.manage",
+	"POST /companies/{cid}/routers":                        "network.manage",
+	"PATCH /companies/{cid}/routers/{id}":                  "network.manage",
+	"POST /companies/{cid}/routers/{id}/test":              "network.manage",
+	"GET /companies/{cid}/isp/settings":                    "network.view",
+	"PUT /companies/{cid}/isp/settings":                    "network.manage",
+	"POST /companies/{cid}/isp/run":                        "network.manage",
+	"GET /companies/{cid}/router-actions":                  "network.view",
+	"POST /companies/{cid}/router-actions/{id}/retry":      "network.manage",
+	"POST /companies/{cid}/subscriptions/{id}/network":     "network.manage",
+
+	// import
+	"POST /companies/{cid}/import/{type}": "import.create",
+	"GET /magic/imports":                  "import.manage",
+	"POST /magic/imports":                 "import.manage",
+	"GET /magic/imports/{id}":             "import.manage",
+	"POST /magic/imports/{id}/chunk":      "import.manage",
+	"POST /magic/imports/{id}/analyze":    "import.manage",
+	"POST /magic/imports/{id}/commit":     "import.manage",
+
+	// messaging
+	"GET /companies/{cid}/message-providers":        "messaging.manage",
+	"POST /companies/{cid}/message-providers":       "messaging.manage",
+	"PATCH /companies/{cid}/message-providers/{id}": "messaging.manage",
+	"GET /companies/{cid}/message-templates":        "messaging.view",
+	"POST /companies/{cid}/message-templates":       "messaging.manage",
+	"PATCH /companies/{cid}/message-templates/{id}": "messaging.manage",
+	"GET /companies/{cid}/messages/settings":        "messaging.view",
+	"PUT /companies/{cid}/messages/settings":        "messaging.manage",
+	"POST /companies/{cid}/messages/send":           "messaging.create",
+	"POST /companies/{cid}/messages/link":           "messaging.view",
+	"GET /companies/{cid}/messages":                 "messaging.view",
+	"POST /companies/{cid}/messages/{id}/retry":     "messaging.manage",
+	"POST /companies/{cid}/statements/send":         "messaging.create",
+	"POST /companies/{cid}/send-document":           "messaging.create",
+	"PUT /companies/{cid}/documents/settings":       "settings.manage",
+
+	// sales
+	"GET /companies/{cid}/sales/orders":                "sales.view",
+	"POST /companies/{cid}/sales/orders":               "sales.create",
+	"GET /companies/{cid}/sales/orders/{id}":           "sales.view",
+	"PUT /companies/{cid}/sales/orders/{id}":           "sales.create",
+	"POST /companies/{cid}/sales/orders/{id}/deliver":  "sales.create",
+	"POST /companies/{cid}/sales/orders/{id}/invoice":  "billing.create",
+	"POST /companies/{cid}/sales/orders/{id}/{action}": "sales.create",
+	"POST /companies/{cid}/sales/deliveries/{id}/void": "sales.void",
+
+	// CRM
+	"GET /companies/{cid}/crm/stages":              "crm.view",
+	"POST /companies/{cid}/crm/stages":             "crm.manage",
+	"PATCH /companies/{cid}/crm/stages/{id}":       "crm.manage",
+	"GET /companies/{cid}/crm/summary":             "crm.view",
+	"GET /companies/{cid}/crm/users":               "crm.view",
+	"GET /companies/{cid}/crm/leads":               "crm.view",
+	"POST /companies/{cid}/crm/leads":              "crm.create",
+	"GET /companies/{cid}/crm/leads/{id}":          "crm.view",
+	"PATCH /companies/{cid}/crm/leads/{id}":        "crm.edit",
+	"POST /companies/{cid}/crm/leads/{id}/convert": "crm.create",
+	"GET /companies/{cid}/crm/activities":          "crm.view",
+	"POST /companies/{cid}/crm/activities":         "crm.create",
+	"PATCH /companies/{cid}/crm/activities/{id}":   "crm.edit",
+	"DELETE /companies/{cid}/crm/activities/{id}":  "crm.edit",
+
+	// point of sale
+	"GET /companies/{cid}/pos/registers":            "pos.view",
+	"POST /companies/{cid}/pos/registers":           "pos.manage",
+	"PATCH /companies/{cid}/pos/registers/{id}":     "pos.manage",
+	"GET /companies/{cid}/pos/categories":           "pos.view",
+	"POST /companies/{cid}/pos/categories":          "pos.manage",
+	"PATCH /companies/{cid}/pos/categories/{id}":    "pos.manage",
+	"GET /companies/{cid}/pos/catalog":              "pos.view",
+	"GET /companies/{cid}/pos/sessions":             "pos.view",
+	"POST /companies/{cid}/pos/sessions":            "pos.create",
+	"GET /companies/{cid}/pos/sessions/{id}":        "pos.view",
+	"POST /companies/{cid}/pos/sessions/{id}/close": "pos.create",
+	"GET /companies/{cid}/pos/orders":               "pos.view",
+	"POST /companies/{cid}/pos/orders":              "pos.create",
+	"GET /companies/{cid}/pos/orders/{id}":          "pos.view",
+	"POST /companies/{cid}/pos/orders/{id}/refund":  "pos.void",
+	"POST /companies/{cid}/pos/customers":           "pos.create",
+
+	// purchasing, expenses, stock
+	"GET /companies/{cid}/purchasing/settings":          "purchasing.view",
+	"PUT /companies/{cid}/purchasing/settings":          "purchasing.manage",
+	"GET /companies/{cid}/suppliers":                    "suppliers.view",
+	"POST /companies/{cid}/suppliers":                   "suppliers.create",
+	"GET /companies/{cid}/suppliers/{id}":               "suppliers.view",
+	"PATCH /companies/{cid}/suppliers/{id}":             "suppliers.edit",
+	"GET /companies/{cid}/bills":                        "purchasing.view",
+	"POST /companies/{cid}/bills":                       "purchasing.create",
+	"GET /companies/{cid}/bills/{id}":                   "purchasing.view",
+	"POST /companies/{cid}/bills/{id}/void":             "purchasing.void",
+	"POST /companies/{cid}/bills/{id}/debit-note":       "purchasing.void",
+	"GET /companies/{cid}/supplier-payments":            "purchasing.view",
+	"POST /companies/{cid}/supplier-payments":           "purchasing.create",
+	"POST /companies/{cid}/supplier-payments/{id}/void": "purchasing.void",
+	"GET /companies/{cid}/expenses":                     "expenses.view",
+	"POST /companies/{cid}/expenses":                    "expenses.create",
+	"POST /companies/{cid}/expenses/{id}/void":          "expenses.void",
+	"GET /companies/{cid}/items":                        "stock.view",
+	"POST /companies/{cid}/items":                       "stock.manage",
+	"GET /companies/{cid}/items/{id}":                   "stock.view",
+	"PATCH /companies/{cid}/items/{id}":                 "stock.manage",
+	"GET /companies/{cid}/warehouses":                   "stock.view",
+	"POST /companies/{cid}/warehouses":                  "stock.manage",
+	"GET /companies/{cid}/stock/docs":                   "stock.view",
+	"POST /companies/{cid}/stock/{kind}":                "stock.create",
+	"POST /companies/{cid}/stock/docs/{id}/void":        "stock.void",
+	"GET /companies/{cid}/stock/transfers":              "stock.view",
+	"POST /companies/{cid}/stock/transfers":             "stock.create",
+	"POST /companies/{cid}/stock/transfers/{id}/void":   "stock.void",
+
+	// HR & payroll, fixed assets, bank reconciliation
+	"GET /companies/{cid}/employees":                        "payroll.view",
+	"POST /companies/{cid}/employees":                       "payroll.create",
+	"GET /companies/{cid}/employees/{id}":                   "payroll.view",
+	"PATCH /companies/{cid}/employees/{id}":                 "payroll.edit",
+	"POST /companies/{cid}/employees/{id}/advances":         "payroll.create",
+	"GET /companies/{cid}/payroll":                          "payroll.view",
+	"POST /companies/{cid}/payroll":                         "payroll.create",
+	"GET /companies/{cid}/payroll/{id}":                     "payroll.view",
+	"DELETE /companies/{cid}/payroll/{id}":                  "payroll.void",
+	"PATCH /companies/{cid}/payroll/{id}/payslips/{pid}":    "payroll.edit",
+	"POST /companies/{cid}/payroll/{id}/post":               "payroll.edit",
+	"POST /companies/{cid}/payroll/{id}/pay":                "payroll.edit",
+	"POST /companies/{cid}/payroll/{id}/void":               "payroll.void",
+	"GET /companies/{cid}/assets":                           "assets.view",
+	"POST /companies/{cid}/assets":                          "assets.create",
+	"GET /companies/{cid}/assets/{id}":                      "assets.view",
+	"PATCH /companies/{cid}/assets/{id}":                    "assets.edit",
+	"POST /companies/{cid}/assets/{id}/dispose":             "assets.void",
+	"POST /companies/{cid}/depreciation/run":                "assets.create",
+	"GET /companies/{cid}/bank/statements":                  "bank.view",
+	"POST /companies/{cid}/bank/statements":                 "bank.create",
+	"GET /companies/{cid}/bank/statements/{id}":             "bank.view",
+	"POST /companies/{cid}/bank/statements/{id}/auto-match": "bank.edit",
+	"POST /companies/{cid}/bank/lines/{id}/match":           "bank.edit",
+	"POST /companies/{cid}/bank/lines/{id}/entry":           "bank.edit",
+	"POST /companies/{cid}/bank/lines/{id}/{action}":        "bank.edit",
+	"GET /companies/{cid}/bank/reconciliation":              "bank.view",
+}
+
+// permForPattern returns the permission of a mux pattern ("" when the route is not declared).
+func permForPattern(pattern string) string {
+	method, path, ok := strings.Cut(pattern, " ")
+	if !ok || !strings.HasPrefix(path, v1) {
+		return ""
+	}
+	return routePerms[method+" "+strings.TrimPrefix(path, v1)]
+}

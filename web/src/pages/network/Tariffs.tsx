@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Checkbox, Group, Modal, Paper, Select, Stack, Table, Text, TextInput, Title } from '@mantine/core';
 import { IconCheck } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDateTime, notifyError, notifySaved } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -25,7 +25,7 @@ export default function Tariffs({ me }: { me: Me }) {
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [applying, setApplying] = useState<Tariff | null>(null);
-  const canEdit = me.role === 'admin' || me.role === 'accountant';
+  const canEdit = can(me, 'billing.manage');
 
   const load = useCallback(() => {
     if (!company) return;

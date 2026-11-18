@@ -3,7 +3,7 @@ import { Button, Center, Checkbox, Divider, Group, Loader, Paper, SegmentedContr
 import { notifications } from '@mantine/notifications';
 import { IconArrowLeft, IconPrinter, IconSend } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { printPage } from '../../native';
 import { formatAmount, formatDate, notifyError, today } from '../../util';
@@ -175,7 +175,7 @@ export default function Statements({ me }: { me: Me }) {
   }
 
   if (!company) return null;
-  const canSend = me.role !== 'read_only';
+  const canSend = can(me, 'messaging.create');
   const chosen = (rows ?? []).filter((r) => picked.has(r.customer.id));
   return (
     <Stack gap="lg" maw={1100}>

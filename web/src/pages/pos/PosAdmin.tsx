@@ -5,7 +5,7 @@ import {
 } from '@mantine/core';
 import { IconCashRegister, IconEdit, IconPlus, IconPrinter } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Account, type Me } from '../../api';
+import { can, api, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, formatDateTime, notifyError, notifySaved, today } from '../../util';
 import { printPage } from '../../native';
@@ -28,7 +28,7 @@ export default function PosSetup({ me }: { me: Me }) {
   const [cats, setCats] = useState<Category[] | null>(null);
   const [editReg, setEditReg] = useState<Register | 'new' | null>(null);
   const [editCat, setEditCat] = useState<Category | 'new' | null>(null);
-  const canManage = me.role === 'admin' || me.role === 'accountant';
+  const canManage = can(me, 'pos.manage');
 
   const load = useCallback(() => {
     if (!company) return;

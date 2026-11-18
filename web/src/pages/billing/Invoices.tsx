@@ -6,7 +6,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { IconBolt, IconPrinter, IconSearch } from '@tabler/icons-react';
 import { EmptyState, ListSkeleton, ShowMore } from '../../components/ListState';
 import { useTranslation } from 'react-i18next';
-import { api, ApiError, type Me } from '../../api';
+import { can, api, ApiError, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, today } from '../../util';
 import PageHeader, { Confirm } from '../../components/PageHeader';
@@ -30,7 +30,7 @@ export default function Invoices({ me }: { me: Me }) {
   const [view, setView] = useState<string | null>(null);
   const [runOpen, setRunOpen] = useState(false);
   const [limit, setLimit] = useState(200);
-  const canManage = me.role === 'admin' || me.role === 'accountant';
+  const canManage = can(me, 'billing.create');
 
   const load = useCallback(() => {
     if (!company) return;

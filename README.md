@@ -25,7 +25,8 @@ Live: https://paxve.com
 | **Import** | CSV / Excel paste wizard for customers, subscriptions, opening balances, meter readings, accounts (validated dry run, all-or-nothing) |
 | **Migration from Magic** | Read-only export script for the legacy Magic database (tools/magic-export), upload with dry run per company, then customers, subscriptions, plans, boxes, collectors, meter readings, unpaid bills, customer / supplier balances and one opening entry imported in one transaction; re-runnable without duplicates (see docs/MAGIC_MIGRATION.md) |
 | **SaaS** | Public landing page, self sign-up with 14-day trial, plans with subscriber limits, platform owner console |
-| **Developers** | REST API `/api/v1` with API keys (hashed, per role, revocable), OpenAPI 3.1 spec at `/api/v1/openapi.yaml` |
+| **Security & permissions** | Permissions per module and action (view, create, edit, cancel, configure, approve, export) on every API route; built-in roles plus custom roles; users limited to chosen companies; two-step sign-in (authenticator app, recovery codes, can be required for the whole organisation); signed-in devices with remote sign-out; password reset by e-mail or admin link; password policy; optional approval of voids, credit notes and large payments; consolidated trial balance / P&L / balance sheet across companies |
+| **Developers** | REST API `/api/v1` with API keys (hashed, per role, optional permission scopes, revocable), signed outbound webhooks with retries (invoice, payment, customer, POS order), OpenAPI 3.1 spec at `/api/v1/openapi.yaml` |
 
 ## Architecture
 

@@ -474,7 +474,7 @@ func (s *Server) deleteActivity(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		// only the author (or an admin) removes an activity
 		tag, err := tx.Exec(ctx, `DELETE FROM crm_activities WHERE id = $1 AND company_id = $2 AND (created_by = app_user() OR $3)`,
-			id, cid, principal(r).Role == RoleAdmin)
+			id, cid, can(r, "crm.manage"))
 		if err != nil {
 			return nil, err
 		}

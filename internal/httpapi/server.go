@@ -51,6 +51,11 @@ type Server struct {
 	platformAdmins map[string]bool
 	signupLimiter  *limiter
 	portalLimiter  *limiter
+	apiKeyLimiter  *limiter       // failed API key attempts per IP
+	resetLimiter   *limiter       // password reset e-mails per IP / per address
+	mfaLimiter     *limiter       // wrong two-factor codes per user
+	mux            *http.ServeMux // kept to replay approved requests
+	protected      []string       // patterns registered with Handle (the authenticated routes and the web app)
 
 	// AllowPrivateRouters lets routers point to private/loopback addresses (tests, VPN setups).
 	// Off by default so tenants cannot use "test connection" to probe the server's internal network.
@@ -65,15 +70,15 @@ func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir str
 		}
 	}
 	return &Server{Pool: pool, OwnerPool: ownerPool, Sessions: sessions, WebDir: webDir,
-		limiter: newLimiter(10, 15*time.Minute), signupLimiter: newLimiter(5, time.Hour), portalLimiter: newLimiter(120, 10*time.Minute), platformAdmins: admins}
+		limiter: newLimiter(10, 15*time.Minute), signupLimiter: newLimiter(5, time.Hour), portalLimiter: newLimiter(120, 10*time.Minute), platformAdmins: admins,
+		apiKeyLimiter: newLimiter(30, 15*time.Minute), resetLimiter: newLimiter(5, time.Hour), mfaLimiter: newLimiter(5, 15*time.Minute)}
 }
 
 func (s *Server) Handler() http.Handler {
-	mux := http.NewServeMux()
-	const v = "/api/v1"
-	write := []string{RoleAdmin, RoleAccountant}
-	entry := []string{RoleAdmin, RoleAccountant, RoleDataEntry}
-	field := []string{RoleAdmin, RoleAccountant, RoleDataEntry, RoleCollector}
+	base := http.NewServeMux()
+	s.mux = base
+	mux := &routeMux{ServeMux: base}
+	const v = v1
 
 	mux.HandleFunc("GET /api/health", s.health)
 	mux.HandleFunc("GET /api/health/ready", s.ready)
@@ -92,100 +97,140 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+v+"/portal/{token}/quotes/{id}/accept", s.portalAcceptQuote)
 	mux.HandleFunc("GET "+v+"/portal/{token}/statement/{from}/{to}", s.portalStatement)
 	mux.Handle("GET "+v+"/companies/{cid}/customers/{id}/portal", s.field(s.customerPortal))
-	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/portal", s.auth(only(s.customerPortal, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/portal", s.auth(s.customerPortal))
 	mux.Handle("GET "+v+"/companies/{cid}/dashboard", s.auth(s.dashboard))
 	mux.Handle("GET "+v+"/companies/{cid}/onboarding", s.auth(s.onboarding))
-	mux.Handle("POST "+v+"/demo-data", s.auth(sessionOnly(only(s.loadDemoData, RoleAdmin))))
+	mux.Handle("POST "+v+"/demo-data", s.auth(sessionOnly(s.loadDemoData)))
 	mux.Handle("GET "+v+"/companies/{cid}/invoices/print", s.auth(s.printInvoices))
 	mux.Handle("GET "+v+"/platform/tenants", s.auth(s.platformOnly(s.platformTenants)))
 	mux.Handle("PATCH "+v+"/platform/tenants/{id}", s.auth(s.platformOnly(s.platformUpdateTenant)))
 
-	// session (browser) auth
+	// session (browser) auth, two-factor, password reset
 	mux.HandleFunc("POST "+v+"/auth/login", s.login)
+	mux.HandleFunc("POST "+v+"/auth/mfa", s.loginMFA)
+	mux.HandleFunc("POST "+v+"/auth/forgot", s.forgotPassword)
+	mux.HandleFunc("GET "+v+"/auth/reset/{token}", s.checkResetToken)
+	mux.HandleFunc("POST "+v+"/auth/reset", s.resetPassword)
 	mux.Handle("POST "+v+"/auth/logout", s.field(s.logout))
 	mux.Handle("GET "+v+"/me", s.field(s.me))
 	mux.Handle("PATCH "+v+"/me", s.field(sessionOnly(s.updateMe)))
+	mux.Handle("GET "+v+"/me/sessions", s.field(sessionOnly(s.mySessions)))
+	mux.Handle("POST "+v+"/me/sessions/{id}/revoke", s.field(sessionOnly(s.revokeMySession)))
+	mux.Handle("POST "+v+"/me/sessions/revoke-others", s.field(sessionOnly(s.revokeOtherSessions)))
+	mux.Handle("POST "+v+"/me/mfa/setup", s.field(sessionOnly(s.mfaSetup)))
+	mux.Handle("POST "+v+"/me/mfa/enable", s.field(sessionOnly(s.mfaEnable)))
+	mux.Handle("POST "+v+"/me/mfa/disable", s.field(sessionOnly(s.mfaDisable)))
+	mux.Handle("POST "+v+"/me/mfa/recovery-codes", s.field(sessionOnly(s.mfaRecoveryCodes)))
+	mux.Handle("GET "+v+"/permissions", s.field(s.permissionCatalogue))
+
+	// roles, security settings, user sessions, approvals
+	mux.Handle("GET "+v+"/roles", s.auth(s.listRoles))
+	mux.Handle("POST "+v+"/roles", s.auth(sessionOnly(s.saveRole)))
+	mux.Handle("PATCH "+v+"/roles/{id}", s.auth(sessionOnly(s.saveRole)))
+	mux.Handle("GET "+v+"/security/settings", s.auth(s.getSecuritySettings))
+	mux.Handle("PUT "+v+"/security/settings", s.auth(sessionOnly(s.putSecuritySettings)))
+	mux.Handle("GET "+v+"/users/{id}/sessions", s.auth(s.userSessions))
+	mux.Handle("POST "+v+"/users/{id}/sessions/revoke", s.auth(sessionOnly(s.revokeUserSessions)))
+	mux.Handle("POST "+v+"/users/{id}/reset-link", s.auth(sessionOnly(s.createResetLink)))
+	mux.Handle("POST "+v+"/users/{id}/mfa/reset", s.auth(sessionOnly(s.resetUserMFA)))
+	mux.Handle("GET "+v+"/companies/{cid}/approval-rules", s.auth(s.getApprovalRules))
+	mux.Handle("PUT "+v+"/companies/{cid}/approval-rules", s.auth(sessionOnly(s.putApprovalRules)))
+	mux.Handle("GET "+v+"/companies/{cid}/approvals", s.auth(s.listApprovals))
+	mux.Handle("GET "+v+"/companies/{cid}/approvals/{id}", s.auth(s.getApproval))
+	mux.Handle("POST "+v+"/companies/{cid}/approvals/{id}/approve", s.auth(sessionOnly(s.approveRequest)))
+	mux.Handle("POST "+v+"/companies/{cid}/approvals/{id}/reject", s.auth(sessionOnly(s.rejectRequest)))
+	mux.Handle("POST "+v+"/companies/{cid}/approvals/{id}/cancel", s.auth(s.cancelRequest))
+	mux.Handle("GET "+v+"/reports/consolidated", s.auth(s.consolidatedReport))
+
+	// outbound webhooks
+	mux.Handle("GET "+v+"/companies/{cid}/webhooks", s.auth(sessionOnly(s.listWebhooks)))
+	mux.Handle("POST "+v+"/companies/{cid}/webhooks", s.auth(sessionOnly(s.saveWebhook)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/webhooks/{id}", s.auth(sessionOnly(s.saveWebhook)))
+	mux.Handle("POST "+v+"/companies/{cid}/webhooks/{id}/rotate", s.auth(sessionOnly(s.rotateWebhookSecret)))
+	mux.Handle("POST "+v+"/companies/{cid}/webhooks/{id}/test", s.auth(sessionOnly(s.testWebhook)))
+	mux.Handle("GET "+v+"/companies/{cid}/webhooks/{id}/deliveries", s.auth(sessionOnly(s.listDeliveries)))
+	mux.Handle("POST "+v+"/companies/{cid}/webhook-deliveries/{id}/retry", s.auth(sessionOnly(s.retryDelivery)))
 
 	// reference data
 	mux.Handle("GET "+v+"/currencies", s.field(s.listCurrencies))
 
 	// organisation
 	mux.Handle("GET "+v+"/companies", s.field(s.listCompanies))
-	mux.Handle("POST "+v+"/companies", s.auth(only(s.createCompany, RoleAdmin)))
-	mux.Handle("PATCH "+v+"/companies/{cid}", s.auth(only(s.updateCompany, RoleAdmin)))
-	mux.Handle("GET "+v+"/users", s.auth(only(s.listUsers, RoleAdmin)))
-	mux.Handle("POST "+v+"/users", s.auth(only(s.createUser, RoleAdmin)))
-	mux.Handle("PATCH "+v+"/users/{id}", s.auth(only(s.updateUser, RoleAdmin)))
-	mux.Handle("GET "+v+"/audit", s.auth(only(s.listAudit, RoleAdmin, RoleAccountant)))
+	mux.Handle("POST "+v+"/companies", s.auth(s.createCompany))
+	mux.Handle("PATCH "+v+"/companies/{cid}", s.auth(s.updateCompany))
+	mux.Handle("GET "+v+"/users", s.auth(s.listUsers))
+	mux.Handle("POST "+v+"/users", s.auth(s.createUser))
+	mux.Handle("PATCH "+v+"/users/{id}", s.auth(s.updateUser))
+	mux.Handle("GET "+v+"/audit", s.auth(s.listAudit))
 
 	// developer API keys (managed from the browser only)
-	mux.Handle("GET "+v+"/api-keys", s.auth(sessionOnly(only(s.listAPIKeys, RoleAdmin))))
-	mux.Handle("POST "+v+"/api-keys", s.auth(sessionOnly(only(s.createAPIKey, RoleAdmin))))
-	mux.Handle("POST "+v+"/api-keys/{id}/revoke", s.auth(sessionOnly(only(s.revokeAPIKey, RoleAdmin))))
+	mux.Handle("GET "+v+"/api-keys", s.auth(sessionOnly(s.listAPIKeys)))
+	mux.Handle("POST "+v+"/api-keys", s.auth(sessionOnly(s.createAPIKey)))
+	mux.Handle("POST "+v+"/api-keys/{id}/revoke", s.auth(sessionOnly(s.revokeAPIKey)))
 
 	// exchange rates
 	mux.Handle("GET "+v+"/companies/{cid}/rates", s.auth(s.listRates))
 	mux.Handle("GET "+v+"/companies/{cid}/rates/latest", s.field(s.latestRates))
-	mux.Handle("POST "+v+"/companies/{cid}/rates", s.auth(only(s.upsertRate, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/rates", s.auth(s.upsertRate))
 
 	// chart of accounts
 	mux.Handle("GET "+v+"/companies/{cid}/accounts", s.auth(s.listAccounts))
-	mux.Handle("POST "+v+"/companies/{cid}/accounts", s.auth(only(s.createAccount, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/accounts/{id}", s.auth(only(s.updateAccount, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/accounts", s.auth(s.createAccount))
+	mux.Handle("PATCH "+v+"/companies/{cid}/accounts/{id}", s.auth(s.updateAccount))
 	mux.Handle("GET "+v+"/chart-templates", s.auth(s.listChartTemplates))
-	mux.Handle("POST "+v+"/companies/{cid}/accounts/load-template", s.auth(only(s.loadChartTemplate, RoleAdmin, RoleAccountant)))
+	mux.Handle("POST "+v+"/companies/{cid}/accounts/load-template", s.auth(s.loadChartTemplate))
 
 	// journal
 	mux.Handle("GET "+v+"/companies/{cid}/journal", s.auth(s.listEntries))
-	mux.Handle("POST "+v+"/companies/{cid}/journal", s.auth(only(s.createEntry, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/journal", s.auth(s.createEntry))
 	mux.Handle("GET "+v+"/companies/{cid}/journal/{id}", s.auth(s.getEntry))
-	mux.Handle("PUT "+v+"/companies/{cid}/journal/{id}", s.auth(only(s.replaceEntry, entry...)))
-	mux.Handle("DELETE "+v+"/companies/{cid}/journal/{id}", s.auth(only(s.deleteEntry, entry...)))
-	mux.Handle("POST "+v+"/companies/{cid}/journal/{id}/post", s.auth(only(s.postEntry, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/journal/{id}/reverse", s.auth(only(s.reverseEntry, write...)))
+	mux.Handle("PUT "+v+"/companies/{cid}/journal/{id}", s.auth(s.replaceEntry))
+	mux.Handle("DELETE "+v+"/companies/{cid}/journal/{id}", s.auth(s.deleteEntry))
+	mux.Handle("POST "+v+"/companies/{cid}/journal/{id}/post", s.auth(s.postEntry))
+	mux.Handle("POST "+v+"/companies/{cid}/journal/{id}/reverse", s.auth(s.approvable("void", s.reverseEntry)))
 
 	// billing setup
 	mux.Handle("GET "+v+"/companies/{cid}/billing/settings", s.auth(s.getBillingSettings))
-	mux.Handle("PUT "+v+"/companies/{cid}/billing/settings", s.auth(only(s.putBillingSettings, write...)))
+	mux.Handle("PUT "+v+"/companies/{cid}/billing/settings", s.auth(s.putBillingSettings))
 	mux.Handle("GET "+v+"/companies/{cid}/payment-methods", s.field(s.listMethods))
-	mux.Handle("POST "+v+"/companies/{cid}/payment-methods", s.auth(only(s.createMethod, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/payment-methods/{id}", s.auth(only(s.updateMethod, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/payment-methods", s.auth(s.createMethod))
+	mux.Handle("PATCH "+v+"/companies/{cid}/payment-methods/{id}", s.auth(s.updateMethod))
 	mux.Handle("GET "+v+"/companies/{cid}/areas", s.field(s.listAreas))
-	mux.Handle("POST "+v+"/companies/{cid}/areas", s.auth(only(s.createArea, entry...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/areas/{id}", s.auth(only(s.updateArea, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/areas", s.auth(s.createArea))
+	mux.Handle("PATCH "+v+"/companies/{cid}/areas/{id}", s.auth(s.updateArea))
 	mux.Handle("GET "+v+"/companies/{cid}/plans", s.auth(s.listPlans))
-	mux.Handle("POST "+v+"/companies/{cid}/plans", s.auth(only(s.createPlan, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/plans/{id}", s.auth(only(s.updatePlan, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/plans", s.auth(s.createPlan))
+	mux.Handle("PATCH "+v+"/companies/{cid}/plans/{id}", s.auth(s.updatePlan))
 
 	// customers, subscriptions, meter readings
 	mux.Handle("GET "+v+"/companies/{cid}/customers", s.field(s.listCustomers))
-	mux.Handle("POST "+v+"/companies/{cid}/customers", s.auth(only(s.createCustomer, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/customers", s.auth(s.createCustomer))
 	mux.Handle("GET "+v+"/companies/{cid}/customers/{id}", s.field(s.getCustomer))
-	mux.Handle("PATCH "+v+"/companies/{cid}/customers/{id}", s.auth(only(s.updateCustomer, entry...)))
-	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/subscriptions", s.auth(only(s.createSubscription, entry...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/subscriptions/{id}", s.auth(only(s.updateSubscription, entry...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/customers/{id}", s.auth(s.updateCustomer))
+	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/subscriptions", s.auth(s.createSubscription))
+	mux.Handle("PATCH "+v+"/companies/{cid}/subscriptions/{id}", s.auth(s.updateSubscription))
 	mux.Handle("GET "+v+"/companies/{cid}/readings", s.field(s.readingSheet))
-	mux.Handle("POST "+v+"/companies/{cid}/readings", s.field(only(s.saveReadings, field...)))
+	mux.Handle("POST "+v+"/companies/{cid}/readings", s.field(s.saveReadings))
 
 	// invoices and payments
-	mux.Handle("POST "+v+"/companies/{cid}/billing/run", s.auth(only(s.runBilling, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/billing/run", s.auth(s.runBilling))
 	mux.Handle("GET "+v+"/companies/{cid}/invoices", s.auth(s.listInvoices))
-	mux.Handle("POST "+v+"/companies/{cid}/invoices", s.auth(only(s.createInvoice, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/invoices", s.auth(s.createInvoice))
 	mux.Handle("GET "+v+"/companies/{cid}/invoices/{id}", s.auth(s.getInvoice))
-	mux.Handle("POST "+v+"/companies/{cid}/invoices/{id}/void", s.auth(only(s.voidInvoice, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/invoices/{id}/void", s.auth(s.approvable("void", s.voidInvoice)))
 	mux.Handle("GET "+v+"/companies/{cid}/payments", s.field(s.listPayments))
-	mux.Handle("POST "+v+"/companies/{cid}/payments", s.field(only(s.createPayment, field...)))
+	mux.Handle("POST "+v+"/companies/{cid}/payments", s.field(s.createPayment))
 	mux.Handle("GET "+v+"/companies/{cid}/payments/{id}", s.field(s.getPayment))
-	mux.Handle("POST "+v+"/companies/{cid}/payments/{id}/void", s.auth(only(s.voidPayment, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/payments/{id}/void", s.auth(s.approvable("void", s.voidPayment)))
 	mux.Handle("GET "+v+"/companies/{cid}/billing/jobs", s.auth(s.listBillingJobs))
 	mux.Handle("GET "+v+"/companies/{cid}/billing/jobs/{id}", s.auth(s.getBillingJob))
-	mux.Handle("POST "+v+"/companies/{cid}/invoices/{id}/credit-note", s.auth(only(s.createCreditNote, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/refunds", s.auth(only(s.createRefund, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/bills/{id}/debit-note", s.auth(only(s.createDebitNote, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/stock/docs/{id}/void", s.auth(only(s.voidStockDoc, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/invoices/{id}/credit-note", s.auth(s.approvable("credit_note", s.createCreditNote)))
+	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/refunds", s.auth(s.approvable("credit_note,payment", s.createRefund)))
+	mux.Handle("POST "+v+"/companies/{cid}/bills/{id}/debit-note", s.auth(s.approvable("credit_note", s.createDebitNote)))
+	mux.Handle("POST "+v+"/companies/{cid}/stock/docs/{id}/void", s.auth(s.approvable("void", s.voidStockDoc)))
 	mux.Handle("GET "+v+"/companies/{cid}/stock/transfers", s.auth(s.listStockTransfers))
-	mux.Handle("POST "+v+"/companies/{cid}/stock/transfers", s.auth(only(s.createStockTransfer, entry...)))
-	mux.Handle("POST "+v+"/companies/{cid}/stock/transfers/{id}/void", s.auth(only(s.voidStockTransfer, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/stock/transfers", s.auth(s.createStockTransfer))
+	mux.Handle("POST "+v+"/companies/{cid}/stock/transfers/{id}/void", s.auth(s.approvable("void", s.voidStockTransfer)))
 	mux.Handle("GET "+v+"/companies/{cid}/reports/stock-moves", s.auth(s.stockMovesReport))
 	mux.Handle("POST "+v+"/export/xlsx", s.auth(s.exportXLSX))
 
@@ -201,187 +246,199 @@ func (s *Server) Handler() http.Handler {
 
 	// network (generator / ISP), operations log, tariffs, taxes
 	mux.Handle("GET "+v+"/companies/{cid}/stations", s.auth(s.listStations))
-	mux.Handle("POST "+v+"/companies/{cid}/stations", s.auth(only(s.saveStation, entry...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/stations/{id}", s.auth(only(s.saveStation, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/stations", s.auth(s.saveStation))
+	mux.Handle("PATCH "+v+"/companies/{cid}/stations/{id}", s.auth(s.saveStation))
 	mux.Handle("GET "+v+"/companies/{cid}/generators", s.auth(s.listGenerators))
-	mux.Handle("POST "+v+"/companies/{cid}/generators", s.auth(only(s.saveGenerator, entry...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/generators/{id}", s.auth(only(s.saveGenerator, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/generators", s.auth(s.saveGenerator))
+	mux.Handle("PATCH "+v+"/companies/{cid}/generators/{id}", s.auth(s.saveGenerator))
 	mux.Handle("GET "+v+"/companies/{cid}/generators/{id}/log", s.auth(s.listGeneratorLog))
-	mux.Handle("POST "+v+"/companies/{cid}/generators/{id}/hours", s.auth(only(s.saveGeneratorHours, entry...)))
-	mux.Handle("POST "+v+"/companies/{cid}/generators/{id}/outages", s.auth(only(s.saveOutage, entry...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/generators/{id}/outages/{oid}", s.auth(only(s.saveOutage, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/generators/{id}/hours", s.auth(s.saveGeneratorHours))
+	mux.Handle("POST "+v+"/companies/{cid}/generators/{id}/outages", s.auth(s.saveOutage))
+	mux.Handle("PATCH "+v+"/companies/{cid}/generators/{id}/outages/{oid}", s.auth(s.saveOutage))
 	mux.Handle("GET "+v+"/companies/{cid}/boxes", s.field(s.listBoxes))
-	mux.Handle("POST "+v+"/companies/{cid}/boxes", s.auth(only(s.saveBox, entry...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/boxes/{id}", s.auth(only(s.saveBox, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/boxes", s.auth(s.saveBox))
+	mux.Handle("PATCH "+v+"/companies/{cid}/boxes/{id}", s.auth(s.saveBox))
 	// ISP: MikroTik routers, auto-suspend / reconnect
-	mux.Handle("GET "+v+"/companies/{cid}/routers", s.auth(only(s.listRouters, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/routers", s.auth(sessionOnly(only(s.saveRouter, write...))))
-	mux.Handle("PATCH "+v+"/companies/{cid}/routers/{id}", s.auth(sessionOnly(only(s.saveRouter, write...))))
-	mux.Handle("POST "+v+"/companies/{cid}/routers/{id}/test", s.auth(only(s.testRouter, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/routers", s.auth(s.listRouters))
+	mux.Handle("POST "+v+"/companies/{cid}/routers", s.auth(sessionOnly(s.saveRouter)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/routers/{id}", s.auth(sessionOnly(s.saveRouter)))
+	mux.Handle("POST "+v+"/companies/{cid}/routers/{id}/test", s.auth(s.testRouter))
 	mux.Handle("GET "+v+"/companies/{cid}/isp/settings", s.auth(s.getISPSettings))
-	mux.Handle("PUT "+v+"/companies/{cid}/isp/settings", s.auth(only(s.putISPSettings, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/isp/run", s.auth(only(s.runISPNow, write...)))
+	mux.Handle("PUT "+v+"/companies/{cid}/isp/settings", s.auth(s.putISPSettings))
+	mux.Handle("POST "+v+"/companies/{cid}/isp/run", s.auth(s.runISPNow))
 	mux.Handle("GET "+v+"/companies/{cid}/router-actions", s.auth(s.listRouterActions))
-	mux.Handle("POST "+v+"/companies/{cid}/router-actions/{id}/retry", s.auth(only(s.retryRouterAction, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/subscriptions/{id}/network", s.auth(only(s.subscriptionNetwork, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/router-actions/{id}/retry", s.auth(s.retryRouterAction))
+	mux.Handle("POST "+v+"/companies/{cid}/subscriptions/{id}/network", s.auth(s.subscriptionNetwork))
 
 	mux.Handle("GET "+v+"/companies/{cid}/tariffs", s.auth(s.listTariffs))
-	mux.Handle("POST "+v+"/companies/{cid}/tariffs", s.auth(only(s.saveTariff, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/tariffs/{id}/apply", s.auth(only(s.applyTariff, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/tariffs", s.auth(s.saveTariff))
+	mux.Handle("POST "+v+"/companies/{cid}/tariffs/{id}/apply", s.auth(s.applyTariff))
 	mux.Handle("GET "+v+"/companies/{cid}/tax-rates", s.auth(s.listTaxRates))
-	mux.Handle("POST "+v+"/companies/{cid}/tax-rates", s.auth(only(s.saveTaxRate, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/tax-rates/{id}", s.auth(only(s.saveTaxRate, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/tax-rates", s.auth(s.saveTaxRate))
+	mux.Handle("PATCH "+v+"/companies/{cid}/tax-rates/{id}", s.auth(s.saveTaxRate))
 
 	// cash boxes: balances and transfers (collector handover)
 	mux.Handle("GET "+v+"/companies/{cid}/cash/balances", s.field(s.cashBalances))
 	mux.Handle("GET "+v+"/companies/{cid}/cash/transfers", s.auth(s.listTransfers))
-	mux.Handle("POST "+v+"/companies/{cid}/cash/transfers", s.auth(only(s.createTransfer, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/cash/transfers", s.auth(s.createTransfer))
 
 	// bulk import (customers, subscriptions, opening balances, readings, accounts)
-	mux.Handle("POST "+v+"/companies/{cid}/import/{type}", s.auth(only(s.importData, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/import/{type}", s.auth(s.importData))
 	// migration from the legacy Magic system (zip made by tools/magic-export)
-	mux.Handle("GET "+v+"/magic/imports", s.auth(sessionOnly(only(s.listMagicImports, RoleAdmin))))
-	mux.Handle("POST "+v+"/magic/imports", s.auth(sessionOnly(only(s.createMagicImport, RoleAdmin))))
-	mux.Handle("GET "+v+"/magic/imports/{id}", s.auth(sessionOnly(only(s.getMagicImport, RoleAdmin))))
-	mux.Handle("POST "+v+"/magic/imports/{id}/chunk", s.auth(sessionOnly(only(s.magicChunk, RoleAdmin))))
-	mux.Handle("POST "+v+"/magic/imports/{id}/analyze", s.auth(sessionOnly(only(s.analyzeMagicImport, RoleAdmin))))
-	mux.Handle("POST "+v+"/magic/imports/{id}/commit", s.auth(sessionOnly(only(s.commitMagicImport, RoleAdmin))))
+	mux.Handle("GET "+v+"/magic/imports", s.auth(sessionOnly(s.listMagicImports)))
+	mux.Handle("POST "+v+"/magic/imports", s.auth(sessionOnly(s.createMagicImport)))
+	mux.Handle("GET "+v+"/magic/imports/{id}", s.auth(sessionOnly(s.getMagicImport)))
+	mux.Handle("POST "+v+"/magic/imports/{id}/chunk", s.auth(sessionOnly(s.magicChunk)))
+	mux.Handle("POST "+v+"/magic/imports/{id}/analyze", s.auth(sessionOnly(s.analyzeMagicImport)))
+	mux.Handle("POST "+v+"/magic/imports/{id}/commit", s.auth(sessionOnly(s.commitMagicImport)))
 
 	// messaging (WhatsApp / SMS)
-	mux.Handle("GET "+v+"/companies/{cid}/message-providers", s.auth(only(s.listProviders, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/message-providers", s.auth(only(s.saveProvider, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/message-providers/{id}", s.auth(only(s.saveProvider, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/message-providers", s.auth(s.listProviders))
+	mux.Handle("POST "+v+"/companies/{cid}/message-providers", s.auth(s.saveProvider))
+	mux.Handle("PATCH "+v+"/companies/{cid}/message-providers/{id}", s.auth(s.saveProvider))
 	mux.Handle("GET "+v+"/companies/{cid}/message-templates", s.auth(s.listTemplates))
-	mux.Handle("POST "+v+"/companies/{cid}/message-templates", s.auth(only(s.saveTemplate, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/message-templates/{id}", s.auth(only(s.saveTemplate, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/message-templates", s.auth(s.saveTemplate))
+	mux.Handle("PATCH "+v+"/companies/{cid}/message-templates/{id}", s.auth(s.saveTemplate))
 	mux.Handle("GET "+v+"/companies/{cid}/messages/settings", s.auth(s.getMessageSettings))
-	mux.Handle("PUT "+v+"/companies/{cid}/messages/settings", s.auth(only(s.putMessageSettings, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/messages/send", s.auth(only(s.sendMessages, entry...)))
+	mux.Handle("PUT "+v+"/companies/{cid}/messages/settings", s.auth(s.putMessageSettings))
+	mux.Handle("POST "+v+"/companies/{cid}/messages/send", s.auth(s.sendMessages))
 	mux.Handle("POST "+v+"/companies/{cid}/messages/link", s.auth(s.messageLink))
 	mux.Handle("GET "+v+"/companies/{cid}/messages", s.auth(s.listMessages))
-	mux.Handle("POST "+v+"/companies/{cid}/messages/{id}/retry", s.auth(only(s.retryMessage, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/messages/{id}/retry", s.auth(s.retryMessage))
 
 	// sales: quotations -> orders -> deliveries / invoices, statements, documents
 	mux.Handle("GET "+v+"/companies/{cid}/sales/orders", s.auth(s.listOrders))
-	mux.Handle("POST "+v+"/companies/{cid}/sales/orders", s.auth(only(s.createOrder, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/sales/orders", s.auth(s.createOrder))
 	mux.Handle("GET "+v+"/companies/{cid}/sales/orders/{id}", s.auth(s.getOrder))
-	mux.Handle("PUT "+v+"/companies/{cid}/sales/orders/{id}", s.auth(only(s.updateOrder, entry...)))
-	mux.Handle("POST "+v+"/companies/{cid}/sales/orders/{id}/deliver", s.auth(only(s.deliverOrder, entry...)))
-	mux.Handle("POST "+v+"/companies/{cid}/sales/orders/{id}/invoice", s.auth(only(s.invoiceOrder, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/sales/orders/{id}/{action}", s.auth(only(s.orderAction, entry...)))
-	mux.Handle("POST "+v+"/companies/{cid}/sales/deliveries/{id}/void", s.auth(only(s.voidDelivery, write...)))
+	mux.Handle("PUT "+v+"/companies/{cid}/sales/orders/{id}", s.auth(s.updateOrder))
+	mux.Handle("POST "+v+"/companies/{cid}/sales/orders/{id}/deliver", s.auth(s.deliverOrder))
+	mux.Handle("POST "+v+"/companies/{cid}/sales/orders/{id}/invoice", s.auth(s.invoiceOrder))
+	mux.Handle("POST "+v+"/companies/{cid}/sales/orders/{id}/{action}", s.auth(s.orderAction))
+	mux.Handle("POST "+v+"/companies/{cid}/sales/deliveries/{id}/void", s.auth(s.approvable("void", s.voidDelivery)))
 	mux.Handle("GET "+v+"/companies/{cid}/reports/sales", s.auth(s.salesReport))
 	mux.Handle("GET "+v+"/companies/{cid}/customers/{id}/statement", s.auth(s.getCustomerStatement))
 	mux.Handle("GET "+v+"/companies/{cid}/statements", s.auth(s.listCustomerStatements))
-	mux.Handle("POST "+v+"/companies/{cid}/statements/send", s.auth(only(s.sendStatements, entry...)))
-	mux.Handle("POST "+v+"/companies/{cid}/send-document", s.auth(only(s.sendDocument, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/statements/send", s.auth(s.sendStatements))
+	mux.Handle("POST "+v+"/companies/{cid}/send-document", s.auth(s.sendDocument))
 	mux.Handle("GET "+v+"/companies/{cid}/documents/settings", s.field(s.getDocSettings))
-	mux.Handle("PUT "+v+"/companies/{cid}/documents/settings", s.auth(only(s.putDocSettings, RoleAdmin)))
+	mux.Handle("PUT "+v+"/companies/{cid}/documents/settings", s.auth(s.putDocSettings))
 	// CRM
 	mux.Handle("GET "+v+"/companies/{cid}/crm/stages", s.auth(s.listStages))
-	mux.Handle("POST "+v+"/companies/{cid}/crm/stages", s.auth(only(s.saveStage, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/crm/stages/{id}", s.auth(only(s.saveStage, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/crm/stages", s.auth(s.saveStage))
+	mux.Handle("PATCH "+v+"/companies/{cid}/crm/stages/{id}", s.auth(s.saveStage))
 	mux.Handle("GET "+v+"/companies/{cid}/crm/summary", s.auth(s.crmSummary))
 	mux.Handle("GET "+v+"/companies/{cid}/crm/users", s.auth(s.crmUsers))
 	mux.Handle("GET "+v+"/companies/{cid}/crm/leads", s.auth(s.listLeads))
-	mux.Handle("POST "+v+"/companies/{cid}/crm/leads", s.auth(only(s.saveLead, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/crm/leads", s.auth(s.saveLead))
 	mux.Handle("GET "+v+"/companies/{cid}/crm/leads/{id}", s.auth(s.getLead))
-	mux.Handle("PATCH "+v+"/companies/{cid}/crm/leads/{id}", s.auth(only(s.saveLead, entry...)))
-	mux.Handle("POST "+v+"/companies/{cid}/crm/leads/{id}/convert", s.auth(only(s.convertLead, entry...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/crm/leads/{id}", s.auth(s.saveLead))
+	mux.Handle("POST "+v+"/companies/{cid}/crm/leads/{id}/convert", s.auth(s.convertLead))
 	mux.Handle("GET "+v+"/companies/{cid}/crm/activities", s.auth(s.listActivities))
-	mux.Handle("POST "+v+"/companies/{cid}/crm/activities", s.auth(only(s.saveActivity, entry...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/crm/activities/{id}", s.auth(only(s.saveActivity, entry...)))
-	mux.Handle("DELETE "+v+"/companies/{cid}/crm/activities/{id}", s.auth(only(s.deleteActivity, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/crm/activities", s.auth(s.saveActivity))
+	mux.Handle("PATCH "+v+"/companies/{cid}/crm/activities/{id}", s.auth(s.saveActivity))
+	mux.Handle("DELETE "+v+"/companies/{cid}/crm/activities/{id}", s.auth(s.deleteActivity))
 
 	// point of sale (cashiers see only this)
-	pos := []string{RoleAdmin, RoleAccountant, RoleDataEntry, RoleCashier}
-	mux.Handle("GET "+v+"/companies/{cid}/pos/registers", s.field(only(s.listRegisters, pos...)))
-	mux.Handle("POST "+v+"/companies/{cid}/pos/registers", s.auth(only(s.saveRegister, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/pos/registers/{id}", s.auth(only(s.saveRegister, write...)))
-	mux.Handle("GET "+v+"/companies/{cid}/pos/categories", s.field(only(s.listCategories, pos...)))
-	mux.Handle("POST "+v+"/companies/{cid}/pos/categories", s.auth(only(s.saveCategory, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/pos/categories/{id}", s.auth(only(s.saveCategory, write...)))
-	mux.Handle("GET "+v+"/companies/{cid}/pos/catalog", s.field(only(s.posCatalog, pos...)))
-	mux.Handle("GET "+v+"/companies/{cid}/pos/sessions", s.field(only(s.listSessions, pos...)))
-	mux.Handle("POST "+v+"/companies/{cid}/pos/sessions", s.field(only(s.openSession, pos...)))
-	mux.Handle("GET "+v+"/companies/{cid}/pos/sessions/{id}", s.field(only(s.getSession, pos...)))
-	mux.Handle("POST "+v+"/companies/{cid}/pos/sessions/{id}/close", s.field(only(s.closeSession, pos...)))
-	mux.Handle("GET "+v+"/companies/{cid}/pos/orders", s.field(only(s.listPosOrders, pos...)))
-	mux.Handle("POST "+v+"/companies/{cid}/pos/orders", s.field(only(s.createPosOrder, pos...)))
-	mux.Handle("GET "+v+"/companies/{cid}/pos/orders/{id}", s.field(only(s.getPosOrder, pos...)))
-	mux.Handle("POST "+v+"/companies/{cid}/pos/orders/{id}/refund", s.field(only(s.refundPosOrder, pos...)))
-	mux.Handle("POST "+v+"/companies/{cid}/pos/customers", s.field(only(s.posQuickCustomer, pos...)))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/registers", s.field(s.listRegisters))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/registers", s.auth(s.saveRegister))
+	mux.Handle("PATCH "+v+"/companies/{cid}/pos/registers/{id}", s.auth(s.saveRegister))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/categories", s.field(s.listCategories))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/categories", s.auth(s.saveCategory))
+	mux.Handle("PATCH "+v+"/companies/{cid}/pos/categories/{id}", s.auth(s.saveCategory))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/catalog", s.field(s.posCatalog))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/sessions", s.field(s.listSessions))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/sessions", s.field(s.openSession))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/sessions/{id}", s.field(s.getSession))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/sessions/{id}/close", s.field(s.closeSession))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/orders", s.field(s.listPosOrders))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/orders", s.field(s.createPosOrder))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/orders/{id}", s.field(s.getPosOrder))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/orders/{id}/refund", s.field(s.refundPosOrder))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/customers", s.field(s.posQuickCustomer))
 	mux.Handle("GET "+v+"/companies/{cid}/reports/pos", s.auth(s.posReport))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { writeErr(w, http.StatusNotFound, "not_found") })
 	// purchasing & stock
 	mux.Handle("GET "+v+"/companies/{cid}/purchasing/settings", s.auth(s.getPurchSettings))
-	mux.Handle("PUT "+v+"/companies/{cid}/purchasing/settings", s.auth(only(s.putPurchSettings, write...)))
+	mux.Handle("PUT "+v+"/companies/{cid}/purchasing/settings", s.auth(s.putPurchSettings))
 	mux.Handle("GET "+v+"/companies/{cid}/suppliers", s.auth(s.listSuppliers))
-	mux.Handle("POST "+v+"/companies/{cid}/suppliers", s.auth(only(s.saveSupplier, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/suppliers", s.auth(s.saveSupplier))
 	mux.Handle("GET "+v+"/companies/{cid}/suppliers/{id}", s.auth(s.getSupplier))
-	mux.Handle("PATCH "+v+"/companies/{cid}/suppliers/{id}", s.auth(only(s.saveSupplier, entry...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/suppliers/{id}", s.auth(s.saveSupplier))
 	mux.Handle("GET "+v+"/companies/{cid}/items", s.auth(s.listItems))
-	mux.Handle("POST "+v+"/companies/{cid}/items", s.auth(only(s.saveItem, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/items", s.auth(s.saveItem))
 	mux.Handle("GET "+v+"/companies/{cid}/items/{id}", s.auth(s.getItem))
-	mux.Handle("PATCH "+v+"/companies/{cid}/items/{id}", s.auth(only(s.saveItem, write...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/items/{id}", s.auth(s.saveItem))
 	mux.Handle("GET "+v+"/companies/{cid}/warehouses", s.auth(s.listWarehouses))
-	mux.Handle("POST "+v+"/companies/{cid}/warehouses", s.auth(only(s.createWarehouse, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/warehouses", s.auth(s.createWarehouse))
 	mux.Handle("GET "+v+"/companies/{cid}/bills", s.auth(s.listBills))
-	mux.Handle("POST "+v+"/companies/{cid}/bills", s.auth(only(s.createBill, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/bills", s.auth(s.createBill))
 	mux.Handle("GET "+v+"/companies/{cid}/bills/{id}", s.auth(s.getBill))
-	mux.Handle("POST "+v+"/companies/{cid}/bills/{id}/void", s.auth(only(s.voidBill, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/bills/{id}/void", s.auth(s.approvable("void", s.voidBill)))
 	mux.Handle("GET "+v+"/companies/{cid}/supplier-payments", s.auth(s.listSupplierPayments))
-	mux.Handle("POST "+v+"/companies/{cid}/supplier-payments", s.auth(only(s.createSupplierPayment, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/supplier-payments/{id}/void", s.auth(only(s.voidSupplierPayment, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/supplier-payments", s.auth(s.approvable("payment", s.createSupplierPayment)))
+	mux.Handle("POST "+v+"/companies/{cid}/supplier-payments/{id}/void", s.auth(s.approvable("void", s.voidSupplierPayment)))
 	mux.Handle("GET "+v+"/companies/{cid}/expenses", s.auth(s.listExpenses))
-	mux.Handle("POST "+v+"/companies/{cid}/expenses", s.auth(only(s.createExpense, entry...)))
-	mux.Handle("POST "+v+"/companies/{cid}/expenses/{id}/void", s.auth(only(s.voidExpense, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/expenses", s.auth(s.createExpense))
+	mux.Handle("POST "+v+"/companies/{cid}/expenses/{id}/void", s.auth(s.approvable("void", s.voidExpense)))
 	mux.Handle("GET "+v+"/companies/{cid}/stock/docs", s.auth(s.listStockDocs))
-	mux.Handle("POST "+v+"/companies/{cid}/stock/{kind}", s.auth(only(s.createStockDoc, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/stock/{kind}", s.auth(s.createStockDoc))
 	mux.Handle("GET "+v+"/companies/{cid}/reports/ap-aging", s.auth(s.apAging))
 	mux.Handle("GET "+v+"/companies/{cid}/reports/stock-valuation", s.auth(s.stockValuation))
 	mux.Handle("GET "+v+"/companies/{cid}/reports/expenses", s.auth(s.expensesReport))
 
 	// back office: settings, HR & payroll (salaries: admin/accountant only), assets, recurring, bank reconciliation
 	mux.Handle("GET "+v+"/companies/{cid}/backoffice/settings", s.auth(s.getBOSettings))
-	mux.Handle("PUT "+v+"/companies/{cid}/backoffice/settings", s.auth(only(s.putBOSettings, write...)))
-	mux.Handle("GET "+v+"/companies/{cid}/employees", s.auth(only(s.listEmployees, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/employees", s.auth(only(s.saveEmployee, write...)))
-	mux.Handle("GET "+v+"/companies/{cid}/employees/{id}", s.auth(only(s.getEmployee, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/employees/{id}", s.auth(only(s.saveEmployee, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/employees/{id}/advances", s.auth(only(s.createAdvance, write...)))
-	mux.Handle("GET "+v+"/companies/{cid}/payroll", s.auth(only(s.listPayrollRuns, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/payroll", s.auth(only(s.createPayrollRun, write...)))
-	mux.Handle("GET "+v+"/companies/{cid}/payroll/{id}", s.auth(only(s.getPayrollRun, write...)))
-	mux.Handle("DELETE "+v+"/companies/{cid}/payroll/{id}", s.auth(only(s.deletePayrollRun, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/payroll/{id}/payslips/{pid}", s.auth(only(s.updatePayslip, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/payroll/{id}/post", s.auth(only(s.postPayrollRun, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/payroll/{id}/pay", s.auth(only(s.payPayrollRun, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/payroll/{id}/void", s.auth(only(s.voidPayrollRun, write...)))
+	mux.Handle("PUT "+v+"/companies/{cid}/backoffice/settings", s.auth(s.putBOSettings))
+	mux.Handle("GET "+v+"/companies/{cid}/employees", s.auth(s.listEmployees))
+	mux.Handle("POST "+v+"/companies/{cid}/employees", s.auth(s.saveEmployee))
+	mux.Handle("GET "+v+"/companies/{cid}/employees/{id}", s.auth(s.getEmployee))
+	mux.Handle("PATCH "+v+"/companies/{cid}/employees/{id}", s.auth(s.saveEmployee))
+	mux.Handle("POST "+v+"/companies/{cid}/employees/{id}/advances", s.auth(s.createAdvance))
+	mux.Handle("GET "+v+"/companies/{cid}/payroll", s.auth(s.listPayrollRuns))
+	mux.Handle("POST "+v+"/companies/{cid}/payroll", s.auth(s.createPayrollRun))
+	mux.Handle("GET "+v+"/companies/{cid}/payroll/{id}", s.auth(s.getPayrollRun))
+	mux.Handle("DELETE "+v+"/companies/{cid}/payroll/{id}", s.auth(s.deletePayrollRun))
+	mux.Handle("PATCH "+v+"/companies/{cid}/payroll/{id}/payslips/{pid}", s.auth(s.updatePayslip))
+	mux.Handle("POST "+v+"/companies/{cid}/payroll/{id}/post", s.auth(s.postPayrollRun))
+	mux.Handle("POST "+v+"/companies/{cid}/payroll/{id}/pay", s.auth(s.payPayrollRun))
+	mux.Handle("POST "+v+"/companies/{cid}/payroll/{id}/void", s.auth(s.approvable("void", s.voidPayrollRun)))
 	mux.Handle("GET "+v+"/companies/{cid}/assets", s.auth(s.listAssets))
-	mux.Handle("POST "+v+"/companies/{cid}/assets", s.auth(only(s.createAsset, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/assets", s.auth(s.createAsset))
 	mux.Handle("GET "+v+"/companies/{cid}/assets/{id}", s.auth(s.getAsset))
-	mux.Handle("PATCH "+v+"/companies/{cid}/assets/{id}", s.auth(only(s.updateAsset, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/assets/{id}/dispose", s.auth(only(s.disposeAsset, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/depreciation/run", s.auth(only(s.runDepreciation, write...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/assets/{id}", s.auth(s.updateAsset))
+	mux.Handle("POST "+v+"/companies/{cid}/assets/{id}/dispose", s.auth(s.approvable("void", s.disposeAsset)))
+	mux.Handle("POST "+v+"/companies/{cid}/depreciation/run", s.auth(s.runDepreciation))
 	mux.Handle("GET "+v+"/companies/{cid}/reports/assets", s.auth(s.assetRegister))
 	mux.Handle("GET "+v+"/companies/{cid}/recurring", s.auth(s.listRecurring))
-	mux.Handle("POST "+v+"/companies/{cid}/recurring", s.auth(only(s.saveRecurring, write...)))
-	mux.Handle("PATCH "+v+"/companies/{cid}/recurring/{id}", s.auth(only(s.saveRecurring, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/recurring/{id}/run", s.auth(only(s.runRecurringNow, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/recurring", s.auth(s.saveRecurring))
+	mux.Handle("PATCH "+v+"/companies/{cid}/recurring/{id}", s.auth(s.saveRecurring))
+	mux.Handle("POST "+v+"/companies/{cid}/recurring/{id}/run", s.auth(s.runRecurringNow))
 	mux.Handle("GET "+v+"/companies/{cid}/bank/statements", s.auth(s.listStatements))
-	mux.Handle("POST "+v+"/companies/{cid}/bank/statements", s.auth(only(s.importStatement, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/bank/statements", s.auth(s.importStatement))
 	mux.Handle("GET "+v+"/companies/{cid}/bank/statements/{id}", s.auth(s.getStatement))
-	mux.Handle("POST "+v+"/companies/{cid}/bank/statements/{id}/auto-match", s.auth(only(s.autoMatchStatement, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/bank/lines/{id}/match", s.auth(only(s.matchBankLine, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/bank/lines/{id}/entry", s.auth(only(s.createBankLineEntry, write...)))
-	mux.Handle("POST "+v+"/companies/{cid}/bank/lines/{id}/{action}", s.auth(only(s.setBankLineStatus, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/bank/statements/{id}/auto-match", s.auth(s.autoMatchStatement))
+	mux.Handle("POST "+v+"/companies/{cid}/bank/lines/{id}/match", s.auth(s.matchBankLine))
+	mux.Handle("POST "+v+"/companies/{cid}/bank/lines/{id}/entry", s.auth(s.createBankLineEntry))
+	mux.Handle("POST "+v+"/companies/{cid}/bank/lines/{id}/{action}", s.auth(s.setBankLineStatus))
 	mux.Handle("GET "+v+"/companies/{cid}/bank/reconciliation", s.auth(s.bankReconciliation))
 
 	mux.Handle("/", spa(s.WebDir))
 
-	return securityHeaders(jsonOnly(s.Sessions.LoadAndSave(mux)))
+	s.protected = mux.patterns
+	return securityHeaders(jsonOnly(s.Sessions.LoadAndSave(base)))
+}
+
+// routeMux records the patterns registered with Handle (every authenticated route goes through it),
+// so a test can check that each one declares a permission.
+type routeMux struct {
+	*http.ServeMux
+	patterns []string
+}
+
+func (m *routeMux) Handle(pattern string, h http.Handler) {
+	m.patterns = append(m.patterns, pattern)
+	m.ServeMux.Handle(pattern, h)
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
@@ -425,7 +482,7 @@ type Principal struct {
 	TenantName string `json:"tenant_name"`
 	Email      string `json:"email"`
 	FullName   string `json:"full_name"`
-	Role       string `json:"role"`
+	Role       string `json:"role"` // built-in base role (admin, accountant, ..., collector, cashier)
 	Locale     string `json:"locale"`
 	APIKeyID   string `json:"api_key_id,omitempty"`
 	Active     bool   `json:"-"`
@@ -433,9 +490,29 @@ type Principal struct {
 	Plan            string     `json:"plan"`
 	TrialEndsAt     *time.Time `json:"trial_ends_at"`
 	IsPlatformAdmin bool       `json:"is_platform_admin"`
+
+	RoleID           *string  `json:"role_id"`   // custom role, if any
+	RoleName         string   `json:"role_name"` // custom role name ("" = built-in)
+	Permissions      []string `json:"permissions"`
+	CompanyIDs       []string `json:"company_ids"` // nil = all companies
+	MFAEnabled       bool     `json:"mfa_enabled"`
+	MFARequired      bool     `json:"mfa_required"`       // the organisation requires two-factor sign-in
+	MFASetupRequired bool     `json:"mfa_setup_required"` // required but not set up yet: only setup is allowed
+	SessionID        string   `json:"-"`
+
+	perms map[string]bool
 }
 
 type principalKey struct{}
+
+// approvedExecKey marks a request replayed by an approver (see approvals.go). Only server code can set
+// context values, so clients cannot forge it.
+type approvedExecKey struct{}
+
+type approvedExec struct {
+	p       *Principal
+	pattern string
+}
 
 func principal(r *http.Request) *Principal { return r.Context().Value(principalKey{}).(*Principal) }
 
@@ -446,41 +523,117 @@ func scope(r *http.Request) db.Scope {
 
 func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, error) {
 	p := &Principal{}
+	var custom []string
+	var roleActive *bool
 	err := db.InTenant(ctx, s.Pool, sc, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `
 			SELECT u.id::text, u.tenant_id::text, t.name, u.email, u.full_name, u.role, u.locale,
-			       (u.is_active AND t.is_active), t.plan, t.trial_ends_at
+			       (u.is_active AND t.is_active), t.plan, t.trial_ends_at,
+			       u.role_id::text, coalesce(ro.name, ''), ro.permissions, ro.is_active,
+			       u.company_ids::text[], coalesce(m.enabled_at IS NOT NULL, false), t.require_mfa
 			FROM users u JOIN tenants t ON t.id = u.tenant_id
+			LEFT JOIN roles ro ON ro.id = u.role_id
+			LEFT JOIN user_mfa m ON m.user_id = u.id
 			WHERE u.id = $1`, sc.UserID).
-			Scan(&p.ID, &p.TenantID, &p.TenantName, &p.Email, &p.FullName, &p.Role, &p.Locale, &p.Active, &p.Plan, &p.TrialEndsAt)
+			Scan(&p.ID, &p.TenantID, &p.TenantName, &p.Email, &p.FullName, &p.Role, &p.Locale, &p.Active, &p.Plan,
+				&p.TrialEndsAt, &p.RoleID, &p.RoleName, &custom, &roleActive, &p.CompanyIDs, &p.MFAEnabled, &p.MFARequired)
 	})
-	p.IsPlatformAdmin = err == nil && s.platformAdmins[strings.ToLower(p.Email)]
-	return p, err
+	if err != nil {
+		return p, err
+	}
+	p.IsPlatformAdmin = s.platformAdmins[strings.ToLower(p.Email)]
+	if p.RoleID != nil {
+		// a custom role: its own list; a deactivated role grants nothing
+		if roleActive != nil && *roleActive {
+			p.perms = permSet(custom)
+		} else {
+			p.perms = map[string]bool{}
+		}
+	} else {
+		p.perms = permSet(presets[p.Role])
+	}
+	p.Permissions = sortedPerms(p.perms)
+	p.MFASetupRequired = p.MFARequired && !p.MFAEnabled
+	return p, nil
+}
+
+// companyAllowed: the user may open this company (users can be limited to some companies).
+func companyAllowed(p *Principal, cid string) bool {
+	if p.CompanyIDs == nil {
+		return true
+	}
+	for _, c := range p.CompanyIDs {
+		if strings.EqualFold(c, cid) {
+			return true
+		}
+	}
+	return false
 }
 
 // auth: any signed-in office user (collectors and cashiers are refused). field: also collectors and cashiers
-// (each handler then decides what they may see, e.g. with only(...)).
+// (each handler then decides what they may see). On top of that every route needs its permission (routePerms).
 func (s *Server) auth(next http.HandlerFunc) http.Handler  { return s.authenticate(next, false) }
 func (s *Server) field(next http.HandlerFunc) http.Handler { return s.authenticate(next, true) }
 
+// routes a user may still call while the organisation requires two-factor sign-in that is not set up yet
+var mfaSetupRoutes = map[string]bool{
+	"GET /me": true, "PATCH /me": true, "POST /auth/logout": true, "GET /permissions": true,
+	"POST /me/mfa/setup": true, "POST /me/mfa/enable": true, "GET /companies": true,
+}
+
 // authenticate accepts either a browser session cookie or "Authorization: Bearer pxv_..." API key.
 func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) http.Handler {
-	next := func(w http.ResponseWriter, r *http.Request) {
-		if role := principal(r).Role; !allowCollector && (role == RoleCollector || role == RoleCashier) {
+	next := func(w http.ResponseWriter, r *http.Request, p *Principal, approved bool) {
+		if !allowCollector && (p.Role == RoleCollector || p.Role == RoleCashier) {
 			writeErr(w, http.StatusForbidden, "forbidden")
 			return
 		}
-		handler(w, r)
+		method, path, _ := strings.Cut(r.Pattern, " ")
+		route := method + " " + strings.TrimPrefix(path, v1)
+		perm, declared := routePerms[route]
+		if !declared {
+			slog.Error("route without permission", "pattern", r.Pattern)
+			writeErr(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		if p.MFASetupRequired && p.APIKeyID == "" && !mfaSetupRoutes[route] {
+			writeErr(w, http.StatusForbidden, "mfa_setup_required")
+			return
+		}
+		if !approved && perm != permAny && !p.perms[perm] {
+			writeErr(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		if cid := r.PathValue("cid"); cid != "" && !companyAllowed(p, cid) {
+			writeErr(w, http.StatusNotFound, "not_found")
+			return
+		}
+		handler(w, r.WithContext(context.WithValue(r.Context(), principalKey{}, p)))
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+		if ex, ok := ctx.Value(approvedExecKey{}).(*approvedExec); ok {
+			// an approved request replayed by the approver: only the exact route that was approved
+			if ex.pattern != r.Pattern {
+				writeErr(w, http.StatusForbidden, "forbidden")
+				return
+			}
+			next(w, r, ex.p, true)
+			return
+		}
 		if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
-			p, ok := s.authAPIKey(ctx, strings.TrimSpace(strings.TrimPrefix(h, "Bearer ")), clientIP(r))
+			ip := clientIP(r)
+			if !s.apiKeyLimiter.allow(ip) {
+				writeErr(w, http.StatusTooManyRequests, "too_many_attempts")
+				return
+			}
+			p, ok := s.authAPIKey(ctx, strings.TrimSpace(strings.TrimPrefix(h, "Bearer ")), ip)
 			if !ok {
+				s.apiKeyLimiter.fail(ip)
 				writeErr(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
-			next(w, r.WithContext(context.WithValue(ctx, principalKey{}, p)))
+			next(w, r, p, false)
 			return
 		}
 		uid, tid := s.Sessions.GetString(ctx, "uid"), s.Sessions.GetString(ctx, "tid")
@@ -488,7 +641,8 @@ func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) htt
 			writeErr(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
-		p, err := s.loadPrincipal(ctx, db.Scope{TenantID: tid, UserID: uid, IP: clientIP(r)})
+		sc := db.Scope{TenantID: tid, UserID: uid, IP: clientIP(r)}
+		p, err := s.loadPrincipal(ctx, sc)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && !p.Active) {
 			_ = s.Sessions.Destroy(ctx)
 			writeErr(w, http.StatusUnauthorized, "unauthorized")
@@ -498,7 +652,21 @@ func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) htt
 			serverErr(w, r, err)
 			return
 		}
-		next(w, r.WithContext(context.WithValue(ctx, principalKey{}, p)))
+		sid, err := s.touchSession(ctx, sc, s.Sessions.GetString(ctx, "sid"), r)
+		if errors.Is(err, errSessionRevoked) {
+			_ = s.Sessions.Destroy(ctx)
+			writeErr(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if err != nil {
+			serverErr(w, r, err)
+			return
+		}
+		if sid != s.Sessions.GetString(ctx, "sid") {
+			s.Sessions.Put(ctx, "sid", sid)
+		}
+		p.SessionID = sid
+		next(w, r, p, false)
 	})
 }
 
@@ -508,19 +676,6 @@ func isCollector(r *http.Request) bool { return principal(r).Role == RoleCollect
 func isFrontline(r *http.Request) bool {
 	role := principal(r).Role
 	return role == RoleCollector || role == RoleCashier
-}
-
-func only(next http.HandlerFunc, roles ...string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		role := principal(r).Role
-		for _, allowed := range roles {
-			if role == allowed {
-				next(w, r)
-				return
-			}
-		}
-		writeErr(w, http.StatusForbidden, "forbidden")
-	}
 }
 
 func sessionOnly(next http.HandlerFunc) http.HandlerFunc {

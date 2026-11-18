@@ -140,6 +140,7 @@ func serve(ctx context.Context) error {
 	api.StartMessageWorker(ctx)
 	api.StartRecurringWorker(ctx)
 	api.StartISPWorker(ctx)
+	api.StartWebhookWorker(ctx)
 	api.ResumeBillingJobs(ctx)
 	hs := &http.Server{
 		Addr:              addr,

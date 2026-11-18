@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Center, Group, Loader, Paper, Select, SimpleGrid, Stack, Table, Text, TextInput, Title } from '@mantine/core';
 import { IconArrowRight } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../api';
+import { can, api, type Me } from '../api';
 import { useCompany } from '../company';
 import { formatAmount, formatDate, notifyError, notifySaved, today } from '../util';
 import PageHeader from '../components/PageHeader';
@@ -20,7 +20,7 @@ export default function Cash({ me }: { me: Me }) {
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
-  const canMove = me.role === 'admin' || me.role === 'accountant';
+  const canMove = can(me, 'collections.edit');
 
   const load = useCallback(() => {
     if (!company) return;

@@ -4,7 +4,7 @@ import {
 } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, formatDateTime, notifyError, notifySaved, today } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -30,7 +30,7 @@ export default function Network({ me }: { me: Me }) {
   const [items, setItems] = useState<Item[]>([]);
   const [edit, setEdit] = useState<{ kind: 'station' | 'generator' | 'box'; item: Station | Generator | Box | null } | null>(null);
   const [log, setLog] = useState<Generator | null>(null);
-  const canEdit = me.role !== 'read_only';
+  const canEdit = can(me, 'network.create');
 
   const load = useCallback(() => {
     if (!company) return;
@@ -53,7 +53,7 @@ export default function Network({ me }: { me: Me }) {
           <Tabs.Tab value="stations">{t('net.stations')} ({stations.length})</Tabs.Tab>
           <Tabs.Tab value="generators">{t('net.generators')} ({generators.length})</Tabs.Tab>
           <Tabs.Tab value="boxes">{t('net.boxes')} ({boxes.length})</Tabs.Tab>
-          {(me.role === 'admin' || me.role === 'accountant') && <Tabs.Tab value="routers">{t('isp.routers')}</Tabs.Tab>}
+          {can(me, 'network.manage') && <Tabs.Tab value="routers">{t('isp.routers')}</Tabs.Tab>}
         </Tabs.List>
 
         <Tabs.Panel value="routers" pt="md">

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Center, Group, Loader, Modal, Paper, Select, Stack, Table, Text, TextInput } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me, type Rate } from '../../api';
+import { can, api, type Me, type Rate } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader, { Confirm } from '../../components/PageHeader';
@@ -18,7 +18,7 @@ export default function SupplierPayments({ me }: { me: Me }) {
   const [rows, setRows] = useState<SupplierPayment[] | null>(null);
   const [paying, setPaying] = useState(false);
   const [voiding, setVoiding] = useState<string | null>(null);
-  const canManage = me.role === 'admin' || me.role === 'accountant';
+  const canManage = can(me, 'purchasing.create');
 
   const load = useCallback(() => {
     if (!company) return;

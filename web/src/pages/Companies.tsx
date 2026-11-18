@@ -3,7 +3,7 @@ import { Badge, Button, FileButton, Group, Loader, Modal, NumberInput, Paper, St
 import { useDisclosure } from '@mantine/hooks';
 import { IconFileDescription, IconPlus, IconUpload } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, ApiError, type Company, type Me } from '../api';
+import { can, api, ApiError, type Company, type Me } from '../api';
 import { formatDate, notifyError, notifySaved } from '../util';
 import { useCompany } from '../company';
 import { Select } from '@mantine/core';
@@ -14,7 +14,7 @@ export default function Companies({ me }: { me: Me }) {
   const [rows, setRows] = useState<Company[] | null>(null);
   const [opened, modal] = useDisclosure(false);
   const [docs, setDocs] = useState<Company | null>(null);
-  const isAdmin = me.role === 'admin';
+  const isAdmin = can(me, 'settings.manage');
 
   const load = useCallback(() => {
     api<Company[]>('/companies').then(setRows).catch((e) => notifyError(t, e));

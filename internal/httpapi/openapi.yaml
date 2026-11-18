@@ -721,3 +721,60 @@ paths:
     post: { summary: "Import in ONE transaction (background) {mapping: [{magic_company, target: company id | new | skip}], options}; poll GET until done / failed", responses: { "202": { description: Accepted }, "402": { description: plan_limit } } }
   /export/xlsx:
     post: { summary: "Excel workbook from a table {title, subtitle?, rtl?, columns: [{label, numeric?}], rows: [[...]], footer?: [[...]]}", responses: { "200": { description: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet } } }
+  /permissions:
+    get: { summary: "Permission catalogue: modules with their actions (view, create, edit, void, manage, approve, export) and the permission list of each built-in role", responses: { "200": { description: OK } } }
+  /roles:
+    get: { summary: "Custom roles (users.view; session only for changes)", responses: { "200": { description: OK } } }
+    post: { summary: "New role {name, base (built-in role whose screens it uses), permissions: [\"module.action\"], description?}; you can only grant permissions you hold", responses: { "201": { description: Created }, "403": { description: cannot_grant } } }
+  /roles/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    patch: { summary: "Change {name?, base?, permissions?, description?, is_active?}; applies to its users at their next request", responses: { "200": { description: OK } } }
+  /security/settings:
+    get: { summary: "Organisation security: require_mfa, password_min_length, users, users_with_mfa", responses: { "200": { description: OK } } }
+    put: { summary: "Change {require_mfa?, password_min_length? (10-64)}; requiring two-step sign-in needs it on your own account first", responses: { "200": { description: OK }, "409": { description: mfa_enable_first } } }
+  /users/{id}/sessions:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { summary: "A user's signed-in sessions (device, IP, last activity)", responses: { "200": { description: OK } } }
+  /users/{id}/sessions/revoke:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { summary: "Sign a user out everywhere", responses: { "200": { description: OK } } }
+  /users/{id}/reset-link:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { summary: "One-time password reset link for a user (24 h) {url, expires_at}", responses: { "201": { description: Created } } }
+  /users/{id}/mfa/reset:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { summary: "Remove a user's two-step sign-in (lost phone) and end their sessions", responses: { "200": { description: OK } } }
+  /companies/{cid}/approval-rules:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Approval rules {void, credit_note, payment_over (base currency)}", responses: { "200": { description: OK } } }
+    put: { summary: "Set the approval rules (settings.manage)", responses: { "200": { description: OK } } }
+  /companies/{cid}/approvals:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Approval requests (status=pending|approved|rejected|cancelled|failed): your own, plus those you may decide. An action that needs approval answers 202 {approval_required: true, approval_id}", responses: { "200": { description: OK } } }
+  /companies/{cid}/approvals/{id}/approve:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Approve {note?}: runs the stored call under the approver's name (needs <module>.approve; not your own request)", responses: { "200": { description: "OK: status approved or failed, http_status, result" }, "409": { description: wrong_status } } }
+  /companies/{cid}/approvals/{id}/reject:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Reject {note?}", responses: { "200": { description: OK } } }
+  /companies/{cid}/approvals/{id}/cancel:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Withdraw your own pending request", responses: { "200": { description: OK } } }
+  /reports/consolidated:
+    get: { summary: "Consolidated report over companies: report=trial-balance|profit-loss|balance-sheet, companies=<id,id> (default: all you may open), currency, from, to, rate_<BASE>=<units of currency per 1 BASE> (optional override)", responses: { "200": { description: OK }, "422": { description: no_rate } } }
+  /companies/{cid}/webhooks:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Webhooks of the company (session only)", responses: { "200": { description: OK } } }
+    post: { summary: "New webhook {url, events: [invoice.created|payment.created|customer.created|pos.order.created], description?}; answers the signing secret once", responses: { "201": { description: Created } } }
+  /companies/{cid}/webhooks/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    patch: { summary: "Change {url?, events?, description?, is_active?}", responses: { "200": { description: OK } } }
+  /companies/{cid}/webhooks/{id}/rotate:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "New signing secret {secret}", responses: { "200": { description: OK } } }
+  /companies/{cid}/webhooks/{id}/test:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Queue a ping delivery", responses: { "202": { description: Accepted } } }
+  /companies/{cid}/webhooks/{id}/deliveries:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: "Last 100 deliveries (status pending|sent|failed, attempts, response_code, last_error, payload)", responses: { "200": { description: OK } } }

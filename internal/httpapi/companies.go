@@ -28,7 +28,9 @@ func (s *Server) listCompanies(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var out []company
 	err := db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT `+companyCols+` FROM companies ORDER BY name_en`)
+		// users limited to some companies only see those
+		rows, err := tx.Query(ctx, `SELECT `+companyCols+` FROM companies
+			WHERE $1::uuid[] IS NULL OR id = ANY ($1::uuid[]) ORDER BY name_en`, principal(r).CompanyIDs)
 		if err != nil {
 			return err
 		}

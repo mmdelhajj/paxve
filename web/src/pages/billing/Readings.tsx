@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Center, Group, Loader, Paper, Select, Stack, Table, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { notifyError } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -24,7 +24,7 @@ export default function Readings({ me }: { me: Me }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const canEdit = me.role !== 'read_only';
+  const canEdit = can(me, 'collections.create');
 
   const load = useCallback(() => {
     if (!company || !/^\d{4}-\d{2}$/.test(period)) return;

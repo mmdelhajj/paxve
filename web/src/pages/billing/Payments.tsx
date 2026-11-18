@@ -3,7 +3,7 @@ import { Badge, Center, Group, Loader, Paper, SegmentedControl, SimpleGrid, Stac
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, today } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -24,7 +24,7 @@ export default function Payments({ me }: { me: Me }) {
   const [view, setView] = useState<string | null>(null);
   const [limit, setLimit] = useState(200);
   const [kind, setKind] = useState<'payment' | 'credit_note'>('payment');
-  const canManage = me.role === 'admin' || me.role === 'accountant';
+  const canManage = can(me, 'collections.void');
 
   const load = useCallback(() => {
     if (!company) return;

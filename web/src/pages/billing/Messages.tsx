@@ -7,7 +7,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { IconBrandWhatsapp, IconPlus, IconRefresh, IconSend } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatDateTime, notifyError, notifySaved } from '../../util';
 import { languages } from '../../i18n';
@@ -38,7 +38,7 @@ const providerFields: Record<string, { key: string; secret?: boolean }[]> = {
 export default function Messages({ me }: { me: Me }) {
   const { t } = useTranslation();
   const { company } = useCompany();
-  const canManage = me.role === 'admin' || me.role === 'accountant';
+  const canManage = can(me, 'messaging.manage');
   if (!company) return null;
   return (
     <Stack gap="lg" maw={1200}>
@@ -46,7 +46,7 @@ export default function Messages({ me }: { me: Me }) {
       <Tabs defaultValue="outbox" keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="outbox">{t('msg.outbox')}</Tabs.Tab>
-          {me.role !== 'read_only' && <Tabs.Tab value="send">{t('msg.sendReminders')}</Tabs.Tab>}
+          {can(me, 'messaging.create') && <Tabs.Tab value="send">{t('msg.sendReminders')}</Tabs.Tab>}
           {canManage && <Tabs.Tab value="settings">{t('msg.settings')}</Tabs.Tab>}
         </Tabs.List>
         <Tabs.Panel value="outbox" pt="md"><Outbox canRetry={canManage} /></Tabs.Panel>

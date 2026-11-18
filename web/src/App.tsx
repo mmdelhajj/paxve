@@ -10,6 +10,8 @@ import AppUpdate from './components/AppUpdate';
 const Landing = lazy(() => import('./pages/public/Landing'));
 const Signup = lazy(() => import('./pages/public/Signup'));
 const Portal = lazy(() => import('./pages/public/Portal'));
+const Reset = lazy(() => import('./pages/public/Reset'));
+const ForcedMfa = lazy(() => import('./pages/Security').then((m) => ({ default: m.ForcedMfa })));
 const Shell = lazy(() => import('./Shell'));
 
 const fullPageLoader = (
@@ -51,6 +53,7 @@ function Root() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
   const route = usePublicRoute();
   const portalToken = route === 'p' ? window.location.hash.replace(/^#\/?/, '').split('/')[1] ?? '' : '';
+  const resetToken = route === 'reset' ? window.location.hash.replace(/^#\/?/, '').split('/')[1] ?? '' : '';
 
   useEffect(() => {
     api<Me>('/me')
@@ -66,6 +69,7 @@ function Root() {
 
   // the customer portal is public: it works whether or not someone is signed in on this browser
   if (portalToken) return <Suspense fallback={fullPageLoader}><Portal token={portalToken} /></Suspense>;
+  if (resetToken) return <Suspense fallback={fullPageLoader}><Reset token={resetToken} /></Suspense>;
   if (me === undefined) return fullPageLoader;
   if (me === null) {
     const signedIn = (m: Me) => {
@@ -76,6 +80,11 @@ function Root() {
     if (route === 'login') return <Login onLogin={signedIn} />;
     if (route === 'signup') return <Suspense fallback={fullPageLoader}><Signup onSignedUp={signedIn} /></Suspense>;
     return <Suspense fallback={fullPageLoader}><Landing /></Suspense>;
+  }
+  if (me.mfa_setup_required) {
+    const logout = () => { api('/auth/logout', { method: 'POST' }).finally(() => setMe(null)); };
+    const done = () => { api<Me>('/me').then(setMe).catch(() => setMe(null)); };
+    return <Suspense fallback={fullPageLoader}><ForcedMfa onDone={done} onLogout={logout} /></Suspense>;
   }
   return (
     <CompanyProvider>

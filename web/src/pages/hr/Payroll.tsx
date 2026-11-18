@@ -5,7 +5,7 @@ import {
 } from '@mantine/core';
 import { IconPlus, IconPrinter, IconSettings } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Account, type Me } from '../../api';
+import { can, api, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader, { Confirm } from '../../components/PageHeader';
@@ -37,7 +37,7 @@ export default function Payroll({ me }: { me: Me }) {
   const [open, setOpen] = useState<string | null>(null);
   const [settings, setSettings] = useState(false);
   const [busy, setBusy] = useState(false);
-  const canEdit = me.role === 'admin' || me.role === 'accountant';
+  const canEdit = can(me, 'payroll.edit');
 
   const load = useCallback(() => {
     if (!company) return;

@@ -10,6 +10,11 @@ export function errorText(t: TFunction, e: unknown): string {
 }
 
 export function notifyError(t: TFunction, e: unknown) {
+  if (e instanceof ApiError && e.code === 'approval_required') {
+    // not an error: the action waits for someone who may approve it
+    notifications.show({ color: 'blue', message: t('sec.sentForApproval'), autoClose: 7000 });
+    return;
+  }
   notifications.show({ color: 'red', message: errorText(t, e), autoClose: 7000 });
 }
 

@@ -5,7 +5,7 @@ import {
 } from '@mantine/core';
 import { IconAlertTriangle, IconCheck, IconLock, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Account, type Entry, type EntrySummary, type Me, type Rate } from '../api';
+import { can, api, type Account, type Entry, type EntrySummary, type Me, type Rate } from '../api';
 import { useCompany } from '../company';
 import { accountLabel, formatAmount, formatDate, fromUnits, notifyError, notifySaved, toUnits, today } from '../util';
 import PageHeader, { Confirm } from '../components/PageHeader';
@@ -17,7 +17,7 @@ export default function Journal({ me, openId }: { me: Me; openId?: string }) {
   const [status, setStatus] = useState('');
   const [editor, setEditor] = useState<{ entry: Entry | null } | null>(null);
   const [viewId, setViewId] = useState<string | null>(openId || null);
-  const canWrite = me.role !== 'read_only';
+  const canWrite = can(me, 'accounting.create');
 
   const load = useCallback(() => {
     if (!company) return;
@@ -104,7 +104,7 @@ function EntryView({ id, me, onClose, onChanged, onEdit, onOpen }: {
   const [e, setE] = useState<Entry | null>(null);
   const [confirm, setConfirm] = useState<'reverse' | 'discard' | null>(null);
   const [busy, setBusy] = useState(false);
-  const canPost = me.role === 'admin' || me.role === 'accountant';
+  const canPost = can(me, 'accounting.edit');
 
   useEffect(() => {
     if (!company) return;
@@ -207,7 +207,7 @@ function EntryView({ id, me, onClose, onChanged, onEdit, onOpen }: {
               {e.reversed_by && <Button variant="subtle" size="xs" onClick={() => onOpen(e.reversed_by!)}>{t('journal.reversal')} →</Button>}
             </Group>
             <Group gap="xs">
-              {e.status === 'draft' && me.role !== 'read_only' && (
+              {e.status === 'draft' && can(me, 'accounting.create') && (
                 <>
                   <Button variant="subtle" color="red" onClick={() => setConfirm('discard')}>{t('journal.discard')}</Button>
                   <Button variant="default" onClick={() => onEdit(e)}>{t('common.edit')}</Button>
@@ -258,7 +258,7 @@ function EntryEditor({ me, entry, onClose, onSaved }: {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [rates, setRates] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<'draft' | 'post' | null>(null);
-  const canPost = me.role === 'admin' || me.role === 'accountant';
+  const canPost = can(me, 'accounting.edit');
 
   useEffect(() => {
     if (!company) return;

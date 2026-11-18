@@ -5,7 +5,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { IconPlayerPlay, IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Account, type Me } from '../../api';
+import { can, api, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader, { Confirm } from '../../components/PageHeader';
@@ -37,7 +37,7 @@ export default function Assets({ me }: { me: Me }) {
   const [period, setPeriod] = useState(currentPeriod());
   const [confirmRun, setConfirmRun] = useState(false);
   const [busy, setBusy] = useState(false);
-  const canEdit = me.role === 'admin' || me.role === 'accountant';
+  const canEdit = can(me, 'assets.edit');
 
   const load = useCallback(() => {
     if (!company) return;

@@ -321,6 +321,10 @@ func (s *Server) commitMagicImport(w http.ResponseWriter, r *http.Request) {
 			continue
 		case m.Target == "new":
 		case isUUID(m.Target):
+			if !companyAllowed(principal(r), m.Target) {
+				writeErr(w, http.StatusNotFound, "not_found")
+				return
+			}
 			if targets[m.Target] {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "duplicate_target"})
 				return

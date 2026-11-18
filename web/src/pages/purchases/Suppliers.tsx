@@ -3,7 +3,7 @@ import { Anchor, Badge, Button, Center, Group, Loader, Modal, Paper, Select, Sta
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconArrowBack, IconCash, IconEdit, IconFileInvoice, IconPlus, IconSearch } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, notifySaved } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -19,7 +19,7 @@ export default function Suppliers({ me }: { me: Me }) {
   const [q, setQ] = useState('');
   const [dq] = useDebouncedValue(q, 250);
   const [creating, setCreating] = useState(false);
-  const canEdit = me.role !== 'read_only';
+  const canEdit = can(me, 'suppliers.create');
 
   const load = useCallback(() => {
     if (!company) return;
@@ -130,7 +130,7 @@ export function SupplierDetail({ me, id }: { me: Me; id: string }) {
   const [d, setD] = useState<Detail | null>(null);
   const [modal, setModal] = useState<null | 'edit' | 'bill' | 'pay'>(null);
   const [viewBill, setViewBill] = useState<string | null>(null);
-  const canManage = me.role === 'admin' || me.role === 'accountant';
+  const canManage = can(me, 'purchasing.create');
 
   const load = useCallback(() => {
     if (!company) return;
@@ -150,7 +150,7 @@ export function SupplierDetail({ me, id }: { me: Me; id: string }) {
           <Text c="dimmed" size="sm">#{s.code}{s.phone && <> · <span dir="ltr">{s.phone}</span></>}{s.tax_id && ` · ${t('pur.taxId')} ${s.tax_id}`}</Text>
         </div>
         <Group gap="xs">
-          {me.role !== 'read_only' && <Button variant="default" leftSection={<IconEdit size={16} />} onClick={() => setModal('edit')}>{t('common.edit')}</Button>}
+          {can(me, 'suppliers.edit') && <Button variant="default" leftSection={<IconEdit size={16} />} onClick={() => setModal('edit')}>{t('common.edit')}</Button>}
           {canManage && <Button variant="default" leftSection={<IconFileInvoice size={16} />} onClick={() => setModal('bill')}>{t('pur.newBill')}</Button>}
           {canManage && <Button leftSection={<IconCash size={16} />} onClick={() => setModal('pay')}>{t('pur.pay')}</Button>}
         </Group>

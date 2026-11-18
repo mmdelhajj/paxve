@@ -6,7 +6,7 @@ import {
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconPlus, IconPrinter, IconSearch, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Account, type Me } from '../../api';
+import { can, api, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader, { Confirm } from '../../components/PageHeader';
@@ -24,7 +24,7 @@ export default function Bills({ me }: { me: Me }) {
   const [data, setData] = useState<{ rows: Bill[]; totals: Totals[] } | null>(null);
   const [view, setView] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const canManage = me.role === 'admin' || me.role === 'accountant';
+  const canManage = can(me, 'purchasing.create');
 
   const load = useCallback(() => {
     if (!company) return;

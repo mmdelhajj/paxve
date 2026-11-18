@@ -31,8 +31,10 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 			       a.before::text, a.after::text, host(a.ip)
 			FROM audit_log a
 			LEFT JOIN users u ON u.id = a.user_id
+			-- the log has no company: someone limited to some companies only sees what they did themselves
+			WHERE NOT $1 OR a.user_id = app_user()
 			ORDER BY a.id DESC
-			LIMIT 200`)
+			LIMIT 200`, principal(r).CompanyIDs != nil)
 		if err != nil {
 			return err
 		}

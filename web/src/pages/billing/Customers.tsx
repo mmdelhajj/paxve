@@ -3,7 +3,7 @@ import { Badge, Button, Center, Checkbox, Group, Loader, Modal, Paper, Select, S
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconPlus, IconSearch } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { notifyError, notifySaved } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -24,7 +24,7 @@ export default function Customers({ me }: { me: Me }) {
   const [onlyDue, setOnlyDue] = useState(false);
   const [creating, setCreating] = useState(false);
   const [limit, setLimit] = useState(100);
-  const canEdit = me.role !== 'read_only';
+  const canEdit = can(me, 'customers.create');
 
   const load = useCallback(() => {
     if (!company) return;

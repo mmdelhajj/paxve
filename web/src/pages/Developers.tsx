@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert, Anchor, Badge, Button, Center, Code, CopyButton, Group, Loader, Modal, Paper, Select, Stack, Table, Text, TextInput, Title,
+  Alert, Anchor, Badge, Button, Center, Code, CopyButton, Group, Loader, Modal, MultiSelect, Paper, Radio, Select, Stack, Table, Text, TextInput, Title,
 } from '@mantine/core';
 import { IconCopy, IconExternalLink, IconKey, IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,9 @@ import { api, type APIKey, type Role } from '../api';
 import { useCompany } from '../company';
 import { formatDateTime, notifyError } from '../util';
 import PageHeader, { Confirm } from '../components/PageHeader';
+import Webhooks from './Webhooks';
+
+const scopeLabel = (t: (k: string) => string, p: string) => `${t(`perm.modules.${p.split('.')[0]}`)}: ${t(`perm.actions.${p.split('.')[1]}`)}`;
 
 const roles: Role[] = ['read_only', 'data_entry', 'accountant', 'admin'];
 
@@ -90,7 +93,10 @@ export default function Developers() {
                       <Text size="sm" fw={500}>{k.name}</Text>
                       <Text size="xs" c="dimmed" ff="monospace" dir="ltr">pxv_{k.prefix}_…</Text>
                     </Table.Td>
-                    <Table.Td><Badge variant="light">{t(`roles.${k.role}`)}</Badge></Table.Td>
+                    <Table.Td>
+                      <Badge variant="light">{t(`roles.${k.role}`)}</Badge>
+                      {k.scopes && <Text size="xs" c="dimmed" maw={260}>{k.scopes.map((s) => scopeLabel(t, s)).join(', ')}</Text>}
+                    </Table.Td>
                     <Table.Td><Text size="sm">{formatDateTime(k.created_at)}</Text><Text size="xs" c="dimmed">{k.created_by}</Text></Table.Td>
                     <Table.Td><Text size="sm">{k.last_used_at ? formatDateTime(k.last_used_at) : t('dev.never')}</Text></Table.Td>
                     <Table.Td style={{ textAlign: 'end' }}>
@@ -105,6 +111,8 @@ export default function Developers() {
           </Table.ScrollContainer>
         )}
       </Paper>
+
+      {company && <Webhooks cid={company.id} />}
 
       {creating && <NewKey onClose={() => setCreating(false)} onCreated={(key) => { setCreating(false); setNewKey(key); load(); }} />}
       {newKey && (
@@ -133,13 +141,19 @@ function NewKey({ onClose, onCreated }: { onClose: () => void; onCreated: (key: 
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [role, setRole] = useState<string>('read_only');
+  const [mode, setMode] = useState('all');
+  const [scopes, setScopes] = useState<string[]>([]);
+  const [presets, setPresets] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState(false);
+  useEffect(() => { api<{ presets: Record<string, string[]> }>('/permissions').then((c) => setPresets(c.presets)).catch(() => {}); }, []);
+  const allowedScopes = presets[role] ?? [];
+  const chosen = scopes.filter((s) => allowedScopes.includes(s));
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      const r = await api<{ key: string }>('/api-keys', { method: 'POST', body: { name, role } });
+      const r = await api<{ key: string }>('/api-keys', { method: 'POST', body: { name, role, ...(mode === 'some' ? { scopes: chosen } : {}) } });
       onCreated(r.key);
     } catch (err) {
       notifyError(t, err);
@@ -156,9 +170,19 @@ function NewKey({ onClose, onCreated }: { onClose: () => void; onCreated: (key: 
             placeholder="Website, Power BI…" />
           <Select label={t('dev.role')} value={role} allowDeselect={false} onChange={(v) => v && setRole(v)}
             data={roles.map((r) => ({ value: r, label: t(`roles.${r}`) }))} />
+          <Radio.Group label={t('sec.scopes')} value={mode} onChange={setMode}>
+            <Stack gap={6} mt={4}>
+              <Radio value="all" label={t('sec.scopesAll')} />
+              <Radio value="some" label={t('sec.scopesSome')} />
+            </Stack>
+          </Radio.Group>
+          {mode === 'some' && (
+            <MultiSelect data={allowedScopes.map((p) => ({ value: p, label: scopeLabel(t, p) }))} value={chosen} onChange={setScopes}
+              searchable maxDropdownHeight={260} />
+          )}
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
-            <Button type="submit" loading={busy}>{t('common.save')}</Button>
+            <Button type="submit" loading={busy} disabled={mode === 'some' && chosen.length === 0}>{t('common.save')}</Button>
           </Group>
         </Stack>
       </form>

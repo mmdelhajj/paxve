@@ -6,7 +6,7 @@ import { resizeImage } from '../../image';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconArrowBack, IconEdit, IconPhoto, IconPlus, IconSearch, IconSettings, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Account, type Me } from '../../api';
+import { can, api, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, formatDate, notifyError, notifySaved } from '../../util';
 import PageHeader from '../../components/PageHeader';
@@ -19,7 +19,7 @@ export default function Items({ me }: { me: Me }) {
   const [q, setQ] = useState('');
   const [dq] = useDebouncedValue(q, 250);
   const [modal, setModal] = useState<null | 'new' | 'settings'>(null);
-  const canManage = me.role === 'admin' || me.role === 'accountant';
+  const canManage = can(me, 'stock.manage');
 
   const load = useCallback(() => {
     if (!company) return;
@@ -252,7 +252,7 @@ export function ItemDetail({ me, id }: { me: Me; id: string }) {
           <Title order={2}>{it.name}</Title>
           <Text c="dimmed" size="sm">#{it.code} · {t(`pur.kinds.${it.kind}`)} · {it.unit}</Text>
         </div>
-        {(me.role === 'admin' || me.role === 'accountant') && <Button variant="default" leftSection={<IconEdit size={16} />} onClick={() => setEdit(true)}>{t('common.edit')}</Button>}
+        {can(me, 'stock.manage') && <Button variant="default" leftSection={<IconEdit size={16} />} onClick={() => setEdit(true)}>{t('common.edit')}</Button>}
       </Group>
       {it.kind === 'stock' && (
         <SimpleGrid cols={{ base: 1, sm: 3 }}>

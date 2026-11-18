@@ -5,7 +5,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { IconBook2, IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Account, type AccountType, type Me } from '../api';
+import { can, api, type Account, type AccountType, type Me } from '../api';
 import { useCompany } from '../company';
 import { languages } from '../i18n';
 import { accountLabel, accountName, notifyError, notifySaved } from '../util';
@@ -36,7 +36,7 @@ export default function Accounts({ me }: { me: Me }) {
   const [rows, setRows] = useState<Account[] | null>(null);
   const [editing, setEditing] = useState<Account | null>(null);
   const [opened, modal] = useDisclosure(false);
-  const canEdit = me.role === 'admin' || me.role === 'accountant';
+  const canEdit = can(me, 'accounting.manage');
 
   const load = useCallback(() => {
     if (!company) return;

@@ -23,7 +23,9 @@ function fileName(title: string, ext: string): string {
 
 function csvCell(v: Cell): string {
   if (v === null || v === undefined) return '';
-  const s = String(v);
+  let s = String(v);
+  // spreadsheet formula injection: a name like "=HYPERLINK(...)" must stay text, not run as a formula
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s) && !/^-?\d[\d,]*(\.\d+)?$/.test(s)) s = `'${s}`;
   return /[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActionIcon, Anchor, Button, Group, Paper, Progress, SimpleGrid, Text, ThemeIcon, Tooltip } from '@mantine/core';
 import { IconCheck, IconCircleDashed, IconSparkles, IconX } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, ApiError, type Me } from '../api';
+import { can, api, ApiError, type Me } from '../api';
 import { useCompany } from '../company';
 import { notifyError } from '../util';
 
@@ -42,7 +42,7 @@ export default function GettingStarted({ me }: { me: Me }) {
 
   if (!company || !s || hidden) return null;
   const done = steps.filter((x) => s[x.key]).length;
-  const isAdmin = me.role === 'admin';
+  const isAdmin = can(me, 'settings.manage');
   if (done === steps.length && s.plan !== 'trial') return null;
 
   async function loadDemo() {

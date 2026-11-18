@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Center, Grid, Group, Loader, Modal, Paper, SegmentedControl, Select, Stack, Table, Text, TextInput, Title } from '@mantine/core';
 import { IconGasStation } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, type Me } from '../../api';
+import { can, api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader, { Confirm } from '../../components/PageHeader';
@@ -24,10 +24,10 @@ export default function Stock({ me }: { me: Me }) {
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
   const [newWh, setNewWh] = useState<string | null>(null);
   const [voiding, setVoiding] = useState<{ path: string } | null>(null);
-  const canVoid = me.role === 'admin' || me.role === 'accountant';
+  const canVoid = can(me, 'stock.void');
   const [generators, setGenerators] = useState<{ id: string; name: string; station_name: string; fuel_item_id: string | null; status: string }[]>([]);
   const [busy, setBusy] = useState(false);
-  const canEdit = me.role !== 'read_only';
+  const canEdit = can(me, 'stock.create');
 
   const load = useCallback(() => {
     if (!company) return;
