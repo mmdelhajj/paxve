@@ -25,6 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/mmdelhajj/paxve/internal/auth"
+	pxcrypto "github.com/mmdelhajj/paxve/internal/crypto"
 	"github.com/mmdelhajj/paxve/internal/db"
 	"github.com/mmdelhajj/paxve/internal/httpapi"
 )
@@ -114,8 +115,22 @@ func serve(ctx context.Context) error {
 
 	addr := env("ADDR", ":8080")
 	api := httpapi.New(pool, ownerPool, sm, env("WEB_DIR", "web/dist"), strings.Split(os.Getenv("PLATFORM_ADMINS"), ","))
+	if key := os.Getenv("APP_SECRET_KEY"); key != "" {
+		box, err := pxcrypto.NewBox(key)
+		if err != nil {
+			return err
+		}
+		api.SetSecretBox(box)
+		if err := api.EncryptLegacySecrets(ctx); err != nil {
+			return fmt.Errorf("encrypt legacy secrets: %w", err)
+		}
+	} else {
+		slog.Warn("APP_SECRET_KEY not set: provider tokens and router passwords are stored unencrypted")
+	}
+	api.AllowPrivateRouters = env("ALLOW_PRIVATE_ROUTERS", "false") == "true"
 	api.StartMessageWorker(ctx)
 	api.StartRecurringWorker(ctx)
+	api.StartISPWorker(ctx)
 	hs := &http.Server{
 		Addr:              addr,
 		Handler:           api.Handler(),

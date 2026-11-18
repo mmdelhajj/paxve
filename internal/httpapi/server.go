@@ -50,6 +50,10 @@ type Server struct {
 	platformAdmins map[string]bool
 	signupLimiter  *limiter
 	portalLimiter  *limiter
+
+	// AllowPrivateRouters lets routers point to private/loopback addresses (tests, VPN setups).
+	// Off by default so tenants cannot use "test connection" to probe the server's internal network.
+	AllowPrivateRouters bool
 }
 
 func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir string, platformAdmins []string) *Server {
@@ -194,6 +198,18 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/companies/{cid}/boxes", s.field(s.listBoxes))
 	mux.Handle("POST "+v+"/companies/{cid}/boxes", s.auth(only(s.saveBox, entry...)))
 	mux.Handle("PATCH "+v+"/companies/{cid}/boxes/{id}", s.auth(only(s.saveBox, entry...)))
+	// ISP: MikroTik routers, auto-suspend / reconnect
+	mux.Handle("GET "+v+"/companies/{cid}/routers", s.auth(only(s.listRouters, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/routers", s.auth(sessionOnly(only(s.saveRouter, write...))))
+	mux.Handle("PATCH "+v+"/companies/{cid}/routers/{id}", s.auth(sessionOnly(only(s.saveRouter, write...))))
+	mux.Handle("POST "+v+"/companies/{cid}/routers/{id}/test", s.auth(only(s.testRouter, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/isp/settings", s.auth(s.getISPSettings))
+	mux.Handle("PUT "+v+"/companies/{cid}/isp/settings", s.auth(only(s.putISPSettings, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/isp/run", s.auth(only(s.runISPNow, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/router-actions", s.auth(s.listRouterActions))
+	mux.Handle("POST "+v+"/companies/{cid}/router-actions/{id}/retry", s.auth(only(s.retryRouterAction, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/subscriptions/{id}/network", s.auth(only(s.subscriptionNetwork, write...)))
+
 	mux.Handle("GET "+v+"/companies/{cid}/tariffs", s.auth(s.listTariffs))
 	mux.Handle("POST "+v+"/companies/{cid}/tariffs", s.auth(only(s.saveTariff, write...)))
 	mux.Handle("POST "+v+"/companies/{cid}/tariffs/{id}/apply", s.auth(only(s.applyTariff, write...)))

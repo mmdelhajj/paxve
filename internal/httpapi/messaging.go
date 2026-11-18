@@ -432,7 +432,11 @@ func (s *Server) saveProvider(w http.ResponseWriter, r *http.Request) {
 			if in.Config == nil {
 				in.Config = map[string]any{}
 			}
-			cfg, _ := json.Marshal(mergeConfig(map[string]any{}, in.Config))
+			sealed, err := sealConfig(mergeConfig(map[string]any{}, in.Config))
+			if err != nil {
+				return nil, err
+			}
+			cfg, _ := json.Marshal(sealed)
 			var n int
 			_ = tx.QueryRow(ctx, `SELECT count(*) FROM message_providers WHERE company_id = $1`, cid).Scan(&n)
 			def := n == 0 || (in.IsDefault != nil && *in.IsDefault)
@@ -450,7 +454,11 @@ func (s *Server) saveProvider(w http.ResponseWriter, r *http.Request) {
 		if in.Config != nil {
 			old := map[string]any{}
 			_ = json.Unmarshal(oldCfg, &old)
-			cfg, _ = json.Marshal(mergeConfig(old, in.Config))
+			sealed, err := sealConfig(mergeConfig(old, in.Config))
+			if err != nil {
+				return nil, err
+			}
+			cfg, _ = json.Marshal(sealed)
 		}
 		return dmlJSONOne(ctx, tx, `UPDATE message_providers SET kind = coalesce($3, kind), name = coalesce(trim($4), name),
 			config = coalesce($5::jsonb, config), is_default = coalesce($6, is_default), is_active = coalesce($7, is_active)

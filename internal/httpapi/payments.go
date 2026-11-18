@@ -240,6 +240,9 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 		if err := autoMessage(ctx, tx, cid, "payment_received", in.CustomerID, nil, &id); err != nil {
 			return nil, err
 		}
+		if err := reconnectIfCleared(ctx, tx, cid, in.CustomerID); err != nil {
+			return nil, err
+		}
 		return loadPayment(ctx, tx, cid, id)
 	})
 }

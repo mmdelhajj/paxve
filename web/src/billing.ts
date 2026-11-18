@@ -24,6 +24,8 @@ export interface Subscription {
   base_fee: string; unit_price: string; unit_label: string; meter_no: string; start_date: string;
   status: 'active' | 'suspended' | 'ended'; fee_override: string | null; initial_reading: string; notes: string;
   last_reading: string | null; last_period: string | null; box_id: string | null; box_code: string | null;
+  router_id: string | null; router_name: string | null; network_username: string; service_type: 'pppoe' | 'hotspot';
+  network_status: '' | 'enabled' | 'disabled'; suspended_reason: string; last_action_status: string | null; last_action_error: string | null;
 }
 
 export interface Invoice {

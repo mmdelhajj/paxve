@@ -479,6 +479,32 @@ paths:
   /companies/{cid}/boxes/{id}:
     parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
     patch: { summary: Update a box, responses: { "200": { description: OK } } }
+  /companies/{cid}/routers:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "MikroTik routers (admin/accountant). Passwords are never returned (has_password only)", responses: { "200": { description: OK } } }
+    post: { summary: "Add a router {name, host, port, username, password, use_tls} (browser session only; password stored encrypted)", responses: { "201": { description: Created } } }
+  /companies/{cid}/routers/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    patch: { summary: "Update a router; empty or masked password keeps the stored one", responses: { "200": { description: OK } } }
+  /companies/{cid}/routers/{id}/test:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Connect and log in; returns {ok, identity, version, error}", responses: { "200": { description: OK } } }
+  /companies/{cid}/isp/settings:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Auto-suspend settings {auto_suspend_enabled, suspend_after_days, reconnect_on_payment}", responses: { "200": { description: OK } } }
+    put: { summary: Update auto-suspend settings, responses: { "200": { description: OK } } }
+  /companies/{cid}/isp/run:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    post: { summary: "Run the suspend rule now; returns {suspended}", responses: { "200": { description: OK } } }
+  /companies/{cid}/router-actions:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Queue/log of router actions (filter ?subscription_id=)", responses: { "200": { description: OK } } }
+  /companies/{cid}/router-actions/{id}/retry:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: Retry a failed router action, responses: { "200": { description: OK } } }
+  /companies/{cid}/subscriptions/{id}/network:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Manual suspend / reconnect {action: disable|enable} (queues a router action)", responses: { "200": { description: OK } } }
   /companies/{cid}/tariffs:
     parameters: [{ $ref: '#/components/parameters/cid' }]
     get: { summary: Official tariff history (price per kWh and fixed fees per plan, per month), responses: { "200": { description: OK } } }

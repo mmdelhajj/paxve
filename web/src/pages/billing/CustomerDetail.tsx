@@ -123,8 +123,18 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
                         </Table.Td>
                         <Table.Td ff="monospace">{s.billing_type === 'metered' ? `${s.last_reading ?? s.initial_reading}${s.last_period ? ` (${s.last_period})` : ''}` : '—'}</Table.Td>
                         <Table.Td>{formatDate(s.start_date)}</Table.Td>
-                        <Table.Td><Badge variant="light" color={s.status === 'active' ? 'teal' : 'gray'}>{t(`customers.subStatuses.${s.status}`)}</Badge></Table.Td>
-                        <Table.Td>{canEdit && <Button size="compact-xs" variant="subtle" onClick={() => { setEditSub(s); setModal('sub'); }}>{t('common.edit')}</Button>}</Table.Td>
+                        <Table.Td>
+                          <Badge variant="light" color={s.status === 'active' ? 'teal' : s.status === 'suspended' ? 'orange' : 'gray'}>{t(`customers.subStatuses.${s.status}`)}</Badge>
+                          {s.router_id && <NetworkState s={s} />}
+                        </Table.Td>
+                        <Table.Td>
+                          <Group gap={4} wrap="nowrap">
+                            {canEdit && <Button size="compact-xs" variant="subtle" onClick={() => { setEditSub(s); setModal('sub'); }}>{t('common.edit')}</Button>}
+                            {canManage && s.router_id && s.network_username && s.status !== 'ended' && (
+                              <NetworkButton sub={s} onDone={load} />
+                            )}
+                          </Group>
+                        </Table.Td>
                       </Table.Tr>
                     ))}
                   </Table.Tbody>
@@ -209,16 +219,63 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
   );
 }
 
+// Internet connection state on the router (MikroTik) and the last router action.
+function NetworkState({ s }: { s: Subscription }) {
+  const { t } = useTranslation();
+  const pending = s.last_action_status === 'queued' || s.last_action_status === 'sending';
+  return (
+    <Text size="xs" c="dimmed" mt={2}>
+      {s.router_name} · <span dir="ltr">{s.network_username || '—'}</span>{' '}
+      {pending ? <Badge size="xs" color="yellow" variant="light">{t('isp.pending')}</Badge>
+        : s.last_action_status === 'failed' ? <Badge size="xs" color="red" variant="light" title={s.last_action_error ?? ''}>{t('isp.failed')}</Badge>
+        : s.network_status && <Badge size="xs" color={s.network_status === 'enabled' ? 'teal' : 'red'} variant="dot">{t(`isp.net.${s.network_status}`)}</Badge>}
+      {s.suspended_reason && <Text span size="xs"> · {t(`isp.reasons.${s.suspended_reason}`, { defaultValue: s.suspended_reason })}</Text>}
+    </Text>
+  );
+}
+
+function NetworkButton({ sub, onDone }: { sub: Subscription; onDone: () => void }) {
+  const { t } = useTranslation();
+  const { company } = useCompany();
+  const [busy, setBusy] = useState(false);
+  const disable = sub.status === 'active';
+  async function go() {
+    if (!company) return;
+    setBusy(true);
+    try {
+      await api(`/companies/${company.id}/subscriptions/${sub.id}/network`, { method: 'POST', body: { action: disable ? 'disable' : 'enable' } });
+      notifySaved(t);
+      onDone();
+    } catch (e) {
+      notifyError(t, e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Button size="compact-xs" variant="light" color={disable ? 'red' : 'teal'} loading={busy} onClick={go}>
+      {disable ? t('isp.suspend') : t('isp.reconnect')}
+    </Button>
+  );
+}
+
+interface RouterLite { id: string; name: string; enabled: boolean }
+
 function SubscriptionForm({ customerId, sub, onClose, onSaved }: { customerId: string; sub: Subscription | null; onClose: () => void; onSaved: () => void }) {
   const { t } = useTranslation();
   const { company } = useCompany();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [boxes, setBoxes] = useState<{ id: string; code: string; station_name: string; is_active: boolean }[]>([]);
+  const [routers, setRouters] = useState<RouterLite[]>([]);
   const [f, setF] = useState({
     plan_id: sub?.plan_id ?? '', meter_no: sub?.meter_no ?? '', start_date: sub?.start_date ?? today(),
     fee_override: sub?.fee_override ? String(Number(sub.fee_override)) : '', initial_reading: sub ? String(Number(sub.initial_reading)) : '0',
     status: sub?.status ?? 'active', notes: sub?.notes ?? '', box_id: sub?.box_id ?? '',
+    router_id: sub?.router_id ?? '', network_username: sub?.network_username ?? '', service_type: sub?.service_type ?? 'pppoe',
   });
+  useEffect(() => {
+    if (company) api<RouterLite[]>(`/companies/${company.id}/routers`).then(setRouters).catch(() => setRouters([]));
+  }, [company]);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
   const plan = plans.find((p) => p.id === f.plan_id);
@@ -266,6 +323,16 @@ function SubscriptionForm({ customerId, sub, onClose, onSaved }: { customerId: s
                 onChange={(e) => set('initial_reading')(e.currentTarget.value.replace(/[^\d.]/g, ''))} />
             )}
           </Group>
+          {(routers.length > 0 || f.router_id) && (
+            <Group grow align="flex-start">
+              <Select label={t('isp.router')} clearable value={f.router_id || null} onChange={(v) => set('router_id')(v ?? '')}
+                data={routers.map((r) => ({ value: r.id, label: r.name }))} />
+              <TextInput label={t('isp.username')} dir="ltr" value={f.network_username} disabled={!f.router_id}
+                onChange={(e) => set('network_username')(e.currentTarget.value)} />
+              <Select label={t('isp.service')} value={f.service_type} allowDeselect={false} disabled={!f.router_id}
+                data={[{ value: 'pppoe', label: 'PPPoE' }, { value: 'hotspot', label: 'Hotspot' }]} onChange={(v) => v && set('service_type')(v)} />
+            </Group>
+          )}
           {sub && (
             <Select label={t('customers.status')} value={f.status} allowDeselect={false} onChange={(v) => v && set('status')(v)}
               data={['active', 'suspended', 'ended'].map((s) => ({ value: s, label: t(`customers.subStatuses.${s}`) }))} />

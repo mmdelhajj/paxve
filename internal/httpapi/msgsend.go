@@ -71,6 +71,7 @@ func maskConfig(cfg map[string]any) map[string]any {
 	out := map[string]any{}
 	for k, v := range cfg {
 		if s, ok := v.(string); ok && secretKeys[k] && s != "" {
+			s = openSecret(s) // stored encrypted: show the tail of the real value
 			tail := ""
 			if len(s) > 8 {
 				tail = s[len(s)-4:]
@@ -324,6 +325,7 @@ func (s *Server) deliver(ctx context.Context, q queuedMsg) {
 	} else {
 		cfg := map[string]any{}
 		_ = json.Unmarshal(q.Config, &cfg)
+		cfg = openConfig(cfg)
 		m := outMsg{Phone: q.Phone, Body: q.Body, Locale: "ar"}
 		if q.WATemplate != nil && *q.WATemplate != "" {
 			m.WATemplate = *q.WATemplate

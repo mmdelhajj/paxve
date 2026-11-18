@@ -39,6 +39,8 @@ services:
       AUTO_MIGRATE: "true"
       COOKIE_SECURE: "true"
       PLATFORM_ADMINS: ${PLATFORM_ADMINS:-}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:-}
+      ALLOW_PRIVATE_ROUTERS: ${ALLOW_PRIVATE_ROUTERS:-false}
 
   caddy:
     image: caddy:2

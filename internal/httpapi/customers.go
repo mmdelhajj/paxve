@@ -146,6 +146,10 @@ const subscriptionCols = `s.id, s.customer_id, s.plan_id, p.name AS plan_name, p
 	p.base_fee::text AS base_fee, p.unit_price::text AS unit_price, p.unit_label, s.meter_no, s.start_date, s.status,
 	s.fee_override::text AS fee_override, s.initial_reading::text AS initial_reading, s.notes, s.box_id,
 	(SELECT b.code FROM boxes b WHERE b.id = s.box_id) AS box_code,
+	s.router_id, (SELECT ro.name FROM routers ro WHERE ro.id = s.router_id) AS router_name, s.network_username, s.service_type,
+	s.network_status, s.suspended_reason,
+	(SELECT a.status FROM router_actions a WHERE a.subscription_id = s.id ORDER BY a.created_at DESC LIMIT 1) AS last_action_status,
+	(SELECT a.error FROM router_actions a WHERE a.subscription_id = s.id ORDER BY a.created_at DESC LIMIT 1) AS last_action_error,
 	(SELECT r.reading::text FROM meter_readings r WHERE r.subscription_id = s.id ORDER BY r.period DESC LIMIT 1) AS last_reading,
 	(SELECT r.period FROM meter_readings r WHERE r.subscription_id = s.id ORDER BY r.period DESC LIMIT 1) AS last_period`
 
@@ -190,7 +194,10 @@ type subscriptionIn struct {
 	FeeOverride    *string `json:"fee_override"` // "" clears
 	InitialReading *string `json:"initial_reading"`
 	Notes          *string `json:"notes"`
-	BoxID          *string `json:"box_id"` // "" clears
+	BoxID          *string `json:"box_id"`           // "" clears
+	RouterID       *string `json:"router_id"`        // "" clears
+	NetworkUser    *string `json:"network_username"` // PPPoE secret / hotspot user
+	ServiceType    *string `json:"service_type"`     // pppoe | hotspot
 }
 
 func (in *subscriptionIn) valid(create bool) bool {
@@ -204,7 +211,9 @@ func (in *subscriptionIn) valid(create bool) bool {
 		_, ok := money(*p)
 		return ok
 	}
-	return optUUID(in.PlanID) && optUUID(in.BoxID) && (in.StartDate == nil || validDate(*in.StartDate)) &&
+	return optUUID(in.PlanID) && optUUID(in.BoxID) && optUUID(in.RouterID) && (in.StartDate == nil || validDate(*in.StartDate)) &&
+		(in.ServiceType == nil || *in.ServiceType == "pppoe" || *in.ServiceType == "hotspot") &&
+		(in.NetworkUser == nil || len(strings.TrimSpace(*in.NetworkUser)) <= 64) &&
 		(in.Status == nil || *in.Status == "active" || *in.Status == "suspended" || *in.Status == "ended") &&
 		okNum(in.FeeOverride, true) && okNum(in.InitialReading, false)
 }
@@ -252,6 +261,9 @@ func (s *Server) createSubscription(w http.ResponseWriter, r *http.Request) {
 			deref(in.InitialReading), deref(in.Notes), deref(in.BoxID)).Scan(&id); err != nil {
 			return nil, err
 		}
+		if err := setSubscriptionNetwork(ctx, tx, cid, id, in); err != nil {
+			return nil, err
+		}
 		return queryJSONOne(ctx, tx, `SELECT `+subscriptionCols+` FROM subscriptions s JOIN plans p ON p.id = s.plan_id WHERE s.id = $1`, id)
 	})
 }
@@ -296,8 +308,34 @@ func (s *Server) updateSubscription(w http.ResponseWriter, r *http.Request) {
 		if tag.RowsAffected() == 0 {
 			return nil, notFound()
 		}
+		if err := setSubscriptionNetwork(ctx, tx, cid, id, in); err != nil {
+			return nil, err
+		}
 		return queryJSONOne(ctx, tx, `SELECT `+subscriptionCols+` FROM subscriptions s JOIN plans p ON p.id = s.plan_id WHERE s.id = $1`, id)
 	})
+}
+
+// setSubscriptionNetwork stores the router link of an internet subscription.
+func setSubscriptionNetwork(ctx context.Context, tx pgx.Tx, cid, id string, in subscriptionIn) error {
+	if in.RouterID == nil && in.NetworkUser == nil && in.ServiceType == nil {
+		return nil
+	}
+	if err := checkRouter(ctx, tx, cid, deref(in.RouterID)); err != nil {
+		return err
+	}
+	var user *string
+	if in.NetworkUser != nil {
+		u := strings.TrimSpace(*in.NetworkUser)
+		user = &u
+	}
+	_, err := tx.Exec(ctx, `UPDATE subscriptions SET
+		router_id = CASE WHEN $3::text IS NULL THEN router_id ELSE nullif($3, '')::uuid END,
+		network_username = coalesce($4, network_username), service_type = coalesce($5, service_type)
+		WHERE id = $1 AND company_id = $2`, id, cid, in.RouterID, user, in.ServiceType)
+	if isUniqueViolation(err) {
+		return &apiError{status: http.StatusConflict, code: "duplicate"}
+	}
+	return err
 }
 
 // ---- meter readings ----

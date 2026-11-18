@@ -17,6 +17,8 @@
 | `DB_OWNER_PASSWORD` | password of the `paxve` database owner (migrations, sign-up, platform console, message worker) |
 | `DB_APP_PASSWORD` | password of `paxve_app`, the restricted role the API uses (set by the app at each migration) |
 | `PLATFORM_ADMINS` | comma-separated emails allowed to open the platform owner console; these emails cannot be registered through sign-up or by tenant admins |
+| `APP_SECRET_KEY` | 32-byte key (`openssl rand -hex 32`) encrypting stored secrets (WhatsApp/SMS tokens, router passwords) with AES-256-GCM. Existing plaintext secrets are encrypted at startup. **Back it up** (copy in `/srv/paxve-secrets/app-secret-key.env`): a database backup restored without this key loses those secrets. |
+| `ALLOW_PRIVATE_ROUTERS` | `true` only if MikroTik routers are reached over a VPN on private addresses (default `false`: blocks internal addresses). See `docs/ISP.md`. |
 
 The app also reads `AUTO_MIGRATE` (true in compose), `COOKIE_SECURE`, `ADDR`, `WEB_DIR`.
 
@@ -88,6 +90,7 @@ create databases and set the `paxve_app` password.
 
 - Sessions: HttpOnly, Secure, SameSite=Lax cookies; state-changing API calls must be JSON (CSRF guard); DELETE requires a custom header.
 - Login rate limit: 10 failures / 15 min per IP **and** per account. Sign-up: 5 / hour per IP.
-- API keys are stored as SHA-256 hashes; message-provider secrets are masked in API responses and excluded from the audit log
-  (stored unencrypted in the database — protect database backups accordingly).
+- API keys are stored as SHA-256 hashes; message-provider secrets and router passwords are encrypted at rest
+  (AES-256-GCM, `APP_SECRET_KEY`), masked in API responses and excluded from the audit log.
+- Router "test connection" refuses private/loopback/link-local addresses unless `ALLOW_PRIVATE_ROUTERS=true`.
 - CSP `default-src 'self'`, HSTS, X-Frame-Options DENY, nosniff.

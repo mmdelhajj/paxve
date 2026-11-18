@@ -8,6 +8,7 @@ import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, formatDateTime, notifyError, notifySaved, today } from '../../util';
 import PageHeader from '../../components/PageHeader';
+import Routers from './Routers';
 
 interface Station { id: string; name: string; location: string; notes: string; is_active: boolean; generators: number; boxes: number; subscriptions: number }
 interface Generator {
@@ -52,7 +53,12 @@ export default function Network({ me }: { me: Me }) {
           <Tabs.Tab value="stations">{t('net.stations')} ({stations.length})</Tabs.Tab>
           <Tabs.Tab value="generators">{t('net.generators')} ({generators.length})</Tabs.Tab>
           <Tabs.Tab value="boxes">{t('net.boxes')} ({boxes.length})</Tabs.Tab>
+          {(me.role === 'admin' || me.role === 'accountant') && <Tabs.Tab value="routers">{t('isp.routers')}</Tabs.Tab>}
         </Tabs.List>
+
+        <Tabs.Panel value="routers" pt="md">
+          <Routers />
+        </Tabs.Panel>
 
         <Tabs.Panel value="stations" pt="md">
           <Paper withBorder>
