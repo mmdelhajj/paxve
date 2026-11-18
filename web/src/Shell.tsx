@@ -20,7 +20,7 @@ import {
   IconFileImport, IconCash, IconFileInvoice, IconGauge, IconSettings, IconUserCircle, IconReportMoney, IconChartBar,
   IconHourglass, IconMoneybag, IconBuildingBank, IconDeviceMobile, IconWorld, IconMessage, IconTruck, IconReceipt,
   IconCashBanknote, IconReceiptTax, IconPackage, IconGasStation, IconPackages, IconChartPie, IconUserDollar, IconBolt,
-  IconTopologyStar3, IconReceipt2, IconEngine,
+  IconTopologyStar3, IconReceipt2, IconEngine, IconRepeat, IconId, IconCoins, IconBuildingFactory2,
 } from '@tabler/icons-react';
 import TrialBanner from './components/TrialBanner';
 
@@ -68,6 +68,12 @@ const Network = lazy(() => import('./pages/network/Network'));
 const Tariffs = lazy(() => import('./pages/network/Tariffs'));
 const VatReport = lazy(() => named(import('./pages/network/NetReports'), 'VatReport'));
 const GeneratorReport = lazy(() => named(import('./pages/network/NetReports'), 'GeneratorReport'));
+const Employees = lazy(() => import('./pages/hr/Employees'));
+const Payroll = lazy(() => import('./pages/hr/Payroll'));
+const Assets = lazy(() => import('./pages/assets/Assets'));
+const AssetRegister = lazy(() => named(import('./pages/assets/Assets'), 'AssetRegister'));
+const Recurring = lazy(() => import('./pages/accounting/Recurring'));
+const BankRec = lazy(() => import('./pages/accounting/BankRec'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -75,7 +81,8 @@ type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | '
   'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup' |
   'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform' | 'import' | 'messages' |
   'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'expenses-report' |
-  'network' | 'tariffs' | 'vat-report' | 'generator-report' | 'print-bills';
+  'network' | 'tariffs' | 'vat-report' | 'generator-report' | 'print-bills' |
+  'employees' | 'payroll' | 'assets' | 'asset-register' | 'recurring' | 'bank-rec';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
@@ -113,7 +120,20 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'journal', label: 'nav.journal', icon: IconListDetails },
       { key: 'accounts', label: 'nav.accounts', icon: IconBook2 },
       { key: 'rates', label: 'nav.rates', icon: IconArrowsExchange },
+      { key: 'recurring', label: 'rec.nav', icon: IconRepeat },
+      { key: 'bank-rec', label: 'bank.nav', icon: IconBuildingBank, roles: ['admin', 'accountant'] },
     ],
+  },
+  {
+    label: 'hr.nav',
+    items: [
+      { key: 'employees', label: 'hr.employees', icon: IconId, roles: ['admin', 'accountant'] },
+      { key: 'payroll', label: 'hr.payroll', icon: IconCoins, roles: ['admin', 'accountant'] },
+    ],
+  },
+  {
+    label: 'fa.nav',
+    items: [{ key: 'assets', label: 'fa.title', icon: IconBuildingFactory2 }],
   },
   {
     label: 'reports2.nav',
@@ -128,6 +148,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'expenses-report', label: 'pur.expensesReport', icon: IconChartPie },
       { key: 'vat-report', label: 'net.vatReport', icon: IconReceipt2 },
       { key: 'generator-report', label: 'net.genReport', icon: IconEngine },
+      { key: 'asset-register', label: 'fa.register', icon: IconBuildingFactory2 },
     ],
   },
   {
@@ -147,7 +168,8 @@ const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-ba
   'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform', 'import', 'messages',
   'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'expenses-report',
-  'network', 'tariffs', 'vat-report', 'generator-report', 'print-bills'];
+  'network', 'tariffs', 'vat-report', 'generator-report', 'print-bills',
+  'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -317,6 +339,12 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'tariffs' && <Tariffs me={me} />}
         {current === 'vat-report' && <VatReport />}
         {current === 'generator-report' && <GeneratorReport />}
+        {current === 'employees' && <Employees me={me} />}
+        {current === 'payroll' && <Payroll me={me} />}
+        {current === 'assets' && <Assets me={me} />}
+        {current === 'asset-register' && <AssetRegister />}
+        {current === 'recurring' && <Recurring me={me} />}
+        {current === 'bank-rec' && <BankRec me={me} />}
         {current === 'platform' && me.is_platform_admin && <Platform />}
         </Suspense>
       </AppShell.Main>

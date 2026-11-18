@@ -35,6 +35,7 @@ import (
 var (
 	itServer    *httptest.Server
 	itOwnerPool *pgxpool.Pool
+	itAPI       *Server
 	itSeq       int
 )
 
@@ -67,6 +68,7 @@ func TestMain(m *testing.M) {
 	sm.Store = memstore.New()
 	sm.Cookie.Secure = false
 	srv := New(pool, itOwnerPool, sm, "", []string{"platform@example.com"})
+	itAPI = srv
 	itServer = httptest.NewServer(srv.Handler())
 
 	code := m.Run()

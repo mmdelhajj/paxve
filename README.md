@@ -16,6 +16,9 @@ Live: https://paxve.com
 | **Payments** | Pay in several currencies at once (e.g. USD + LBP), automatic change (rounded to 1,000 / 5,000 LBP if wanted), oldest invoices paid first, customer balances per currency, aging report |
 | **Collectors** | Collector role limited to their areas; mobile collector mode (PWA, works offline, payments queued and synced once — idempotent); Bluetooth ESC/POS receipts (Arabic rendered as image); personal cash boxes and handover |
 | **Purchases & stock** | Suppliers, purchase bills (AP), supplier payments, expenses, items and warehouses with weighted-average cost, fuel consumption, stock adjustments, stock valuation, AP aging |
+| **HR & payroll** | Employees (USD or LBP salaries, transport, NSSF flag), advances with monthly recovery, monthly payroll (editable drafts, configurable NSSF rates, posted to 641/645/421/431), salary payment per cash box / bank, payslip print |
+| **Fixed assets** | Asset register, straight-line monthly depreciation (idempotent per month), disposal with gain/loss, net book value report |
+| **Recurring & bank** | Recurring journal entries / expenses posted automatically on due dates (respecting the period lock); bank statement import, auto-matching (amount ± 3 days), quick entries for fees, reconciliation report |
 | **Messaging** | WhatsApp Cloud API, Twilio SMS, generic HTTP or wa.me links; templates in EN/AR/FR; reminders for unpaid bills; automatic receipt / bill messages |
 | **Import** | CSV / Excel paste wizard for customers, subscriptions, opening balances, meter readings, accounts (validated dry run, all-or-nothing) |
 | **SaaS** | Public landing page, self sign-up with 14-day trial, plans with subscriber limits, platform owner console |

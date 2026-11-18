@@ -525,3 +525,88 @@ paths:
       summary: "Printable invoice of that customer (public, no authentication)"
       security: []
       responses: { "200": { description: OK }, "404": { description: Not found } }
+  # ---- back office (module H): payroll, fixed assets, recurring entries, bank reconciliation ----
+  /companies/{cid}/backoffice/settings:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "HR/asset default accounts and NSSF rates", responses: { "200": { description: OK } } }
+    put: { summary: "Update any of: salary_expense_account_id, nssf_expense_account_id, salary_payable_account_id, nssf_payable_account_id, advances_account_id, depreciation_expense_account_id, accum_depreciation_account_id, asset_gain_account_id, asset_loss_account_id, nssf_employee_rate, nssf_employer_rate", responses: { "200": { description: OK } } }
+  /companies/{cid}/employees:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Employees (admin/accountant)", responses: { "200": { description: OK } } }
+    post: { summary: "Create employee {name, currency, salary, transport, nssf_enrolled, position, phone, hire_date, method_id}", responses: { "201": { description: Created } } }
+  /companies/{cid}/employees/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: "Employee with advances and payslip history", responses: { "200": { description: OK } } }
+    patch: { summary: "Update employee", responses: { "200": { description: OK } } }
+  /companies/{cid}/employees/{id}/advances:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Give an advance {date, amount, installment, method_id} — Dr advances / Cr box; recovered in payrolls", responses: { "201": { description: Created } } }
+  /companies/{cid}/payroll:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Payroll runs with totals per currency", responses: { "200": { description: OK } } }
+    post: { summary: "Prepare a draft payroll {period: YYYY-MM} with a payslip per active employee (NSSF and advance recovery computed)", responses: { "201": { description: Created }, "409": { description: payroll_exists } } }
+  /companies/{cid}/payroll/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: "Payroll run with payslips and payments", responses: { "200": { description: OK } } }
+    delete: { summary: "Discard a draft payroll", responses: { "200": { description: OK } } }
+  /companies/{cid}/payroll/{id}/payslips/{pid}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }, { name: pid, in: path, required: true, schema: { type: string, format: uuid } }]
+    patch: { summary: "Edit a draft payslip {base, transport, allowances, deductions, advance_recovery, notes}; NSSF and net recomputed", responses: { "200": { description: OK } } }
+  /companies/{cid}/payroll/{id}/post:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Post: Dr salaries + employer NSSF / Cr NSSF payable, advances, salaries payable (dated end of month unless {date})", responses: { "200": { description: OK } } }
+  /companies/{cid}/payroll/{id}/pay:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Pay unpaid net salaries in the method's currency {method_id, date, payslip_ids?} — Dr salaries payable / Cr box", responses: { "200": { description: OK } } }
+  /companies/{cid}/payroll/{id}/void:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Void a posted, unpaid payroll (reversal; advance recoveries given back)", responses: { "200": { description: OK }, "409": { description: payroll_paid } } }
+  /companies/{cid}/assets:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Fixed assets with accumulated depreciation and net book value (base currency)", responses: { "200": { description: OK } } }
+    post: { summary: "Register an asset {name, purchase_date, currency, cost, useful_life_months, asset_account_id, salvage?, paid_from_method_id?}", responses: { "201": { description: Created } } }
+  /companies/{cid}/assets/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: "Asset with its depreciation lines", responses: { "200": { description: OK } } }
+    patch: { summary: "Edit name/category/notes (life and salvage only before depreciation starts)", responses: { "200": { description: OK } } }
+  /companies/{cid}/assets/{id}/dispose:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Sell or scrap {date, proceeds?, method_id?}: removes cost and depreciation, books gain/loss", responses: { "200": { description: OK } } }
+  /companies/{cid}/depreciation/run:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    post: { summary: "Depreciate all active assets for {period: YYYY-MM} (straight line); running the same month again does nothing", responses: { "200": { description: OK } } }
+  /companies/{cid}/reports/assets:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Asset register at ?to=YYYY-MM-DD: cost, accumulated depreciation, net book value", responses: { "200": { description: OK } } }
+  /companies/{cid}/recurring:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Recurring entry templates", responses: { "200": { description: OK } } }
+    post: { summary: "Create {name, kind: journal|expense, frequency: monthly|quarterly|yearly, next_date, currency, lines (journal) | amount+account_id+method_id (expense)}; posted automatically on due dates (period lock respected)", responses: { "201": { description: Created } } }
+  /companies/{cid}/recurring/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    patch: { summary: "Update a template (clears last_error)", responses: { "200": { description: OK } } }
+  /companies/{cid}/recurring/{id}/run:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Create the next occurrence now (dated at next_date) and move the schedule on", responses: { "200": { description: OK } } }
+  /companies/{cid}/bank/statements:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Imported bank statements (?method_id)", responses: { "200": { description: OK } } }
+    post: { summary: "Import a statement {method_id, name, lines: [{date, description, amount (+ in / - out), reference}]}", responses: { "201": { description: Created } } }
+  /companies/{cid}/bank/statements/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: "Statement lines with match suggestions (same account, currency, amount, ±3 days)", responses: { "200": { description: OK } } }
+  /companies/{cid}/bank/statements/{id}/auto-match:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Match every line that has exactly one suggestion", responses: { "200": { description: OK } } }
+  /companies/{cid}/bank/lines/{id}/match:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Match a statement line to a journal line {journal_line_id}", responses: { "200": { description: OK } } }
+  /companies/{cid}/bank/lines/{id}/entry:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Book an unmatched line against an account {account_id, description} (bank fees, interest) and match it", responses: { "200": { description: OK } } }
+  /companies/{cid}/bank/lines/{id}/{action}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }, { name: action, in: path, required: true, schema: { type: string, enum: [unmatch, ignore, unignore] } }]
+    post: { summary: "Unmatch, ignore or restore a statement line", responses: { "200": { description: OK } } }
+  /companies/{cid}/bank/reconciliation:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Book balance vs statement balance (?method_id, to) with unmatched items on both sides", responses: { "200": { description: OK } } }

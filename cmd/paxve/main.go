@@ -115,6 +115,7 @@ func serve(ctx context.Context) error {
 	addr := env("ADDR", ":8080")
 	api := httpapi.New(pool, ownerPool, sm, env("WEB_DIR", "web/dist"), strings.Split(os.Getenv("PLATFORM_ADMINS"), ","))
 	api.StartMessageWorker(ctx)
+	api.StartRecurringWorker(ctx)
 	hs := &http.Server{
 		Addr:              addr,
 		Handler:           api.Handler(),
