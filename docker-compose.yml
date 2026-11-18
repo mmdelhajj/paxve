@@ -1,0 +1,51 @@
+name: paxve
+
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: paxve
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?set in .env}
+      POSTGRES_DB: paxve
+      TZ: Asia/Beirut
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paxve -d paxve"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    shm_size: 256mb
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://paxve_app:${DB_APP_PASSWORD:?set in .env}@db:5432/paxve?sslmode=disable
+      MIGRATE_DATABASE_URL: postgres://paxve:${DB_OWNER_PASSWORD}@db:5432/paxve?sslmode=disable
+      APP_DB_PASSWORD: ${DB_APP_PASSWORD}
+      AUTO_MIGRATE: "true"
+      COOKIE_SECURE: "true"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
