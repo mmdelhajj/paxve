@@ -72,7 +72,7 @@ func requirePostable(ctx context.Context, tx pgx.Tx, cid, account string) error 
 // ---- payment methods ----
 
 const methodCols = `m.id, m.name, m.kind, m.currency, m.account_id, a.code AS account_code, a.name AS account_name, m.is_active, m.sort,
-	m.user_id, (SELECT full_name FROM users WHERE id = m.user_id) AS user_name`
+	m.user_id, (SELECT full_name FROM users WHERE id = m.user_id) AS user_name, trim_scale(m.change_rounding)::text AS change_rounding`
 
 func (s *Server) listMethods(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
@@ -90,6 +90,8 @@ type methodIn struct {
 	IsActive  *bool   `json:"is_active"`
 	Sort      *int    `json:"sort"`
 	UserID    *string `json:"user_id"` // "" = shared box
+	// ChangeRounding: change given from this box is rounded down to this step (e.g. 1000 or 5000 LBP); "" = none
+	ChangeRounding *string `json:"change_rounding"`
 }
 
 var methodKinds = map[string]bool{"cash": true, "wallet": true, "bank": true, "card": true}
@@ -101,7 +103,15 @@ func (in *methodIn) valid(create bool) bool {
 	return (in.Name == nil || strings.TrimSpace(*in.Name) != "") &&
 		(in.Kind == nil || methodKinds[*in.Kind]) &&
 		(in.Currency == nil || currencyRe.MatchString(*in.Currency)) &&
-		(in.AccountID == nil || isUUID(*in.AccountID)) && optUUID(in.UserID)
+		(in.AccountID == nil || isUUID(*in.AccountID)) && optUUID(in.UserID) && validStep(in.ChangeRounding)
+}
+
+func validStep(p *string) bool {
+	if p == nil || *p == "" {
+		return true
+	}
+	d, ok := money(*p)
+	return ok && d.IsPositive()
 }
 
 func (s *Server) createMethod(w http.ResponseWriter, r *http.Request) {
@@ -123,9 +133,9 @@ func (s *Server) createMethod(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO payment_methods (company_id, name, kind, currency, account_id, sort, user_id)
-			VALUES ($1, $2, $3, $4, $5, coalesce($6, 0), nullif($7, '')::uuid) RETURNING id::text`,
-			cid, strings.TrimSpace(*in.Name), kind, *in.Currency, *in.AccountID, in.Sort, deref(in.UserID)).Scan(&id); err != nil {
+		if err := tx.QueryRow(ctx, `INSERT INTO payment_methods (company_id, name, kind, currency, account_id, sort, user_id, change_rounding)
+			VALUES ($1, $2, $3, $4, $5, coalesce($6, 0), nullif($7, '')::uuid, nullif($8, '')::numeric) RETURNING id::text`,
+			cid, strings.TrimSpace(*in.Name), kind, *in.Currency, *in.AccountID, in.Sort, deref(in.UserID), deref(in.ChangeRounding)).Scan(&id); err != nil {
 			return nil, err
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+methodCols+` FROM payment_methods m JOIN accounts a ON a.id = m.account_id WHERE m.id = $1`, id)
@@ -151,8 +161,9 @@ func (s *Server) updateMethod(w http.ResponseWriter, r *http.Request) {
 		tag, err := tx.Exec(ctx, `UPDATE payment_methods SET name = coalesce(trim($3), name), kind = coalesce($4, kind),
 			currency = coalesce($5, currency), account_id = coalesce($6::uuid, account_id),
 			is_active = coalesce($7, is_active), sort = coalesce($8, sort),
-			user_id = CASE WHEN $9::text IS NULL THEN user_id ELSE nullif($9, '')::uuid END
-			WHERE id = $1 AND company_id = $2`, id, cid, in.Name, in.Kind, in.Currency, in.AccountID, in.IsActive, in.Sort, in.UserID)
+			user_id = CASE WHEN $9::text IS NULL THEN user_id ELSE nullif($9, '')::uuid END,
+			change_rounding = CASE WHEN $10::text IS NULL THEN change_rounding ELSE nullif($10, '')::numeric END
+			WHERE id = $1 AND company_id = $2`, id, cid, in.Name, in.Kind, in.Currency, in.AccountID, in.IsActive, in.Sort, in.UserID, in.ChangeRounding)
 		if err != nil {
 			return nil, err
 		}

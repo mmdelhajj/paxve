@@ -93,6 +93,12 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "weak_password")
 		return
 	}
+	// Platform-owner emails can never be claimed through public sign-up (otherwise anyone could
+	// register a listed address that has no account yet and get the platform console).
+	if s.platformAdmins[in.Email] {
+		writeErr(w, http.StatusConflict, "email_taken")
+		return
+	}
 	hash, err := auth.Hash(in.Password)
 	if err != nil {
 		serverErr(w, r, err)

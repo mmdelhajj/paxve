@@ -71,6 +71,10 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "weak_password")
 		return
 	}
+	if s.platformAdmins[in.Email] { // platform-owner addresses cannot be created inside an organisation
+		writeErr(w, http.StatusConflict, "email_taken")
+		return
+	}
 	hash, err := auth.Hash(in.Password)
 	if err != nil {
 		serverErr(w, r, err)

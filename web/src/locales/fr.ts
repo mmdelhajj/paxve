@@ -26,6 +26,7 @@ const fr: Messages = {
   },
   companies: {
     title: 'Sociétés', new: 'Nouvelle société', nameEn: 'Nom (anglais)', nameAr: 'Nom (arabe)',
+    lockDate: 'Comptes clôturés jusqu’au', lockHint: 'Rien ne peut être saisi ou modifié à cette date ou avant. Videz le champ pour rouvrir.',
     currencies: 'Devises', base: 'Devise de base (tenue des comptes)', local: 'Deuxième devise',
   },
   users: {
@@ -101,7 +102,7 @@ const fr: Messages = {
   methods: {
     title: 'Moyens de paiement', new: 'Nouveau moyen de paiement', name: 'Nom', kind: 'Type', currency: 'Devise', account: 'Compte',
     kinds: { cash: 'Espèces', wallet: 'Portefeuille', bank: 'Banque', card: 'Carte' },
-    owner: 'Appartient à (caisse encaisseur)', shared: 'Caisse partagée',
+    owner: 'Appartient à (caisse encaisseur)', shared: 'Caisse partagée', rounding: 'Arrondir la monnaie à', roundingHint: 'ex. 1000 ou 5000 pour la LBP ; vide pour une monnaie exacte',
   },
   setup: {
     title: 'Paramètres de facturation', accounts: 'Comptes par défaut', ar: 'Créances clients', fxGain: 'Gains de change',
@@ -329,6 +330,7 @@ const fr: Messages = {
     invalid_amount: 'Chaque ligne doit avoir un débit ou un crédit (4 décimales max.)',
     invalid_date: 'Date invalide',
     invalid_rate: 'Taux de change invalide',
+    period_locked: 'Les comptes sont clôturés à cette date. Utilisez une date postérieure à la clôture.',
     same_as_base: "C'est la devise de base",
   },
 };

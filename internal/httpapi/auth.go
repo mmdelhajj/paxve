@@ -26,6 +26,12 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
+	// second limit per account, so guessing one user's password from many IPs is also slowed down
+	emailKey := "email:" + strings.ToLower(strings.TrimSpace(in.Email))
+	if !s.limiter.allow(emailKey) {
+		writeErr(w, http.StatusTooManyRequests, "too_many_attempts")
+		return
+	}
 
 	var uid, tid, hash string
 	var active bool
@@ -35,6 +41,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		auth.VerifyDummy(in.Password)
 		s.limiter.fail(ip)
+		s.limiter.fail(emailKey)
 		writeErr(w, http.StatusUnauthorized, "invalid_credentials")
 		return
 	}
@@ -44,10 +51,12 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if !auth.Verify(in.Password, hash) || !active {
 		s.limiter.fail(ip)
+		s.limiter.fail(emailKey)
 		writeErr(w, http.StatusUnauthorized, "invalid_credentials")
 		return
 	}
 	s.limiter.reset(ip)
+	s.limiter.reset(emailKey)
 
 	if err := s.Sessions.RenewToken(ctx); err != nil {
 		serverErr(w, r, err)

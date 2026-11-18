@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { api, type Me, type Rate } from '../../api';
 import { useCompany } from '../../company';
 import { applyLang, languages } from '../../i18n';
-import { formatAmount, formatDate, notifyError, today } from '../../util';
+import { formatAmount, formatDate, notifyError, roundChange, today } from '../../util';
 import Logo from '../../components/Logo';
 import type { Customer, Money, PaymentDetail, PaymentMethod } from '../../billing';
 import { MoneyList, Receipt } from '../billing/docs';
@@ -278,7 +278,7 @@ function Collect({ customer, methods, rates, online, me, onClose, onDone }: {
   const extra = received - applyN;
   const cm = changeMethod ? byId.get(changeMethod) : undefined;
   const cdec = cm ? decimalsOf(cm.currency) : 0;
-  const change = extra > 0.00005 && cm ? Math.floor((extra / payRate) * rateOf(cm.currency) * 10 ** cdec) / 10 ** cdec : 0;
+  const change = extra > 0.00005 && cm ? roundChange((extra / payRate) * rateOf(cm.currency), cdec, cm.change_rounding) : 0;
   const short = applyN - received > 0.01;
 
   async function submit() {

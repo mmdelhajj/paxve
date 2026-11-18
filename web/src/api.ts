@@ -21,6 +21,7 @@ export interface Company {
   local_currency: string;
   is_active: boolean;
   created_at: string;
+  lock_date: string | null;
 }
 
 export interface User {

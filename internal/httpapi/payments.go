@@ -36,16 +36,20 @@ type method struct {
 	ID, Name, Currency, Account string
 	UserID                      *string
 	Active                      bool
+	ChangeRounding              decimal.Decimal // change given from this box is rounded down to this step (0 = currency decimals)
 }
 
 func loadMethods(ctx context.Context, tx pgx.Tx, cid string) (map[string]method, error) {
-	rows, err := tx.Query(ctx, `SELECT id::text, name, currency::text, account_id::text, user_id::text, is_active FROM payment_methods WHERE company_id = $1`, cid)
+	rows, err := tx.Query(ctx, `SELECT id::text, name, currency::text, account_id::text, user_id::text, is_active,
+		coalesce(change_rounding, 0)::text FROM payment_methods WHERE company_id = $1`, cid)
 	if err != nil {
 		return nil, err
 	}
 	list, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (method, error) {
 		var m method
-		err := row.Scan(&m.ID, &m.Name, &m.Currency, &m.Account, &m.UserID, &m.Active)
+		var step string
+		err := row.Scan(&m.ID, &m.Name, &m.Currency, &m.Account, &m.UserID, &m.Active, &step)
+		m.ChangeRounding, _ = decimal.NewFromString(step)
 		return m, err
 	})
 	out := map[string]method{}
@@ -184,6 +188,9 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 			changeAmt = extra.Mul(cr).Div(payRate).RoundFloor(dec)
+			if m.ChangeRounding.IsPositive() { // e.g. LBP change rounded down to 1,000 or 5,000
+				changeAmt = changeAmt.Div(m.ChangeRounding).Floor().Mul(m.ChangeRounding)
+			}
 			changeM = &m
 		}
 
@@ -198,7 +205,11 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 		if changeM != nil && changeAmt.IsPositive() {
 			lines = append(lines, jline{Account: changeM.Account, Desc: "Change · " + changeM.Name, Currency: changeM.Currency, Credit: changeAmt})
 		}
-		lines = append(lines, jline{Account: *set.AR, Desc: name, Currency: in.Currency, Credit: applied, Rate: payRateS})
+		arLines, err := arCreditLines(ctx, tx, *set.AR, set.Base, in.CustomerID, name, in.Currency, applied, payRateS)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, arLines...)
 		je, err := postJournal(ctx, tx, cid, set, in.Date, fmt.Sprintf("Payment #%d · %s", number, name),
 			fmt.Sprintf("PAY-%d", number), "payment", lines)
 		if err != nil {
@@ -288,19 +299,19 @@ func (s *Server) listPayments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit, offset := queryInt(r, "limit", 200, 2000), queryInt(r, "offset", 0, 1<<30)
-	mineSQL := "true"
+	receivedBy := "" // bind parameter $6: only payments received by this user
 	if isCollector(r) {
-		mineSQL = "p.received_by = app_user()"
+		receivedBy = principal(r).ID
 	} else if by := q.Get("received_by"); isUUID(by) {
-		mineSQL = "p.received_by = '" + by + "'" // validated uuid
+		receivedBy = by
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		cond := `p.company_id = $1 AND p.payment_date BETWEEN $2::date AND $3::date AND ($4 = '' OR p.customer_id = $4::uuid)
 			AND ($5 = '' OR c.name ILIKE '%' || $5 || '%' OR c.code ILIKE $5 || '%' OR p.number::text = $5)
-			AND (` + mineSQL + `)`
+			AND ($6 = '' OR p.received_by = $6::uuid)`
 		rows, err := queryJSON(ctx, tx, `SELECT `+paymentCols+` FROM payments p JOIN customers c ON c.id = p.customer_id
-			LEFT JOIN users u ON u.id = p.received_by WHERE `+cond+` ORDER BY p.payment_date DESC, p.number DESC LIMIT $6 OFFSET $7`,
-			r.PathValue("cid"), from, to, customer, search, limit, offset)
+			LEFT JOIN users u ON u.id = p.received_by WHERE `+cond+` ORDER BY p.payment_date DESC, p.number DESC LIMIT $7 OFFSET $8`,
+			r.PathValue("cid"), from, to, customer, search, receivedBy, limit, offset)
 		if err != nil {
 			return nil, err
 		}
@@ -314,7 +325,7 @@ func (s *Server) listPayments(w http.ResponseWriter, r *http.Request) {
 			  FROM payments p JOIN customers c ON c.id = p.customer_id JOIN payment_methods m ON m.id = p.change_method_id
 			  WHERE `+cond+` AND p.status = 'posted' AND p.change_amount > 0
 			) x GROUP BY method, currency ORDER BY method`,
-			r.PathValue("cid"), from, to, customer, search)
+			r.PathValue("cid"), from, to, customer, search, receivedBy)
 		if err != nil {
 			return nil, err
 		}

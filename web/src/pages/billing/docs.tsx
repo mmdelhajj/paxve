@@ -6,7 +6,7 @@ import { IconPlus, IconPrinter, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, type Rate } from '../../api';
 import { useCompany } from '../../company';
-import { formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
+import { formatAmount, formatDate, notifyError, notifySaved, roundChange, today } from '../../util';
 import { Confirm } from '../../components/PageHeader';
 import { invoiceColor, type InvoiceDetail, type Money, type PaymentDetail, type PaymentMethod } from '../../billing';
 import { WhatsAppButton } from './Messages';
@@ -289,7 +289,7 @@ export function ReceivePayment({ customerId, customerName, due, onClose, onDone 
   const cm = changeMethod ? byId.get(changeMethod) : undefined;
   const changeRate = cm ? rateOf(cm.currency) : 0;
   const changeDec = cm ? decimalsOf(cm.currency) : 2;
-  const change = extra > 0 && cm && changeRate && payRate ? Math.floor(((extra / payRate) * changeRate) * 10 ** changeDec) / 10 ** changeDec : 0;
+  const change = extra > 0 && cm && changeRate && payRate ? roundChange((extra / payRate) * changeRate, changeDec, cm.change_rounding) : 0;
   const pdec = decimalsOf(currency);
   const short = apply !== '' && applyN - received > 0.01;
 

@@ -174,6 +174,76 @@ func autoAllocate(ctx context.Context, tx pgx.Tx, customerID, currency string) e
 	return nil
 }
 
+// arCreditLines builds the receivable credit for a customer payment of `amount` in `currency`.
+//
+// For a foreign-currency (non-base) payment, the part that settles open invoices (oldest first,
+// the same order autoAllocate uses) is credited at each invoice's own booking rate, so the
+// receivable leaves the books at exactly the base value it entered them. Only the part left
+// over (an advance) uses the payment-date rate. The difference with the money actually received
+// is realized exchange gain/loss, booked automatically by postJournal.
+//
+// Known limit: an advance later applied to a new invoice keeps its payment-date rate, so a small
+// base-currency residue can stay on the receivable account for that customer (no FX adjustment
+// is booked at allocation time).
+func arCreditLines(ctx context.Context, tx pgx.Tx, ar, base, customerID, name, currency string, amount decimal.Decimal, payRate string) ([]jline, error) {
+	if currency == base {
+		return []jline{{Account: ar, Desc: name, Currency: currency, Credit: amount, Rate: payRate}}, nil
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT (i.total - i.paid)::text,
+		       coalesce((SELECT l.rate::text FROM journal_lines l
+		                 WHERE l.entry_id = i.journal_entry_id AND l.account_id = $3 AND l.debit > 0 LIMIT 1), '')
+		FROM invoices i
+		WHERE i.customer_id = $1 AND i.currency = $2 AND i.status IN ('open', 'partial')
+		ORDER BY i.issue_date, i.number`, customerID, currency, ar)
+	if err != nil {
+		return nil, err
+	}
+	type open struct {
+		balance decimal.Decimal
+		rate    string
+	}
+	invs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (open, error) {
+		var b, rt string
+		err := row.Scan(&b, &rt)
+		o := open{rate: rt}
+		o.balance, _ = decimal.NewFromString(b)
+		return o, err
+	})
+	if err != nil {
+		return nil, err
+	}
+	remaining := amount
+	byRate := map[string]decimal.Decimal{}
+	order := []string{}
+	add := func(rate string, v decimal.Decimal) {
+		if _, ok := byRate[rate]; !ok {
+			order = append(order, rate)
+		}
+		byRate[rate] = byRate[rate].Add(v)
+	}
+	for _, inv := range invs {
+		if !remaining.IsPositive() {
+			break
+		}
+		take := decimal.Min(remaining, inv.balance)
+		rate := inv.rate
+		if rate == "" {
+			rate = payRate
+		}
+		add(rate, take)
+		remaining = remaining.Sub(take)
+	}
+	if remaining.IsPositive() {
+		add(payRate, remaining)
+	}
+	out := make([]jline, 0, len(order))
+	for _, rate := range order {
+		out = append(out, jline{Account: ar, Desc: name, Currency: currency, Credit: byRate[rate], Rate: rate})
+	}
+	return out, nil
+}
+
 // lockCustomer serialises money operations of one customer.
 func lockCustomer(ctx context.Context, tx pgx.Tx, cid, customerID string) (string, error) {
 	if !isUUID(customerID) {

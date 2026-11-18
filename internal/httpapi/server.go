@@ -70,6 +70,7 @@ func (s *Server) Handler() http.Handler {
 	field := []string{RoleAdmin, RoleAccountant, RoleDataEntry, RoleCollector}
 
 	mux.HandleFunc("GET /api/health", s.health)
+	mux.HandleFunc("GET /api/health/ready", s.ready)
 	mux.HandleFunc("GET "+v+"/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
 		_, _ = w.Write(openapiSpec)
@@ -233,6 +234,29 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+// ready: the database answers and its schema is at the migration version this binary expects.
+func (s *Server) ready(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+	want := db.LatestVersion()
+	if err := s.Pool.Ping(ctx); err != nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "db": false})
+		return
+	}
+	got := want // without an owner pool the version cannot be read; the ping above is all we can check
+	if s.OwnerPool != nil {
+		if err := s.OwnerPool.QueryRow(ctx, `SELECT coalesce(max(version_id), 0) FROM goose_db_version WHERE is_applied`).Scan(&got); err != nil {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "db": true, "migration": "unknown"})
+			return
+		}
+	}
+	status := http.StatusOK
+	if got < want {
+		status = http.StatusServiceUnavailable
+	}
+	writeJSON(w, status, map[string]any{"ok": got >= want, "db": true, "migration": got, "expected": want})
+}
+
 // ---- principal / auth middleware ----
 
 type Principal struct {
@@ -376,14 +400,12 @@ func jsonOnly(next http.Handler) http.Handler {
 	})
 }
 
+// clientIP returns the visitor's IP. In production Caddy is the only thing that can reach the
+// app; it resolves the real client IP (trusting CF-Connecting-IP only from Cloudflare's ranges)
+// and passes it as X-Client-IP, overwriting anything the client sent. Client-supplied
+// CF-Connecting-IP / X-Forwarded-For are never trusted here, so rate limits cannot be dodged.
 func clientIP(r *http.Request) string {
-	ip := r.Header.Get("CF-Connecting-IP")
-	if ip == "" {
-		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			parts := strings.Split(xff, ",")
-			ip = strings.TrimSpace(parts[len(parts)-1])
-		}
-	}
+	ip := strings.TrimSpace(r.Header.Get("X-Client-IP"))
 	if ip == "" {
 		ip, _, _ = net.SplitHostPort(r.RemoteAddr)
 	}

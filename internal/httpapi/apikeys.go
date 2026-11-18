@@ -100,7 +100,8 @@ func (s *Server) createAPIKey(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 		Role string `json:"role"`
 	}
-	if err := decode(w, r, &in); err != nil || strings.TrimSpace(in.Name) == "" || !validRoles[in.Role] {
+	// collector scoping follows the signed-in person's areas, which has no meaning for a key
+	if err := decode(w, r, &in); err != nil || strings.TrimSpace(in.Name) == "" || !validRoles[in.Role] || in.Role == RoleCollector {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}

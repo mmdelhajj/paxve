@@ -24,6 +24,7 @@ const en = {
   },
   companies: {
     title: 'Companies', new: 'New company', nameEn: 'Name (English)', nameAr: 'Name (Arabic)',
+    lockDate: 'Books locked up to', lockHint: 'Nothing can be entered or changed on or before this date. Leave empty to unlock.',
     currencies: 'Currencies', base: 'Base currency (books are kept in it)', local: 'Second currency',
   },
   users: {
@@ -99,7 +100,7 @@ const en = {
   methods: {
     title: 'Payment methods', new: 'New payment method', name: 'Name', kind: 'Kind', currency: 'Currency', account: 'Account',
     kinds: { cash: 'Cash', wallet: 'Wallet', bank: 'Bank', card: 'Card' },
-    owner: 'Belongs to (collector box)', shared: 'Shared box',
+    owner: 'Belongs to (collector box)', shared: 'Shared box', rounding: 'Round change down to', roundingHint: 'e.g. 1000 or 5000 for LBP; leave empty for exact change',
   },
   setup: {
     title: 'Billing setup', accounts: 'Default accounts', ar: 'Receivables (customers)', fxGain: 'Exchange gain',
@@ -327,6 +328,7 @@ const en = {
     invalid_amount: 'Each line needs either a debit or a credit (max 4 decimals)',
     invalid_date: 'Invalid date',
     invalid_rate: 'Invalid exchange rate',
+    period_locked: 'The books are closed for this date. Use a date after the lock date.',
     same_as_base: 'This is the base currency',
   },
 };

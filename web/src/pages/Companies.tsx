@@ -21,6 +21,16 @@ export default function Companies({ me }: { me: Me }) {
   }, [t, reload]);
   useEffect(load, [load]);
 
+  async function setLock(c: Company, lock: string) {
+    try {
+      const updated = await api<Company>(`/companies/${c.id}`, { method: 'PATCH', body: { lock_date: lock } });
+      setRows((r) => r?.map((x) => (x.id === c.id ? updated : x)) ?? null);
+      notifySaved(t);
+    } catch (e) {
+      notifyError(t, e);
+    }
+  }
+
   async function toggle(c: Company) {
     try {
       const updated = await api<Company>(`/companies/${c.id}`, { method: 'PATCH', body: { is_active: !c.is_active } });
@@ -55,6 +65,7 @@ export default function Companies({ me }: { me: Me }) {
                   <Table.Th>{t('companies.currencies')}</Table.Th>
                   <Table.Th>{t('common.status')}</Table.Th>
                   <Table.Th>{t('common.created')}</Table.Th>
+                  <Table.Th>{t('companies.lockDate')}</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -79,6 +90,12 @@ export default function Companies({ me }: { me: Me }) {
                       )}
                     </Table.Td>
                     <Table.Td c="dimmed" key={i18n.language}>{formatDate(c.created_at)}</Table.Td>
+                    <Table.Td>
+                      {isAdmin ? (
+                        <TextInput type="date" size="xs" w={150} defaultValue={c.lock_date ?? ''} title={t('companies.lockHint')}
+                          onBlur={(e) => { const v = e.currentTarget.value; if (v !== (c.lock_date ?? '')) void setLock(c, v); }} />
+                      ) : (c.lock_date ? formatDate(c.lock_date) : '—')}
+                    </Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>

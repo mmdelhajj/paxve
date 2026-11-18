@@ -1,9 +1,16 @@
 name: paxve
 
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 services:
   db:
     image: postgres:18
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_USER: paxve
       POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?set in .env}
@@ -21,6 +28,7 @@ services:
   app:
     build: .
     restart: unless-stopped
+    logging: *logging
     depends_on:
       db:
         condition: service_healthy
@@ -35,6 +43,7 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
+    logging: *logging
     depends_on:
       - app
     ports:

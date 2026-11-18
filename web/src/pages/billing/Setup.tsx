@@ -211,6 +211,7 @@ function MethodForm({ method, postable, currencies, users, onClose, onSaved }: {
   const [f, setF] = useState({
     name: method?.name ?? '', kind: method?.kind ?? 'cash', currency: method?.currency ?? company?.base_currency ?? 'USD',
     account_id: method?.account_id ?? '', is_active: method?.is_active ?? true, user_id: method?.user_id ?? '',
+    change_rounding: method?.change_rounding ?? '',
   });
   const { busy, save } = useSave(`/companies/${company?.id}/payment-methods${method ? `/${method.id}` : ''}`, !method, onSaved);
   const set = (k: keyof typeof f) => (v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
@@ -225,6 +226,10 @@ function MethodForm({ method, postable, currencies, users, onClose, onSaved }: {
             <Select label={t('methods.currency')} searchable data={currencies} value={f.currency} allowDeselect={false} onChange={(v) => v && set('currency')(v)} />
           </Group>
           <Select label={t('methods.account')} required searchable data={postable} value={f.account_id || null} onChange={(v) => set('account_id')(v ?? '')} />
+          {f.kind === 'cash' && (
+            <TextInput label={t('methods.rounding')} description={t('methods.roundingHint')} dir="ltr" value={f.change_rounding}
+              onChange={(e) => set('change_rounding')(e.currentTarget.value.replace(/[^\d.]/g, ''))} />
+          )}
           {users.length > 0 && (
             <Select label={t('methods.owner')} clearable placeholder={t('methods.shared')} value={f.user_id || null}
               data={users.filter((u) => u.is_active).map((u) => ({ value: u.id, label: `${u.full_name} · ${t(`roles.${u.role}`)}` }))}

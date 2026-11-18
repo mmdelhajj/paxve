@@ -67,3 +67,11 @@ export function accountLabel(a: Pick<Account, 'code' | 'name' | 'name_i18n'>): s
 export function accountName(a: Pick<Account, 'name' | 'name_i18n'>): string {
   return a.name_i18n?.[i18n.language] || a.name;
 }
+
+/** Change preview, same rule as the server: round down to the currency decimals, then down to the box's step (e.g. 1000 LBP). */
+export function roundChange(value: number, decimals: number, step?: string | null): number {
+  let v = Math.floor(value * 10 ** decimals + 1e-9) / 10 ** decimals;
+  const s = Number(step || 0);
+  if (s > 0) v = Math.floor(v / s + 1e-9) * s;
+  return v;
+}

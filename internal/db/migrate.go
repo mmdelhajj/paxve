@@ -4,13 +4,31 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"log/slog"
+	"strconv"
+	"strings"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // database/sql driver "pgx" for goose
 	"github.com/pressly/goose/v3"
 
 	"github.com/mmdelhajj/paxve/internal/db/migrations"
 )
+
+// LatestVersion is the highest migration number embedded in this binary (e.g. 10 for 00010_x.sql).
+func LatestVersion() int64 {
+	entries, _ := fs.ReadDir(migrations.FS, ".")
+	var max int64
+	for _, e := range entries {
+		name := e.Name()
+		if i := strings.IndexByte(name, '_'); i > 0 && strings.HasSuffix(name, ".sql") {
+			if v, err := strconv.ParseInt(name[:i], 10, 64); err == nil && v > max {
+				max = v
+			}
+		}
+	}
+	return max
+}
 
 // Migrate applies pending migrations as the database owner, then sets the
 // password of the restricted application role.

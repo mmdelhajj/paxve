@@ -74,6 +74,9 @@ func fail(w http.ResponseWriter, r *http.Request, err error) {
 		case "PXIMM":
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "posted_locked", "detail": pg.Message})
 			return
+		case "PXLCK":
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "period_locked", "detail": pg.Message})
+			return
 		case "PXSTA":
 			writeJSON(w, http.StatusConflict, map[string]string{"error": "wrong_status", "detail": pg.Message})
 			return
