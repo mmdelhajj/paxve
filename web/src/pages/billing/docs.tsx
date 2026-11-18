@@ -6,7 +6,7 @@ import { IconPlus, IconPrinter, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, type Rate } from '../../api';
 import { useCompany } from '../../company';
-import { formatAmount, formatDate, notifyError, notifySaved, roundChange, today } from '../../util';
+import { autoApply, formatAmount, formatDate, notifyError, notifySaved, roundChange, today } from '../../util';
 import { Confirm } from '../../components/PageHeader';
 import { invoiceColor, type InvoiceDetail, type Money, type PaymentDetail, type PaymentMethod, type TaxRate } from '../../billing';
 import { WhatsAppButton } from './Messages';
@@ -204,7 +204,7 @@ export function Receipt({ d }: { d: PaymentDetail }) {
   return (
     <div className="print-doc receipt" dir={rtl ? 'rtl' : 'ltr'}>
       <Text fw={700} ta="center">{rtl && p.company_name_ar ? p.company_name_ar : p.company_name}</Text>
-      <Text ta="center" size="sm">{t('payments.receipt')} #{p.number} · {formatDate(p.payment_date)}</Text>
+      <Text ta="center" size="sm">{t('payments.receipt')} #{p.number || '…'} · {formatDate(p.payment_date)}</Text>
       {p.status === 'void' && <Text ta="center" c="red" fw={700}>{t('invoices.statuses.void')}</Text>}
       <Divider my={6} variant="dashed" />
       <Text size="sm" fw={600}>{p.customer_name} ({p.customer_code})</Text>
@@ -256,7 +256,8 @@ export function ReceivePayment({ customerId, customerName, due, onClose, onDone 
   const [rates, setRates] = useState<Record<string, string>>({});
   const [date, setDate] = useState(today());
   const [currency, setCurrency] = useState(due[0]?.currency ?? base);
-  const [apply, setApply] = useState(due[0]?.due ? String(Number(due[0].due)) : '');
+  // amount to apply follows min(received, due) until the user types a value (partial payments just work)
+  const [applyTyped, setApply] = useState<string | null>(null);
   const [tenders, setTenders] = useState<TenderState[]>([{ key: tk++, method_id: null, amount: '', rate: '' }]);
   const [changeMethod, setChangeMethod] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -295,6 +296,7 @@ export function ReceivePayment({ customerId, customerName, due, onClose, onDone 
     if (!r || !payRate) { missingRate = true; continue; }
     received += (amt / r) * payRate;
   }
+  const apply = applyTyped ?? autoApply(received, Number(due.find((x) => x.currency === currency)?.due ?? 0));
   const applyN = Number(apply || 0);
   const extra = received - (apply ? applyN : received);
   const cm = changeMethod ? byId.get(changeMethod) : undefined;
@@ -338,7 +340,7 @@ export function ReceivePayment({ customerId, customerName, due, onClose, onDone 
           <Group grow align="flex-end">
             <TextInput type="date" label={t('payments.date')} value={date} onChange={(e) => setDate(e.currentTarget.value)} />
             <Select label={t('payments.currency')} data={currencies} value={currency} allowDeselect={false}
-              onChange={(v) => { if (v) { setCurrency(v); const d = due.find((x) => x.currency === v); setApply(d?.due ? String(Number(d.due)) : ''); } }} />
+              onChange={(v) => { if (v) { setCurrency(v); setApply(null); } }} />
           </Group>
           {due.length > 0 && <Group gap="xs"><Text size="sm" c="dimmed">{t('payments.owed')}:</Text><MoneyList items={due} /></Group>}
 

@@ -4,7 +4,7 @@ import {
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconBolt, IconPrinter, IconSearch } from '@tabler/icons-react';
-import { EmptyState, ListSkeleton } from '../../components/ListState';
+import { EmptyState, ListSkeleton, ShowMore } from '../../components/ListState';
 import { useTranslation } from 'react-i18next';
 import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
@@ -27,14 +27,14 @@ export default function Invoices({ me }: { me: Me }) {
   const [data, setData] = useState<{ rows: Invoice[]; totals: Totals[] } | null>(null);
   const [view, setView] = useState<string | null>(null);
   const [runOpen, setRunOpen] = useState(false);
+  const [limit, setLimit] = useState(200);
   const canManage = me.role === 'admin' || me.role === 'accountant';
 
   const load = useCallback(() => {
     if (!company) return;
-    setData(null);
-    const p = new URLSearchParams({ period: /^\d{4}-\d{2}$/.test(period) ? period : '', status, q: dq });
+    const p = new URLSearchParams({ period: /^\d{4}-\d{2}$/.test(period) ? period : '', status, q: dq, limit: String(limit) });
     api<{ rows: Invoice[]; totals: Totals[] }>(`/companies/${company.id}/invoices?${p}`).then(setData).catch((e) => notifyError(t, e));
-  }, [company, period, status, dq, t]);
+  }, [company, period, status, dq, limit, t]);
   useEffect(load, [load]);
 
   if (!company) return null;
@@ -98,6 +98,7 @@ export default function Invoices({ me }: { me: Me }) {
             </Table>
           </Table.ScrollContainer>
         )}
+        {data && data.rows.length >= limit && limit < 2000 && <ShowMore onClick={() => setLimit((l) => Math.min(2000, l + 500))} />}
       </Paper>
       {view && <InvoiceView id={view} canVoid={canManage} onClose={() => setView(null)} onChanged={load} />}
       {runOpen && <RunBilling defaultPeriod={period} onClose={() => setRunOpen(false)} onDone={(p) => { setPeriod(p); load(); }} />}

@@ -4,3 +4,7 @@
 web/node_modules/
 web/dist/
 *.log
+web/e2e/node_modules/
+web/e2e/screens/
+web/e2e/.state.json
+web/e2e/test-results/

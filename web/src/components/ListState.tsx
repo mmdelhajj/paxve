@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Skeleton, Stack, Text, ThemeIcon } from '@mantine/core';
+import { Button, Group, Skeleton, Stack, Text, ThemeIcon } from '@mantine/core';
 import { IconInbox } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
@@ -24,5 +24,13 @@ export function EmptyState({ title, hint, action }: { title?: string; hint?: str
       {hint && <Text size="sm" c="dimmed" ta="center" maw={420}>{hint}</Text>}
       {action}
     </Stack>
+  );
+}
+
+/** Shown under a list that hit its row limit. */
+export function ShowMore({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Group justify="center" p="sm"><Button variant="subtle" size="xs" onClick={onClick}>{t('common.showMore')}</Button></Group>
   );
 }

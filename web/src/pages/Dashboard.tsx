@@ -14,6 +14,7 @@ import { useCompany } from '../company';
 import { formatAmount, notifyError } from '../util';
 import { currentPeriod } from '../billing';
 import { EmptyState } from '../components/ListState';
+import GettingStarted from '../components/GettingStarted';
 
 interface Kpi { currency: string; billed: string; billed_paid: string; collected: string; outstanding: string }
 interface Counts { active_subscriptions: number; active_customers: number; customers_owing: number; customers_late_60: number; open_invoices: number }
@@ -85,6 +86,8 @@ export default function Dashboard({ me }: { me: Me }) {
           <TextInput type="month" size="xs" value={month} onChange={(e) => setMonth(e.currentTarget.value)} aria-label={t('readings.period')} />
         </Group>
       </Group>
+
+      {(me.role === 'admin' || me.role === 'accountant') && <GettingStarted me={me} />}
 
       <Group gap="xs" wrap="wrap">
         <Button size="xs" variant="light" component="a" href="#/customers" leftSection={<IconUserPlus size={14} />}>{t('bill.customers')}</Button>

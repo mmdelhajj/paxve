@@ -24,7 +24,17 @@ test-db-stop:
 	@docker rm -f paxve-test-pg >/dev/null 2>&1 || true
 
 web:
-	cd web && npm ci && npm run build
+	cd web && npm ci && node scripts/check-i18n.mjs && npm run build
+
+i18n:
+	cd web && node scripts/check-i18n.mjs
+
+# End-to-end browser tests (Playwright in Docker) against a running site.
+# E2E_BASE_URL defaults to the live site; each run signs up a throwaway trial tenant.
+E2E_BASE_URL ?= https://paxve.com
+e2e:
+	docker run --rm --ipc=host -v $(CURDIR)/web:/web -w /web/e2e -e E2E_BASE_URL=$(E2E_BASE_URL) \
+		mcr.microsoft.com/playwright:v1.65.1-noble sh -c "npm install --no-audit --no-fund --silent && node node_modules/@playwright/test/cli.js test $(E2E_ARGS)"
 
 deploy:
 	docker compose up -d --build app

@@ -9,6 +9,7 @@ const fr: Messages = {
     users: 'Utilisateurs', audit: "Journal d'audit", developers: 'Développeurs (API)', cash: 'Caisses', import: 'Importer des données',
   },
   common: {
+    showMore: 'Afficher plus', 
     save: 'Enregistrer', cancel: 'Annuler', close: 'Fermer', confirm: 'Confirmer', active: 'Actif', inactive: 'Inactif',
     status: 'Statut', created: 'Créé le', saved: 'Enregistré', empty: 'Rien pour le moment', logout: 'Se déconnecter',
     changePassword: 'Changer le mot de passe', language: 'Langue', you: 'vous', company: 'Société', all: 'Tous',
@@ -299,6 +300,12 @@ const fr: Messages = {
     genReport: 'Performance des groupes', hours: 'Heures de marche', perHour: 'Par heure', fuelCost: 'Coût carburant', kwhBilled: 'kWh facturés',
     costPerKwh: 'Coût carburant par kWh', genHint: 'Les kWh facturés proviennent des factures au compteur des abonnements reliés aux boîtiers de la station.',
   },
+  onboard: {
+    title: 'Premiers pas', progress: '{{done}} étapes sur {{total}} terminées', hide: 'Masquer',
+    demo: 'Charger des données de démo', demoHint: 'Crée une « Société démo » séparée avec 30 abonnés, factures et encaissements. Désactivez-la ensuite dans Sociétés.',
+    steps: { chart: 'Charger un plan comptable', rate: 'Définir le taux de change', plans: 'Créer vos formules', customers: 'Ajouter ou importer des abonnés',
+      collector: 'Inviter un encaisseur', messaging: 'Connecter WhatsApp / SMS', billing: 'Générer les premières factures' },
+  },
   dash: {
     billed: 'Facturé ce mois', billedShort: 'Facturé', collectedShort: 'Encaissé', collected: 'Encaissé ce mois', outstanding: 'Reste dû (tous les mois)',
     rate: "Taux d'encaissement", rateHint: 'part des factures du mois déjà payée', activeSubs: 'Abonnements actifs',
@@ -358,6 +365,7 @@ const fr: Messages = {
     unmatchedStatement: 'Sur le relevé, pas en comptabilité', matchedN: '{{n}} lignes rapprochées', lines: 'Lignes', parsed: '{{n}} lignes lues',
   },
   errors: {
+    demo_exists: 'Une société démo existe déjà (voir le sélecteur de société).',
     payroll_exists: 'Une paie existe déjà pour ce mois',
     payroll_paid: "Cette paie a des paiements ; impossible de l'annuler",
     payroll_empty: 'Aucun bulletin dans cette paie',

@@ -7,7 +7,7 @@ import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { notifyError, notifySaved } from '../../util';
 import PageHeader from '../../components/PageHeader';
-import { EmptyState, ListSkeleton } from '../../components/ListState';
+import { EmptyState, ListSkeleton, ShowMore } from '../../components/ListState';
 import StationSelect from '../../components/StationSelect';
 import type { Area, Customer } from '../../billing';
 import { MoneyList } from './docs';
@@ -23,13 +23,14 @@ export default function Customers({ me }: { me: Me }) {
   const [station, setStation] = useState<string | null>(null);
   const [onlyDue, setOnlyDue] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [limit, setLimit] = useState(100);
   const canEdit = me.role !== 'read_only';
 
   const load = useCallback(() => {
     if (!company) return;
-    const p = new URLSearchParams({ q: dq, area_id: area ?? '', station_id: station ?? '', due: onlyDue ? '1' : '' });
+    const p = new URLSearchParams({ q: dq, area_id: area ?? '', station_id: station ?? '', due: onlyDue ? '1' : '', limit: String(limit) });
     api<Customer[]>(`/companies/${company.id}/customers?${p}`).then(setRows).catch((e) => notifyError(t, e));
-  }, [company, dq, area, station, onlyDue, t]);
+  }, [company, dq, area, station, onlyDue, limit, t]);
   useEffect(load, [load]);
   useEffect(() => {
     if (company) api<Area[]>(`/companies/${company.id}/areas`).then(setAreas).catch(() => {});
@@ -85,6 +86,7 @@ export default function Customers({ me }: { me: Me }) {
             </Table>
           </Table.ScrollContainer>
         )}
+        {rows && rows.length >= limit && limit < 1000 && <ShowMore onClick={() => setLimit((l) => Math.min(1000, l + 300))} />}
       </Paper>
       {creating && (
         <CustomerForm areas={areas} onClose={() => setCreating(false)}

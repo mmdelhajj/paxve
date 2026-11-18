@@ -145,7 +145,7 @@ export function Aging() {
             {d.totals.flatMap((tot) => buckets.map((b) => (
               <Paper withBorder p="sm" key={tot.currency + b}>
                 <Text size="xs" c="dimmed">{t(`reports2.buckets.${b}`)}</Text>
-                <Text fw={700} c={b === 'current' ? undefined : b === 'over90' ? 'red.8' : 'orange.8'} dir="ltr">
+                <Text fw={700} c={b === 'current' || !Number(tot[b]) ? undefined : b === 'over90' ? 'red.8' : 'orange.8'} dir="ltr">
                   {formatAmount(tot[b], decimalsOf(tot.currency))} {tot.currency}
                 </Text>
               </Paper>

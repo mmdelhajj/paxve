@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { api, type Me, type Rate } from '../../api';
 import { useCompany } from '../../company';
 import { applyLang, languages } from '../../i18n';
-import { formatAmount, formatDate, notifyError, roundChange, today } from '../../util';
+import { autoApply, formatAmount, formatDate, notifyError, roundChange, today } from '../../util';
 import Logo from '../../components/Logo';
 import type { Customer, Money, PaymentDetail, PaymentMethod } from '../../billing';
 import { MoneyList, Receipt } from '../billing/docs';
@@ -254,7 +254,8 @@ function Collect({ customer, methods, rates, online, me, onClose, onDone }: {
   const mine = [...methods].sort((a, b) => Number(b.user_id === me.id) - Number(a.user_id === me.id));
   const [currency, setCurrency] = useState(customer.due[0]?.currency ?? base);
   const dueIn = (c: string) => customer.due.find((m: Money) => m.currency === c)?.due;
-  const [apply, setApply] = useState(dueIn(currency) ? String(Number(dueIn(currency))) : '');
+  // amount to apply: follows min(received, due) until the collector types a value (so partial payments just work)
+  const [applyTyped, setApply] = useState<string | null>(null);
   const [tenders, setTenders] = useState<Tender[]>([{ key: k++, method_id: (mine.find((m) => m.currency === currency) ?? mine[0])?.id ?? null, amount: '' }]);
   const cashMine = mine.filter((m) => m.kind === 'cash');
   const [changeMethod, setChangeMethod] = useState<string | null>(
@@ -274,6 +275,7 @@ function Collect({ customer, methods, rates, online, me, onClose, onDone }: {
     if (!r || !payRate) { missing = true; continue; }
     received += (a / r) * payRate;
   }
+  const apply = applyTyped ?? autoApply(received, Number(dueIn(currency) || 0));
   const applyN = apply === '' ? received : Number(apply);
   const extra = received - applyN;
   const cm = changeMethod ? byId.get(changeMethod) : undefined;
@@ -300,7 +302,12 @@ function Collect({ customer, methods, rates, online, me, onClose, onDone }: {
       },
       tenders: body.tenders.map((x) => { const m = byId.get(x.method_id!)!; return { method: m.name, currency: m.currency, amount: x.amount, rate: rates[m.currency] ?? '1' }; }),
       allocations: [],
-      customer_balance: { due: [], credit: [] },
+      // offline: estimate the balance on the phone (the server recomputes it when the payment syncs)
+      customer_balance: {
+        due: customer.due.map((m) => (m.currency === currency ? { ...m, due: String(Math.max(0, Number(m.due) - applyN)) } : m))
+          .filter((m) => Number(m.due) > 0.00005),
+        credit: [],
+      },
     });
     try {
       if (!online) throw new TypeError('offline');
@@ -330,7 +337,7 @@ function Collect({ customer, methods, rates, online, me, onClose, onDone }: {
         </Paper>
         {customer.due.length > 1 && (
           <SegmentedControl value={currency} data={customer.due.map((m) => m.currency)}
-            onChange={(v) => { setCurrency(v); setApply(dueIn(v) ? String(Number(dueIn(v))) : ''); }} />
+            onChange={(v) => { setCurrency(v); setApply(null); }} />
         )}
         <Text fw={500}>{t('payments.tenders')}</Text>
         {tenders.map((tn) => {

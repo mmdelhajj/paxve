@@ -7,6 +7,7 @@ const en = {
     users: 'Users', audit: 'Audit log', developers: 'Developers (API)', cash: 'Cash boxes', import: 'Import data',
   },
   common: {
+    showMore: 'Show more', 
     save: 'Save', cancel: 'Cancel', close: 'Close', confirm: 'Confirm', active: 'Active', inactive: 'Inactive',
     status: 'Status', created: 'Created', saved: 'Saved', empty: 'Nothing here yet', logout: 'Sign out',
     changePassword: 'Change password', language: 'Language', you: 'you', company: 'Company', all: 'All',
@@ -110,7 +111,7 @@ const en = {
   readings: {
     title: 'Meter readings', period: 'Month', area: 'Area', allAreas: 'All areas', customer: 'Customer', meter: 'Meter',
     previous: 'Previous', current: 'New reading', used: 'Used', invoiced: 'Billed', save: 'Save readings',
-    saved: '{{n}} readings saved', empty: 'No metered subscriptions.',
+    saved: 'Readings saved: {{n}}', empty: 'No metered subscriptions.',
   },
   billing: {
     run: 'Create monthly bills', period: 'Month', issueDate: 'Issue date', dueDate: 'Due date',
@@ -297,6 +298,12 @@ const en = {
     genReport: 'Generator performance', hours: 'Hours run', perHour: 'Per hour', fuelCost: 'Fuel cost', kwhBilled: 'kWh billed',
     costPerKwh: 'Fuel cost per kWh', genHint: 'kWh billed comes from metered bills of subscriptions connected to the station boxes.',
   },
+  onboard: {
+    title: 'Getting started', progress: '{{done}} of {{total}} steps done', hide: 'Hide',
+    demo: 'Load demo data', demoHint: 'Creates a separate “Demo Company” with 30 customers, bills and payments. Deactivate it on the Companies page when done.',
+    steps: { chart: 'Load a chart of accounts', rate: 'Set the exchange rate', plans: 'Create your plans', customers: 'Add or import customers',
+      collector: 'Invite a collector', messaging: 'Connect WhatsApp / SMS', billing: 'Create the first monthly bills' },
+  },
   dash: {
     billed: 'Billed this month', billedShort: 'Billed', collectedShort: 'Collected', collected: 'Collected this month', outstanding: 'Outstanding (all months)',
     rate: 'Collection rate', rateHint: "share of this month's bills already paid", activeSubs: 'Active subscriptions',
@@ -356,6 +363,7 @@ const en = {
     unmatchedStatement: 'On the statement, not in the books', matchedN: '{{n}} lines matched', lines: 'Lines', parsed: '{{n}} lines read',
   },
   errors: {
+    demo_exists: 'A demo company already exists (see the company selector).',
     payroll_exists: 'A payroll already exists for this month',
     payroll_paid: 'This payroll has payments; it cannot be voided',
     payroll_empty: 'No payslips in this payroll',

@@ -9,6 +9,7 @@ const ar: Messages = {
     users: 'المستخدمون', audit: 'سجل التدقيق', developers: 'المطورون (API)', cash: 'الصناديق', import: 'استيراد البيانات',
   },
   common: {
+    showMore: 'عرض المزيد', 
     save: 'حفظ', cancel: 'إلغاء', close: 'إغلاق', confirm: 'تأكيد', active: 'فعّال', inactive: 'موقوف',
     status: 'الحالة', created: 'تاريخ الإنشاء', saved: 'تم الحفظ', empty: 'لا يوجد شيء بعد', logout: 'تسجيل الخروج',
     changePassword: 'تغيير كلمة المرور', language: 'اللغة', you: 'أنت', company: 'الشركة', all: 'الكل',
@@ -299,6 +300,12 @@ const ar: Messages = {
     genReport: 'أداء المولدات', hours: 'ساعات التشغيل', perHour: 'لكل ساعة', fuelCost: 'كلفة المحروقات', kwhBilled: 'الكيلوواط المفوتر',
     costPerKwh: 'كلفة المحروقات لكل كيلوواط', genHint: 'الكيلوواط المفوتر من فواتير العدادات للاشتراكات الموصولة بعلب المحطة.',
   },
+  onboard: {
+    title: 'البدء', progress: 'تم {{done}} من {{total}} خطوات', hide: 'إخفاء',
+    demo: 'تحميل بيانات تجريبية', demoHint: 'تُنشئ «شركة تجريبية» منفصلة فيها 30 مشتركاً وفواتير ودفعات. أوقفها من صفحة الشركات عند الانتهاء.',
+    steps: { chart: 'تحميل دليل الحسابات', rate: 'تحديد سعر الصرف', plans: 'إنشاء الباقات', customers: 'إضافة أو استيراد المشتركين',
+      collector: 'دعوة جابٍ', messaging: 'ربط واتساب / الرسائل', billing: 'إصدار أول فواتير شهرية' },
+  },
   dash: {
     billed: 'فواتير هذا الشهر', billedShort: 'المفوتر', collectedShort: 'المحصّل', collected: 'المحصّل هذا الشهر', outstanding: 'المستحق (كل الأشهر)',
     rate: 'نسبة التحصيل', rateHint: 'نسبة ما دُفع من فواتير هذا الشهر', activeSubs: 'الاشتراكات الفعّالة',
@@ -358,6 +365,7 @@ const ar: Messages = {
     unmatchedStatement: 'في الكشف وليس في الدفاتر', matchedN: 'تمت مطابقة {{n}} سطر', lines: 'الأسطر', parsed: 'تمت قراءة {{n}} سطر',
   },
   errors: {
+    demo_exists: 'توجد شركة تجريبية مسبقاً (اخترها من قائمة الشركات).',
     payroll_exists: 'توجد رواتب لهذا الشهر مسبقاً',
     payroll_paid: 'لهذه الرواتب دفعات؛ لا يمكن إلغاؤها',
     payroll_empty: 'لا توجد قسائم في هذه الرواتب',

@@ -77,3 +77,10 @@ export function roundChange(value: number, decimals: number, step?: string | nul
   if (s > 0) v = Math.floor(v / s + 1e-9) * s;
   return v;
 }
+/** Default "amount to apply" for a payment: everything received, capped at what is due
+ *  (rounded down to 4 decimals so it never exceeds the money received). Empty when nothing is due or received. */
+export function autoApply(received: number, due: number): string {
+  const r = Math.floor(received * 10000) / 10000;
+  if (r > 0) return String(due > 0 ? Math.min(r, due) : r);
+  return due > 0 ? String(due) : '';
+}

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  AppShell, Avatar, Burger, Button, Group, Menu, Modal, NavLink, PasswordInput, ScrollArea, Select, Stack, Text,
+  AppShell, Avatar, Box, Burger, Button, Group, Menu, Modal, NavLink, PasswordInput, ScrollArea, Select, Stack, Text,
   UnstyledButton,
 } from '@mantine/core';
+import { applyLang, languages } from './i18n';
 import { useDisclosure } from '@mantine/hooks';
 import {
   IconApi, IconArrowsExchange, IconBook2, IconBuilding, IconChevronDown, IconHistory, IconKey, IconLayoutDashboard,
@@ -222,11 +223,11 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         <Group h="100%" px="md" justify="space-between" wrap="nowrap">
           <Group gap="sm" wrap="nowrap">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <Logo />
+            <Box visibleFrom="xs"><Logo /></Box>
             {companies.length > 0 && (
               <Select
                 size="xs"
-                w={{ base: 140, sm: 220 }}
+                w={{ base: 150, sm: 220 }}
                 aria-label={t('common.company')}
                 leftSection={<IconBuilding size={14} />}
                 value={company?.id ?? null}
@@ -237,7 +238,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
             )}
           </Group>
           <Group gap="sm" wrap="nowrap">
-            <LangSwitch onChange={saveLocale} />
+            <Box visibleFrom="sm"><LangSwitch onChange={saveLocale} /></Box>
             <Menu position="bottom-end" withArrow>
               <Menu.Target>
                 <UnstyledButton>
@@ -257,6 +258,14 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
                   {me.tenant_name} · {t(`roles.${me.role}`)}
                 </Menu.Label>
                 <Menu.Label>{me.email}</Menu.Label>
+                <Box hiddenFrom="sm">
+                  <Menu.Divider />
+                  <Menu.Label>{t('common.language')}</Menu.Label>
+                  {languages.map((l) => (
+                    <Menu.Item key={l.code} onClick={() => { applyLang(l.code); saveLocale(l.code); }}>{l.label}</Menu.Item>
+                  ))}
+                  <Menu.Divider />
+                </Box>
                 <Menu.Item leftSection={<IconKey size={16} />} onClick={pw.open}>
                   {t('common.changePassword')}
                 </Menu.Item>

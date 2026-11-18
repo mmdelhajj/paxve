@@ -86,6 +86,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/companies/{cid}/customers/{id}/portal", s.field(s.customerPortal))
 	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/portal", s.auth(only(s.customerPortal, entry...)))
 	mux.Handle("GET "+v+"/companies/{cid}/dashboard", s.auth(s.dashboard))
+	mux.Handle("GET "+v+"/companies/{cid}/onboarding", s.auth(s.onboarding))
+	mux.Handle("POST "+v+"/demo-data", s.auth(sessionOnly(only(s.loadDemoData, RoleAdmin))))
 	mux.Handle("GET "+v+"/companies/{cid}/invoices/print", s.auth(s.printInvoices))
 	mux.Handle("GET "+v+"/platform/tenants", s.auth(s.platformOnly(s.platformTenants)))
 	mux.Handle("PATCH "+v+"/platform/tenants/{id}", s.auth(s.platformOnly(s.platformUpdateTenant)))

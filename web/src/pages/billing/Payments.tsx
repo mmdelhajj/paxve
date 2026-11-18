@@ -7,7 +7,7 @@ import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, today } from '../../util';
 import PageHeader from '../../components/PageHeader';
-import { EmptyState, ListSkeleton } from '../../components/ListState';
+import { EmptyState, ListSkeleton, ShowMore } from '../../components/ListState';
 import type { Payment } from '../../billing';
 import { PaymentView } from './docs';
 
@@ -22,14 +22,14 @@ export default function Payments({ me }: { me: Me }) {
   const [dq] = useDebouncedValue(q, 250);
   const [data, setData] = useState<{ rows: Payment[]; by_method: ByMethod[] } | null>(null);
   const [view, setView] = useState<string | null>(null);
+  const [limit, setLimit] = useState(200);
   const canManage = me.role === 'admin' || me.role === 'accountant';
 
   const load = useCallback(() => {
     if (!company) return;
-    setData(null);
-    const p = new URLSearchParams({ from, to, q: dq });
+    const p = new URLSearchParams({ from, to, q: dq, limit: String(limit) });
     api<{ rows: Payment[]; by_method: ByMethod[] }>(`/companies/${company.id}/payments?${p}`).then(setData).catch((e) => notifyError(t, e));
-  }, [company, from, to, dq, t]);
+  }, [company, from, to, dq, limit, t]);
   useEffect(load, [load]);
 
   if (!company) return null;
@@ -92,6 +92,7 @@ export default function Payments({ me }: { me: Me }) {
             </Table>
           </Table.ScrollContainer>
         )}
+        {data && data.rows.length >= limit && limit < 2000 && <ShowMore onClick={() => setLimit((l) => Math.min(2000, l + 500))} />}
       </Paper>
       {view && <PaymentView id={view} canVoid={canManage} onClose={() => setView(null)} onChanged={load} />}
       <Group />

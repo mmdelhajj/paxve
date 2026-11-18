@@ -269,7 +269,7 @@ func (in *planIn) valid(create bool) bool {
 		return false
 	}
 	okMoney := func(p *string) bool {
-		if p == nil {
+		if p == nil || strings.TrimSpace(*p) == "" { // empty field from the form = not set (e.g. unit price of a fixed plan)
 			return true
 		}
 		_, ok := money(*p)
@@ -340,7 +340,7 @@ func (s *Server) updatePlan(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		tag, err := tx.Exec(ctx, `UPDATE plans SET tax_rate_id = CASE WHEN $11::text IS NULL THEN tax_rate_id ELSE nullif($11, '')::uuid END, name = coalesce(trim($3), name), billing_type = coalesce($4, billing_type),
-			currency = coalesce($5, currency), base_fee = coalesce($6::numeric, base_fee), unit_price = coalesce($7::numeric, unit_price),
+			currency = coalesce($5, currency), base_fee = coalesce(nullif(trim($6), '')::numeric, base_fee), unit_price = coalesce(nullif(trim($7), '')::numeric, unit_price),
 			unit_label = coalesce(nullif($8, ''), unit_label), revenue_account_id = coalesce(nullif($9, '')::uuid, revenue_account_id),
 			is_active = coalesce($10, is_active) WHERE id = $1 AND company_id = $2`,
 			id, cid, in.Name, in.BillingType, in.Currency, in.BaseFee, in.UnitPrice, in.UnitLabel, in.RevenueAccountID, in.IsActive, in.TaxRateID)

@@ -47,4 +47,6 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund
+      - name: translations complete (en / ar / fr)
+        run: node scripts/check-i18n.mjs
       - run: npm run build

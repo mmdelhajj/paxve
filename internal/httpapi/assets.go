@@ -195,7 +195,7 @@ func (s *Server) updateAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var salvage *string
-	if in.Salvage != nil {
+	if in.Salvage != nil && strings.TrimSpace(*in.Salvage) != "" {
 		if _, ok := money(*in.Salvage); !ok {
 			writeErr(w, http.StatusBadRequest, "bad_request")
 			return
