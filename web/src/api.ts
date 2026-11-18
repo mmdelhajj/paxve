@@ -8,6 +8,9 @@ export interface Me {
   full_name: string;
   role: Role;
   locale: string;
+  plan: 'trial' | 'starter' | 'business' | 'pro';
+  trial_ends_at: string | null;
+  is_platform_admin: boolean;
 }
 
 export interface Company {

@@ -33,11 +33,14 @@ import BillingSetup from './pages/billing/Setup';
 import { IconCash, IconFileInvoice, IconGauge, IconSettings, IconUserCircle, IconReportMoney, IconChartBar, IconHourglass, IconMoneybag, IconBuildingBank, IconDeviceMobile } from '@tabler/icons-react';
 import { ProfitLoss, BalanceSheet, Aging, Collections } from './pages/Reports';
 import Cash from './pages/Cash';
+import Platform from './pages/Platform';
+import TrialBanner from './components/TrialBanner';
+import { IconWorld } from '@tabler/icons-react';
 import CollectorApp from './pages/collector/CollectorApp';
 
 type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | 'ledger' | 'companies' | 'users' |
   'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup' |
-  'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect';
+  'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
@@ -80,13 +83,14 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'users', label: 'nav.users', icon: IconUsers, roles: ['admin'] },
       { key: 'audit', label: 'nav.audit', icon: IconHistory, roles: ['admin', 'accountant'] },
       { key: 'developers', label: 'nav.developers', icon: IconApi, roles: ['admin'] },
+      { key: 'platform', label: 'platform.title', icon: IconWorld },
     ],
   },
 ];
 
 const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users',
   'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss',
-  'balance-sheet', 'aging', 'collections', 'cash', 'collect'];
+  'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -106,7 +110,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
     return () => window.removeEventListener('hashchange', f);
   }, []);
 
-  const allowed = (i: NavItem) => !i.roles || i.roles.includes(me.role);
+  const allowed = (i: NavItem) => (i.key === 'platform' ? me.is_platform_admin : !i.roles || i.roles.includes(me.role));
   const blocked = sections.flatMap((s) => s.items).some((i) => i.key === page && !allowed(i));
   const current: Page = blocked ? 'dashboard' : page;
 
@@ -213,6 +217,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
       </AppShell.Navbar>
 
       <AppShell.Main bg="var(--mantine-color-gray-0)">
+        <TrialBanner me={me} />
         {current === 'dashboard' && <Dashboard me={me} />}
         {current === 'accounts' && <Accounts me={me} />}
         {current === 'journal' && <Journal me={me} openId={param} />}
@@ -234,6 +239,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'aging' && <Aging />}
         {current === 'collections' && <Collections />}
         {current === 'cash' && <Cash me={me} />}
+        {current === 'platform' && me.is_platform_admin && <Platform />}
       </AppShell.Main>
 
       <ChangePassword opened={pwOpen} onClose={pw.close} />

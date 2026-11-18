@@ -53,6 +53,7 @@ func (s *Server) authAPIKey(ctx context.Context, key, ip string) (*Principal, bo
 	p.Role = role // the key's role, never more than set when it was created
 	p.APIKeyID = id
 	p.FullName = "API · " + name
+	p.IsPlatformAdmin = false
 	_ = db.InTenant(ctx, s.Pool, db.Scope{TenantID: tid, UserID: createdBy, APIKeyID: id, IP: ip}, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `UPDATE api_keys SET last_used_at = now()
 			WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute')`, id)

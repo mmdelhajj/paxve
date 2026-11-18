@@ -30,6 +30,7 @@ services:
       APP_DB_PASSWORD: ${DB_APP_PASSWORD}
       AUTO_MIGRATE: "true"
       COOKIE_SECURE: "true"
+      PLATFORM_ADMINS: ${PLATFORM_ADMINS:-}
 
   caddy:
     image: caddy:2

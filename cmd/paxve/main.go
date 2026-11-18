@@ -91,6 +91,18 @@ func serve(ctx context.Context) error {
 		return fmt.Errorf("database: %w", err)
 	}
 
+	// Small owner-role pool: only for self sign-up and the platform owner console.
+	ownerCfg, err := pgxpool.ParseConfig(mustEnv("MIGRATE_DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	ownerCfg.MaxConns = 3
+	ownerPool, err := pgxpool.NewWithConfig(ctx, ownerCfg)
+	if err != nil {
+		return err
+	}
+	defer ownerPool.Close()
+
 	sm := scs.New()
 	sm.Store = pgxstore.New(pool)
 	sm.Lifetime = 12 * time.Hour
@@ -103,7 +115,7 @@ func serve(ctx context.Context) error {
 	addr := env("ADDR", ":8080")
 	hs := &http.Server{
 		Addr:              addr,
-		Handler:           httpapi.New(pool, sm, env("WEB_DIR", "web/dist")).Handler(),
+		Handler:           httpapi.New(pool, ownerPool, sm, env("WEB_DIR", "web/dist"), strings.Split(os.Getenv("PLATFORM_ADMINS"), ",")).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,

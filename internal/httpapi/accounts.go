@@ -256,25 +256,31 @@ func (s *Server) loadChartTemplate(w http.ResponseWriter, r *http.Request) {
 		if n > 0 {
 			return &apiError{status: http.StatusConflict, code: "chart_not_empty"}
 		}
-		ids := map[string]string{}
-		for _, acc := range tpl.Accounts {
-			i18n, _ := json.Marshal(acc.Names)
-			var id string
-			if err := tx.QueryRow(ctx, `
-				INSERT INTO accounts (company_id, code, name, name_i18n, type, parent_id, is_postable)
-				VALUES ($1, $2, $3, $4, $5, nullif($6, '')::uuid, $7) RETURNING id::text`,
-				cid, acc.Code, acc.Names[in.Language], i18n, acc.Type, ids[acc.Parent], acc.Postable).Scan(&id); err != nil {
-				return err
-			}
-			ids[acc.Code] = id
-		}
-		return applyBillingDefaults(ctx, tx, cid, tpl, ids, in.Language)
+		return loadTemplate(ctx, tx, cid, tpl, in.Language)
 	})
 	if err != nil {
 		fail(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "created": len(tpl.Accounts)})
+}
+
+// loadTemplate inserts a template's accounts into an empty chart and applies the billing defaults.
+// The transaction must have app.tenant_id set (accounts take tenant_id from it).
+func loadTemplate(ctx context.Context, tx pgx.Tx, cid string, tpl *charts.Template, lang string) error {
+	ids := map[string]string{}
+	for _, acc := range tpl.Accounts {
+		i18n, _ := json.Marshal(acc.Names)
+		var id string
+		if err := tx.QueryRow(ctx, `
+			INSERT INTO accounts (company_id, code, name, name_i18n, type, parent_id, is_postable)
+			VALUES ($1, $2, $3, $4, $5, nullif($6, '')::uuid, $7) RETURNING id::text`,
+			cid, acc.Code, acc.Names[lang], i18n, acc.Type, ids[acc.Parent], acc.Postable).Scan(&id); err != nil {
+			return err
+		}
+		ids[acc.Code] = id
+	}
+	return applyBillingDefaults(ctx, tx, cid, tpl, ids, lang)
 }
 
 // applyBillingDefaults points the company's billing settings at the template's

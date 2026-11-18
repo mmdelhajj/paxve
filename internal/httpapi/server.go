@@ -43,10 +43,23 @@ type Server struct {
 	Sessions *scs.SessionManager
 	WebDir   string
 	limiter  *limiter
+
+	// OwnerPool connects as the database owner. Used ONLY for self sign-up (creating a new
+	// organisation, before any tenant exists) and for the platform owner console.
+	OwnerPool      *pgxpool.Pool
+	platformAdmins map[string]bool
+	signupLimiter  *limiter
 }
 
-func New(pool *pgxpool.Pool, sessions *scs.SessionManager, webDir string) *Server {
-	return &Server{Pool: pool, Sessions: sessions, WebDir: webDir, limiter: newLimiter(10, 15*time.Minute)}
+func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir string, platformAdmins []string) *Server {
+	admins := map[string]bool{}
+	for _, e := range platformAdmins {
+		if e = strings.ToLower(strings.TrimSpace(e)); e != "" {
+			admins[e] = true
+		}
+	}
+	return &Server{Pool: pool, OwnerPool: ownerPool, Sessions: sessions, WebDir: webDir,
+		limiter: newLimiter(10, 15*time.Minute), signupLimiter: newLimiter(5, time.Hour), platformAdmins: admins}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -61,6 +74,11 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
 		_, _ = w.Write(openapiSpec)
 	})
+
+	// SaaS: self sign-up and platform owner console
+	mux.HandleFunc("POST "+v+"/signup", s.signup)
+	mux.Handle("GET "+v+"/platform/tenants", s.auth(s.platformOnly(s.platformTenants)))
+	mux.Handle("PATCH "+v+"/platform/tenants/{id}", s.auth(s.platformOnly(s.platformUpdateTenant)))
 
 	// session (browser) auth
 	mux.HandleFunc("POST "+v+"/auth/login", s.login)
@@ -181,6 +199,10 @@ type Principal struct {
 	Locale     string `json:"locale"`
 	APIKeyID   string `json:"api_key_id,omitempty"`
 	Active     bool   `json:"-"`
+
+	Plan            string     `json:"plan"`
+	TrialEndsAt     *time.Time `json:"trial_ends_at"`
+	IsPlatformAdmin bool       `json:"is_platform_admin"`
 }
 
 type principalKey struct{}
@@ -197,11 +219,12 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 	err := db.InTenant(ctx, s.Pool, sc, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `
 			SELECT u.id::text, u.tenant_id::text, t.name, u.email, u.full_name, u.role, u.locale,
-			       (u.is_active AND t.is_active)
+			       (u.is_active AND t.is_active), t.plan, t.trial_ends_at
 			FROM users u JOIN tenants t ON t.id = u.tenant_id
 			WHERE u.id = $1`, sc.UserID).
-			Scan(&p.ID, &p.TenantID, &p.TenantName, &p.Email, &p.FullName, &p.Role, &p.Locale, &p.Active)
+			Scan(&p.ID, &p.TenantID, &p.TenantName, &p.Email, &p.FullName, &p.Role, &p.Locale, &p.Active, &p.Plan, &p.TrialEndsAt)
 	})
+	p.IsPlatformAdmin = err == nil && s.platformAdmins[strings.ToLower(p.Email)]
 	return p, err
 }
 

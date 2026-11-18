@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Box, Button, Center, Group, Paper, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Anchor, Box, Button, Center, Group, Paper, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import { api, type Me } from '../api';
 import { errorText } from '../util';
@@ -27,7 +27,8 @@ export default function Login({ onLogin }: { onLogin: (me: Me) => void }) {
 
   return (
     <Box mih="100vh" bg="var(--mantine-color-gray-0)" px="md">
-      <Group justify="flex-end" pt="md">
+      <Group justify="space-between" pt="md">
+        <Anchor href="#/" size="sm">← Paxve</Anchor>
         <LangSwitch />
       </Group>
       <Center mih="calc(100vh - 80px)">
@@ -67,6 +68,9 @@ export default function Login({ onLogin }: { onLogin: (me: Me) => void }) {
                 <Button type="submit" loading={busy} fullWidth mt="xs">
                   {t('login.submit')}
                 </Button>
+                <Text size="sm" ta="center" c="dimmed">
+                  {t('signup.noAccount')} <Anchor href="#/signup">{t('landing.startTrial')}</Anchor>
+                </Text>
               </Stack>
             </form>
           </Paper>

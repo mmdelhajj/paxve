@@ -6,6 +6,8 @@ import { api, UNAUTHORIZED_EVENT, type Me } from './api';
 import { applyLang, langInfo } from './i18n';
 import { CompanyProvider } from './company';
 import Login from './pages/Login';
+import Landing from './pages/public/Landing';
+import Signup from './pages/public/Signup';
 import Shell from './Shell';
 
 const font = '"IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif';
@@ -26,8 +28,20 @@ function DirectionSync() {
   return null;
 }
 
+function usePublicRoute(): string {
+  const read = () => window.location.hash.replace(/^#\/?/, '').split('/')[0];
+  const [r, setR] = useState(read);
+  useEffect(() => {
+    const f = () => setR(read());
+    window.addEventListener('hashchange', f);
+    return () => window.removeEventListener('hashchange', f);
+  }, []);
+  return r;
+}
+
 function Root() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
+  const route = usePublicRoute();
 
   useEffect(() => {
     api<Me>('/me')
@@ -49,14 +63,14 @@ function Root() {
     );
   }
   if (me === null) {
-    return (
-      <Login
-        onLogin={(m) => {
-          applyLang(m.locale);
-          setMe(m);
-        }}
-      />
-    );
+    const signedIn = (m: Me) => {
+      applyLang(m.locale);
+      window.location.hash = '#/dashboard';
+      setMe(m);
+    };
+    if (route === 'login') return <Login onLogin={signedIn} />;
+    if (route === 'signup') return <Signup onSignedUp={signedIn} />;
+    return <Landing />;
   }
   return (
     <CompanyProvider>

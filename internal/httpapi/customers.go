@@ -230,6 +230,9 @@ func (s *Server) createSubscription(w http.ResponseWriter, r *http.Request) {
 		if err := checkPlan(ctx, tx, cid, *in.PlanID); err != nil {
 			return nil, err
 		}
+		if err := checkPlanLimit(ctx, tx); err != nil {
+			return nil, err
+		}
 		start := deref(in.StartDate)
 		if start == "" {
 			start = today()
@@ -259,6 +262,14 @@ func (s *Server) updateSubscription(w http.ResponseWriter, r *http.Request) {
 		if in.PlanID != nil {
 			if err := checkPlan(ctx, tx, cid, *in.PlanID); err != nil {
 				return nil, err
+			}
+		}
+		if in.Status != nil && *in.Status == "active" {
+			var cur string
+			if err := tx.QueryRow(ctx, `SELECT status FROM subscriptions WHERE id = $1 AND company_id = $2`, id, cid).Scan(&cur); err == nil && cur != "active" {
+				if err := checkPlanLimit(ctx, tx); err != nil {
+					return nil, err
+				}
 			}
 		}
 		tag, err := tx.Exec(ctx, `UPDATE subscriptions SET plan_id = coalesce($3::uuid, plan_id), meter_no = coalesce(trim($4), meter_no),
