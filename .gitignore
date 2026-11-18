@@ -8,3 +8,7 @@ web/e2e/node_modules/
 web/e2e/screens/
 web/e2e/.state.json
 web/e2e/test-results/
+/downloads/
+mobile/node_modules/
+*.apk
+*.keystore

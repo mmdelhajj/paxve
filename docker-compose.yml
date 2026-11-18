@@ -54,6 +54,7 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+      - ./downloads:/srv/downloads:ro
 
 volumes:
   pgdata:

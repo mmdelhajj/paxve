@@ -5,7 +5,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
-  IconBluetooth, IconCloudOff, IconCloudUpload, IconLogout, IconMenu2, IconPlus, IconPrinter, IconSearch, IconTrash,
+  IconBluetooth, IconCloudOff, IconCloudUpload, IconDownload, IconLogout, IconMenu2, IconPlus, IconPrinter, IconSearch, IconTrash,
 } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, type Me, type Rate } from '../../api';
@@ -16,7 +16,10 @@ import Logo from '../../components/Logo';
 import type { Customer, Money, PaymentDetail, PaymentMethod } from '../../billing';
 import { MoneyList, Receipt } from '../billing/docs';
 import Readings from '../billing/Readings';
-import { bluetoothSupported, connectPrinter, printerName, printLines, setPaper, paperWidth, type PrintLine } from '../../bt';
+import {
+  bluetoothSupported, ChoosePrinterError, connectNativePrinter, connectPrinter, isNativeApp, listPairedPrinters, printerName, printLines,
+  setPaper, paperWidth, type PairedPrinter, type PrintLine,
+} from '../../bt';
 import { cacheGet, cacheSet, enqueue, newClientRef, outbox, syncOutbox } from '../../outbox';
 
 function useOnline() {
@@ -54,6 +57,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
   const [selected, setSelected] = useState<Customer | null>(null);
   const [receipt, setReceipt] = useState<PaymentDetail | null>(null);
   const [printer, setPrinter] = useState(printerName());
+  const [pickerOpen, setPickerOpen] = useState(false);
   const cid = company?.id;
 
   const load = useCallback(() => {
@@ -94,6 +98,10 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
   }, [customers, q, onlyDue]);
 
   async function pickPrinter() {
+    if (isNativeApp()) {
+      setPickerOpen(true);
+      return;
+    }
     try {
       setPrinter(await connectPrinter());
     } catch (e) {
@@ -126,6 +134,12 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
                 <Menu.Label>{t('collector.paper')}</Menu.Label>
                 <Menu.Item onClick={() => setPaper('58')}>58 mm {paperWidth() === 384 && '✓'}</Menu.Item>
                 <Menu.Item onClick={() => setPaper('80')}>80 mm {paperWidth() === 576 && '✓'}</Menu.Item>
+                {!isNativeApp() && (
+                  <>
+                    <Menu.Divider />
+                    <Menu.Item component="a" href="/download/paxve.apk" leftSection={<IconDownload size={14} />}>{t('collector.downloadApp')}</Menu.Item>
+                  </>
+                )}
                 <Menu.Divider />
                 <Menu.Item color="red" leftSection={<IconLogout size={14} />} onClick={async () => {
                   try { await api('/auth/logout', { method: 'POST' }); } finally { onLogout(); }
@@ -176,7 +190,8 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
           onClose={() => setSelected(null)}
           onDone={(r) => { setSelected(null); setReceipt(r); load(); }} />
       )}
-      {receipt && <ReceiptSheet d={receipt} onClose={() => setReceipt(null)} />}
+      {receipt && <ReceiptSheet d={receipt} onClose={() => setReceipt(null)} onNeedPrinter={() => setPickerOpen(true)} />}
+      {pickerOpen && <PrinterPicker onClose={() => setPickerOpen(false)} onConnected={(n) => { setPrinter(n); setPickerOpen(false); }} />}
     </Box>
   );
 }
@@ -208,7 +223,7 @@ export function receiptLines(d: PaymentDetail, t: (k: string, o?: Record<string,
   return L;
 }
 
-function ReceiptSheet({ d, onClose }: { d: PaymentDetail; onClose: () => void }) {
+function ReceiptSheet({ d, onClose, onNeedPrinter }: { d: PaymentDetail; onClose: () => void; onNeedPrinter: () => void }) {
   const { t } = useTranslation();
   const { decimalsOf } = useCompany();
   const [busy, setBusy] = useState(false);
@@ -218,6 +233,7 @@ function ReceiptSheet({ d, onClose }: { d: PaymentDetail; onClose: () => void })
     try {
       await printLines(receiptLines(d, t as never, decimalsOf));
     } catch (e) {
+      if (e instanceof ChoosePrinterError) { onNeedPrinter(); return; }
       notifications.show({ color: 'red', message: String((e as Error).message ?? e) });
     } finally {
       setBusy(false);
@@ -234,6 +250,49 @@ function ReceiptSheet({ d, onClose }: { d: PaymentDetail; onClose: () => void })
           <Button size="lg" variant="default" leftSection={<IconPrinter size={18} />} onClick={() => window.print()}>{t('invoices.print')}</Button>
         </SimpleGrid>
         <Button size="lg" variant="subtle" onClick={onClose} className="no-print">{t('common.close')}</Button>
+      </Stack>
+    </Modal>
+  );
+}
+
+// ---- choose a paired classic-Bluetooth printer (Android app) ----
+
+function PrinterPicker({ onClose, onConnected }: { onClose: () => void; onConnected: (name: string) => void }) {
+  const { t } = useTranslation();
+  const [list, setList] = useState<PairedPrinter[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    listPairedPrinters().then(setList).catch((e) => { setList([]); setError(String((e as Error).message ?? e)); });
+  }, []);
+
+  async function choose(p: PairedPrinter) {
+    setBusy(p.address);
+    setError(null);
+    try {
+      const name = await connectNativePrinter(p);
+      notifications.show({ color: 'teal', message: `${t('collector.connected')}: ${name}` });
+      onConnected(name);
+    } catch (e) {
+      setError(String((e as Error).message ?? e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Modal opened onClose={onClose} title={t('collector.choosePrinter')}>
+      <Stack>
+        {error && <Alert color="red">{error}</Alert>}
+        {list === null ? <Center p="md"><Loader size="sm" /></Center> : list.length === 0 ? (
+          <Text c="dimmed" size="sm">{t('collector.noPaired')}</Text>
+        ) : list.map((p) => (
+          <Button key={p.address} variant="light" size="md" justify="space-between" loading={busy === p.address}
+            leftSection={<IconBluetooth size={18} />} rightSection={<Text size="xs" c="dimmed" dir="ltr">{p.address}</Text>}
+            onClick={() => choose(p)}>{p.name}</Button>
+        ))}
+        <Text size="xs" c="dimmed">{t('collector.pairHint')}</Text>
       </Stack>
     </Modal>
   );

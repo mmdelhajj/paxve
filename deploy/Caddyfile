@@ -14,10 +14,23 @@ paxve.com, www.paxve.com {
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server
 	}
-	reverse_proxy app:8080 {
-		# the app trusts only this header for the client IP
-		header_up X-Client-IP {client_ip}
-		header_up -CF-Connecting-IP
-		header_up -X-Forwarded-For
+
+	# Android app download (built by mobile/build-apk.sh into ./downloads; not in git)
+	handle_path /download/* {
+		root * /srv/downloads
+		@apk path *.apk
+		header @apk Content-Type application/vnd.android.package-archive
+		header @apk Content-Disposition "attachment; filename=\"paxve.apk\""
+		header @apk Cache-Control "no-cache"
+		file_server
+	}
+
+	handle {
+		reverse_proxy app:8080 {
+			# the app trusts only this header for the client IP
+			header_up X-Client-IP {client_ip}
+			header_up -CF-Connecting-IP
+			header_up -X-Forwarded-For
+		}
 	}
 }

@@ -154,9 +154,12 @@ const fr: Messages = {
     synced: '{{n}} encaissements hors ligne envoyés', pendingSync: 'Enregistré sur le téléphone. Envoi au retour d’internet.',
     willSync: "Pas d'internet : l'encaissement sera gardé sur le téléphone et envoyé automatiquement.",
     confirm: "Confirmer l'encaissement", printBt: 'Imprimer (Bluetooth)',
+    downloadApp: "Télécharger l'application Android", choosePrinter: "Choisir l'imprimante", connected: 'Imprimante connectée',
+    noPaired: "Aucune imprimante appairée. Allumez l'imprimante et appairez-la d'abord dans Paramètres Android → Bluetooth.",
+    pairHint: "Les imprimantes Bluetooth classiques doivent être appairées une fois dans Paramètres Android → Bluetooth (code souvent 0000 ou 1234).",
   },
   landing: {
-    signIn: 'Se connecter', startTrial: 'Essai gratuit', badge: 'Conçu pour le Liban et la région · 2026',
+    signIn: 'Se connecter', startTrial: 'Essai gratuit', downloadApp: 'Application Android pour encaisseurs (imprimantes Bluetooth)', badge: 'Conçu pour le Liban et la région · 2026',
     title: 'Comptabilité et facturation pour les entreprises par abonnement',
     subtitle: 'Générateurs, internet, satellite et TV. Factures mensuelles, relevés de compteurs, encaisseurs sur le terrain, USD et LBP avec rendu de monnaie — et une vraie comptabilité en partie double derrière chaque reçu.',
     trialNote: '14 jours gratuits. Sans carte bancaire. Vos données restent les vôtres.',

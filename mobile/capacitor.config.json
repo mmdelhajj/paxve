@@ -1,0 +1,14 @@
+{
+  "appId": "com.paxve.app",
+  "appName": "Paxve",
+  "webDir": "www",
+  "server": {
+    "url": "https://paxve.com/#/login",
+    "androidScheme": "https",
+    "cleartext": false,
+    "allowNavigation": ["paxve.com", "www.paxve.com"]
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

@@ -152,9 +152,12 @@ const en = {
     synced: '{{n}} offline payments sent', pendingSync: 'Saved on the phone. It will be sent when internet is back.',
     willSync: 'No internet: the payment will be saved on the phone and sent automatically later.',
     confirm: 'Confirm payment', printBt: 'Print (Bluetooth)',
+    downloadApp: 'Download Android app', choosePrinter: 'Choose printer', connected: 'Printer connected',
+    noPaired: 'No paired printers found. Turn the printer on and pair it in Android Settings → Bluetooth first.',
+    pairHint: 'Classic Bluetooth printers must be paired once in Android Settings → Bluetooth (PIN is usually 0000 or 1234).',
   },
   landing: {
-    signIn: 'Sign in', startTrial: 'Start free trial', badge: 'Made for Lebanon and the region · 2026',
+    signIn: 'Sign in', startTrial: 'Start free trial', downloadApp: 'Android app for collectors (Bluetooth printers)', badge: 'Made for Lebanon and the region · 2026',
     title: 'Accounting and billing for subscription businesses',
     subtitle: 'Generators, internet, satellite and TV. Monthly bills, meter readings, collectors in the street, USD and LBP with change — and real double-entry accounting behind every receipt.',
     trialNote: '14 days free. No card needed. Your data stays yours.',
