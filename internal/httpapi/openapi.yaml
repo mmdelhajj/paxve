@@ -704,5 +704,20 @@ paths:
   /companies/{cid}/reports/pos:
     parameters: [{ $ref: '#/components/parameters/cid' }]
     get: { summary: "POS sales (from, to, group day|session|cashier|register|product|method)", responses: { "200": { description: OK } } }
+  /magic/imports:
+    get: { summary: "Imports from the legacy Magic system (admin, session only; see docs/MAGIC_MIGRATION.md)", responses: { "200": { description: OK } } }
+    post: { summary: "Start uploading a zip made by tools/magic-export/Export-Magic.ps1 {file_name, size (≤ 200 MB), sha256}", responses: { "201": { description: Created } } }
+  /magic/imports/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { summary: "Import status: analysis (dry run per Magic company: counts, totals, warnings), options, mapping, progress, result, error", responses: { "200": { description: OK } } }
+  /magic/imports/{id}/chunk:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { summary: "Append a piece {offset, data (base64, ≤ 4 MB)}; the last piece checks the SHA-256 and computes the dry run", responses: { "200": { description: OK }, "409": { description: bad_offset } } }
+  /magic/imports/{id}/analyze:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { summary: "Dry run again {opening_date, rate (LBP per USD), readings_months, include_ended}", responses: { "200": { description: OK } } }
+  /magic/imports/{id}/commit:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { summary: "Import in ONE transaction (background) {mapping: [{magic_company, target: company id | new | skip}], options}; poll GET until done / failed", responses: { "202": { description: Accepted }, "402": { description: plan_limit } } }
   /export/xlsx:
     post: { summary: "Excel workbook from a table {title, subtitle?, rtl?, columns: [{label, numeric?}], rows: [[...]], footer?: [[...]]}", responses: { "200": { description: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet } } }

@@ -239,6 +239,13 @@ func (s *Server) Handler() http.Handler {
 
 	// bulk import (customers, subscriptions, opening balances, readings, accounts)
 	mux.Handle("POST "+v+"/companies/{cid}/import/{type}", s.auth(only(s.importData, write...)))
+	// migration from the legacy Magic system (zip made by tools/magic-export)
+	mux.Handle("GET "+v+"/magic/imports", s.auth(sessionOnly(only(s.listMagicImports, RoleAdmin))))
+	mux.Handle("POST "+v+"/magic/imports", s.auth(sessionOnly(only(s.createMagicImport, RoleAdmin))))
+	mux.Handle("GET "+v+"/magic/imports/{id}", s.auth(sessionOnly(only(s.getMagicImport, RoleAdmin))))
+	mux.Handle("POST "+v+"/magic/imports/{id}/chunk", s.auth(sessionOnly(only(s.magicChunk, RoleAdmin))))
+	mux.Handle("POST "+v+"/magic/imports/{id}/analyze", s.auth(sessionOnly(only(s.analyzeMagicImport, RoleAdmin))))
+	mux.Handle("POST "+v+"/magic/imports/{id}/commit", s.auth(sessionOnly(only(s.commitMagicImport, RoleAdmin))))
 
 	// messaging (WhatsApp / SMS)
 	mux.Handle("GET "+v+"/companies/{cid}/message-providers", s.auth(only(s.listProviders, write...)))

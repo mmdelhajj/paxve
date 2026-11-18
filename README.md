@@ -23,6 +23,7 @@ Live: https://paxve.com
 | **ISP automation** | MikroTik RouterOS API (PPPoE secrets / hotspot users): internet cut automatically when bills are overdue > N days and restored after payment, manual suspend / reconnect, queued router actions with retries, test connection (see docs/ISP.md) |
 | **Messaging** | WhatsApp Cloud API, Twilio SMS, generic HTTP or wa.me links; templates in EN/AR/FR; reminders for unpaid bills; automatic receipt / bill messages |
 | **Import** | CSV / Excel paste wizard for customers, subscriptions, opening balances, meter readings, accounts (validated dry run, all-or-nothing) |
+| **Migration from Magic** | Read-only export script for the legacy Magic database (tools/magic-export), upload with dry run per company, then customers, subscriptions, plans, boxes, collectors, meter readings, unpaid bills, customer / supplier balances and one opening entry imported in one transaction; re-runnable without duplicates (see docs/MAGIC_MIGRATION.md) |
 | **SaaS** | Public landing page, self sign-up with 14-day trial, plans with subscriber limits, platform owner console |
 | **Developers** | REST API `/api/v1` with API keys (hashed, per role, revocable), OpenAPI 3.1 spec at `/api/v1/openapi.yaml` |
 
@@ -44,16 +45,18 @@ Browser / phone (React 19 + Mantine, PWA)  ──HTTPS──>  Caddy (TLS, HSTS)
 ## Layout
 
 ```
-cmd/paxve/              entry point: serve, migrate, create-tenant
+cmd/paxve/              entry point: serve, migrate, create-tenant, magic-sample
 internal/db/            tenant-scoped transactions, migrations (embedded SQL, 00001…)
 internal/auth/          argon2id passwords
 internal/charts/        chart-of-accounts templates
 internal/crypto/        AES-256-GCM encryption of stored secrets (APP_SECRET_KEY)
 internal/routeros/      minimal MikroTik RouterOS API client (+ fakerouter for tests)
+internal/magic/         reads a Magic export and computes the migration plan (pure Go, unit tested)
 internal/httpapi/       JSON API, posting engine, reports, workers, OpenAPI spec, integration tests
 web/                    React app (locales in web/src/locales: en, ar, fr)
 deploy/Caddyfile        HTTPS reverse proxy
-docs/                   API quick start, operations, ISP automation, Arabic user guide
+docs/                   API quick start, operations, ISP automation, migration from Magic, Arabic user guide
+tools/magic-export/     read-only PowerShell export of a Magic database (SELECT only)
 ```
 
 ## Run

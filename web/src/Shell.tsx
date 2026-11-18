@@ -18,7 +18,7 @@ import Logo from './components/Logo';
 import { lazy, Suspense } from 'react';
 import { Center, Loader } from '@mantine/core';
 import {
-  IconFileImport, IconCash, IconFileInvoice, IconGauge, IconSettings, IconUserCircle, IconReportMoney, IconChartBar,
+  IconFileImport, IconDatabaseImport, IconCash, IconFileInvoice, IconGauge, IconSettings, IconUserCircle, IconReportMoney, IconChartBar,
   IconHourglass, IconMoneybag, IconBuildingBank, IconDeviceMobile, IconWorld, IconMessage, IconTruck, IconReceipt,
   IconCashBanknote, IconReceiptTax, IconPackage, IconGasStation, IconPackages, IconChartPie, IconUserDollar, IconBolt,
   IconTopologyStar3, IconReceipt2, IconEngine, IconRepeat, IconId, IconCoins, IconBuildingFactory2,
@@ -40,6 +40,7 @@ const TrialBalance = lazy(() => import('./pages/TrialBalance'));
 const Ledger = lazy(() => import('./pages/Ledger'));
 const Developers = lazy(() => import('./pages/Developers'));
 const Import = lazy(() => import('./pages/Import'));
+const MagicImport = lazy(() => import('./pages/MagicImport'));
 const Customers = lazy(() => import('./pages/billing/Customers'));
 const CustomerDetail = lazy(() => import('./pages/billing/CustomerDetail'));
 const Readings = lazy(() => import('./pages/billing/Readings'));
@@ -96,7 +97,7 @@ type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | '
   'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'stock-moves' | 'expenses-report' |
   'network' | 'tariffs' | 'vat-report' | 'generator-report' | 'print-bills' |
   'employees' | 'payroll' | 'assets' | 'asset-register' | 'recurring' | 'bank-rec' |
-  'crm' | 'activities' | 'quotes' | 'orders' | 'statements' | 'statement' | 'sales-report' | 'pos' | 'pos-setup' | 'pos-sessions' | 'pos-report';
+  'crm' | 'activities' | 'quotes' | 'orders' | 'statements' | 'statement' | 'sales-report' | 'pos' | 'pos-setup' | 'pos-sessions' | 'pos-report' | 'magic-import';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
@@ -192,6 +193,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'users', label: 'nav.users', icon: IconUsers, roles: ['admin'] },
       { key: 'audit', label: 'nav.audit', icon: IconHistory, roles: ['admin', 'accountant'] },
       { key: 'import', label: 'nav.import', icon: IconFileImport, roles: ['admin', 'accountant'] },
+      { key: 'magic-import', label: 'nav.magicImport', icon: IconDatabaseImport, roles: ['admin'] },
       { key: 'developers', label: 'nav.developers', icon: IconApi, roles: ['admin'] },
       { key: 'platform', label: 'platform.title', icon: IconWorld },
     ],
@@ -204,7 +206,7 @@ const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-ba
   'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'stock-moves', 'expenses-report',
   'network', 'tariffs', 'vat-report', 'generator-report', 'print-bills',
   'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec',
-  'crm', 'activities', 'quotes', 'orders', 'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report'];
+  'crm', 'activities', 'quotes', 'orders', 'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -358,6 +360,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'audit' && <Audit />}
         {current === 'developers' && <Developers />}
         {current === 'import' && <Import />}
+        {current === 'magic-import' && <MagicImport />}
         {current === 'messages' && <Messages me={me} />}
         {current === 'suppliers' && <Suppliers me={me} />}
         {current === 'supplier' && <SupplierDetail me={me} id={param} key={param} />}

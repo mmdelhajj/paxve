@@ -4,6 +4,8 @@ WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY web/ ./
+# the Magic export script is downloadable from the "Import from Magic" page
+COPY tools/magic-export/Export-Magic.ps1 ./public/tools/Export-Magic.ps1
 RUN npm run build
 
 # 2. Go server

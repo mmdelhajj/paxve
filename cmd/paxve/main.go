@@ -3,6 +3,7 @@
 //	paxve serve          start the web server (runs migrations first if AUTO_MIGRATE=true)
 //	paxve migrate        apply database migrations
 //	paxve create-tenant  create an organisation with its first admin user
+//	paxve magic-sample   write a synthetic Magic export zip (to test the migration from Magic)
 package main
 
 import (
@@ -28,6 +29,7 @@ import (
 	pxcrypto "github.com/mmdelhajj/paxve/internal/crypto"
 	"github.com/mmdelhajj/paxve/internal/db"
 	"github.com/mmdelhajj/paxve/internal/httpapi"
+	"github.com/mmdelhajj/paxve/internal/magic"
 )
 
 func main() {
@@ -46,6 +48,13 @@ func main() {
 		err = db.Migrate(ctx, mustEnv("MIGRATE_DATABASE_URL"), os.Getenv("APP_DB_PASSWORD"))
 	case "create-tenant":
 		err = createTenant(ctx, os.Args[2:])
+	case "magic-sample":
+		// writes a synthetic Magic export (zip) for testing the migration: paxve magic-sample out.zip
+		if len(os.Args) < 3 {
+			usage()
+		}
+		b, _ := magic.Synthetic(42)
+		err = os.WriteFile(os.Args[2], b, 0o644)
 	default:
 		usage()
 	}

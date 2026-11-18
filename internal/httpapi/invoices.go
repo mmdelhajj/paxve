@@ -97,10 +97,11 @@ func issueInvoiceFor(ctx context.Context, tx pgx.Tx, cid string, set *billingSet
 	localCur, localRate, localTotal := localSnapshot(ctx, tx, cid, set, currency, issue, total)
 	var id string
 	if err := tx.QueryRow(ctx, `INSERT INTO invoices (company_id, number, customer_id, subscription_id, period, issue_date, due_date,
-		currency, total, journal_entry_id, notes, local_currency, local_rate, local_currency_total, sales_order_id)
-		VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9::numeric, $10, $11, $12, $13::numeric, $14::numeric, $15) RETURNING id::text`,
+		currency, total, journal_entry_id, notes, local_currency, local_rate, local_currency_total, sales_order_id, external_ref)
+		VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9::numeric, $10, $11, $12, $13::numeric, $14::numeric, $15, nullif($16, ''))
+		RETURNING id::text`,
 		cid, number, customerID, subscriptionID, period, issue, due, currency, total.String(), je, notes,
-		localCur, localRate, localTotal, salesOrderID).Scan(&id); err != nil {
+		localCur, localRate, localTotal, salesOrderID, externalRef(ctx)).Scan(&id); err != nil {
 		return "", 0, err
 	}
 	for i, l := range lines {
@@ -138,6 +139,14 @@ type quietKey struct{}
 
 func quietCtx(ctx context.Context) context.Context { return context.WithValue(ctx, quietKey{}, true) }
 func isQuiet(ctx context.Context) bool             { v, _ := ctx.Value(quietKey{}).(bool); return v }
+
+// externalRef: the id of the document in another system (migration), stored with the invoice created under ctx.
+type extRefKey struct{}
+
+func withExternalRef(ctx context.Context, ref string) context.Context {
+	return context.WithValue(ctx, extRefKey{}, ref)
+}
+func externalRef(ctx context.Context) string { v, _ := ctx.Value(extRefKey{}).(string); return v }
 
 func periodEnd(period string) string {
 	t, _ := time.Parse("2006-01", period)

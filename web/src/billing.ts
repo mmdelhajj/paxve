@@ -52,7 +52,7 @@ export interface Payment {
   id: string; number: number; customer_id: string; customer_code: string; customer_name: string; payment_date: string;
   currency: string; amount: string; change_currency: string | null; change_amount: string; status: 'posted' | 'void';
   journal_entry_id: string | null; notes: string; received_by: string | null; created_at: string;
-  kind?: 'payment' | 'credit_note'; invoice_id?: string | null;
+  kind?: 'payment' | 'credit_note' | 'opening_credit'; invoice_id?: string | null;
 }
 
 export interface PaymentDetail {

@@ -223,7 +223,7 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
                   <Table.Tbody>
                     {d.payments.map((p) => (
                       <Table.Tr key={p.id} style={{ cursor: 'pointer', opacity: p.status === 'void' ? 0.5 : 1 }} onClick={() => setViewPayment(p.id)}>
-                        <Table.Td ff="monospace">{p.number}{p.kind === 'credit_note' && <Badge ml={6} size="xs" color="orange" variant="light">{t('gap.creditNote')}</Badge>}</Table.Td>
+                        <Table.Td ff="monospace">{p.number}{p.kind === 'credit_note' && <Badge ml={6} size="xs" color="orange" variant="light">{t('gap.creditNote')}</Badge>}{p.kind === 'opening_credit' && <Badge ml={6} size="xs" color="gray" variant="light">{t('stmt.kinds.opening_credit')}</Badge>}</Table.Td>
                         <Table.Td>{formatDate(p.payment_date)}</Table.Td>
                         <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(p.amount, decimalsOf(p.currency))} {p.currency}</Table.Td>
                         <Table.Td c="dimmed">{p.received_by}</Table.Td>
