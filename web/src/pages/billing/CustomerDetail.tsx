@@ -1,0 +1,272 @@
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Anchor, Badge, Button, Center, Grid, Group, Loader, Modal, Paper, Select, Stack, Table, Tabs, Text, TextInput, Title,
+} from '@mantine/core';
+import { IconArrowBack, IconCash, IconEdit, IconFileInvoice, IconPlus } from '@tabler/icons-react';
+import { useTranslation } from 'react-i18next';
+import { api, type Me } from '../../api';
+import { useCompany } from '../../company';
+import { formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
+import { invoiceColor, type Area, type Customer, type Invoice, type Payment, type Plan, type Subscription } from '../../billing';
+import { CustomerForm } from './Customers';
+import { InvoiceView, MoneyList, NewInvoice, PaymentView, ReceivePayment } from './docs';
+
+interface Detail { customer: Customer; subscriptions: Subscription[]; invoices: Invoice[]; payments: Payment[] }
+
+export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
+  const { t, i18n } = useTranslation();
+  const { company, decimalsOf } = useCompany();
+  const [d, setD] = useState<Detail | null>(null);
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [modal, setModal] = useState<null | 'edit' | 'pay' | 'invoice' | 'sub'>(null);
+  const [editSub, setEditSub] = useState<Subscription | null>(null);
+  const [viewInvoice, setViewInvoice] = useState<string | null>(null);
+  const [viewPayment, setViewPayment] = useState<string | null>(null);
+  const canEdit = me.role !== 'read_only';
+  const canManage = me.role === 'admin' || me.role === 'accountant';
+
+  const load = useCallback(() => {
+    if (!company) return;
+    api<Detail>(`/companies/${company.id}/customers/${id}`).then(setD).catch((e) => notifyError(t, e));
+  }, [company, id, t]);
+  useEffect(load, [load]);
+  useEffect(() => {
+    if (company) api<Area[]>(`/companies/${company.id}/areas`).then(setAreas).catch(() => {});
+  }, [company]);
+
+  if (!company) return null;
+  if (!d) return <Center p="xl"><Loader /></Center>;
+  const c = d.customer;
+
+  return (
+    <Stack gap="lg" maw={1200}>
+      <Anchor href="#/customers" size="sm"><Group gap={4}><IconArrowBack size={14} />{t('customers.back')}</Group></Anchor>
+      <Group justify="space-between" align="flex-start" wrap="wrap">
+        <div>
+          <Group gap="xs">
+            <Title order={2}>{c.name}</Title>
+            <Badge variant="light" color={c.status === 'active' ? 'teal' : 'orange'}>{t(`customers.statuses.${c.status}`)}</Badge>
+          </Group>
+          <Text c="dimmed" size="sm">
+            #{c.code}{c.phone && <> · <span dir="ltr">{c.phone}</span></>}{c.area_name && ` · ${c.area_name}`}{c.address && ` · ${c.address}`}
+          </Text>
+        </div>
+        {canEdit && (
+          <Group gap="xs">
+            <Button variant="default" leftSection={<IconEdit size={16} />} onClick={() => setModal('edit')}>{t('common.edit')}</Button>
+            {canManage && <Button variant="default" leftSection={<IconFileInvoice size={16} />} onClick={() => setModal('invoice')}>{t('customers.newInvoice')}</Button>}
+            <Button leftSection={<IconCash size={16} />} onClick={() => setModal('pay')}>{t('customers.receivePayment')}</Button>
+          </Group>
+        )}
+      </Group>
+
+      <Grid>
+        <Grid.Col span={{ base: 12, sm: 6 }}>
+          <Paper withBorder p="md" h="100%">
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600}>{t('customers.due')}</Text>
+            {c.due.length === 0 ? <Text fw={600} c="teal" mt={4}>{t('customers.nothingDue')}</Text> : (
+              <Stack gap={2} mt={4}>
+                {c.due.map((m) => <Text key={m.currency} size="1.6rem" fw={700} c="red.7" dir="ltr">{formatAmount(m.due, decimalsOf(m.currency))} {m.currency}</Text>)}
+              </Stack>
+            )}
+          </Paper>
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, sm: 6 }}>
+          <Paper withBorder p="md" h="100%">
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600}>{t('customers.credit')}</Text>
+            <div style={{ marginTop: 6 }}><MoneyList items={c.credit} kind="credit" /></div>
+          </Paper>
+        </Grid.Col>
+      </Grid>
+
+      <Tabs defaultValue="subs" keepMounted={false}>
+        <Tabs.List>
+          <Tabs.Tab value="subs">{t('customers.subscriptions')} ({d.subscriptions.length})</Tabs.Tab>
+          <Tabs.Tab value="inv">{t('bill.invoices')} ({d.invoices.length})</Tabs.Tab>
+          <Tabs.Tab value="pay">{t('bill.payments')} ({d.payments.length})</Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value="subs" pt="md">
+          <Paper withBorder>
+            {canEdit && (
+              <Group justify="flex-end" p="sm">
+                <Button size="xs" leftSection={<IconPlus size={14} />} onClick={() => { setEditSub(null); setModal('sub'); }}>{t('customers.addSubscription')}</Button>
+              </Group>
+            )}
+            {d.subscriptions.length === 0 ? <Text c="dimmed" ta="center" p="lg">{t('common.empty')}</Text> : (
+              <Table.ScrollContainer minWidth={700}>
+                <Table verticalSpacing="sm" key={i18n.language}>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>{t('customers.plan')}</Table.Th>
+                      <Table.Th>{t('customers.meter')}</Table.Th>
+                      <Table.Th>{t('plans.baseFee')}</Table.Th>
+                      <Table.Th>{t('customers.lastReading')}</Table.Th>
+                      <Table.Th>{t('customers.start')}</Table.Th>
+                      <Table.Th>{t('customers.status')}</Table.Th>
+                      <Table.Th />
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {d.subscriptions.map((s) => (
+                      <Table.Tr key={s.id} style={{ opacity: s.status === 'ended' ? 0.5 : 1 }}>
+                        <Table.Td fw={500}>{s.plan_name}<Text size="xs" c="dimmed">{t(`plans.${s.billing_type}`)}</Text></Table.Td>
+                        <Table.Td ff="monospace">{s.meter_no || '—'}</Table.Td>
+                        <Table.Td dir="ltr" style={{ textAlign: 'start' }}>
+                          {formatAmount(s.fee_override ?? s.base_fee, decimalsOf(s.currency))} {s.currency}
+                          {s.fee_override && <Badge ms={4} size="xs" variant="outline">*</Badge>}
+                          {s.billing_type === 'metered' && <Text size="xs" c="dimmed">+ {s.unit_price.replace(/\.?0+$/, '')} / {s.unit_label}</Text>}
+                        </Table.Td>
+                        <Table.Td ff="monospace">{s.billing_type === 'metered' ? `${s.last_reading ?? s.initial_reading}${s.last_period ? ` (${s.last_period})` : ''}` : '—'}</Table.Td>
+                        <Table.Td>{formatDate(s.start_date)}</Table.Td>
+                        <Table.Td><Badge variant="light" color={s.status === 'active' ? 'teal' : 'gray'}>{t(`customers.subStatuses.${s.status}`)}</Badge></Table.Td>
+                        <Table.Td>{canEdit && <Button size="compact-xs" variant="subtle" onClick={() => { setEditSub(s); setModal('sub'); }}>{t('common.edit')}</Button>}</Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Table.ScrollContainer>
+            )}
+          </Paper>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="inv" pt="md">
+          <Paper withBorder>
+            {d.invoices.length === 0 ? <Text c="dimmed" ta="center" p="lg">{t('common.empty')}</Text> : (
+              <Table.ScrollContainer minWidth={600}>
+                <Table verticalSpacing="xs" highlightOnHover key={i18n.language}>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>{t('invoices.number')}</Table.Th><Table.Th>{t('invoices.date')}</Table.Th><Table.Th>{t('invoices.period')}</Table.Th>
+                      <Table.Th style={{ textAlign: 'end' }}>{t('invoices.total')}</Table.Th><Table.Th style={{ textAlign: 'end' }}>{t('invoices.balance')}</Table.Th>
+                      <Table.Th>{t('invoices.status')}</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {d.invoices.map((iv) => (
+                      <Table.Tr key={iv.id} style={{ cursor: 'pointer' }} onClick={() => setViewInvoice(iv.id)}>
+                        <Table.Td ff="monospace">{iv.number}</Table.Td>
+                        <Table.Td>{formatDate(iv.issue_date)}</Table.Td>
+                        <Table.Td>{iv.period ?? '—'}</Table.Td>
+                        <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(iv.total, decimalsOf(iv.currency))} {iv.currency}</Table.Td>
+                        <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{iv.status === 'void' ? '—' : formatAmount(iv.balance, decimalsOf(iv.currency))}</Table.Td>
+                        <Table.Td><Badge variant="light" color={invoiceColor[iv.status]}>{t(`invoices.statuses.${iv.status}`)}</Badge></Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Table.ScrollContainer>
+            )}
+          </Paper>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="pay" pt="md">
+          <Paper withBorder>
+            {d.payments.length === 0 ? <Text c="dimmed" ta="center" p="lg">{t('common.empty')}</Text> : (
+              <Table.ScrollContainer minWidth={600}>
+                <Table verticalSpacing="xs" highlightOnHover key={i18n.language}>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>{t('payments.number')}</Table.Th><Table.Th>{t('payments.date')}</Table.Th>
+                      <Table.Th style={{ textAlign: 'end' }}>{t('payments.amount')}</Table.Th><Table.Th>{t('payments.receivedBy')}</Table.Th><Table.Th />
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {d.payments.map((p) => (
+                      <Table.Tr key={p.id} style={{ cursor: 'pointer', opacity: p.status === 'void' ? 0.5 : 1 }} onClick={() => setViewPayment(p.id)}>
+                        <Table.Td ff="monospace">{p.number}</Table.Td>
+                        <Table.Td>{formatDate(p.payment_date)}</Table.Td>
+                        <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(p.amount, decimalsOf(p.currency))} {p.currency}</Table.Td>
+                        <Table.Td c="dimmed">{p.received_by}</Table.Td>
+                        <Table.Td>{p.status === 'void' && <Badge color="gray">{t('invoices.statuses.void')}</Badge>}</Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Table.ScrollContainer>
+            )}
+          </Paper>
+        </Tabs.Panel>
+      </Tabs>
+
+      {modal === 'edit' && <CustomerForm areas={areas} customer={c} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />}
+      {modal === 'pay' && (
+        <ReceivePayment customerId={c.id} customerName={c.name} due={c.due} onClose={() => setModal(null)}
+          onDone={(pid) => { setModal(null); load(); setViewPayment(pid); }} />
+      )}
+      {modal === 'invoice' && (
+        <NewInvoice customerId={c.id} customerName={c.name} onClose={() => setModal(null)}
+          onDone={(iid) => { setModal(null); load(); setViewInvoice(iid); }} />
+      )}
+      {modal === 'sub' && <SubscriptionForm customerId={c.id} sub={editSub} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />}
+      {viewInvoice && <InvoiceView id={viewInvoice} canVoid={canManage} onClose={() => setViewInvoice(null)} onChanged={load} />}
+      {viewPayment && <PaymentView id={viewPayment} canVoid={canManage} onClose={() => setViewPayment(null)} onChanged={load} />}
+    </Stack>
+  );
+}
+
+function SubscriptionForm({ customerId, sub, onClose, onSaved }: { customerId: string; sub: Subscription | null; onClose: () => void; onSaved: () => void }) {
+  const { t } = useTranslation();
+  const { company } = useCompany();
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [f, setF] = useState({
+    plan_id: sub?.plan_id ?? '', meter_no: sub?.meter_no ?? '', start_date: sub?.start_date ?? today(),
+    fee_override: sub?.fee_override ? String(Number(sub.fee_override)) : '', initial_reading: sub ? String(Number(sub.initial_reading)) : '0',
+    status: sub?.status ?? 'active', notes: sub?.notes ?? '',
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
+  const plan = plans.find((p) => p.id === f.plan_id);
+
+  useEffect(() => {
+    if (company) api<Plan[]>(`/companies/${company.id}/plans`).then((ps) => setPlans(ps.filter((p) => p.is_active || p.id === sub?.plan_id))).catch(() => {});
+  }, [company, sub]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!company) return;
+    setBusy(true);
+    try {
+      if (sub) await api(`/companies/${company.id}/subscriptions/${sub.id}`, { method: 'PATCH', body: f });
+      else await api(`/companies/${company.id}/customers/${customerId}/subscriptions`, { method: 'POST', body: { ...f, status: undefined } });
+      notifySaved(t);
+      onSaved();
+    } catch (err) {
+      notifyError(t, err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal opened onClose={onClose} title={sub ? sub.plan_name : t('customers.addSubscription')}>
+      <form onSubmit={submit}>
+        <Stack>
+          <Select label={t('customers.plan')} required value={f.plan_id || null} onChange={(v) => set('plan_id')(v ?? '')}
+            data={plans.map((p) => ({ value: p.id, label: `${p.name} · ${Number(p.base_fee)} ${p.currency}${p.billing_type === 'metered' ? ` + ${Number(p.unit_price)}/${p.unit_label}` : ''}` }))} />
+          <Group grow>
+            <TextInput label={t('customers.meter')} dir="ltr" value={f.meter_no} onChange={(e) => set('meter_no')(e.currentTarget.value)} />
+            <TextInput type="date" label={t('customers.start')} value={f.start_date} onChange={(e) => set('start_date')(e.currentTarget.value)} />
+          </Group>
+          <Group grow>
+            <TextInput label={`${t('customers.feeOverride')} (${t('common.optional')})`} dir="ltr" value={f.fee_override}
+              onChange={(e) => set('fee_override')(e.currentTarget.value.replace(/[^\d.]/g, ''))} rightSection={<Text size="xs" c="dimmed">{plan?.currency}</Text>} />
+            {plan?.billing_type === 'metered' && (
+              <TextInput label={t('customers.initialReading')} dir="ltr" value={f.initial_reading}
+                onChange={(e) => set('initial_reading')(e.currentTarget.value.replace(/[^\d.]/g, ''))} />
+            )}
+          </Group>
+          {sub && (
+            <Select label={t('customers.status')} value={f.status} allowDeselect={false} onChange={(v) => v && set('status')(v)}
+              data={['active', 'suspended', 'ended'].map((s) => ({ value: s, label: t(`customers.subStatuses.${s}`) }))} />
+          )}
+          <TextInput label={t('customers.notes')} value={f.notes} onChange={(e) => set('notes')(e.currentTarget.value)} />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
+            <Button type="submit" loading={busy} disabled={!f.plan_id}>{t('common.save')}</Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
+  );
+}

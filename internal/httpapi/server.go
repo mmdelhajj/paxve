@@ -104,6 +104,40 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST "+v+"/companies/{cid}/journal/{id}/post", s.auth(only(s.postEntry, write...)))
 	mux.Handle("POST "+v+"/companies/{cid}/journal/{id}/reverse", s.auth(only(s.reverseEntry, write...)))
 
+	// billing setup
+	mux.Handle("GET "+v+"/companies/{cid}/billing/settings", s.auth(s.getBillingSettings))
+	mux.Handle("PUT "+v+"/companies/{cid}/billing/settings", s.auth(only(s.putBillingSettings, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/payment-methods", s.auth(s.listMethods))
+	mux.Handle("POST "+v+"/companies/{cid}/payment-methods", s.auth(only(s.createMethod, write...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/payment-methods/{id}", s.auth(only(s.updateMethod, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/areas", s.auth(s.listAreas))
+	mux.Handle("POST "+v+"/companies/{cid}/areas", s.auth(only(s.createArea, entry...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/areas/{id}", s.auth(only(s.updateArea, entry...)))
+	mux.Handle("GET "+v+"/companies/{cid}/plans", s.auth(s.listPlans))
+	mux.Handle("POST "+v+"/companies/{cid}/plans", s.auth(only(s.createPlan, write...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/plans/{id}", s.auth(only(s.updatePlan, write...)))
+
+	// customers, subscriptions, meter readings
+	mux.Handle("GET "+v+"/companies/{cid}/customers", s.auth(s.listCustomers))
+	mux.Handle("POST "+v+"/companies/{cid}/customers", s.auth(only(s.createCustomer, entry...)))
+	mux.Handle("GET "+v+"/companies/{cid}/customers/{id}", s.auth(s.getCustomer))
+	mux.Handle("PATCH "+v+"/companies/{cid}/customers/{id}", s.auth(only(s.updateCustomer, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/subscriptions", s.auth(only(s.createSubscription, entry...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/subscriptions/{id}", s.auth(only(s.updateSubscription, entry...)))
+	mux.Handle("GET "+v+"/companies/{cid}/readings", s.auth(s.readingSheet))
+	mux.Handle("POST "+v+"/companies/{cid}/readings", s.auth(only(s.saveReadings, entry...)))
+
+	// invoices and payments
+	mux.Handle("POST "+v+"/companies/{cid}/billing/run", s.auth(only(s.runBilling, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/invoices", s.auth(s.listInvoices))
+	mux.Handle("POST "+v+"/companies/{cid}/invoices", s.auth(only(s.createInvoice, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/invoices/{id}", s.auth(s.getInvoice))
+	mux.Handle("POST "+v+"/companies/{cid}/invoices/{id}/void", s.auth(only(s.voidInvoice, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/payments", s.auth(s.listPayments))
+	mux.Handle("POST "+v+"/companies/{cid}/payments", s.auth(only(s.createPayment, entry...)))
+	mux.Handle("GET "+v+"/companies/{cid}/payments/{id}", s.auth(s.getPayment))
+	mux.Handle("POST "+v+"/companies/{cid}/payments/{id}/void", s.auth(only(s.voidPayment, write...)))
+
 	// reports
 	mux.Handle("GET "+v+"/companies/{cid}/reports/trial-balance", s.auth(s.trialBalance))
 	mux.Handle("GET "+v+"/companies/{cid}/reports/ledger/{account}", s.auth(s.accountLedger))

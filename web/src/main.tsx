@@ -5,6 +5,7 @@ import '@mantine/notifications/styles.css';
 import '@fontsource/ibm-plex-sans-arabic/400.css';
 import '@fontsource/ibm-plex-sans-arabic/500.css';
 import '@fontsource/ibm-plex-sans-arabic/600.css';
+import './print.css';
 import i18n, { applyLang } from './i18n';
 import App from './App';
 

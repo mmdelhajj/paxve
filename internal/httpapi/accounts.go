@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"regexp"
@@ -267,13 +268,47 @@ func (s *Server) loadChartTemplate(w http.ResponseWriter, r *http.Request) {
 			}
 			ids[acc.Code] = id
 		}
-		return nil
+		return applyBillingDefaults(ctx, tx, cid, tpl, ids, in.Language)
 	})
 	if err != nil {
 		fail(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "created": len(tpl.Accounts)})
+}
+
+// applyBillingDefaults points the company's billing settings at the template's
+// accounts and creates the default payment methods (cash boxes, wallet, bank).
+func applyBillingDefaults(ctx context.Context, tx pgx.Tx, cid string, tpl *charts.Template, ids map[string]string, lang string) error {
+	if _, err := tx.Exec(ctx, `
+		UPDATE companies SET
+		  ar_account_id = coalesce(ar_account_id, nullif($2, '')::uuid),
+		  fx_gain_account_id = coalesce(fx_gain_account_id, nullif($3, '')::uuid),
+		  fx_loss_account_id = coalesce(fx_loss_account_id, nullif($4, '')::uuid),
+		  default_revenue_account_id = coalesce(default_revenue_account_id, nullif($5, '')::uuid)
+		WHERE id = $1`, cid, ids[tpl.AR], ids[tpl.FXGain], ids[tpl.FXLoss], ids[tpl.Revenue]); err != nil {
+		return err
+	}
+	var base string
+	if err := tx.QueryRow(ctx, `SELECT base_currency::text FROM companies WHERE id = $1`, cid).Scan(&base); err != nil {
+		return err
+	}
+	for i, pm := range tpl.Methods {
+		cur := pm.Currency
+		if cur == "" {
+			cur = base
+		}
+		if ids[pm.Code] == "" {
+			continue
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO payment_methods (company_id, name, kind, currency, account_id, sort)
+			VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING`,
+			cid, pm.Names[lang], pm.Kind, cur, ids[pm.Code], i); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func deref(p *string) string {

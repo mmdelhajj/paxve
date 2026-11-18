@@ -24,14 +24,31 @@ import Rates from './pages/Rates';
 import TrialBalance from './pages/TrialBalance';
 import Ledger from './pages/Ledger';
 import Developers from './pages/Developers';
+import Customers from './pages/billing/Customers';
+import CustomerDetail from './pages/billing/CustomerDetail';
+import Readings from './pages/billing/Readings';
+import Invoices from './pages/billing/Invoices';
+import Payments from './pages/billing/Payments';
+import BillingSetup from './pages/billing/Setup';
+import { IconCash, IconFileInvoice, IconGauge, IconSettings, IconUserCircle } from '@tabler/icons-react';
 
 type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | 'ledger' | 'companies' | 'users' |
-  'audit' | 'developers';
+  'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
 const sections: { label?: string; items: NavItem[] }[] = [
   { items: [{ key: 'dashboard', label: 'nav.dashboard', icon: IconLayoutDashboard }] },
+  {
+    label: 'bill.nav',
+    items: [
+      { key: 'customers', label: 'bill.customers', icon: IconUserCircle },
+      { key: 'readings', label: 'bill.readings', icon: IconGauge },
+      { key: 'invoices', label: 'bill.invoices', icon: IconFileInvoice },
+      { key: 'payments', label: 'bill.payments', icon: IconCash },
+      { key: 'billing-setup', label: 'bill.setup', icon: IconSettings },
+    ],
+  },
   {
     label: 'nav.accounting',
     items: [
@@ -53,7 +70,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
 ];
 
 const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users',
-  'audit', 'developers'];
+  'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -164,7 +181,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
                     href={`#/${p.key}`}
                     label={t(p.label)}
                     leftSection={<p.icon size={18} stroke={1.6} />}
-                    active={current === p.key || (current === 'ledger' && p.key === 'trial-balance')}
+                    active={current === p.key || (current === 'ledger' && p.key === 'trial-balance') || (current === 'customer' && p.key === 'customers')}
                     onClick={close}
                     style={{ borderRadius: 'var(--mantine-radius-md)' }}
                   />
@@ -186,6 +203,12 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'users' && <Users me={me} />}
         {current === 'audit' && <Audit />}
         {current === 'developers' && <Developers />}
+        {current === 'customers' && <Customers me={me} />}
+        {current === 'customer' && <CustomerDetail me={me} id={param} key={param} />}
+        {current === 'readings' && <Readings me={me} />}
+        {current === 'invoices' && <Invoices me={me} />}
+        {current === 'payments' && <Payments me={me} />}
+        {current === 'billing-setup' && <BillingSetup me={me} />}
       </AppShell.Main>
 
       <ChangePassword opened={pwOpen} onClose={pw.close} />

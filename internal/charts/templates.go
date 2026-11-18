@@ -14,6 +14,19 @@ type Template struct {
 	Names    map[string]string `json:"names"`
 	Accounts []Account         `json:"-"`
 	Count    int               `json:"count"`
+	// Billing defaults (account codes) set on the company when the template is loaded.
+	AR, FXGain, FXLoss, Revenue string `json:"-"`
+	Methods                     []Method `json:"-"`
+}
+
+// Method is a default way of receiving money. Currency "" means the company base currency.
+type Method struct {
+	Kind, Currency, Code string
+	Names                map[string]string
+}
+
+func m(kind, currency, code, en, ar, fr string) Method {
+	return Method{Kind: kind, Currency: currency, Code: code, Names: map[string]string{"en": en, "ar": ar, "fr": fr}}
 }
 
 func a(code, parent, typ string, postable bool, en, ar, fr string) Account {
@@ -123,8 +136,24 @@ var generic = []Account{
 }
 
 var All = []Template{
-	{Key: "lebanon", Names: map[string]string{"en": "Lebanon (PCG)", "ar": "لبنان (الخطة المحاسبية العامة)", "fr": "Liban (PCG)"}, Accounts: lebanon},
-	{Key: "generic", Names: map[string]string{"en": "International (simple)", "ar": "دولي (مبسط)", "fr": "International (simple)"}, Accounts: generic},
+	{
+		Key: "lebanon", Names: map[string]string{"en": "Lebanon (PCG)", "ar": "لبنان (الخطة المحاسبية العامة)", "fr": "Liban (PCG)"},
+		Accounts: lebanon, AR: "411", FXGain: "766", FXLoss: "666", Revenue: "701",
+		Methods: []Method{
+			m("cash", "USD", "531", "Cash USD", "صندوق دولار", "Caisse USD"),
+			m("cash", "LBP", "532", "Cash LBP", "صندوق ليرة", "Caisse LBP"),
+			m("wallet", "USD", "535", "Whish / OMT", "ويش / OMT", "Whish / OMT"),
+			m("bank", "", "512", "Bank", "المصرف", "Banque"),
+		},
+	},
+	{
+		Key: "generic", Names: map[string]string{"en": "International (simple)", "ar": "دولي (مبسط)", "fr": "International (simple)"},
+		Accounts: generic, AR: "1300", FXGain: "4800", FXLoss: "6800", Revenue: "4200",
+		Methods: []Method{
+			m("cash", "", "1100", "Cash", "الصندوق", "Caisse"),
+			m("bank", "", "1200", "Bank", "المصرف", "Banque"),
+		},
+	},
 }
 
 func init() {
