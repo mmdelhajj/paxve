@@ -11,6 +11,7 @@ import { api, ApiError, type Account } from '../api';
 import { useCompany } from '../company';
 import { accountLabel, notifyError, today } from '../util';
 import PageHeader from '../components/PageHeader';
+import { saveFile } from '../native';
 
 type ImportType = 'customers' | 'subscriptions' | 'opening_balances' | 'readings' | 'accounts';
 
@@ -121,12 +122,7 @@ function downloadTemplate(type: ImportType) {
   const fields = FIELDS[type];
   const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
   const csv = '﻿' + fields.map((f) => f.key).join(',') + '\n' + fields.map((f) => esc(f.sample)).join(',') + '\n';
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `paxve-${type}-template.csv`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  void saveFile(`paxve-${type}-template.csv`, new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'text/csv');
 }
 
 interface ImportErr { row: number; field: string; code: string; value?: string }

@@ -1,3 +1,4 @@
+import { printPage } from '../../native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Badge, Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Table, Text, TextInput, Title,
@@ -242,7 +243,7 @@ function Payslips({ d, onClose }: { d: RunDetail; onClose: () => void }) {
   const name = rtl && d.company.name_ar ? d.company.name_ar : d.company.name_en;
   return (
     <Modal opened onClose={onClose} fullScreen title={t('hr.print')}>
-      <Group className="no-print" mb="md"><Button leftSection={<IconPrinter size={16} />} onClick={() => window.print()}>{t('invoices.print')}</Button>
+      <Group className="no-print" mb="md"><Button leftSection={<IconPrinter size={16} />} onClick={() => void printPage()}>{t('invoices.print')}</Button>
         <Button variant="default" onClick={onClose}>{t('common.close')}</Button></Group>
       <div className="print-doc" dir={rtl ? 'rtl' : 'ltr'}>
         {d.payslips.map((s) => {

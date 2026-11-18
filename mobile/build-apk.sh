@@ -50,3 +50,10 @@ docker run --rm \
     chmod 644 /out/paxve.apk
   '
 ls -la "$OUT/paxve.apk"
+
+# version.json: the app compares it with its own versionCode and offers the update
+printf '{"versionCode":%s,"versionName":"%s","url":"/download/paxve.apk","sha256":"%s","size":%s}\n' \
+  "$VERSION_CODE" "$VERSION_NAME" "$(sha256sum "$OUT/paxve.apk" | cut -d' ' -f1)" "$(stat -c %s "$OUT/paxve.apk")" > "$OUT/version.json.tmp"
+chmod 644 "$OUT/version.json.tmp"
+mv "$OUT/version.json.tmp" "$OUT/version.json"
+cat "$OUT/version.json"

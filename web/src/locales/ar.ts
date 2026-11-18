@@ -1,7 +1,12 @@
 import type { Messages } from './en';
 
 const ar: Messages = {
-  app: { name: 'Paxve', tagline: 'المحاسبة والفوترة لشركات الاشتراكات' },
+  app: {
+    name: 'Paxve', tagline: 'المحاسبة والفوترة لشركات الاشتراكات',
+    updateTitle: 'إصدار جديد من التطبيق', updateBody: 'الإصدار {{version}} جاهز. نزّله ثم اضغط «تثبيت» — بياناتك تبقى كما هي.',
+    updateButton: 'تنزيل التحديث', updateManual: 'افتح paxve.com/download/paxve.apk في متصفح الهاتف لتثبيته.',
+    saved: 'تم الحفظ في التنزيلات/Paxve',
+  },
   login: { title: 'تسجيل الدخول إلى حسابك', email: 'البريد الإلكتروني', password: 'كلمة المرور', submit: 'دخول' },
   nav: {
     dashboard: 'لوحة التحكم', accounting: 'المحاسبة', accounts: 'دليل الحسابات', journal: 'القيود اليومية',

@@ -1,3 +1,4 @@
+import { printPage } from '../../native';
 import { useEffect, useState } from 'react';
 import { Anchor, Box, Button, Center, Checkbox, Group, Loader, Paper, SegmentedControl, Select, Text, TextInput } from '@mantine/core';
 import { IconArrowBack, IconPrinter } from '@tabler/icons-react';
@@ -77,7 +78,7 @@ export default function BulkPrint({ initialPeriod }: { initialPeriod?: string })
             <SegmentedControl size="xs" value={layout} onChange={(v) => setLayout(v as 'a4' | 'thermal')}
               data={[{ value: 'a4', label: t('bulk.a4') }, { value: 'thermal', label: t('bulk.thermal') }]} />
             <Button size="xs" variant="light" onClick={load} loading={busy}>{t('bulk.load')}</Button>
-            <Button size="xs" leftSection={<IconPrinter size={14} />} disabled={!data?.rows.length} onClick={() => window.print()}>
+            <Button size="xs" leftSection={<IconPrinter size={14} />} disabled={!data?.rows.length} onClick={() => void printPage()}>
               {t('invoices.print')} {data ? `(${data.rows.length})` : ''}
             </Button>
           </Group>

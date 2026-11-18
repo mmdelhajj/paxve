@@ -1,5 +1,10 @@
 const en = {
-  app: { name: 'Paxve', tagline: 'Accounting and billing for subscription businesses' },
+  app: {
+    name: 'Paxve', tagline: 'Accounting and billing for subscription businesses',
+    updateTitle: 'New version of the app', updateBody: 'Version {{version}} is ready. Download it and tap Install — your data stays.',
+    updateButton: 'Download update', updateManual: 'Open paxve.com/download/paxve.apk in your phone browser to install it.',
+    saved: 'Saved to Downloads/Paxve',
+  },
   login: { title: 'Sign in to your account', email: 'Email', password: 'Password', submit: 'Sign in' },
   nav: {
     dashboard: 'Dashboard', accounting: 'Accounting', accounts: 'Chart of accounts', journal: 'Journal entries',

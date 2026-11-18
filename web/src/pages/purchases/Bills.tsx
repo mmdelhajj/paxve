@@ -1,3 +1,4 @@
+import { printPage } from '../../native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActionIcon, Badge, Button, Center, Divider, Group, Loader, Modal, Paper, SegmentedControl, Select, SimpleGrid, Stack, Table, Text, TextInput,
@@ -148,7 +149,7 @@ export function BillView({ id, canVoid, onClose, onChanged }: { id: string; canV
               ? <Button variant="subtle" color="red" onClick={() => setConfirm(true)}>{t('pur.voidBill')}</Button> : <span />}
             <Group gap="xs">
               <Button variant="default" onClick={onClose}>{t('common.close')}</Button>
-              <Button leftSection={<IconPrinter size={16} />} onClick={() => window.print()}>{t('invoices.print')}</Button>
+              <Button leftSection={<IconPrinter size={16} />} onClick={() => void printPage()}>{t('invoices.print')}</Button>
             </Group>
           </Group>
         </Stack>

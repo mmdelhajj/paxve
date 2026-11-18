@@ -22,6 +22,9 @@ paxve.com, www.paxve.com {
 		header @apk Content-Type application/vnd.android.package-archive
 		header @apk Content-Disposition "attachment; filename=\"paxve.apk\""
 		header @apk Cache-Control "no-cache"
+		# latest APK version, read by the app to offer updates
+		@ver path /version.json
+		header @ver Cache-Control "no-store"
 		file_server
 	}
 

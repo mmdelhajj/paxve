@@ -1,3 +1,4 @@
+import { printPage } from '../../native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon, Alert, Badge, Button, Center, Divider, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Table, Text, TextInput,
@@ -133,7 +134,7 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
             <Group gap="xs">
               {inv.status !== 'void' && <WhatsAppButton customerId={inv.customer_id} invoiceId={inv.id} event="invoice_issued" />}
               <Button variant="default" onClick={onClose}>{t('common.close')}</Button>
-              <Button leftSection={<IconPrinter size={16} />} onClick={() => window.print()}>{t('invoices.print')}</Button>
+              <Button leftSection={<IconPrinter size={16} />} onClick={() => void printPage()}>{t('invoices.print')}</Button>
             </Group>
           </Group>
         </Stack>
@@ -187,7 +188,7 @@ export function PaymentView({ id, canVoid, onClose, onChanged }: { id: string; c
             <Group gap="xs">
               {d.payment.status === 'posted' && <WhatsAppButton customerId={d.payment.customer_id} paymentId={d.payment.id} event="payment_received" />}
               <Button variant="default" onClick={onClose}>{t('common.close')}</Button>
-              <Button leftSection={<IconPrinter size={16} />} onClick={() => window.print()}>{t('invoices.print')}</Button>
+              <Button leftSection={<IconPrinter size={16} />} onClick={() => void printPage()}>{t('invoices.print')}</Button>
             </Group>
           </Group>
         </Stack>

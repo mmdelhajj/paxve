@@ -6,9 +6,17 @@
     "url": "https://paxve.com/#/login",
     "androidScheme": "https",
     "cleartext": false,
-    "allowNavigation": ["paxve.com", "www.paxve.com"]
+    "allowNavigation": ["paxve.com", "www.paxve.com"],
+    "errorPath": "offline.html"
   },
   "android": {
-    "allowMixedContent": false
+    "allowMixedContent": false,
+    "appendUserAgent": "PaxveApp",
+    "backgroundColor": "#0F766E"
+  },
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK"
+    }
   }
 }

@@ -1,3 +1,4 @@
+import { printPage } from '../../native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon, Alert, Badge, Box, Button, Card, Center, Container, Group, Loader, Menu, Modal, Paper, SegmentedControl, Select,
@@ -247,7 +248,7 @@ function ReceiptSheet({ d, onClose, onNeedPrinter }: { d: PaymentDetail; onClose
         <Receipt d={d} />
         <SimpleGrid cols={bluetoothSupported() ? 2 : 1} className="no-print">
           {bluetoothSupported() && <Button size="lg" leftSection={<IconBluetooth size={18} />} loading={busy} onClick={bt}>{t('collector.printBt')}</Button>}
-          <Button size="lg" variant="default" leftSection={<IconPrinter size={18} />} onClick={() => window.print()}>{t('invoices.print')}</Button>
+          <Button size="lg" variant="default" leftSection={<IconPrinter size={18} />} onClick={() => void printPage()}>{t('invoices.print')}</Button>
         </SimpleGrid>
         <Button size="lg" variant="subtle" onClick={onClose} className="no-print">{t('common.close')}</Button>
       </Stack>

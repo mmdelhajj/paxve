@@ -1,3 +1,4 @@
+import { openExternal } from '../../native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert, Badge, Button, Center, Group, Loader, Menu, Modal, NumberInput, Paper, PasswordInput, SegmentedControl, Select,
@@ -406,7 +407,7 @@ export function WhatsAppButton({ customerId, invoiceId, paymentId, event = 'remi
       const r = await api<{ wa_link: string }>(`/companies/${company.id}/messages/link`, {
         method: 'POST', body: { customer_id: customerId, invoice_id: invoiceId ?? '', payment_id: paymentId ?? '', event, locale: i18n.language },
       });
-      window.open(r.wa_link, '_blank', 'noopener');
+      openExternal(r.wa_link);
     } catch (e) {
       notifyError(t, e);
     }

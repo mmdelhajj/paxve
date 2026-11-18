@@ -6,6 +6,7 @@ import { api, UNAUTHORIZED_EVENT, type Me } from './api';
 import { applyLang, langInfo } from './i18n';
 import { CompanyProvider } from './company';
 import Login from './pages/Login';
+import AppUpdate from './components/AppUpdate';
 const Landing = lazy(() => import('./pages/public/Landing'));
 const Signup = lazy(() => import('./pages/public/Signup'));
 const Portal = lazy(() => import('./pages/public/Portal'));
@@ -93,6 +94,7 @@ export default function App() {
         <DirectionSync />
         <Notifications position="top-center" />
         <Root />
+        <AppUpdate />
       </MantineProvider>
     </DirectionProvider>
   );

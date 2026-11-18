@@ -1,7 +1,12 @@
 import type { Messages } from './en';
 
 const fr: Messages = {
-  app: { name: 'Paxve', tagline: 'Comptabilité et facturation pour les entreprises par abonnement' },
+  app: {
+    name: 'Paxve', tagline: 'Comptabilité et facturation pour les entreprises par abonnement',
+    updateTitle: "Nouvelle version de l'application", updateBody: 'La version {{version}} est prête. Téléchargez-la puis touchez Installer — vos données sont conservées.',
+    updateButton: 'Télécharger la mise à jour', updateManual: 'Ouvrez paxve.com/download/paxve.apk dans le navigateur du téléphone pour l’installer.',
+    saved: 'Enregistré dans Téléchargements/Paxve',
+  },
   login: { title: 'Connexion à votre compte', email: 'E-mail', password: 'Mot de passe', submit: 'Se connecter' },
   nav: {
     dashboard: 'Tableau de bord', accounting: 'Comptabilité', accounts: 'Plan comptable', journal: 'Écritures',

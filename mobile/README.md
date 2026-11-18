@@ -1,27 +1,51 @@
 # Paxve Android app
 
-A thin Capacitor 8 Android shell around https://paxve.com. It exists for one reason: most cheap
-58/80 mm receipt printers used by collectors are **classic Bluetooth (SPP)**, which browsers cannot
-reach (Web Bluetooth is BLE-only). The app adds a small native plugin, `PaxvePrinter`, that sends
-the ESC/POS bytes the web app already builds.
+A Capacitor 8 Android shell around https://paxve.com: the whole system (accounting, billing,
+collectors, purchasing, HR, reports, portal…) runs inside it. Native code covers what an Android
+WebView cannot do on its own:
+
+- **classic Bluetooth (SPP) receipt printers** — most cheap 58/80 mm printers; browsers only reach BLE (`PaxvePrinter`)
+- **Print buttons** (invoices, receipts, bulk bills, payslips, supplier bills, portal) → Android print dialog: printer or *Save as PDF* (`PaxveApp.print`)
+- **file downloads** (CSV templates, any `<a download>` blob/data link) → `Downloads/Paxve` on Android 10+, share sheet on 7–9 (`PaxveApp.saveFile`)
+- **external links** — `wa.me`, `whatsapp:`, `tel:` (opens the dialer), `mailto:`, `sms:`, `intent:`, other websites → the matching app
+- **update notice** — the app compares its `versionCode` with `/download/version.json` and offers the new APK
+- **Android back button** — closes an open dialog/menu, else goes back, on the first screen asks "press back again to exit"
+- **offline page** (`www/offline.html`, EN/AR/FR) when paxve.com is unreachable and nothing is cached; it retries automatically.
+  Once the site has loaded once, the service worker serves the app (collector screen + outbox) offline.
+- brand colour status bar / splash, sign-in cookie flushed on pause (stays signed in), `<input type=file>` uses the Android file picker (CSV import, bank statements)
 
 The app loads the live site (`server.url` in `capacitor.config.json`), so every web release reaches
 the app instantly. A new APK is only needed when native code, permissions or the icon change.
+The web side detects the app with `isNativeApp()` and uses `web/src/native.ts`
+(`printPage()`, `saveFile()`, `openExternal()`, `installNativeHooks()`); in browsers every helper
+falls back to normal web behaviour. APKs built before the `PaxveApp` plugin existed keep working
+(they just lack these extras) and are told to update.
 
 ## Layout
 
 ```
-capacitor.config.json        app id com.paxve.app, loads https://paxve.com/#/login
+capacitor.config.json        app id com.paxve.app, loads https://paxve.com/#/login, errorPath offline.html
 android/                     generated Capacitor project (committed)
   app/src/main/java/com/paxve/app/PaxvePrinterPlugin.java   classic Bluetooth printing
-  app/src/main/java/com/paxve/app/MainActivity.java         registers the plugin
-scripts/icons.sh             launcher icons from the Paxve logo
+  app/src/main/java/com/paxve/app/PaxveAppPlugin.java       print, save/share files, external links, app info
+  app/src/main/java/com/paxve/app/MainActivity.java         registers plugins, back button, status bar colour
+scripts/icons.sh             launcher icons + splash images from the Paxve logo
 Dockerfile.build             JDK 21 + Android SDK 36 + Node build image
-build-apk.sh                 builds, signs and publishes the APK
-www/                         offline fallback page only
+build-apk.sh                 builds, signs and publishes the APK + downloads/version.json
+www/                         offline fallback pages
 ```
 
-## Plugin API (JavaScript, `window.Capacitor.Plugins.PaxvePrinter`)
+## Plugin API — `PaxveApp`
+
+| Method | Arguments | Result |
+|---|---|---|
+| `getAppInfo()` | – | `{ versionCode, versionName, android, sdk }` |
+| `print({ title })` | – | prints the current page (CSS `@media print` applies) |
+| `saveFile({ name, mime, data, share })` | base64 `data`; `share: true` opens the share sheet | `{ saved, uri, shared }` |
+| `openExternal({ url })` | any URL | opens it in the right app |
+| `exitApp()` | – | closes the app |
+
+## Plugin API — `PaxvePrinter`
 
 | Method | Arguments | Result |
 |---|---|---|
@@ -47,6 +71,8 @@ serves at **https://paxve.com/download/paxve.apk**
 (`Content-Type: application/vnd.android.package-archive`).
 
 `versionCode` is the build date/hour (`yyMMddHH`), so each build installs over the previous one.
+The script also writes `downloads/version.json` (`versionCode`, `versionName`, `url`, `sha256`, `size`),
+served with `Cache-Control: no-store`; apps with an older `versionCode` show an update notice.
 
 ### Signing key — keep it safe
 
@@ -68,3 +94,13 @@ app (they would have to uninstall first).
 6. Switch the printer off and on, print again: the app reconnects to the saved printer automatically.
 7. Airplane mode: the collector screen still opens (service worker + cached data); payments queue and
    sync when back online.
+8. Open an invoice → **Print** → the Android print dialog opens (choose a printer or *Save as PDF*).
+9. Import → *Download template* → a toast shows `Downloads/Paxve/…csv`; *Choose file* opens the Android file picker.
+10. Customer → WhatsApp button / phone number → WhatsApp / the dialer opens, the app stays signed in.
+11. Back button: closes a dialog, then goes back, then *Press back again to exit*.
+12. First launch with no internet → the offline page (EN/AR/FR) with *Try again*; it reconnects by itself.
+13. Install an older APK, open it → *New version of the app* → *Download update* opens the browser download.
+
+The web-side behaviour (update notice, native print/save/external-link routing, back handling, hidden
+download links) is checked with a mocked Capacitor bridge in Playwright; the native side needs a real phone
+(the server has no KVM for an emulator).

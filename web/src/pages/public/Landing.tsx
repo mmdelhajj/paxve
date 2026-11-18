@@ -7,6 +7,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import LangSwitch from '../../components/LangSwitch';
 import Logo from '../../components/Logo';
+import { isNativeApp } from '../../native';
 
 const features = [
   { key: 'fx', icon: IconArrowsExchange },
@@ -25,6 +26,7 @@ const plans = [
 
 export default function Landing() {
   const { t } = useTranslation();
+  const inApp = isNativeApp();
   const rtl = document.dir === 'rtl';
 
   return (
@@ -55,8 +57,8 @@ export default function Landing() {
                 <Button size="lg" variant="default" component="a" href="#/login">{t('landing.signIn')}</Button>
               </Group>
               <Text size="sm" c="dimmed">{t('landing.trialNote')}</Text>
-              <Button variant="subtle" color="gray" size="compact-sm" component="a" href="/download/paxve.apk"
-                leftSection={<IconBrandAndroid size={16} />} style={{ alignSelf: 'flex-start' }}>{t('landing.downloadApp')}</Button>
+              {!inApp && <Button variant="subtle" color="gray" size="compact-sm" component="a" href="/download/paxve.apk"
+                leftSection={<IconBrandAndroid size={16} />} style={{ alignSelf: 'flex-start' }}>{t('landing.downloadApp')}</Button>}
             </Stack>
             <ReceiptMock rtl={rtl} />
           </SimpleGrid>
@@ -138,7 +140,7 @@ export default function Landing() {
           <Text size="sm" c="dimmed">© {new Date().getFullYear()} Paxve</Text>
           <Group gap="md">
             <Text size="sm" component="a" href="#pricing" c="dimmed">{t('landing.pricingTitle')}</Text>
-            <Text size="sm" component="a" href="/download/paxve.apk" c="dimmed">{t('landing.downloadApp')}</Text>
+            {!inApp && <Text size="sm" component="a" href="/download/paxve.apk" c="dimmed">{t('landing.downloadApp')}</Text>}
             <Text size="sm" component="a" href="/api/v1/openapi.yaml" c="dimmed">API</Text>
             <Text size="sm" component="a" href="#/login" c="dimmed">{t('landing.signIn')}</Text>
           </Group>

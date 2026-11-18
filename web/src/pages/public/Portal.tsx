@@ -1,3 +1,4 @@
+import { printPage } from '../../native';
 import { useEffect, useState } from 'react';
 import {
   Badge, Box, Button, Center, Container, Divider, Group, Loader, Modal, Paper, Stack, Table, Text, Title,
@@ -171,7 +172,7 @@ function PortalInvoice({ token, id, onClose }: { token: string; id: string; onCl
           </div>
           <Group justify="flex-end" className="no-print">
             <Button variant="default" onClick={onClose}>{t('common.close')}</Button>
-            <Button leftSection={<IconPrinter size={16} />} onClick={() => window.print()}>{t('invoices.print')}</Button>
+            <Button leftSection={<IconPrinter size={16} />} onClick={() => void printPage()}>{t('invoices.print')}</Button>
           </Group>
         </Stack>
       )}
