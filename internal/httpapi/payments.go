@@ -226,6 +226,9 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 		if err := autoAllocate(ctx, tx, in.CustomerID, in.Currency); err != nil {
 			return nil, err
 		}
+		if err := autoMessage(ctx, tx, cid, "payment_received", in.CustomerID, nil, &id); err != nil {
+			return nil, err
+		}
 		return loadPayment(ctx, tx, cid, id)
 	})
 }

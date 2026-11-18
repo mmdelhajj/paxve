@@ -39,10 +39,12 @@ import Platform from './pages/Platform';
 import TrialBanner from './components/TrialBanner';
 import { IconWorld } from '@tabler/icons-react';
 import CollectorApp from './pages/collector/CollectorApp';
+import Messages from './pages/billing/Messages';
+import { IconMessage } from '@tabler/icons-react';
 
 type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | 'ledger' | 'companies' | 'users' |
   'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup' |
-  'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform' | 'import';
+  'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform' | 'import' | 'messages';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
@@ -55,6 +57,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'readings', label: 'bill.readings', icon: IconGauge },
       { key: 'invoices', label: 'bill.invoices', icon: IconFileInvoice },
       { key: 'payments', label: 'bill.payments', icon: IconCash },
+      { key: 'messages', label: 'msg.nav', icon: IconMessage },
       { key: 'cash', label: 'nav.cash', icon: IconBuildingBank },
       { key: 'collect', label: 'collector.mode', icon: IconDeviceMobile },
       { key: 'billing-setup', label: 'bill.setup', icon: IconSettings },
@@ -93,7 +96,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
 
 const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users',
   'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss',
-  'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform', 'import'];
+  'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform', 'import', 'messages'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -232,6 +235,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'audit' && <Audit />}
         {current === 'developers' && <Developers />}
         {current === 'import' && <Import />}
+        {current === 'messages' && <Messages me={me} />}
         {current === 'customers' && <Customers me={me} />}
         {current === 'customer' && <CustomerDetail me={me} id={param} key={param} />}
         {current === 'readings' && <Readings me={me} />}

@@ -10,6 +10,7 @@ import { formatAmount, formatDate, notifyError, notifySaved, today } from '../..
 import { invoiceColor, type Area, type Customer, type Invoice, type Payment, type Plan, type Subscription } from '../../billing';
 import { CustomerForm } from './Customers';
 import { InvoiceView, MoneyList, NewInvoice, PaymentView, ReceivePayment } from './docs';
+import { WhatsAppButton } from './Messages';
 
 interface Detail { customer: Customer; subscriptions: Subscription[]; invoices: Invoice[]; payments: Payment[] }
 
@@ -54,6 +55,7 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
         {canEdit && (
           <Group gap="xs">
             <Button variant="default" leftSection={<IconEdit size={16} />} onClick={() => setModal('edit')}>{t('common.edit')}</Button>
+            <WhatsAppButton customerId={c.id} />
             {canManage && <Button variant="default" leftSection={<IconFileInvoice size={16} />} onClick={() => setModal('invoice')}>{t('customers.newInvoice')}</Button>}
             <Button leftSection={<IconCash size={16} />} onClick={() => setModal('pay')}>{t('customers.receivePayment')}</Button>
           </Group>

@@ -9,6 +9,7 @@ import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import { Confirm } from '../../components/PageHeader';
 import { invoiceColor, type InvoiceDetail, type Money, type PaymentDetail, type PaymentMethod } from '../../billing';
+import { WhatsAppButton } from './Messages';
 
 export function MoneyList({ items, kind = 'due' }: { items: Money[]; kind?: 'due' | 'credit' }) {
   const { decimalsOf } = useCompany();
@@ -123,6 +124,7 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
             {canVoid && inv.status !== 'void' && inv.paid === '0.0000' && !confirm
               ? <Button variant="subtle" color="red" onClick={() => setConfirm(true)}>{t('invoices.void')}</Button> : <span />}
             <Group gap="xs">
+              {inv.status !== 'void' && <WhatsAppButton customerId={inv.customer_id} invoiceId={inv.id} event="invoice_issued" />}
               <Button variant="default" onClick={onClose}>{t('common.close')}</Button>
               <Button leftSection={<IconPrinter size={16} />} onClick={() => window.print()}>{t('invoices.print')}</Button>
             </Group>
@@ -176,6 +178,7 @@ export function PaymentView({ id, canVoid, onClose, onChanged }: { id: string; c
             {canVoid && d.payment.status === 'posted' && !confirm
               ? <Button variant="subtle" color="red" onClick={() => setConfirm(true)}>{t('payments.void')}</Button> : <span />}
             <Group gap="xs">
+              {d.payment.status === 'posted' && <WhatsAppButton customerId={d.payment.customer_id} paymentId={d.payment.id} event="payment_received" />}
               <Button variant="default" onClick={onClose}>{t('common.close')}</Button>
               <Button leftSection={<IconPrinter size={16} />} onClick={() => window.print()}>{t('invoices.print')}</Button>
             </Group>

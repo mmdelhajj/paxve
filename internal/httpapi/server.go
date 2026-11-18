@@ -174,6 +174,20 @@ func (s *Server) Handler() http.Handler {
 	// bulk import (customers, subscriptions, opening balances, readings, accounts)
 	mux.Handle("POST "+v+"/companies/{cid}/import/{type}", s.auth(only(s.importData, write...)))
 
+	// messaging (WhatsApp / SMS)
+	mux.Handle("GET "+v+"/companies/{cid}/message-providers", s.auth(only(s.listProviders, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/message-providers", s.auth(only(s.saveProvider, write...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/message-providers/{id}", s.auth(only(s.saveProvider, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/message-templates", s.auth(s.listTemplates))
+	mux.Handle("POST "+v+"/companies/{cid}/message-templates", s.auth(only(s.saveTemplate, write...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/message-templates/{id}", s.auth(only(s.saveTemplate, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/messages/settings", s.auth(s.getMessageSettings))
+	mux.Handle("PUT "+v+"/companies/{cid}/messages/settings", s.auth(only(s.putMessageSettings, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/messages/send", s.auth(only(s.sendMessages, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/messages/link", s.auth(s.messageLink))
+	mux.Handle("GET "+v+"/companies/{cid}/messages", s.auth(s.listMessages))
+	mux.Handle("POST "+v+"/companies/{cid}/messages/{id}/retry", s.auth(only(s.retryMessage, write...)))
+
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { writeErr(w, http.StatusNotFound, "not_found") })
 	mux.Handle("/", spa(s.WebDir))
 

@@ -113,9 +113,11 @@ func serve(ctx context.Context) error {
 	sm.Cookie.Secure = env("COOKIE_SECURE", "true") == "true"
 
 	addr := env("ADDR", ":8080")
+	api := httpapi.New(pool, ownerPool, sm, env("WEB_DIR", "web/dist"), strings.Split(os.Getenv("PLATFORM_ADMINS"), ","))
+	api.StartMessageWorker(ctx)
 	hs := &http.Server{
 		Addr:              addr,
-		Handler:           httpapi.New(pool, ownerPool, sm, env("WEB_DIR", "web/dist"), strings.Split(os.Getenv("PLATFORM_ADMINS"), ",")).Handler(),
+		Handler:           api.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,

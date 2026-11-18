@@ -70,7 +70,10 @@ func issueInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSettin
 			return "", 0, err
 		}
 	}
-	return id, number, autoAllocate(ctx, tx, customerID, currency)
+	if err := autoAllocate(ctx, tx, customerID, currency); err != nil {
+		return "", 0, err
+	}
+	return id, number, autoMessage(ctx, tx, cid, "invoice_issued", customerID, &id, nil)
 }
 
 func periodEnd(period string) string {
