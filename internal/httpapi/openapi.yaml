@@ -377,3 +377,70 @@ paths:
         - { name: to, in: query, schema: { type: string, format: date } }
       responses:
         "200": { description: OK }
+  /companies/{cid}/suppliers:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: List suppliers with balances per currency, responses: { "200": { description: OK } } }
+    post: { summary: "Create a supplier {name, code?, phone, email, address, tax_id, currency, notes}", responses: { "201": { description: Created } } }
+  /companies/{cid}/suppliers/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: Supplier with bills and payments, responses: { "200": { description: OK } } }
+    patch: { summary: Update a supplier, responses: { "200": { description: OK } } }
+  /companies/{cid}/items:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Items with quantity on hand, average cost and value (base currency), responses: { "200": { description: OK } } }
+    post: { summary: "Create an item {name, kind: stock|service|consumable, unit, sale_price, sale_currency, accounts}", responses: { "201": { description: Created } } }
+  /companies/{cid}/items/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: Item with stock per warehouse and stock moves, responses: { "200": { description: OK } } }
+    patch: { summary: Update an item, responses: { "200": { description: OK } } }
+  /companies/{cid}/warehouses:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Warehouses (a default "Main" is created automatically), responses: { "200": { description: OK } } }
+    post: { summary: "Create a warehouse {name}", responses: { "201": { description: Created } } }
+  /companies/{cid}/bills:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Purchase bills (filters: status=unpaid|paid|void, supplier_id, q, from, to)", responses: { "200": { description: OK } } }
+    post:
+      summary: "Create and post a purchase bill. Stock items enter stock at the bill cost (weighted average); other lines go to an expense account. Dr inventory/expense, Cr payables."
+      requestBody:
+        content:
+          application/json:
+            example: { supplier_id: "…", currency: USD, supplier_ref: "FC-1001", lines: [{ item_id: "…diesel…", quantity: "1000", unit_price: "0.9" }] }
+      responses: { "201": { description: Created } }
+  /companies/{cid}/bills/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: Bill with lines and payments, responses: { "200": { description: OK } } }
+  /companies/{cid}/bills/{id}/void:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: Void an unpaid bill (reverses the entry and takes the stock back out), responses: { "200": { description: OK }, "409": { description: Has payments } } }
+  /companies/{cid}/supplier-payments:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Supplier payments, responses: { "200": { description: OK } } }
+    post: { summary: "Pay a supplier {supplier_id, currency (of the bills), method_id, paid_amount, paid_rate?, amount?}; applied to the oldest bills; FX difference booked automatically", responses: { "201": { description: Created } } }
+  /companies/{cid}/supplier-payments/{id}/void:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: Void a supplier payment, responses: { "200": { description: OK } } }
+  /companies/{cid}/expenses:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Expenses with totals per category (from, to, account_id), responses: { "200": { description: OK } } }
+    post: { summary: "Record an expense {date, account_id, method_id, amount, description, supplier_id?}: Dr expense / Cr cash", responses: { "201": { description: Created } } }
+  /companies/{cid}/expenses/{id}/void:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: Void an expense, responses: { "200": { description: OK } } }
+  /companies/{cid}/stock/{kind}:
+    parameters:
+      - { $ref: '#/components/parameters/cid' }
+      - { name: kind, in: path, required: true, schema: { type: string, enum: [fuel, adjust] } }
+    post: { summary: "Fuel used {item_id, quantity, notes} (Dr fuel expense / Cr inventory at average cost) or stock adjustment {item_id, quantity: signed, unit_cost?}", responses: { "201": { description: Created }, "422": { description: insufficient_stock } } }
+  /companies/{cid}/stock/docs:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Fuel usage and stock adjustments with totals, responses: { "200": { description: OK } } }
+  /companies/{cid}/reports/ap-aging:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: What we owe each supplier by days overdue, responses: { "200": { description: OK } } }
+  /companies/{cid}/reports/stock-valuation:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Stock quantity x average cost per item and warehouse, with the ledger total for comparison, responses: { "200": { description: OK } } }
+  /companies/{cid}/reports/expenses:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Expense accounts for a period (from the ledger), responses: { "200": { description: OK } } }

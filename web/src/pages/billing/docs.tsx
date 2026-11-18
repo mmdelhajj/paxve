@@ -395,7 +395,8 @@ export function ReceivePayment({ customerId, customerName, due, onClose, onDone 
 
 // ---------- manual invoice ----------
 
-interface ManualLine { key: number; description: string; quantity: string; unit_price: string }
+interface ManualLine { key: number; description: string; quantity: string; unit_price: string; item_id?: string | null }
+interface SaleItem { id: string; code: string; name: string; unit: string; kind: string; sale_price: string; quantity: string; is_active: boolean }
 
 export function NewInvoice({ customerId, customerName, onClose, onDone }: {
   customerId: string; customerName: string; onClose: () => void; onDone: (id: string) => void;
@@ -406,6 +407,10 @@ export function NewInvoice({ customerId, customerName, onClose, onDone }: {
   const [date, setDate] = useState(today());
   const [lines, setLines] = useState<ManualLine[]>([{ key: tk++, description: '', quantity: '1', unit_price: '' }]);
   const [busy, setBusy] = useState(false);
+  const [items, setItems] = useState<SaleItem[]>([]);
+  useEffect(() => {
+    if (company) api<SaleItem[]>(`/companies/${company.id}/items`).then((x) => setItems(x.filter((i) => i.is_active))).catch(() => {});
+  }, [company]);
   const total = lines.reduce((s, l) => s + Number(l.quantity || 0) * Number(l.unit_price || 0), 0);
 
   async function submit() {
@@ -415,7 +420,7 @@ export function NewInvoice({ customerId, customerName, onClose, onDone }: {
       const r = await api<InvoiceDetail>(`/companies/${company.id}/invoices`, {
         method: 'POST',
         body: { customer_id: customerId, currency, issue_date: date, due_date: date,
-          lines: lines.filter((l) => l.description && l.unit_price).map(({ description, quantity, unit_price }) => ({ description, quantity, unit_price })) },
+          lines: lines.filter((l) => l.description && l.unit_price).map(({ description, quantity, unit_price, item_id }) => ({ description, quantity, unit_price, item_id: item_id ?? '' })) },
       });
       notifySaved(t);
       onDone(r.invoice.id);
@@ -440,7 +445,22 @@ export function NewInvoice({ customerId, customerName, onClose, onDone }: {
           <Table.Tbody>
             {lines.map((l) => (
               <Table.Tr key={l.key}>
-                <Table.Td><TextInput size="xs" value={l.description} onChange={(e) => { const v = e.currentTarget.value; setLines((ls) => ls.map((x) => (x.key === l.key ? { ...x, description: v } : x))); }} /></Table.Td>
+                <Table.Td>
+                  <Stack gap={2}>
+                    {items.length > 0 && (
+                      <Select size="xs" searchable clearable placeholder={t('pur.item')} value={l.item_id ?? null} comboboxProps={{ withinPortal: true }}
+                        data={items.map((i) => ({ value: i.id, label: `${i.name}${i.kind === 'stock' ? ` (${Number(i.quantity)} ${i.unit})` : ''}` }))}
+                        onChange={(v) => {
+                          const it = items.find((i) => i.id === v);
+                          setLines((ls) => ls.map((x) => (x.key === l.key ? {
+                            ...x, item_id: v, description: it ? it.name : x.description,
+                            unit_price: it && Number(it.sale_price) ? String(Number(it.sale_price)) : x.unit_price,
+                          } : x)));
+                        }} />
+                    )}
+                    <TextInput size="xs" value={l.description} onChange={(e) => { const v = e.currentTarget.value; setLines((ls) => ls.map((x) => (x.key === l.key ? { ...x, description: v } : x))); }} />
+                  </Stack>
+                </Table.Td>
                 <Table.Td><TextInput size="xs" dir="ltr" value={l.quantity} onChange={(e) => { const v = e.currentTarget.value.replace(/[^\d.]/g, ''); setLines((ls) => ls.map((x) => (x.key === l.key ? { ...x, quantity: v } : x))); }} /></Table.Td>
                 <Table.Td><TextInput size="xs" dir="ltr" value={l.unit_price} onChange={(e) => { const v = e.currentTarget.value.replace(/[^\d.]/g, ''); setLines((ls) => ls.map((x) => (x.key === l.key ? { ...x, unit_price: v } : x))); }} /></Table.Td>
                 <Table.Td><ActionIcon variant="subtle" color="gray" disabled={lines.length === 1} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}><IconTrash size={14} /></ActionIcon></Table.Td>

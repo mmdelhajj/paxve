@@ -17,6 +17,8 @@ type Template struct {
 	// Billing defaults (account codes) set on the company when the template is loaded.
 	AR, FXGain, FXLoss, Revenue string   `json:"-"`
 	Methods                     []Method `json:"-"`
+	// Purchasing / stock defaults (account codes).
+	AP, Inventory, COGS, Fuel, StockAdjust, Expense string `json:"-"`
 }
 
 // Method is a default way of receiving money. Currency "" means the company base currency.
@@ -139,6 +141,7 @@ var All = []Template{
 	{
 		Key: "lebanon", Names: map[string]string{"en": "Lebanon (PCG)", "ar": "لبنان (الخطة المحاسبية العامة)", "fr": "Liban (PCG)"},
 		Accounts: lebanon, AR: "411", FXGain: "766", FXLoss: "666", Revenue: "701",
+		AP: "401", Inventory: "31", COGS: "607", Fuel: "601", StockAdjust: "602", Expense: "602",
 		Methods: []Method{
 			m("cash", "USD", "531", "Cash USD", "صندوق دولار", "Caisse USD"),
 			m("cash", "LBP", "532", "Cash LBP", "صندوق ليرة", "Caisse LBP"),
@@ -149,6 +152,7 @@ var All = []Template{
 	{
 		Key: "generic", Names: map[string]string{"en": "International (simple)", "ar": "دولي (مبسط)", "fr": "International (simple)"},
 		Accounts: generic, AR: "1300", FXGain: "4800", FXLoss: "6800", Revenue: "4200",
+		AP: "2100", Inventory: "1400", COGS: "5100", Fuel: "5100", StockAdjust: "6900", Expense: "6900",
 		Methods: []Method{
 			m("cash", "", "1100", "Cash", "الصندوق", "Caisse"),
 			m("bank", "", "1200", "Bank", "المصرف", "Banque"),

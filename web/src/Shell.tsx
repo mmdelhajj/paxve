@@ -40,11 +40,19 @@ import TrialBanner from './components/TrialBanner';
 import { IconWorld } from '@tabler/icons-react';
 import CollectorApp from './pages/collector/CollectorApp';
 import Messages from './pages/billing/Messages';
-import { IconMessage } from '@tabler/icons-react';
+import { IconMessage, IconTruck, IconReceipt, IconCashBanknote, IconReceiptTax, IconPackage, IconGasStation, IconPackages, IconChartPie, IconUserDollar } from '@tabler/icons-react';
+import Suppliers, { SupplierDetail } from './pages/purchases/Suppliers';
+import Bills from './pages/purchases/Bills';
+import SupplierPayments from './pages/purchases/SupplierPayments';
+import Expenses from './pages/purchases/Expenses';
+import Items, { ItemDetail } from './pages/purchases/Items';
+import Stock from './pages/purchases/Stock';
+import { APAging, StockValuation, ExpensesReport } from './pages/purchases/PurchReports';
 
 type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | 'ledger' | 'companies' | 'users' |
   'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup' |
-  'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform' | 'import' | 'messages';
+  'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform' | 'import' | 'messages' |
+  'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'expenses-report';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
@@ -64,6 +72,17 @@ const sections: { label?: string; items: NavItem[] }[] = [
     ],
   },
   {
+    label: 'pur.nav',
+    items: [
+      { key: 'suppliers', label: 'pur.suppliers', icon: IconTruck },
+      { key: 'bills', label: 'pur.bills', icon: IconReceipt },
+      { key: 'supplier-payments', label: 'pur.supplierPayments', icon: IconCashBanknote },
+      { key: 'expenses', label: 'pur.expenses', icon: IconReceiptTax },
+      { key: 'items', label: 'pur.items', icon: IconPackage },
+      { key: 'stock', label: 'pur.stock', icon: IconGasStation },
+    ],
+  },
+  {
     label: 'nav.accounting',
     items: [
       { key: 'journal', label: 'nav.journal', icon: IconListDetails },
@@ -79,6 +98,9 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'trial-balance', label: 'nav.trialBalance', icon: IconScale },
       { key: 'aging', label: 'reports2.aging', icon: IconHourglass },
       { key: 'collections', label: 'reports2.collections', icon: IconMoneybag },
+      { key: 'ap-aging', label: 'pur.apAging', icon: IconUserDollar },
+      { key: 'stock-valuation', label: 'pur.valuation', icon: IconPackages },
+      { key: 'expenses-report', label: 'pur.expensesReport', icon: IconChartPie },
     ],
   },
   {
@@ -96,7 +118,8 @@ const sections: { label?: string; items: NavItem[] }[] = [
 
 const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users',
   'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss',
-  'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform', 'import', 'messages'];
+  'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform', 'import', 'messages',
+  'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'expenses-report'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -211,7 +234,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
                     href={`#/${p.key}`}
                     label={t(p.label)}
                     leftSection={<p.icon size={18} stroke={1.6} />}
-                    active={current === p.key || (current === 'ledger' && p.key === 'trial-balance') || (current === 'customer' && p.key === 'customers')}
+                    active={current === p.key || (current === 'ledger' && p.key === 'trial-balance') || (current === 'customer' && p.key === 'customers') || (current === 'supplier' && p.key === 'suppliers') || (current === 'item' && p.key === 'items')}
                     onClick={close}
                     style={{ borderRadius: 'var(--mantine-radius-md)' }}
                   />
@@ -236,6 +259,17 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'developers' && <Developers />}
         {current === 'import' && <Import />}
         {current === 'messages' && <Messages me={me} />}
+        {current === 'suppliers' && <Suppliers me={me} />}
+        {current === 'supplier' && <SupplierDetail me={me} id={param} key={param} />}
+        {current === 'bills' && <Bills me={me} />}
+        {current === 'supplier-payments' && <SupplierPayments me={me} />}
+        {current === 'expenses' && <Expenses me={me} />}
+        {current === 'items' && <Items me={me} />}
+        {current === 'item' && <ItemDetail me={me} id={param} key={param} />}
+        {current === 'stock' && <Stock me={me} />}
+        {current === 'ap-aging' && <APAging />}
+        {current === 'stock-valuation' && <StockValuation />}
+        {current === 'expenses-report' && <ExpensesReport />}
         {current === 'customers' && <Customers me={me} />}
         {current === 'customer' && <CustomerDetail me={me} id={param} key={param} />}
         {current === 'readings' && <Readings me={me} />}

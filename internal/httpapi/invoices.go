@@ -229,6 +229,8 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 			Description string `json:"description"`
 			Quantity    string `json:"quantity"`
 			UnitPrice   string `json:"unit_price"`
+			ItemID      string `json:"item_id"` // optional: sell a stock item (takes it out of stock at average cost)
+			WarehouseID string `json:"warehouse_id"`
 		} `json:"lines"`
 	}
 	if !decodeBody(w, r, &in) {
@@ -270,16 +272,32 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		lines := []invLine{}
+		sales := []saleLine{}
 		for _, l := range in.Lines {
 			q, ok1 := money(l.Quantity)
 			p, ok2 := money(l.UnitPrice)
+			if l.ItemID != "" {
+				it, err := loadItem(ctx, tx, cid, l.ItemID)
+				if err != nil {
+					return nil, err
+				}
+				if strings.TrimSpace(l.Description) == "" {
+					l.Description = it.Name
+				}
+				if it.Kind == "stock" && ok1 && q.IsPositive() {
+					sales = append(sales, saleLine{ItemID: it.ID, WarehouseID: l.WarehouseID, Qty: q})
+				}
+			}
 			if !ok1 || !ok2 || strings.TrimSpace(l.Description) == "" {
 				return nil, badRequest("bad_request")
 			}
 			lines = append(lines, invLine{Kind: "other", Description: strings.TrimSpace(l.Description), Quantity: q, UnitPrice: p, Amount: q.Mul(p).Round(dec)})
 		}
-		id, _, err := issueInvoice(ctx, tx, cid, set, in.CustomerID, name, nil, nil, in.IssueDate, in.DueDate, in.Currency, rev, in.Notes, lines)
+		id, number, err := issueInvoice(ctx, tx, cid, set, in.CustomerID, name, nil, nil, in.IssueDate, in.DueDate, in.Currency, rev, in.Notes, lines)
 		if err != nil {
+			return nil, err
+		}
+		if err := postSaleCOGS(ctx, tx, cid, set, id, number, in.IssueDate, sales); err != nil {
 			return nil, err
 		}
 		return loadInvoice(ctx, tx, cid, id)
@@ -383,6 +401,9 @@ func (s *Server) voidInvoice(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 			rev = &rid
+		}
+		if err := reverseSaleCOGS(ctx, tx, cid, id, number); err != nil {
+			return nil, err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE invoices SET status = 'void', void_entry_id = $2,
 			notes = CASE WHEN $3 = '' THEN notes ELSE trim(notes || ' ' || $3) END WHERE id = $1`, id, rev, strings.TrimSpace(in.Reason)); err != nil {
