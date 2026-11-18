@@ -5,16 +5,20 @@ import { IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, type Company, type Me } from '../api';
 import { formatDate, notifyError, notifySaved } from '../util';
+import { useCompany } from '../company';
+import { Select } from '@mantine/core';
 
 export default function Companies({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
+  const { reload } = useCompany();
   const [rows, setRows] = useState<Company[] | null>(null);
   const [opened, modal] = useDisclosure(false);
   const isAdmin = me.role === 'admin';
 
   const load = useCallback(() => {
     api<Company[]>('/companies').then(setRows).catch((e) => notifyError(t, e));
-  }, [t]);
+    reload();
+  }, [t, reload]);
   useEffect(load, [load]);
 
   async function toggle(c: Company) {
@@ -91,13 +95,17 @@ function NewCompany({ opened, onClose, onCreated }: { opened: boolean; onClose: 
   const { t } = useTranslation();
   const [nameEn, setNameEn] = useState('');
   const [nameAr, setNameAr] = useState('');
+  const [baseCur, setBaseCur] = useState<string | null>('USD');
+  const [localCur, setLocalCur] = useState<string | null>('LBP');
   const [busy, setBusy] = useState(false);
+  const { currencies } = useCompany();
+  const curOptions = currencies.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }));
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api('/companies', { method: 'POST', body: { name_en: nameEn, name_ar: nameAr } });
+      await api('/companies', { method: 'POST', body: { name_en: nameEn, name_ar: nameAr, base_currency: baseCur, local_currency: localCur } });
       notifySaved(t);
       setNameEn('');
       setNameAr('');
@@ -118,7 +126,8 @@ function NewCompany({ opened, onClose, onCreated }: { opened: boolean; onClose: 
             onChange={(e) => setNameEn(e.currentTarget.value)} data-autofocus />
           <TextInput label={t('companies.nameAr')} dir="rtl" value={nameAr}
             onChange={(e) => setNameAr(e.currentTarget.value)} />
-          <Text size="xs" c="dimmed">{t('companies.currencies')}: USD / LBP</Text>
+          <Select label={t('companies.base')} searchable allowDeselect={false} data={curOptions} value={baseCur} onChange={setBaseCur} />
+          <Select label={t('companies.local')} searchable allowDeselect={false} data={curOptions} value={localCur} onChange={setLocalCur} />
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
             <Button type="submit" loading={busy}>{t('common.save')}</Button>

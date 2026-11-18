@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import {
-  AppShell, Avatar, Burger, Button, Group, Menu, Modal, NavLink, PasswordInput, Stack, Text, UnstyledButton,
+  AppShell, Avatar, Burger, Button, Group, Menu, Modal, NavLink, PasswordInput, ScrollArea, Select, Stack, Text,
+  UnstyledButton,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
-  IconBuilding, IconChevronDown, IconHistory, IconKey, IconLayoutDashboard, IconLogout, IconUsers,
+  IconApi, IconArrowsExchange, IconBook2, IconBuilding, IconChevronDown, IconHistory, IconKey, IconLayoutDashboard,
+  IconListDetails, IconLogout, IconScale, IconUsers,
 } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, type Me, type Role } from './api';
+import { useCompany } from './company';
 import { notifyError, notifySaved } from './util';
 import LangSwitch from './components/LangSwitch';
 import Logo from './components/Logo';
@@ -15,35 +18,64 @@ import Dashboard from './pages/Dashboard';
 import Companies from './pages/Companies';
 import Users from './pages/Users';
 import Audit from './pages/Audit';
+import Accounts from './pages/Accounts';
+import Journal from './pages/Journal';
+import Rates from './pages/Rates';
+import TrialBalance from './pages/TrialBalance';
+import Ledger from './pages/Ledger';
+import Developers from './pages/Developers';
 
-type Page = 'dashboard' | 'companies' | 'users' | 'audit';
+type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | 'ledger' | 'companies' | 'users' |
+  'audit' | 'developers';
 
-const pages: { key: Page; icon: typeof IconBuilding; roles?: Role[] }[] = [
-  { key: 'dashboard', icon: IconLayoutDashboard },
-  { key: 'companies', icon: IconBuilding },
-  { key: 'users', icon: IconUsers, roles: ['admin'] },
-  { key: 'audit', icon: IconHistory, roles: ['admin', 'accountant'] },
+interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
+
+const sections: { label?: string; items: NavItem[] }[] = [
+  { items: [{ key: 'dashboard', label: 'nav.dashboard', icon: IconLayoutDashboard }] },
+  {
+    label: 'nav.accounting',
+    items: [
+      { key: 'journal', label: 'nav.journal', icon: IconListDetails },
+      { key: 'accounts', label: 'nav.accounts', icon: IconBook2 },
+      { key: 'trial-balance', label: 'nav.trialBalance', icon: IconScale },
+      { key: 'rates', label: 'nav.rates', icon: IconArrowsExchange },
+    ],
+  },
+  {
+    label: 'nav.settings',
+    items: [
+      { key: 'companies', label: 'nav.companies', icon: IconBuilding },
+      { key: 'users', label: 'nav.users', icon: IconUsers, roles: ['admin'] },
+      { key: 'audit', label: 'nav.audit', icon: IconHistory, roles: ['admin', 'accountant'] },
+      { key: 'developers', label: 'nav.developers', icon: IconApi, roles: ['admin'] },
+    ],
+  },
 ];
 
-function readHash(): Page {
-  const p = window.location.hash.replace(/^#\/?/, '') as Page;
-  return pages.some((x) => x.key === p) ? p : 'dashboard';
+const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users',
+  'audit', 'developers'];
+
+function readHash(): [Page, string] {
+  const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
+  return [allPages.includes(p as Page) ? (p as Page) : 'dashboard', param];
 }
 
 export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) => void; onLogout: () => void }) {
   const { t } = useTranslation();
+  const { companies, company, setCompanyId } = useCompany();
   const [opened, { toggle, close }] = useDisclosure();
-  const [page, setPage] = useState<Page>(readHash);
+  const [[page, param], setRoute] = useState<[Page, string]>(readHash);
   const [pwOpen, pw] = useDisclosure(false);
 
   useEffect(() => {
-    const f = () => setPage(readHash());
+    const f = () => setRoute(readHash());
     window.addEventListener('hashchange', f);
     return () => window.removeEventListener('hashchange', f);
   }, []);
 
-  const visible = pages.filter((p) => !p.roles || p.roles.includes(me.role));
-  const current = visible.some((p) => p.key === page) ? page : 'dashboard';
+  const allowed = (i: NavItem) => !i.roles || i.roles.includes(me.role);
+  const blocked = sections.flatMap((s) => s.items).some((i) => i.key === page && !allowed(i));
+  const current: Page = blocked ? 'dashboard' : page;
 
   async function logout() {
     try {
@@ -53,14 +85,14 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
     }
   }
 
-  function saveLocale(locale: 'en' | 'ar') {
+  function saveLocale(locale: string) {
     api<Me>('/me', { method: 'PATCH', body: { locale } }).then(onMe).catch(() => {});
   }
 
   return (
     <AppShell
       header={{ height: 60 }}
-      navbar={{ width: 240, breakpoint: 'sm', collapsed: { mobile: !opened } }}
+      navbar={{ width: 250, breakpoint: 'sm', collapsed: { mobile: !opened } }}
       padding="lg"
     >
       <AppShell.Header>
@@ -68,9 +100,18 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
           <Group gap="sm" wrap="nowrap">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <Logo />
-            <Text c="dimmed" size="sm" visibleFrom="sm" truncate>
-              {me.tenant_name}
-            </Text>
+            {companies.length > 0 && (
+              <Select
+                size="xs"
+                w={{ base: 140, sm: 220 }}
+                aria-label={t('common.company')}
+                leftSection={<IconBuilding size={14} />}
+                value={company?.id ?? null}
+                allowDeselect={false}
+                data={companies.map((c) => ({ value: c.id, label: c.name_ar && document.dir === 'rtl' ? c.name_ar : c.name_en }))}
+                onChange={(v) => v && setCompanyId(v)}
+              />
+            )}
           </Group>
           <Group gap="sm" wrap="nowrap">
             <LangSwitch onChange={saveLocale} />
@@ -81,7 +122,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
                     <Avatar size="sm" color="teal" radius="xl">
                       {me.full_name.slice(0, 1).toUpperCase()}
                     </Avatar>
-                    <Text size="sm" visibleFrom="sm">
+                    <Text size="sm" visibleFrom="md">
                       {me.full_name}
                     </Text>
                     <IconChevronDown size={14} />
@@ -90,8 +131,9 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
               </Menu.Target>
               <Menu.Dropdown>
                 <Menu.Label>
-                  {me.email} · {t(`roles.${me.role}`)}
+                  {me.tenant_name} · {t(`roles.${me.role}`)}
                 </Menu.Label>
+                <Menu.Label>{me.email}</Menu.Label>
                 <Menu.Item leftSection={<IconKey size={16} />} onClick={pw.open}>
                   {t('common.changePassword')}
                 </Menu.Item>
@@ -105,24 +147,45 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
       </AppShell.Header>
 
       <AppShell.Navbar p="sm">
-        {visible.map((p) => (
-          <NavLink
-            key={p.key}
-            href={`#/${p.key}`}
-            label={t(`nav.${p.key}`)}
-            leftSection={<p.icon size={18} stroke={1.6} />}
-            active={current === p.key}
-            onClick={close}
-            style={{ borderRadius: 'var(--mantine-radius-md)' }}
-          />
-        ))}
+        <ScrollArea>
+          {sections.map((s, i) => {
+            const items = s.items.filter(allowed);
+            if (items.length === 0) return null;
+            return (
+              <Stack key={i} gap={2} mb="md">
+                {s.label && (
+                  <Text size="xs" fw={600} c="dimmed" tt="uppercase" px="sm" mb={4}>
+                    {t(s.label)}
+                  </Text>
+                )}
+                {items.map((p) => (
+                  <NavLink
+                    key={p.key}
+                    href={`#/${p.key}`}
+                    label={t(p.label)}
+                    leftSection={<p.icon size={18} stroke={1.6} />}
+                    active={current === p.key || (current === 'ledger' && p.key === 'trial-balance')}
+                    onClick={close}
+                    style={{ borderRadius: 'var(--mantine-radius-md)' }}
+                  />
+                ))}
+              </Stack>
+            );
+          })}
+        </ScrollArea>
       </AppShell.Navbar>
 
       <AppShell.Main bg="var(--mantine-color-gray-0)">
         {current === 'dashboard' && <Dashboard me={me} />}
+        {current === 'accounts' && <Accounts me={me} />}
+        {current === 'journal' && <Journal me={me} openId={param} />}
+        {current === 'rates' && <Rates me={me} />}
+        {current === 'trial-balance' && <TrialBalance />}
+        {current === 'ledger' && <Ledger accountId={param} />}
         {current === 'companies' && <Companies me={me} />}
         {current === 'users' && <Users me={me} />}
         {current === 'audit' && <Audit />}
+        {current === 'developers' && <Developers />}
       </AppShell.Main>
 
       <ChangePassword opened={pwOpen} onClose={pw.close} />

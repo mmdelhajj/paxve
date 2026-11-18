@@ -3,7 +3,8 @@ import { Center, DirectionProvider, Loader, MantineProvider, createTheme, useDir
 import { Notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
 import { api, UNAUTHORIZED_EVENT, type Me } from './api';
-import { applyLang } from './i18n';
+import { applyLang, langInfo } from './i18n';
+import { CompanyProvider } from './company';
 import Login from './pages/Login';
 import Shell from './Shell';
 
@@ -20,7 +21,7 @@ function DirectionSync() {
   const { i18n } = useTranslation();
   const { setDirection } = useDirection();
   useEffect(() => {
-    setDirection(i18n.language === 'ar' ? 'rtl' : 'ltr');
+    setDirection(langInfo(i18n.language).dir);
   }, [i18n.language, setDirection]);
   return null;
 }
@@ -57,13 +58,17 @@ function Root() {
       />
     );
   }
-  return <Shell me={me} onMe={setMe} onLogout={() => setMe(null)} />;
+  return (
+    <CompanyProvider>
+      <Shell me={me} onMe={setMe} onLogout={() => setMe(null)} />
+    </CompanyProvider>
+  );
 }
 
 export default function App() {
   const { i18n } = useTranslation();
   return (
-    <DirectionProvider initialDirection={i18n.language === 'ar' ? 'rtl' : 'ltr'} detectDirection={false}>
+    <DirectionProvider initialDirection={langInfo(i18n.language).dir} detectDirection={false}>
       <MantineProvider theme={theme}>
         <DirectionSync />
         <Notifications position="top-center" />

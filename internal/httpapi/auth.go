@@ -99,7 +99,7 @@ func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
-	if in.Locale != nil && *in.Locale != "en" && *in.Locale != "ar" {
+	if in.Locale != nil && !supportedLocales[*in.Locale] {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}

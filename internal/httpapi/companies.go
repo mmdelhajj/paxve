@@ -47,18 +47,30 @@ func (s *Server) listCompanies(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createCompany(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var in struct {
-		NameEn string `json:"name_en"`
-		NameAr string `json:"name_ar"`
+		NameEn        string `json:"name_en"`
+		NameAr        string `json:"name_ar"`
+		BaseCurrency  string `json:"base_currency"`
+		LocalCurrency string `json:"local_currency"`
 	}
 	if err := decode(w, r, &in); err != nil || strings.TrimSpace(in.NameEn) == "" {
+		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	if in.BaseCurrency == "" {
+		in.BaseCurrency = "USD"
+	}
+	if in.LocalCurrency == "" {
+		in.LocalCurrency = in.BaseCurrency
+	}
+	if !currencyRe.MatchString(in.BaseCurrency) || !currencyRe.MatchString(in.LocalCurrency) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
 	var c company
 	err := db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx,
-			`INSERT INTO companies (name_en, name_ar) VALUES ($1, $2) RETURNING `+companyCols,
-			strings.TrimSpace(in.NameEn), strings.TrimSpace(in.NameAr))
+			`INSERT INTO companies (name_en, name_ar, base_currency, local_currency) VALUES ($1, $2, $3, $4) RETURNING `+companyCols,
+			strings.TrimSpace(in.NameEn), strings.TrimSpace(in.NameAr), in.BaseCurrency, in.LocalCurrency)
 		if err != nil {
 			return err
 		}
@@ -70,7 +82,7 @@ func (s *Server) createCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		serverErr(w, r, err)
+		fail(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, c)
@@ -78,7 +90,7 @@ func (s *Server) createCompany(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) updateCompany(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	id := r.PathValue("id")
+	id := r.PathValue("cid")
 	if !isUUID(id) {
 		writeErr(w, http.StatusNotFound, "not_found")
 		return

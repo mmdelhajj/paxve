@@ -1,0 +1,379 @@
+openapi: 3.1.0
+info:
+  title: Paxve API
+  version: "1.0"
+  description: |
+    REST API for Paxve — accounting and billing for subscription businesses.
+
+    **Authentication:** create an API key in Paxve (Developers page, admin only) and send it as
+    `Authorization: Bearer pxv_xxxxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`.
+    A key acts with the role chosen when it was created (admin, accountant, data_entry, read_only)
+    and only ever sees its own organisation's data.
+
+    **Money** is always sent and returned as decimal strings (e.g. `"1250.5000"`), never as floats.
+    **Dates** are `YYYY-MM-DD`. Errors look like `{"error": "code", "detail": "..."}`.
+
+    **Exchange rates:** `rate` = units of the currency for 1 unit of the company base currency
+    (base USD, LBP rate `89500` means 1 USD = 89,500 LBP).
+
+    **Accounting rules (enforced by the database):** posted entries must balance (debits = credits
+    in base currency) and have at least two lines; posted entries can never be changed or deleted,
+    only reversed; entry numbers are gap-free per company.
+servers:
+  - url: https://paxve.com/api/v1
+security:
+  - bearer: []
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+  parameters:
+    cid:
+      name: cid
+      in: path
+      required: true
+      description: Company id
+      schema: { type: string, format: uuid }
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string, example: unbalanced }
+        detail: { type: string }
+    Money:
+      type: string
+      pattern: '^\d+(\.\d{1,4})?$'
+      example: "150.0000"
+    Company:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name_en: { type: string }
+        name_ar: { type: string }
+        base_currency: { type: string, example: USD }
+        local_currency: { type: string, example: LBP }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+    Currency:
+      type: object
+      properties:
+        code: { type: string, example: LBP }
+        name: { type: string }
+        symbol: { type: string }
+        decimals: { type: integer }
+    Rate:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        currency: { type: string, example: LBP }
+        date: { type: string, format: date }
+        kind: { type: string, enum: [official, buy, sell] }
+        rate: { type: string, example: "89500" }
+    Account:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, example: "531" }
+        name: { type: string, example: Cash USD }
+        name_i18n:
+          type: object
+          additionalProperties: { type: string }
+          example: { en: Cash USD, ar: الصندوق دولار, fr: Caisse USD }
+        type: { type: string, enum: [asset, liability, equity, income, expense] }
+        parent_id: { type: [string, "null"], format: uuid }
+        is_postable: { type: boolean }
+        currency: { type: [string, "null"], description: "If set, only this currency may be posted" }
+        is_active: { type: boolean }
+    LineIn:
+      type: object
+      required: [account_id]
+      properties:
+        account_id: { type: string, format: uuid }
+        description: { type: string }
+        currency: { type: string, description: "Defaults to the company base currency", example: LBP }
+        debit: { $ref: '#/components/schemas/Money' }
+        credit: { $ref: '#/components/schemas/Money' }
+        rate: { type: string, description: "Optional; defaults to the latest official rate on or before the entry date" }
+    EntryIn:
+      type: object
+      required: [date, lines]
+      properties:
+        date: { type: string, format: date }
+        memo: { type: string }
+        reference: { type: string }
+        post: { type: boolean, description: "Post immediately (admin/accountant only)" }
+        lines:
+          type: array
+          minItems: 2
+          items: { $ref: '#/components/schemas/LineIn' }
+    Entry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: [integer, "null"], description: "Assigned when posted" }
+        date: { type: string, format: date }
+        memo: { type: string }
+        reference: { type: string }
+        status: { type: string, enum: [draft, posted] }
+        source: { type: string }
+        reversal_of: { type: [string, "null"] }
+        reversed_by: { type: [string, "null"] }
+        total: { $ref: '#/components/schemas/Money' }
+        base_currency: { type: string }
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              line_no: { type: integer }
+              account_id: { type: string }
+              account_code: { type: string }
+              account_name: { type: string }
+              description: { type: string }
+              currency: { type: string }
+              debit: { $ref: '#/components/schemas/Money' }
+              credit: { $ref: '#/components/schemas/Money' }
+              rate: { type: string }
+              base_debit: { $ref: '#/components/schemas/Money' }
+              base_credit: { $ref: '#/components/schemas/Money' }
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+paths:
+  /me:
+    get:
+      summary: Who am I (user or API key)
+      responses:
+        "200": { description: OK }
+  /currencies:
+    get:
+      summary: List world currencies
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Currency' } }
+  /companies:
+    get:
+      summary: List companies of the organisation
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Company' } }
+    post:
+      summary: Create a company (admin)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name_en]
+              properties:
+                name_en: { type: string }
+                name_ar: { type: string }
+                base_currency: { type: string, example: USD }
+                local_currency: { type: string, example: LBP }
+      responses:
+        "201": { description: Created }
+        default: { $ref: '#/components/responses/Error' }
+  /companies/{cid}/rates:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get:
+      summary: List exchange rates (newest first)
+      parameters:
+        - { name: currency, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Rate' } }
+    post:
+      summary: Set the rate of a currency for a date (creates or corrects)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, rate]
+              properties:
+                currency: { type: string, example: LBP }
+                date: { type: string, format: date }
+                kind: { type: string, enum: [official, buy, sell], default: official }
+                rate: { type: string, example: "89500" }
+      responses:
+        "200": { description: Saved }
+        default: { $ref: '#/components/responses/Error' }
+  /companies/{cid}/rates/latest:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get:
+      summary: Latest official rate per currency on or before a date
+      parameters:
+        - { name: date, in: query, schema: { type: string, format: date } }
+      responses:
+        "200": { description: OK }
+  /companies/{cid}/accounts:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get:
+      summary: Chart of accounts
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Account' } }
+    post:
+      summary: Create an account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name, type]
+              properties:
+                code: { type: string }
+                name: { type: string }
+                name_i18n: { type: object, additionalProperties: { type: string } }
+                type: { type: string, enum: [asset, liability, equity, income, expense] }
+                parent_id: { type: string, format: uuid }
+                is_postable: { type: boolean, default: true }
+                currency: { type: string }
+      responses:
+        "201": { description: Created }
+        default: { $ref: '#/components/responses/Error' }
+  /companies/{cid}/accounts/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    patch:
+      summary: Update an account (any subset of fields)
+      responses:
+        "200": { description: OK }
+        default: { $ref: '#/components/responses/Error' }
+  /chart-templates:
+    get:
+      summary: Ready-made charts of accounts
+      responses:
+        "200": { description: OK }
+  /companies/{cid}/accounts/load-template:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    post:
+      summary: Fill an empty chart of accounts from a template
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                template: { type: string, example: lebanon }
+                language: { type: string, example: ar }
+      responses:
+        "200": { description: OK }
+        default: { $ref: '#/components/responses/Error' }
+  /companies/{cid}/journal:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get:
+      summary: List journal entries
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [draft, posted] } }
+        - { name: limit, in: query, schema: { type: integer, default: 100, maximum: 500 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        "200": { description: OK }
+    post:
+      summary: Create a journal entry (draft, or posted with "post":true)
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EntryIn' }
+            example:
+              date: "2026-11-18"
+              memo: Subscriber payment
+              post: true
+              lines:
+                - { account_id: "…cash LBP…", currency: LBP, debit: "4475000" }
+                - { account_id: "…customers…", currency: USD, credit: "50" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Entry' }
+        "422": { $ref: '#/components/responses/Error' }
+        default: { $ref: '#/components/responses/Error' }
+  /companies/{cid}/journal/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get:
+      summary: One journal entry with lines
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Entry' }
+    put:
+      summary: Replace a draft entry
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EntryIn' }
+      responses:
+        "200": { description: OK }
+        "409": { $ref: '#/components/responses/Error' }
+    delete:
+      summary: Discard a draft entry (posted entries cannot be deleted)
+      responses:
+        "200": { description: OK }
+        "409": { $ref: '#/components/responses/Error' }
+  /companies/{cid}/journal/{id}/post:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post:
+      summary: Post a draft (assigns the next number; must balance)
+      responses:
+        "200": { description: OK }
+        "422": { $ref: '#/components/responses/Error' }
+  /companies/{cid}/journal/{id}/reverse:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post:
+      summary: Reverse a posted entry (creates and posts the opposite entry)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: { type: string, format: date }
+                memo: { type: string }
+      responses:
+        "201": { description: Reversal created }
+        "409": { $ref: '#/components/responses/Error' }
+  /companies/{cid}/reports/trial-balance:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get:
+      summary: Trial balance in base currency
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        "200": { description: OK }
+  /companies/{cid}/reports/ledger/{account}:
+    parameters:
+      - { $ref: '#/components/parameters/cid' }
+      - { name: account, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Account ledger with running balance
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        "200": { description: OK }

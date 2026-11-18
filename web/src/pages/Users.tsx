@@ -7,6 +7,7 @@ import { IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, type Me, type Role, type User } from '../api';
 import { formatDate, notifyError, notifySaved } from '../util';
+import { languages } from '../i18n';
 
 const roles: Role[] = ['admin', 'accountant', 'data_entry', 'read_only'];
 
@@ -122,7 +123,7 @@ function NewUser({ opened, onClose, onCreated, roleOptions }: {
           <Select label={t('users.role')} data={roleOptions} value={form.role} allowDeselect={false}
             onChange={(v) => v && set('role')(v)} />
           <Select label={t('users.language')} value={form.locale} allowDeselect={false}
-            data={[{ value: 'ar', label: 'عربي' }, { value: 'en', label: 'English' }]}
+            data={languages.map((l) => ({ value: l.code, label: l.label }))}
             onChange={(v) => v && set('locale')(v)} />
           <PasswordInput label={t('users.password')} dir="ltr" required minLength={10} value={form.password}
             onChange={(e) => set('password')(e.currentTarget.value)} autoComplete="new-password" />

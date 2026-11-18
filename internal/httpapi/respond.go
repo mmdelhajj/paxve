@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -31,6 +32,60 @@ func decode(w http.ResponseWriter, r *http.Request, v any) error {
 func isUniqueViolation(err error) bool {
 	var pg *pgconn.PgError
 	return errors.As(err, &pg) && pg.Code == "23505"
+}
+
+// apiError is returned from inside transactions to send a specific error code.
+type apiError struct {
+	status int
+	code   string
+	detail string
+}
+
+func (e *apiError) Error() string { return e.code }
+
+func badRequest(code string) error { return &apiError{status: http.StatusBadRequest, code: code} }
+func notFound() error              { return &apiError{status: http.StatusNotFound, code: "not_found"} }
+
+// fail maps an error to a response: apiError, accounting rule violations
+// raised by the database, constraint errors, or a 500.
+func fail(w http.ResponseWriter, r *http.Request, err error) {
+	var ae *apiError
+	if errors.As(err, &ae) {
+		if ae.detail != "" {
+			writeJSON(w, ae.status, map[string]string{"error": ae.code, "detail": ae.detail})
+		} else {
+			writeErr(w, ae.status, ae.code)
+		}
+		return
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeErr(w, http.StatusNotFound, "not_found")
+		return
+	}
+	var pg *pgconn.PgError
+	if errors.As(err, &pg) {
+		switch pg.Code {
+		case "PXUNB":
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "unbalanced", "detail": pg.Message})
+			return
+		case "PXACC":
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": "invalid_account", "detail": pg.Message})
+			return
+		case "PXIMM":
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "posted_locked", "detail": pg.Message})
+			return
+		case "PXSTA":
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "wrong_status", "detail": pg.Message})
+			return
+		case "23505":
+			writeErr(w, http.StatusConflict, "duplicate")
+			return
+		case "23503", "23514", "22P02", "22003", "22007", "22008":
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad_request", "detail": pg.Message})
+			return
+		}
+	}
+	serverErr(w, r, err)
 }
 
 // limiter counts failed logins per IP.

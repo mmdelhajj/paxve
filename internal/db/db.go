@@ -14,6 +14,7 @@ import (
 type Scope struct {
 	TenantID string
 	UserID   string
+	APIKeyID string
 	IP       string
 }
 
@@ -28,8 +29,9 @@ func InTenant(ctx context.Context, pool *pgxpool.Pool, s Scope, fn func(pgx.Tx) 
 		_, err := tx.Exec(ctx,
 			`SELECT set_config('app.tenant_id', $1, true),
 			        set_config('app.user_id', $2, true),
-			        set_config('app.ip', $3, true)`,
-			s.TenantID, s.UserID, s.IP)
+			        set_config('app.ip', $3, true),
+			        set_config('app.api_key_id', $4, true)`,
+			s.TenantID, s.UserID, s.IP, s.APIKeyID)
 		if err != nil {
 			return err
 		}

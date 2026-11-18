@@ -63,7 +63,7 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 	if in.Locale == "" {
 		in.Locale = "ar"
 	}
-	if !strings.Contains(in.Email, "@") || in.FullName == "" || !validRoles[in.Role] || (in.Locale != "en" && in.Locale != "ar") {
+	if !strings.Contains(in.Email, "@") || in.FullName == "" || !validRoles[in.Role] || !supportedLocales[in.Locale] {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
