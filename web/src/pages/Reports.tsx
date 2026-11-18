@@ -5,6 +5,7 @@ import { api } from '../api';
 import { useCompany } from '../company';
 import { accountName, formatAmount, formatDate, notifyError, today } from '../util';
 import PageHeader from '../components/PageHeader';
+import ExportMenu, { type Cell } from '../components/ExportMenu';
 
 interface AccRow { id: string; code: string; name: string; name_i18n: Record<string, string>; type: string; amount: string }
 
@@ -56,10 +57,21 @@ export function ProfitLoss() {
   if (!company) return null;
   const dec = decimalsOf(company.base_currency);
   return (
-    <Stack gap="lg" maw={900}>
-      <PageHeader title={t('reports2.pl')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })}`}>
+    <Stack gap="lg" maw={900} className="print-area">
+      <PageHeader title={t('reports2.pl')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${from} → ${to}`}>
         <TextInput type="date" size="xs" label={t('reports.from')} value={from} onChange={(e) => setFrom(e.currentTarget.value)} />
         <TextInput type="date" size="xs" label={t('reports.to')} value={to} onChange={(e) => setTo(e.currentTarget.value)} />
+        <ExportMenu disabled={!d} table={() => d && ({
+          title: t('reports2.pl'), subtitle: `${company.name_en} · ${from} → ${to} · ${company.base_currency}`,
+          columns: [{ label: t('reports.account') }, { label: t('reports.balance'), numeric: true }],
+          rows: [
+            [t('reports2.income'), null], ...d.rows.filter((r) => r.type === 'income').map((r) => [`${r.code} · ${accountName(r)}`, r.amount]),
+            [t('reports2.totalIncome'), d.total_income],
+            [t('reports2.expenses'), null], ...d.rows.filter((r) => r.type === 'expense').map((r) => [`${r.code} · ${accountName(r)}`, r.amount]),
+            [t('reports2.totalExpense'), d.total_expense],
+          ],
+          footer: [[Number(d.net) >= 0 ? t('reports2.profit') : t('reports2.loss'), d.net]],
+        })} />
       </PageHeader>
       {!d ? <Center p="xl"><Loader size="sm" /></Center> : (
         <>
@@ -92,9 +104,23 @@ export function BalanceSheet() {
   if (!company) return null;
   const dec = decimalsOf(company.base_currency);
   return (
-    <Stack gap="lg" maw={1100}>
-      <PageHeader title={t('reports2.bs')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })}`}>
+    <Stack gap="lg" maw={1100} className="print-area">
+      <PageHeader title={t('reports2.bs')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${to}`}>
         <TextInput type="date" size="xs" label={t('reports2.asOf')} value={to} onChange={(e) => setTo(e.currentTarget.value)} />
+        <ExportMenu disabled={!d} table={() => {
+          if (!d) return null;
+          const part = (type: string): Cell[][] => d.rows.filter((r) => r.type === type).map((r) => [`${r.code} · ${accountName(r)}`, r.amount]);
+          return {
+            title: t('reports2.bs'), subtitle: `${company.name_en} · ${to} · ${company.base_currency}`,
+            columns: [{ label: t('reports.account') }, { label: t('reports.balance'), numeric: true }],
+            rows: [
+              [t('accounts.types.asset'), null], ...part('asset'), [t('reports2.totalAssets'), d.total_assets],
+              [t('accounts.types.liability'), null], ...part('liability'), [t('reports2.totalLiabilities'), d.total_liabilities],
+              [t('accounts.types.equity'), null], ...part('equity'), [t('reports2.currentResult'), d.current_result],
+            ],
+            footer: [[t('reports2.totalLE'), d.total_liabilities_equity]],
+          };
+        }} />
       </PageHeader>
       {!d ? <Center p="xl"><Loader size="sm" /></Center> : (
         <Grid>
@@ -135,9 +161,16 @@ export function Aging() {
   if (!company) return null;
   const buckets = ['current', 'd30', 'd60', 'd90', 'over90'] as const;
   return (
-    <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('reports2.aging')} subtitle={company.name_en}>
+    <Stack gap="lg" maw={1200} className="print-area">
+      <PageHeader title={t('reports2.aging')} subtitle={`${company.name_en} · ${asOf}`}>
         <TextInput type="date" size="xs" label={t('reports2.asOf')} value={asOf} onChange={(e) => setAsOf(e.currentTarget.value)} />
+        <ExportMenu disabled={!d?.rows.length} table={() => d && ({
+          title: t('reports2.aging'), subtitle: `${company.name_en} · ${asOf}`,
+          columns: [{ label: t('invoices.customer') }, { label: t('customers.code') }, { label: t('gap.currency') },
+            ...buckets.map((b) => ({ label: t(`reports2.buckets.${b}`), numeric: true })), { label: t('invoices.total'), numeric: true }],
+          rows: d.rows.map((r) => [r.name, r.code, r.currency, ...buckets.map((b) => r[b]), r.total]),
+          footer: d.totals.map((x) => [t('reports.totals'), '', x.currency, ...buckets.map((b) => x[b]), x.total]),
+        })} />
       </PageHeader>
       {!d ? <Center p="xl"><Loader size="sm" /></Center> : (
         <>
@@ -200,10 +233,17 @@ export function Collections() {
   const d = useReport<{ by_user: ByUser[]; by_day: ByDay[] }>(company ? `/companies/${company.id}/reports/collections?from=${from}&to=${to}` : null);
   if (!company) return null;
   return (
-    <Stack gap="lg" maw={1100}>
-      <PageHeader title={t('reports2.collections')} subtitle={company.name_en}>
+    <Stack gap="lg" maw={1100} className="print-area">
+      <PageHeader title={t('reports2.collections')} subtitle={`${company.name_en} · ${from} → ${to}`}>
         <TextInput type="date" size="xs" label={t('reports.from')} value={from} onChange={(e) => setFrom(e.currentTarget.value)} />
         <TextInput type="date" size="xs" label={t('reports.to')} value={to} onChange={(e) => setTo(e.currentTarget.value)} />
+        <ExportMenu disabled={!d} table={() => d && ({
+          title: t('reports2.collections'), subtitle: `${company.name_en} · ${from} → ${to}`,
+          columns: [{ label: t('journal.date') }, { label: t('payments.receivedBy') }, { label: t('bill.payments'), numeric: true },
+            { label: t('gap.currency') }, { label: t('payments.amount'), numeric: true }],
+          rows: [...d.by_user.map((u) => ['', u.user_name, u.payments, u.currency, u.amount]),
+            ...d.by_day.map((x) => [x.date, '', x.payments, x.currency, x.amount])],
+        })} />
       </PageHeader>
       {!d ? <Center p="xl"><Loader size="sm" /></Center> : (
         <Grid>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Table, Text, TextInput } from '@mantine/core';
+import { Badge, Button, Center, Checkbox, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Table, Text, TextInput } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, type Account, type Me } from '../../api';
@@ -78,7 +78,8 @@ export default function Expenses({ me }: { me: Me }) {
                     <Table.Td>{e.account_code} · {accountName({ name: e.account_name, name_i18n: e.account_name_i18n })}</Table.Td>
                     <Table.Td>{e.description}{e.supplier_name && <Text size="xs" c="dimmed">{e.supplier_name}</Text>}</Table.Td>
                     <Table.Td c="dimmed">{e.method}</Table.Td>
-                    <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(e.amount, decimalsOf(e.currency))} {e.currency}</Table.Td>
+                    <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(e.amount, decimalsOf(e.currency))} {e.currency}
+                      {Number(e.tax_amount) > 0 && <Text size="xs" c="dimmed">{e.tax_name}: {formatAmount(e.tax_amount, decimalsOf(e.currency))}</Text>}</Table.Td>
                     <Table.Td>{e.status === 'void' ? <Badge color="gray">{t('invoices.statuses.void')}</Badge>
                       : canManage && <Button size="compact-xs" variant="subtle" color="red" onClick={() => setVoiding(e.id)}>{t('pur.voidExpense')}</Button>}</Table.Td>
                   </Table.Tr>
@@ -98,11 +99,13 @@ function NewExpense({ onClose, onDone }: { onClose: () => void; onDone: () => vo
   const { company } = useCompany();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
-  const [f, setF] = useState({ account_id: '', method_id: '', amount: '', description: '', date: today() });
+  const [f, setF] = useState({ account_id: '', method_id: '', amount: '', description: '', date: today(), tax_rate_id: '', tax_included: false });
+  const [taxes, setTaxes] = useState<{ id: string; name: string; rate: string; applies_to: string; is_active: boolean }[]>([]);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (!company) return;
     api<Account[]>(`/companies/${company.id}/accounts`).then((a) => setAccounts(a.filter((x) => x.is_postable && x.is_active && x.type === 'expense'))).catch(() => {});
+    api<typeof taxes>(`/companies/${company.id}/tax-rates`).then((x) => setTaxes(x.filter((r) => r.is_active && r.applies_to !== 'sales'))).catch(() => {});
     api<PaymentMethod[]>(`/companies/${company.id}/payment-methods`).then((m) => {
       const a = m.filter((x) => x.is_active); setMethods(a); if (a[0]) setF((x) => ({ ...x, method_id: a[0].id }));
     }).catch(() => {});
@@ -138,6 +141,19 @@ function NewExpense({ onClose, onDone }: { onClose: () => void; onDone: () => vo
             <TextInput label={t('pur.amount')} dir="ltr" required value={f.amount} rightSection={<Text size="xs" c="dimmed">{m?.currency}</Text>}
               onChange={(e) => setF({ ...f, amount: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
           </Group>
+          {taxes.length > 0 && (
+            <Group grow align="flex-end">
+              <Select label={t('net.tax')} clearable placeholder={t('net.noTax')} value={f.tax_rate_id || null}
+                data={taxes.map((x) => ({ value: x.id, label: `${x.name} (${x.rate}%)` }))} onChange={(v) => setF({ ...f, tax_rate_id: v ?? '' })} />
+              <Checkbox label={t('gap.taxIncluded')} checked={f.tax_included} disabled={!f.tax_rate_id} mb={8}
+                onChange={(e) => setF({ ...f, tax_included: e.currentTarget.checked })} />
+            </Group>
+          )}
+          {f.tax_rate_id && Number(f.amount) > 0 && (() => {
+            const r = Number(taxes.find((x) => x.id === f.tax_rate_id)?.rate ?? 0), a = Number(f.amount);
+            const tax = f.tax_included ? a - a * 100 / (100 + r) : a * r / 100;
+            return <Text size="sm" c="dimmed" dir="ltr">{t('net.tax')}: {tax.toFixed(2)} · {t('pur.total')}: {(f.tax_included ? a : a + tax).toFixed(2)} {m?.currency}</Text>;
+          })()}
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
             <Button type="submit" loading={busy} disabled={!f.account_id || !Number(f.amount)}>{t('common.save')}</Button>

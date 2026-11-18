@@ -64,6 +64,7 @@ const ItemDetail = lazy(() => named(import('./pages/purchases/Items'), 'ItemDeta
 const Stock = lazy(() => import('./pages/purchases/Stock'));
 const APAging = lazy(() => named(import('./pages/purchases/PurchReports'), 'APAging'));
 const StockValuation = lazy(() => named(import('./pages/purchases/PurchReports'), 'StockValuation'));
+const StockMoves = lazy(() => named(import('./pages/purchases/PurchReports'), 'StockMoves'));
 const ExpensesReport = lazy(() => named(import('./pages/purchases/PurchReports'), 'ExpensesReport'));
 const Network = lazy(() => import('./pages/network/Network'));
 const Tariffs = lazy(() => import('./pages/network/Tariffs'));
@@ -81,7 +82,7 @@ const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | 'ledger' | 'companies' | 'users' |
   'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup' |
   'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform' | 'import' | 'messages' |
-  'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'expenses-report' |
+  'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'stock-moves' | 'expenses-report' |
   'network' | 'tariffs' | 'vat-report' | 'generator-report' | 'print-bills' |
   'employees' | 'payroll' | 'assets' | 'asset-register' | 'recurring' | 'bank-rec';
 
@@ -146,6 +147,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'collections', label: 'reports2.collections', icon: IconMoneybag },
       { key: 'ap-aging', label: 'pur.apAging', icon: IconUserDollar },
       { key: 'stock-valuation', label: 'pur.valuation', icon: IconPackages },
+      { key: 'stock-moves', label: 'gap.moves', icon: IconPackages },
       { key: 'expenses-report', label: 'pur.expensesReport', icon: IconChartPie },
       { key: 'vat-report', label: 'net.vatReport', icon: IconReceipt2 },
       { key: 'generator-report', label: 'net.genReport', icon: IconEngine },
@@ -168,7 +170,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
 const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users',
   'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform', 'import', 'messages',
-  'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'expenses-report',
+  'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'stock-moves', 'expenses-report',
   'network', 'tariffs', 'vat-report', 'generator-report', 'print-bills',
   'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec'];
 
@@ -332,6 +334,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'stock' && <Stock me={me} />}
         {current === 'ap-aging' && <APAging />}
         {current === 'stock-valuation' && <StockValuation />}
+        {current === 'stock-moves' && <StockMoves />}
         {current === 'expenses-report' && <ExpensesReport />}
         {current === 'customers' && <Customers me={me} />}
         {current === 'customer' && <CustomerDetail me={me} id={param} key={param} />}

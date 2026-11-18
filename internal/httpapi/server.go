@@ -173,6 +173,17 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST "+v+"/companies/{cid}/payments", s.field(only(s.createPayment, field...)))
 	mux.Handle("GET "+v+"/companies/{cid}/payments/{id}", s.field(s.getPayment))
 	mux.Handle("POST "+v+"/companies/{cid}/payments/{id}/void", s.auth(only(s.voidPayment, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/billing/jobs", s.auth(s.listBillingJobs))
+	mux.Handle("GET "+v+"/companies/{cid}/billing/jobs/{id}", s.auth(s.getBillingJob))
+	mux.Handle("POST "+v+"/companies/{cid}/invoices/{id}/credit-note", s.auth(only(s.createCreditNote, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/refunds", s.auth(only(s.createRefund, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/bills/{id}/debit-note", s.auth(only(s.createDebitNote, write...)))
+	mux.Handle("POST "+v+"/companies/{cid}/stock/docs/{id}/void", s.auth(only(s.voidStockDoc, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/stock/transfers", s.auth(s.listStockTransfers))
+	mux.Handle("POST "+v+"/companies/{cid}/stock/transfers", s.auth(only(s.createStockTransfer, entry...)))
+	mux.Handle("POST "+v+"/companies/{cid}/stock/transfers/{id}/void", s.auth(only(s.voidStockTransfer, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/reports/stock-moves", s.auth(s.stockMovesReport))
+	mux.Handle("POST "+v+"/export/xlsx", s.auth(s.exportXLSX))
 
 	// reports
 	mux.Handle("GET "+v+"/companies/{cid}/reports/trial-balance", s.auth(s.trialBalance))

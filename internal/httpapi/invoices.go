@@ -14,7 +14,7 @@ import (
 
 const invoiceCols = `i.id, i.number, i.customer_id, c.code AS customer_code, c.name AS customer_name, i.subscription_id,
 	i.period, i.issue_date, i.due_date, i.currency, i.total::text AS total, i.paid::text AS paid,
-	(i.total - i.paid)::text AS balance, i.status, i.journal_entry_id, i.void_entry_id, i.notes, i.created_at`
+	(i.total - i.paid)::text AS balance, i.status, i.kind, i.journal_entry_id, i.void_entry_id, i.notes, i.created_at`
 
 type invLine struct {
 	Kind        string
@@ -97,7 +97,7 @@ func issueInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSettin
 			return "", 0, err
 		}
 	}
-	if err := autoAllocate(ctx, tx, customerID, currency); err != nil {
+	if err := autoAllocate(ctx, tx, cid, set, customerID, currency, ""); err != nil {
 		return "", 0, err
 	}
 	return id, number, autoMessage(ctx, tx, cid, "invoice_issued", customerID, &id, nil)
@@ -106,159 +106,6 @@ func issueInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSettin
 func periodEnd(period string) string {
 	t, _ := time.Parse("2006-01", period)
 	return t.AddDate(0, 1, -1).Format(time.DateOnly)
-}
-
-// runBilling creates this period's invoice for every active subscription that has none yet.
-func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Period    string `json:"period"`
-		IssueDate string `json:"issue_date"`
-		DueDate   string `json:"due_date"`
-		AreaID    string `json:"area_id"`
-		StationID string `json:"station_id"`
-		BoxID     string `json:"box_id"`
-	}
-	if !decodeBody(w, r, &in) {
-		return
-	}
-	if in.IssueDate == "" {
-		in.IssueDate = today()
-	}
-	if in.DueDate == "" {
-		t, _ := time.Parse(time.DateOnly, in.IssueDate)
-		in.DueDate = t.AddDate(0, 0, 10).Format(time.DateOnly)
-	}
-	if !validPeriod(in.Period) || !validDate(in.IssueDate) || !validDate(in.DueDate) || in.DueDate < in.IssueDate ||
-		(in.AreaID != "" && !isUUID(in.AreaID)) || (in.StationID != "" && !isUUID(in.StationID)) || (in.BoxID != "" && !isUUID(in.BoxID)) {
-		writeErr(w, http.StatusBadRequest, "bad_request")
-		return
-	}
-	cid := r.PathValue("cid")
-	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		set, err := loadBillingSettings(ctx, tx, cid)
-		if err != nil {
-			return nil, err
-		}
-		if err := set.requireAR(); err != nil {
-			return nil, err
-		}
-		type sub struct {
-			ID, Customer, CustomerName, Plan, PlanName, Type, Currency, Revenue, UnitLabel string
-			Fee, Price, Initial                                                            string
-			Override, Current, Previous, TaxRateID                                         *string
-		}
-		rows, err := tx.Query(ctx, `
-			SELECT s.id::text, s.customer_id::text, c.name, p.id::text, p.name, p.billing_type, p.currency::text,
-			       p.revenue_account_id::text, p.unit_label, p.base_fee::text, p.unit_price::text, s.initial_reading::text,
-			       s.fee_override::text, p.tax_rate_id::text,
-			       (SELECT r.reading::text FROM meter_readings r WHERE r.subscription_id = s.id AND r.period = $2),
-			       (SELECT r.reading::text FROM meter_readings r WHERE r.subscription_id = s.id AND r.period < $2 ORDER BY r.period DESC LIMIT 1)
-			FROM subscriptions s
-			JOIN plans p ON p.id = s.plan_id
-			JOIN customers c ON c.id = s.customer_id
-			WHERE s.company_id = $1 AND s.status = 'active' AND c.status = 'active' AND s.start_date <= $3::date
-			  AND ($4 = '' OR c.area_id = $4::uuid)
-			  AND ($5 = '' OR s.box_id = $5::uuid)
-			  AND ($6 = '' OR s.box_id IN (SELECT id FROM boxes WHERE station_id = $6::uuid))
-			  AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.subscription_id = s.id AND i.period = $2 AND i.status <> 'void')
-			ORDER BY c.name`, cid, in.Period, periodEnd(in.Period), in.AreaID, in.BoxID, in.StationID)
-		if err != nil {
-			return nil, err
-		}
-		subs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (sub, error) {
-			var x sub
-			err := row.Scan(&x.ID, &x.Customer, &x.CustomerName, &x.Plan, &x.PlanName, &x.Type, &x.Currency, &x.Revenue,
-				&x.UnitLabel, &x.Fee, &x.Price, &x.Initial, &x.Override, &x.TaxRateID, &x.Current, &x.Previous)
-			return x, err
-		})
-		if err != nil {
-			return nil, err
-		}
-		type skipped struct {
-			Customer string `json:"customer"`
-			Reason   string `json:"reason"`
-		}
-		created := 0
-		skips := []skipped{}
-		totals := map[string]decimal.Decimal{}
-		decs := map[string]int32{}
-		taxes := map[string]*taxInfo{}
-		for _, x := range subs {
-			if _, ok := decs[x.Currency]; !ok {
-				if decs[x.Currency], err = currencyDecimals(ctx, tx, x.Currency); err != nil {
-					return nil, err
-				}
-			}
-			dec := decs[x.Currency]
-			fee, _ := decimal.NewFromString(x.Fee)
-			if x.Override != nil {
-				fee, _ = decimal.NewFromString(*x.Override)
-			}
-			lines := []invLine{}
-			if fee.IsPositive() {
-				lines = append(lines, invLine{Kind: "fee", Description: x.PlanName + " · " + in.Period,
-					Quantity: decimal.NewFromInt(1), UnitPrice: fee, Amount: fee.Round(dec),
-					Meta: map[string]any{"plan": x.PlanName, "period": in.Period}})
-			}
-			if x.Type == "metered" {
-				if x.Current == nil {
-					skips = append(skips, skipped{x.CustomerName, "no_reading"})
-					continue
-				}
-				prevS := x.Initial
-				if x.Previous != nil {
-					prevS = *x.Previous
-				}
-				prev, _ := decimal.NewFromString(prevS)
-				cur, _ := decimal.NewFromString(*x.Current)
-				used := cur.Sub(prev)
-				if used.IsNegative() {
-					skips = append(skips, skipped{x.CustomerName, "reading_below_previous"})
-					continue
-				}
-				price, _ := decimal.NewFromString(x.Price)
-				if used.IsPositive() {
-					lines = append(lines, invLine{Kind: "usage",
-						Description: fmt.Sprintf("%s → %s = %s %s × %s", prev.String(), cur.String(), used.String(), x.UnitLabel, price.String()),
-						Quantity:    used, UnitPrice: price, Amount: used.Mul(price).Round(dec),
-						Meta: map[string]any{"previous": prev.String(), "current": cur.String(), "used": used.String(), "unit": x.UnitLabel}})
-				}
-			}
-			if x.TaxRateID != nil {
-				t, ok := taxes[*x.TaxRateID]
-				if !ok {
-					if t, err = loadTaxRate(ctx, tx, cid, *x.TaxRateID, "sales"); err != nil {
-						return nil, err
-					}
-					taxes[*x.TaxRateID] = t
-				}
-				for i := range lines {
-					lines[i].Tax = t
-					lines[i].TaxAmount = taxOn(lines[i].Amount, t, dec)
-				}
-			}
-			sum := decimal.Zero
-			for _, l := range lines {
-				sum = sum.Add(l.Amount).Add(l.TaxAmount)
-			}
-			if !sum.IsPositive() {
-				skips = append(skips, skipped{x.CustomerName, "zero_invoice"})
-				continue
-			}
-			subID, period := x.ID, in.Period
-			if _, _, err := issueInvoice(ctx, tx, cid, set, x.Customer, x.CustomerName, &subID, &period,
-				in.IssueDate, in.DueDate, x.Currency, x.Revenue, "", lines); err != nil {
-				return nil, err
-			}
-			created++
-			totals[x.Currency] = totals[x.Currency].Add(sum)
-		}
-		tot := map[string]string{}
-		for k, v := range totals {
-			tot[k] = v.String()
-		}
-		return map[string]any{"period": in.Period, "created": created, "skipped": skips, "totals": tot}, nil
-	})
 }
 
 // createInvoice: a one-off invoice (installation, repair, sale…).
@@ -434,10 +281,10 @@ func (s *Server) voidInvoice(w http.ResponseWriter, r *http.Request) {
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		var number int64
-		var status, paid string
+		var status, paid, kind, customer, currency string
 		var je *string
-		err := tx.QueryRow(ctx, `SELECT number, status, paid::text, journal_entry_id::text FROM invoices
-			WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).Scan(&number, &status, &paid, &je)
+		err := tx.QueryRow(ctx, `SELECT number, status, paid::text, journal_entry_id::text, kind, customer_id::text, currency::text FROM invoices
+			WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).Scan(&number, &status, &paid, &je, &kind, &customer, &currency)
 		if err == pgx.ErrNoRows {
 			return nil, notFound()
 		}
@@ -446,6 +293,19 @@ func (s *Server) voidInvoice(w http.ResponseWriter, r *http.Request) {
 		}
 		if status == "void" {
 			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+		}
+		if kind == "refund" {
+			set, err := loadBillingSettings(ctx, tx, cid)
+			if err != nil {
+				return nil, err
+			}
+			if _, err := lockCustomer(ctx, tx, cid, customer); err != nil {
+				return nil, err
+			}
+			if _, err := voidRefund(ctx, tx, cid, set, id, customer, currency, number, je, strings.TrimSpace(in.Reason)); err != nil {
+				return nil, err
+			}
+			return loadInvoice(ctx, tx, cid, id)
 		}
 		if p, _ := decimal.NewFromString(paid); !p.IsZero() {
 			return nil, &apiError{status: http.StatusConflict, code: "invoice_has_payments"}

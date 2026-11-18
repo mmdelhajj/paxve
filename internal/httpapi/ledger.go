@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
@@ -122,44 +123,128 @@ func postJournal(ctx context.Context, tx pgx.Tx, cid string, set *billingSetting
 	return id, nil
 }
 
-// autoAllocate applies a customer's unallocated payments to open invoices of the same currency, oldest first.
-func autoAllocate(ctx context.Context, tx pgx.Tx, customerID, currency string) error {
-	type open struct {
-		id     string
-		amount decimal.Decimal
+// openCredit is a payment or credit note with an unapplied amount.
+type openCredit struct {
+	id, date, rate string // rate: receivable credit rate of the unapplied part ("" = unknown → official rate on date)
+	number         int64
+	amount         decimal.Decimal
+}
+
+// openDebit is an invoice (or refund) with an open balance.
+type openDebit struct {
+	id, date string
+	number   int64
+	amount   decimal.Decimal
+}
+
+func unappliedCredits(ctx context.Context, tx pgx.Tx, customerID, currency string) ([]openCredit, error) {
+	rows, err := tx.Query(ctx, `SELECT p.id::text, p.payment_date::text, coalesce(trim_scale(p.ar_rate)::text, ''), p.number,
+		(p.amount - coalesce((SELECT sum(a.amount) FROM payment_allocations a WHERE a.payment_id = p.id), 0))::text
+		FROM payments p WHERE p.customer_id = $1 AND p.currency = $2 AND p.status = 'posted'
+		  AND p.amount - coalesce((SELECT sum(a.amount) FROM payment_allocations a WHERE a.payment_id = p.id), 0) > 0
+		ORDER BY p.payment_date, p.created_at`, customerID, currency)
+	if err != nil {
+		return nil, err
 	}
-	collect := func(sql string) ([]open, error) {
-		rows, err := tx.Query(ctx, sql, customerID, currency)
-		if err != nil {
-			return nil, err
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (openCredit, error) {
+		var o openCredit
+		var s string
+		err := row.Scan(&o.id, &o.date, &o.rate, &o.number, &s)
+		o.amount, _ = decimal.NewFromString(s)
+		return o, err
+	})
+}
+
+func openDebits(ctx context.Context, tx pgx.Tx, customerID, currency string) ([]openDebit, error) {
+	rows, err := tx.Query(ctx, `SELECT id::text, issue_date::text, number, (total - paid)::text FROM invoices
+		WHERE customer_id = $1 AND currency = $2 AND status IN ('open', 'partial')
+		ORDER BY issue_date, kind, number`, customerID, currency)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (openDebit, error) {
+		var o openDebit
+		var s string
+		err := row.Scan(&o.id, &o.date, &o.number, &s)
+		o.amount, _ = decimal.NewFromString(s)
+		return o, err
+	})
+}
+
+// invoiceARRate is the rate at which an invoice (or refund) was debited to receivables.
+func invoiceARRate(ctx context.Context, tx pgx.Tx, invoiceID, ar string) (string, error) {
+	var rate string
+	err := tx.QueryRow(ctx, `SELECT coalesce((SELECT trim_scale(l.rate)::text FROM journal_lines l JOIN invoices i ON i.journal_entry_id = l.entry_id
+		WHERE i.id = $1 AND l.account_id = $2 AND l.debit > 0 LIMIT 1), '')`, invoiceID, ar).Scan(&rate)
+	return rate, err
+}
+
+// allocate applies amt of a credit (payment / credit note) to an invoice. For foreign-currency documents whose
+// receivable entries used different rates, the base-currency difference is booked as realized exchange
+// gain/loss, so the receivable account never keeps a residue for settled documents.
+// skipFX: the credit was already booked at the invoice's own rate (see arCreditLines).
+func allocate(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings, currency string, c openCredit, d openDebit,
+	amt decimal.Decimal, skipFX bool) error {
+	var fx *string
+	if !skipFX && set != nil && set.AR != nil && currency != set.Base {
+		cRate := c.rate
+		if cRate == "" {
+			r, err := resolveRate(ctx, tx, cid, set.Base, currency, c.date, "")
+			if err != nil {
+				return err
+			}
+			cRate = r
 		}
-		return pgx.CollectRows(rows, func(row pgx.CollectableRow) (open, error) {
-			var o open
-			var s string
-			err := row.Scan(&o.id, &s)
-			o.amount, _ = decimal.NewFromString(s)
-			return o, err
-		})
+		iRate, err := invoiceARRate(ctx, tx, d.id, *set.AR)
+		if err != nil {
+			return err
+		}
+		if iRate != "" {
+			ri, _ := decimal.NewFromString(iRate)
+			rc, _ := decimal.NewFromString(cRate)
+			if ri.IsPositive() && rc.IsPositive() {
+				residue := amt.DivRound(ri, 4).Sub(amt.DivRound(rc, 4)) // base debit left − base credit
+				if !residue.IsZero() {
+					date := c.date
+					if d.date > date {
+						date = d.date
+					}
+					line := jline{Account: *set.AR, Desc: "FX on settlement", Currency: set.Base, Rate: "1"}
+					if residue.IsPositive() {
+						line.Credit = residue
+					} else {
+						line.Debit = residue.Neg()
+					}
+					je, err := postJournal(ctx, tx, cid, set, date, fmt.Sprintf("Exchange difference · #%d → invoice #%d", c.number, d.number),
+						fmt.Sprintf("FX-%d-%d", c.number, d.number), "fx", []jline{line})
+					if err != nil {
+						return err
+					}
+					fx = &je
+				}
+			}
+		}
 	}
-	pays, err := collect(`SELECT p.id::text, (p.amount - coalesce(sum(a.amount), 0))::text
-		FROM payments p LEFT JOIN payment_allocations a ON a.payment_id = p.id
-		WHERE p.customer_id = $1 AND p.currency = $2 AND p.status = 'posted'
-		GROUP BY p.id HAVING p.amount - coalesce(sum(a.amount), 0) > 0
-		ORDER BY p.payment_date, p.number`)
+	_, err := tx.Exec(ctx, `INSERT INTO payment_allocations (payment_id, invoice_id, amount, fx_entry_id) VALUES ($1, $2, $3::numeric, $4)`,
+		c.id, d.id, amt.String(), fx)
+	return err
+}
+
+// autoAllocate applies a customer's unapplied payments and credit notes to open invoices of the same currency,
+// oldest first. fresh: a payment just booked by arCreditLines (already at the invoices' rates: no FX booking).
+func autoAllocate(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings, customerID, currency, fresh string) error {
+	pays, err := unappliedCredits(ctx, tx, customerID, currency)
 	if err != nil || len(pays) == 0 {
 		return err
 	}
-	invs, err := collect(`SELECT id::text, (total - paid)::text FROM invoices
-		WHERE customer_id = $1 AND currency = $2 AND status IN ('open', 'partial')
-		ORDER BY issue_date, number`)
+	invs, err := openDebits(ctx, tx, customerID, currency)
 	if err != nil {
 		return err
 	}
 	i, j := 0, 0
 	for i < len(pays) && j < len(invs) {
 		amt := decimal.Min(pays[i].amount, invs[j].amount)
-		if _, err := tx.Exec(ctx, `INSERT INTO payment_allocations (payment_id, invoice_id, amount) VALUES ($1, $2, $3::numeric)`,
-			pays[i].id, invs[j].id, amt.String()); err != nil {
+		if err := allocate(ctx, tx, cid, set, currency, pays[i], invs[j], amt, pays[i].id == fresh); err != nil {
 			return err
 		}
 		pays[i].amount = pays[i].amount.Sub(amt)
@@ -174,6 +259,28 @@ func autoAllocate(ctx context.Context, tx pgx.Tx, customerID, currency string) e
 	return nil
 }
 
+// reverseAllocations un-applies a payment / credit note from its invoices and reverses the FX entries of those allocations.
+func reverseAllocations(ctx context.Context, tx pgx.Tx, paymentID, memo string) error {
+	rows, err := tx.Query(ctx, `SELECT a.fx_entry_id::text FROM payment_allocations a JOIN journal_entries e ON e.id = a.fx_entry_id
+		WHERE a.payment_id = $1 AND e.reversed_by IS NULL AND e.status = 'posted'`, paymentID)
+	if err != nil {
+		return err
+	}
+	fxs, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return err
+	}
+	for _, fx := range fxs {
+		if _, err := tx.Exec(ctx, `SELECT reverse_journal_entry($1, current_date, $2)`, fx, memo); err != nil {
+			return err
+		}
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO payment_allocations (payment_id, invoice_id, amount)
+		SELECT payment_id, invoice_id, -sum(amount) FROM payment_allocations WHERE payment_id = $1
+		GROUP BY payment_id, invoice_id HAVING sum(amount) <> 0`, paymentID)
+	return err
+}
+
 // arCreditLines builds the receivable credit for a customer payment of `amount` in `currency`.
 //
 // For a foreign-currency (non-base) payment, the part that settles open invoices (oldest first,
@@ -182,9 +289,8 @@ func autoAllocate(ctx context.Context, tx pgx.Tx, customerID, currency string) e
 // over (an advance) uses the payment-date rate. The difference with the money actually received
 // is realized exchange gain/loss, booked automatically by postJournal.
 //
-// Known limit: an advance later applied to a new invoice keeps its payment-date rate, so a small
-// base-currency residue can stay on the receivable account for that customer (no FX adjustment
-// is booked at allocation time).
+// The advance keeps the payment-date rate (stored as payments.ar_rate); when it is later applied to an
+// invoice booked at another rate, allocate() books the exchange difference, so no residue is left.
 func arCreditLines(ctx context.Context, tx pgx.Tx, ar, base, customerID, name, currency string, amount decimal.Decimal, payRate string) ([]jline, error) {
 	if currency == base {
 		return []jline{{Account: ar, Desc: name, Currency: currency, Credit: amount, Rate: payRate}}, nil
@@ -195,7 +301,7 @@ func arCreditLines(ctx context.Context, tx pgx.Tx, ar, base, customerID, name, c
 		                 WHERE l.entry_id = i.journal_entry_id AND l.account_id = $3 AND l.debit > 0 LIMIT 1), '')
 		FROM invoices i
 		WHERE i.customer_id = $1 AND i.currency = $2 AND i.status IN ('open', 'partial')
-		ORDER BY i.issue_date, i.number`, customerID, currency, ar)
+		ORDER BY i.issue_date, i.kind, i.number`, customerID, currency, ar)
 	if err != nil {
 		return nil, err
 	}

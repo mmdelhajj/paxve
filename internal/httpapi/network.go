@@ -453,7 +453,7 @@ func (s *Server) listGeneratorLog(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		fuel, err := queryJSON(ctx, tx, `SELECT d.id, d.number, d.doc_date, (-d.quantity)::text AS quantity, it.unit, (-d.value)::text AS value, d.notes
-			FROM stock_docs d JOIN items it ON it.id = d.item_id WHERE d.generator_id = $1 AND d.kind = 'fuel'
+			FROM stock_docs d JOIN items it ON it.id = d.item_id WHERE d.generator_id = $1 AND d.kind = 'fuel' AND d.status = 'posted'
 			ORDER BY d.doc_date DESC LIMIT 120`, gid)
 		if err != nil {
 			return nil, err
@@ -728,8 +728,10 @@ func (s *Server) vatReport(w http.ResponseWriter, r *http.Request) {
 			              AND e.company_id = $1 AND e.entry_date BETWEEN $2::date AND $3::date), 0)::text AS recoverable,
 			  coalesce((SELECT sum(il.amount) FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id
 			            WHERE il.tax_rate_id = t.id AND i.status <> 'void' AND i.issue_date BETWEEN $2::date AND $3::date), 0)::text AS taxable_sales,
-			  coalesce((SELECT sum(bl.amount) FROM bill_lines bl JOIN bills b ON b.id = bl.bill_id
-			            WHERE bl.tax_rate_id = t.id AND b.status <> 'void' AND b.bill_date BETWEEN $2::date AND $3::date), 0)::text AS taxable_purchases
+			  (coalesce((SELECT sum(bl.amount) FROM bill_lines bl JOIN bills b ON b.id = bl.bill_id
+			            WHERE bl.tax_rate_id = t.id AND b.status <> 'void' AND b.bill_date BETWEEN $2::date AND $3::date), 0)
+			  + coalesce((SELECT sum(e.amount - e.tax_amount) FROM expenses e
+			            WHERE e.tax_rate_id = t.id AND e.status = 'posted' AND e.expense_date BETWEEN $2::date AND $3::date), 0))::text AS taxable_purchases
 			FROM tax_rates t WHERE t.company_id = $1 ORDER BY t.name`, cid, from, to)
 		if err != nil {
 			return nil, err
@@ -768,8 +770,8 @@ func (s *Server) generatorReport(w http.ResponseWriter, r *http.Request) {
 			  coalesce((SELECT max(h.hour_meter) FROM generator_hours h WHERE h.generator_id = g.id AND h.log_date <= $3::date)
 			         - coalesce((SELECT max(h.hour_meter) FROM generator_hours h WHERE h.generator_id = g.id AND h.log_date < $2::date),
 			                    (SELECT min(h.hour_meter) FROM generator_hours h WHERE h.generator_id = g.id AND h.log_date BETWEEN $2::date AND $3::date)), 0)::text AS hours,
-			  coalesce((SELECT -sum(d.quantity) FROM stock_docs d WHERE d.generator_id = g.id AND d.kind = 'fuel' AND d.doc_date BETWEEN $2::date AND $3::date), 0)::text AS fuel_qty,
-			  coalesce((SELECT -sum(d.value) FROM stock_docs d WHERE d.generator_id = g.id AND d.kind = 'fuel' AND d.doc_date BETWEEN $2::date AND $3::date), 0)::text AS fuel_cost,
+			  coalesce((SELECT -sum(d.quantity) FROM stock_docs d WHERE d.generator_id = g.id AND d.kind = 'fuel' AND d.status = 'posted' AND d.doc_date BETWEEN $2::date AND $3::date), 0)::text AS fuel_qty,
+			  coalesce((SELECT -sum(d.value) FROM stock_docs d WHERE d.generator_id = g.id AND d.kind = 'fuel' AND d.status = 'posted' AND d.doc_date BETWEEN $2::date AND $3::date), 0)::text AS fuel_cost,
 			  (SELECT count(*) FROM outages o WHERE o.generator_id = g.id AND o.started_at::date BETWEEN $2::date AND $3::date) AS outages,
 			  coalesce((SELECT round(sum(extract(epoch FROM (coalesce(o.ended_at, now()) - o.started_at))) / 60) FROM outages o
 			            WHERE o.generator_id = g.id AND o.started_at::date BETWEEN $2::date AND $3::date), 0)::int AS outage_minutes
@@ -785,9 +787,9 @@ func (s *Server) generatorReport(w http.ResponseWriter, r *http.Request) {
 			            WHERE b.station_id = st.id AND il.kind = 'usage' AND i.status <> 'void'
 			              AND i.period BETWEEN to_char($2::date, 'YYYY-MM') AND to_char($3::date, 'YYYY-MM')), 0)::text AS kwh_billed,
 			  coalesce((SELECT -sum(d.value) FROM stock_docs d JOIN generators g ON g.id = d.generator_id
-			            WHERE g.station_id = st.id AND d.kind = 'fuel' AND d.doc_date BETWEEN $2::date AND $3::date), 0)::text AS fuel_cost,
+			            WHERE g.station_id = st.id AND d.kind = 'fuel' AND d.status = 'posted' AND d.doc_date BETWEEN $2::date AND $3::date), 0)::text AS fuel_cost,
 			  coalesce((SELECT -sum(d.quantity) FROM stock_docs d JOIN generators g ON g.id = d.generator_id
-			            WHERE g.station_id = st.id AND d.kind = 'fuel' AND d.doc_date BETWEEN $2::date AND $3::date), 0)::text AS fuel_qty
+			            WHERE g.station_id = st.id AND d.kind = 'fuel' AND d.status = 'posted' AND d.doc_date BETWEEN $2::date AND $3::date), 0)::text AS fuel_qty
 			FROM stations st WHERE st.company_id = $1 ORDER BY st.name`, cid, from, to)
 		if err != nil {
 			return nil, err

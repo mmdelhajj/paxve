@@ -32,6 +32,7 @@ export interface Invoice {
   id: string; number: number; customer_id: string; customer_code: string; customer_name: string; subscription_id: string | null;
   period: string | null; issue_date: string; due_date: string; currency: string; total: string; paid: string; balance: string;
   status: 'open' | 'partial' | 'paid' | 'void'; journal_entry_id: string | null; notes: string; created_at: string;
+  kind?: 'invoice' | 'refund';
 }
 
 export interface InvoiceDetail {
@@ -49,6 +50,7 @@ export interface Payment {
   id: string; number: number; customer_id: string; customer_code: string; customer_name: string; payment_date: string;
   currency: string; amount: string; change_currency: string | null; change_amount: string; status: 'posted' | 'void';
   journal_entry_id: string | null; notes: string; received_by: string | null; created_at: string;
+  kind?: 'payment' | 'credit_note'; invoice_id?: string | null;
 }
 
 export interface PaymentDetail {

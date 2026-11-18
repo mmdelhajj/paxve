@@ -35,12 +35,35 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
   const [confirm, setConfirm] = useState(false);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [credit, setCredit] = useState<{ amount: string; reason: string; refund_method_id: string } | null>(null);
+  const [methods, setMethods] = useState<PaymentMethod[]>([]);
 
-  useEffect(() => {
-    if (!company) return;
-    api<InvoiceDetail>(`/companies/${company.id}/invoices/${id}`).then(setD).catch((e) => { notifyError(t, e); onClose(); });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [company, id]);
+  const reload = () => {
+    if (company) api<InvoiceDetail>(`/companies/${company.id}/invoices/${id}`).then(setD).catch((e) => { notifyError(t, e); onClose(); });
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(reload, [company, id]);
+
+  async function openCredit() {
+    setCredit({ amount: '', reason: '', refund_method_id: '' });
+    if (company && !methods.length) api<PaymentMethod[]>(`/companies/${company.id}/payment-methods`).then((m) => setMethods(m.filter((x) => x.is_active))).catch(() => {});
+  }
+
+  async function doCredit() {
+    if (!company || !credit) return;
+    setBusy(true);
+    try {
+      await api(`/companies/${company.id}/invoices/${id}/credit-note`, { method: 'POST', body: credit });
+      notifySaved(t);
+      setCredit(null);
+      reload();
+      onChanged?.();
+    } catch (e) {
+      notifyError(t, e);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function doVoid() {
     if (!company) return;
@@ -62,14 +85,14 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
   const rtl = i18n.language === 'ar';
 
   return (
-    <Modal opened onClose={onClose} size="lg" title={inv ? `${t('invoices.invoice')} #${inv.number}` : t('invoices.invoice')}>
+    <Modal opened onClose={onClose} size="lg" title={inv ? `${inv.kind === 'refund' ? t('gap.refund') : t('invoices.invoice')} #${inv.number}` : t('invoices.invoice')}>
       {!d || !inv ? <Center p="xl"><Loader size="sm" /></Center> : (
         <Stack>
           <div className="print-doc" dir={rtl ? 'rtl' : 'ltr'}>
             <Group justify="space-between" align="flex-start">
               <div>
                 <Text fw={700} size="lg">{rtl && inv.company_name_ar ? inv.company_name_ar : inv.company_name}</Text>
-                <Text size="sm">{t('invoices.invoice')} #{inv.number}{inv.period ? ` · ${inv.period}` : ''}</Text>
+                <Text size="sm">{inv.kind === 'refund' ? t('gap.refund') : t('invoices.invoice')} #{inv.number}{inv.period ? ` · ${inv.period}` : ''}</Text>
               </div>
               <div style={{ textAlign: 'end' }}>
                 <Text size="sm">{t('invoices.date')}: {formatDate(inv.issue_date)}</Text>
@@ -128,9 +151,34 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
                 onYes={doVoid} onNo={() => setConfirm(false)} />
             </Stack>
           )}
+          {credit && (
+            <Paper withBorder p="sm" className="no-print">
+              <Stack gap="xs">
+                <Text fw={600} size="sm">{t('gap.creditNoteNew')}</Text>
+                <Text size="xs" c="dimmed">{t('gap.creditHint')}</Text>
+                <Group grow>
+                  <TextInput label={t('gap.creditAmount')} dir="ltr" placeholder={formatAmount(inv.total, dec)} value={credit.amount}
+                    rightSection={<Text size="xs" c="dimmed">{inv.currency}</Text>}
+                    onChange={(e) => setCredit({ ...credit, amount: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
+                  <TextInput label={t('invoices.reason')} value={credit.reason} onChange={(e) => setCredit({ ...credit, reason: e.currentTarget.value })} />
+                </Group>
+                <Select label={t('gap.refundNow')} clearable placeholder={t('gap.keepAsCredit')} value={credit.refund_method_id || null}
+                  data={methods.map((m) => ({ value: m.id, label: `${m.name} (${m.currency})` }))}
+                  onChange={(v) => setCredit({ ...credit, refund_method_id: v ?? '' })} />
+                <Group justify="flex-end">
+                  <Button variant="default" size="xs" onClick={() => setCredit(null)}>{t('common.cancel')}</Button>
+                  <Button size="xs" color="orange" loading={busy} onClick={doCredit}>{t('gap.creditNote')}</Button>
+                </Group>
+              </Stack>
+            </Paper>
+          )}
           <Group justify="space-between" className="no-print">
-            {canVoid && inv.status !== 'void' && inv.paid === '0.0000' && !confirm
-              ? <Button variant="subtle" color="red" onClick={() => setConfirm(true)}>{t('invoices.void')}</Button> : <span />}
+            <Group gap="xs">
+              {canVoid && inv.status !== 'void' && (inv.paid === '0.0000' || inv.kind === 'refund') && !confirm
+                ? <Button variant="subtle" color="red" onClick={() => setConfirm(true)}>{t('invoices.void')}</Button> : null}
+              {canVoid && inv.status !== 'void' && inv.kind !== 'refund' && !credit && !confirm
+                ? <Button variant="subtle" color="orange" onClick={openCredit}>{t('gap.creditNote')}</Button> : null}
+            </Group>
             <Group gap="xs">
               {inv.status !== 'void' && <WhatsAppButton customerId={inv.customer_id} invoiceId={inv.id} event="invoice_issued" />}
               <Button variant="default" onClick={onClose}>{t('common.close')}</Button>

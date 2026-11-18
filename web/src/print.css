@@ -32,4 +32,10 @@
   .print-doc.bulk.thermal { width: 72mm; }
   .print-doc.bulk.thermal .bill { break-after: page; page-break-after: always; border-bottom: none; }
   .no-print { display: none !important; }
+  /* report pages: print the report area only, black on white */
+  .print-area, .print-area * { visibility: visible !important; }
+  .print-area { position: absolute; inset: 0 auto auto 0; width: 100%; max-width: none !important; padding: 6mm; background: #fff; color: #000; }
+  .print-area * { color: #000 !important; background: transparent !important; box-shadow: none !important; }
+  .print-area input { border: none !important; padding: 0 !important; }
+  .print-area .mantine-Table-scrollContainer { overflow: visible !important; }
 }

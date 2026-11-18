@@ -149,14 +149,14 @@ func (s *Server) collectionsReport(w http.ResponseWriter, r *http.Request) {
 			SELECT p.received_by AS user_id, coalesce(u.full_name, '—') AS user_name, p.currency, count(*) AS payments,
 			       sum(p.amount)::text AS amount, count(DISTINCT p.customer_id) AS customers
 			FROM payments p LEFT JOIN users u ON u.id = p.received_by
-			WHERE p.company_id = $1 AND p.status = 'posted' AND p.payment_date BETWEEN $2::date AND $3::date
+			WHERE p.company_id = $1 AND p.status = 'posted' AND p.kind = 'payment' AND p.payment_date BETWEEN $2::date AND $3::date
 			GROUP BY p.received_by, u.full_name, p.currency ORDER BY u.full_name, p.currency`, cid, from, to)
 		if err != nil {
 			return nil, err
 		}
 		byDay, err := queryJSON(ctx, tx, `
 			SELECT p.payment_date AS date, p.currency, count(*) AS payments, sum(p.amount)::text AS amount
-			FROM payments p WHERE p.company_id = $1 AND p.status = 'posted' AND p.payment_date BETWEEN $2::date AND $3::date
+			FROM payments p WHERE p.company_id = $1 AND p.status = 'posted' AND p.kind = 'payment' AND p.payment_date BETWEEN $2::date AND $3::date
 			GROUP BY p.payment_date, p.currency ORDER BY p.payment_date DESC, p.currency`, cid, from, to)
 		if err != nil {
 			return nil, err

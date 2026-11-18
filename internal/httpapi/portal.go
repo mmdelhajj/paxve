@@ -189,11 +189,11 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 			WITH cur AS (SELECT DISTINCT currency AS c FROM invoices WHERE company_id = $1
 			             UNION SELECT DISTINCT currency FROM payments WHERE company_id = $1)
 			SELECT cur.c AS currency,
-			  coalesce((SELECT sum(total) FROM invoices WHERE company_id = $1 AND currency = cur.c AND status <> 'void'
+			  coalesce((SELECT sum(total) FROM invoices WHERE company_id = $1 AND currency = cur.c AND status <> 'void' AND kind = 'invoice'
 			            AND issue_date BETWEEN $2::date AND $3::date), 0)::text AS billed,
-			  coalesce((SELECT sum(paid) FROM invoices WHERE company_id = $1 AND currency = cur.c AND status <> 'void'
+			  coalesce((SELECT sum(paid) FROM invoices WHERE company_id = $1 AND currency = cur.c AND status <> 'void' AND kind = 'invoice'
 			            AND issue_date BETWEEN $2::date AND $3::date), 0)::text AS billed_paid,
-			  coalesce((SELECT sum(amount) FROM payments WHERE company_id = $1 AND currency = cur.c AND status = 'posted'
+			  coalesce((SELECT sum(amount) FROM payments WHERE company_id = $1 AND currency = cur.c AND status = 'posted' AND kind = 'payment'
 			            AND payment_date BETWEEN $2::date AND $3::date), 0)::text AS collected,
 			  coalesce((SELECT sum(total - paid) FROM invoices WHERE company_id = $1 AND currency = cur.c
 			            AND status IN ('open', 'partial')), 0)::text AS outstanding
@@ -214,10 +214,10 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 		series, err := queryJSON(ctx, tx, `
 			WITH g AS (SELECT generate_series(date_trunc('month', $2::date) - interval '11 months', date_trunc('month', $2::date), interval '1 month') AS m),
 			b AS (SELECT date_trunc('month', issue_date) AS m, currency AS c, sum(total) AS v FROM invoices
-			      WHERE company_id = $1 AND status <> 'void' AND issue_date >= date_trunc('month', $2::date) - interval '11 months'
+			      WHERE company_id = $1 AND status <> 'void' AND kind = 'invoice' AND issue_date >= date_trunc('month', $2::date) - interval '11 months'
 			        AND issue_date <= $3::date GROUP BY 1, 2),
 			p AS (SELECT date_trunc('month', payment_date) AS m, currency AS c, sum(amount) AS v FROM payments
-			      WHERE company_id = $1 AND status = 'posted' AND payment_date >= date_trunc('month', $2::date) - interval '11 months'
+			      WHERE company_id = $1 AND status = 'posted' AND kind = 'payment' AND payment_date >= date_trunc('month', $2::date) - interval '11 months'
 			        AND payment_date <= $3::date GROUP BY 1, 2),
 			cur AS (SELECT c FROM b UNION SELECT c FROM p)
 			SELECT to_char(g.m, 'YYYY-MM') AS month, cur.c AS currency, coalesce(b.v, 0)::text AS billed, coalesce(p.v, 0)::text AS collected
@@ -228,7 +228,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 		collectors, err := queryJSON(ctx, tx, `SELECT coalesce(u.full_name, '—') AS name, p.currency, count(*) AS payments,
 			sum(p.amount)::text AS amount FROM payments p LEFT JOIN users u ON u.id = p.received_by
-			WHERE p.company_id = $1 AND p.status = 'posted' AND p.payment_date BETWEEN $2::date AND $3::date
+			WHERE p.company_id = $1 AND p.status = 'posted' AND p.kind = 'payment' AND p.payment_date BETWEEN $2::date AND $3::date
 			GROUP BY u.full_name, p.currency ORDER BY sum(p.amount) DESC LIMIT 20`, cid, start, end)
 		if err != nil {
 			return nil, err

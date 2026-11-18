@@ -364,7 +364,7 @@ func autoAllocateSupplier(ctx context.Context, tx pgx.Tx, supplierID, currency s
 	pays, err := collect(`SELECT p.id::text, (p.amount - coalesce(sum(a.amount), 0))::text
 		FROM supplier_payments p LEFT JOIN supplier_allocations a ON a.payment_id = p.id
 		WHERE p.supplier_id = $1 AND p.currency = $2 AND p.status = 'posted'
-		GROUP BY p.id HAVING p.amount - coalesce(sum(a.amount), 0) > 0 ORDER BY p.payment_date, p.number`)
+		GROUP BY p.id HAVING p.amount - coalesce(sum(a.amount), 0) > 0 ORDER BY p.payment_date, p.created_at`)
 	if err != nil || len(pays) == 0 {
 		return err
 	}
@@ -936,6 +936,9 @@ func reverseStockMoves(ctx context.Context, tx pgx.Tx, cid, source, voidSource, 
 			if err != nil {
 				return err
 			}
+			if held.LessThan(m.value) {
+				return insufficientStock(m.name, q)
+			}
 			if err := setStock(ctx, tx, m.item, m.wh, q.Sub(m.qty), held.Sub(m.value)); err != nil {
 				return err
 			}
@@ -957,7 +960,7 @@ func reverseStockMoves(ctx context.Context, tx pgx.Tx, cid, source, voidSource, 
 
 const supPayCols = `p.id, p.number, p.supplier_id, su.name AS supplier_name, p.payment_date, p.currency, p.amount::text AS amount,
 	p.method_id, m.name AS method, p.paid_currency, p.paid_amount::text AS paid_amount, trim_scale(p.paid_rate)::text AS paid_rate,
-	p.status, p.journal_entry_id, p.notes, p.created_at`
+	p.status, p.kind, p.bill_id, (SELECT b.number FROM bills b WHERE b.id = p.bill_id) AS bill_number, p.journal_entry_id, p.notes, p.created_at`
 
 func (s *Server) createSupplierPayment(w http.ResponseWriter, r *http.Request) {
 	var in struct {
@@ -1062,16 +1065,17 @@ func (s *Server) createSupplierPayment(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) listSupplierPayments(w http.ResponseWriter, r *http.Request) {
 	from, to, ok := dateRange(r)
-	supplier := r.URL.Query().Get("supplier_id")
-	if !ok || (supplier != "" && !isUUID(supplier)) {
+	supplier, kind := r.URL.Query().Get("supplier_id"), r.URL.Query().Get("kind")
+	if !ok || (supplier != "" && !isUUID(supplier)) || (kind != "" && kind != "payment" && kind != "debit_note") {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		return queryJSON(ctx, tx, `SELECT `+supPayCols+` FROM supplier_payments p JOIN suppliers su ON su.id = p.supplier_id
-			JOIN payment_methods m ON m.id = p.method_id
+			LEFT JOIN payment_methods m ON m.id = p.method_id
 			WHERE p.company_id = $1 AND p.payment_date BETWEEN $2::date AND $3::date AND ($4 = '' OR p.supplier_id = $4::uuid)
-			ORDER BY p.payment_date DESC, p.number DESC LIMIT 1000`, r.PathValue("cid"), from, to, supplier)
+			AND ($5 = '' OR p.kind = $5)
+			ORDER BY p.payment_date DESC, p.created_at DESC LIMIT 1000`, r.PathValue("cid"), from, to, supplier, kind)
 	})
 }
 
@@ -1083,10 +1087,10 @@ func (s *Server) voidSupplierPayment(w http.ResponseWriter, r *http.Request) {
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		var number int64
-		var status, supplier string
+		var status, supplier, kind string
 		var je *string
-		err := tx.QueryRow(ctx, `SELECT number, status, supplier_id::text, journal_entry_id::text FROM supplier_payments
-			WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).Scan(&number, &status, &supplier, &je)
+		err := tx.QueryRow(ctx, `SELECT number, status, supplier_id::text, journal_entry_id::text, kind FROM supplier_payments
+			WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).Scan(&number, &status, &supplier, &je, &kind)
 		if err == pgx.ErrNoRows {
 			return nil, notFound()
 		}
@@ -1108,10 +1112,15 @@ func (s *Server) voidSupplierPayment(w http.ResponseWriter, r *http.Request) {
 		if je != nil {
 			var rid string
 			if err := tx.QueryRow(ctx, `SELECT reverse_journal_entry($1, current_date, $2)::text`, *je,
-				fmt.Sprintf("Void supplier payment #%d", number)).Scan(&rid); err != nil {
+				fmt.Sprintf("Void %s #%d", map[string]string{"payment": "supplier payment", "debit_note": "debit note"}[kind], number)).Scan(&rid); err != nil {
 				return nil, err
 			}
 			rev = &rid
+		}
+		if kind == "debit_note" { // returned goods come back into stock
+			if err := reverseStockMoves(ctx, tx, cid, "debit_note", "debit_note_void", id, rev, fmt.Sprintf("Void debit note #%d", number)); err != nil {
+				return nil, err
+			}
 		}
 		if _, err := tx.Exec(ctx, `UPDATE supplier_payments SET status = 'void', void_entry_id = $2 WHERE id = $1`, id, rev); err != nil {
 			return nil, err
@@ -1123,7 +1132,8 @@ func (s *Server) voidSupplierPayment(w http.ResponseWriter, r *http.Request) {
 // ---- expenses ----
 
 const expenseCols = `e.id, e.number, e.expense_date, e.account_id, a.code AS account_code, a.name AS account_name, a.name_i18n AS account_name_i18n,
-	e.method_id, m.name AS method, e.currency, e.amount::text AS amount, e.description, e.supplier_id, su.name AS supplier_name,
+	e.method_id, m.name AS method, e.currency, e.amount::text AS amount, e.tax_amount::text AS tax_amount,
+	(SELECT t.name FROM tax_rates t WHERE t.id = e.tax_rate_id) AS tax_name, e.description, e.supplier_id, su.name AS supplier_name,
 	e.status, e.journal_entry_id, u.full_name AS created_by, e.created_at`
 
 const expenseFrom = ` FROM expenses e JOIN accounts a ON a.id = e.account_id JOIN payment_methods m ON m.id = e.method_id
@@ -1137,6 +1147,8 @@ func (s *Server) createExpense(w http.ResponseWriter, r *http.Request) {
 		Amount      string `json:"amount"`
 		Description string `json:"description"`
 		SupplierID  string `json:"supplier_id"`
+		TaxRateID   string `json:"tax_rate_id"`  // optional recoverable tax (input VAT)
+		TaxIncluded bool   `json:"tax_included"` // amount already includes the tax (default: the tax is added)
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -1146,7 +1158,7 @@ func (s *Server) createExpense(w http.ResponseWriter, r *http.Request) {
 	}
 	amt, ok := money(in.Amount)
 	if !validDate(in.Date) || !isUUID(in.AccountID) || !isUUID(in.MethodID) || !ok || !amt.IsPositive() ||
-		(in.SupplierID != "" && !isUUID(in.SupplierID)) {
+		(in.SupplierID != "" && !isUUID(in.SupplierID)) || (in.TaxRateID != "" && !isUUID(in.TaxRateID)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -1181,18 +1193,40 @@ func (s *Server) createExpense(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		je, err := postJournal(ctx, tx, cid, set, in.Date, fmt.Sprintf("Expense #%d · %s", number, desc), fmt.Sprintf("EXP-%d", number), "expense",
-			[]jline{
-				{Account: in.AccountID, Desc: desc, Currency: m.Currency, Debit: amt, Rate: rate},
-				{Account: m.Account, Desc: m.Name, Currency: m.Currency, Credit: amt, Rate: rate},
-			})
+		tax, err := loadTaxRate(ctx, tx, cid, in.TaxRateID, "purchases")
+		if err != nil {
+			return nil, err
+		}
+		net, taxAmt, gross := amt, decimal.Zero, amt
+		if tax != nil {
+			dec, err := currencyDecimals(ctx, tx, m.Currency)
+			if err != nil {
+				return nil, err
+			}
+			if in.TaxIncluded {
+				net = amt.Mul(decimal.NewFromInt(100)).Div(decimal.NewFromInt(100).Add(tax.Rate)).Round(dec)
+				taxAmt = amt.Sub(net)
+			} else {
+				taxAmt = taxOn(amt, tax, dec)
+				gross = amt.Add(taxAmt)
+			}
+		}
+		jl := []jline{{Account: in.AccountID, Desc: desc, Currency: m.Currency, Debit: net, Rate: rate}}
+		var taxID *string
+		if tax != nil {
+			taxID = &tax.ID
+			jl = append(jl, jline{Account: tax.Account, Desc: tax.Name + " · " + desc, Currency: m.Currency, Debit: taxAmt, Rate: rate})
+		}
+		jl = append(jl, jline{Account: m.Account, Desc: m.Name, Currency: m.Currency, Credit: gross, Rate: rate})
+		je, err := postJournal(ctx, tx, cid, set, in.Date, fmt.Sprintf("Expense #%d · %s", number, desc), fmt.Sprintf("EXP-%d", number), "expense", jl)
 		if err != nil {
 			return nil, err
 		}
 		var id string
 		if err := tx.QueryRow(ctx, `INSERT INTO expenses (company_id, number, expense_date, account_id, method_id, currency, amount, description,
-			supplier_id, journal_entry_id) VALUES ($1, $2, $3::date, $4, $5, $6, $7::numeric, $8, nullif($9, '')::uuid, $10) RETURNING id::text`,
-			cid, number, in.Date, in.AccountID, m.ID, m.Currency, amt.String(), desc, in.SupplierID, je).Scan(&id); err != nil {
+			supplier_id, journal_entry_id, tax_rate_id, tax_amount)
+			VALUES ($1, $2, $3::date, $4, $5, $6, $7::numeric, $8, nullif($9, '')::uuid, $10, $11, $12::numeric) RETURNING id::text`,
+			cid, number, in.Date, in.AccountID, m.ID, m.Currency, gross.String(), desc, in.SupplierID, je, taxID, taxAmt.String()).Scan(&id); err != nil {
 			return nil, err
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+expenseCols+expenseFrom+` WHERE e.id = $1`, id)
@@ -1410,7 +1444,7 @@ func (s *Server) createStockDoc(w http.ResponseWriter, r *http.Request) {
 const stockDocCols = `d.id, d.number, d.kind, d.doc_date, d.item_id, it.code AS item_code, it.name AS item_name, it.unit, w.name AS warehouse,
 	d.quantity::text AS quantity, d.value::text AS value, a.code AS account_code, a.name AS account_name, d.notes,
 	d.generator_id, (SELECT g.name FROM generators g WHERE g.id = d.generator_id) AS generator_name,
-	u.full_name AS created_by, d.created_at`
+	u.full_name AS created_by, d.created_at, d.status`
 
 const stockDocFrom = ` FROM stock_docs d JOIN items it ON it.id = d.item_id JOIN warehouses w ON w.id = d.warehouse_id
 	JOIN accounts a ON a.id = d.account_id LEFT JOIN users u ON u.id = d.created_by`
@@ -1431,7 +1465,7 @@ func (s *Server) listStockDocs(w http.ResponseWriter, r *http.Request) {
 		}
 		totals, err := queryJSON(ctx, tx, `SELECT it.name AS item_name, it.unit, d.kind, sum(d.quantity)::text AS quantity, sum(d.value)::text AS value
 			FROM stock_docs d JOIN items it ON it.id = d.item_id
-			WHERE d.company_id = $1 AND d.doc_date BETWEEN $2::date AND $3::date AND ($4 = '' OR d.kind = $4)
+			WHERE d.company_id = $1 AND d.doc_date BETWEEN $2::date AND $3::date AND ($4 = '' OR d.kind = $4) AND d.status = 'posted'
 			GROUP BY it.name, it.unit, d.kind ORDER BY it.name`, r.PathValue("cid"), from, to, kind)
 		if err != nil {
 			return nil, err

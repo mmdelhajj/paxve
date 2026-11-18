@@ -63,7 +63,9 @@ export default function SupplierPayments({ me }: { me: Me }) {
                     <Table.Td ff="monospace">{p.number}</Table.Td>
                     <Table.Td>{formatDate(p.payment_date)}</Table.Td>
                     <Table.Td fw={500}><a href={`#/supplier/${p.supplier_id}`} style={{ color: 'inherit' }}>{p.supplier_name}</a></Table.Td>
-                    <Table.Td>{p.method}{p.paid_currency !== company.base_currency && <Text span size="xs" c="dimmed"> @ {p.paid_rate}</Text>}</Table.Td>
+                    <Table.Td>{p.kind === 'debit_note'
+                      ? <Badge size="sm" variant="light" color="orange">{t('gap.debitNote')}{p.bill_number ? ` · ${t('pur.bill')} #${p.bill_number}` : ''}</Badge>
+                      : p.method}{p.kind !== 'debit_note' && p.paid_currency !== company.base_currency && <Text span size="xs" c="dimmed"> @ {p.paid_rate}</Text>}</Table.Td>
                     <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(p.paid_amount, decimalsOf(p.paid_currency))} {p.paid_currency}</Table.Td>
                     <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(p.amount, decimalsOf(p.currency))} {p.currency}</Table.Td>
                     <Table.Td>

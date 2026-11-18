@@ -55,6 +55,23 @@ device…) returns the first payment instead of creating a second one.
 # monthly bills for November
 curl -s -X POST https://paxve.com/api/v1/companies/$CID/billing/run -H "$H" -H "$J" -d '{"period":"2026-11"}'
 
+# large companies: more than 1,500 subscriptions (or "async":true) returns 202 with a background job
+curl -s https://paxve.com/api/v1/companies/$CID/billing/jobs/<job id> -H "$H"   # status, processed / total, created, totals
+
+# credit note on an invoice (empty amount = everything not yet credited), optional immediate refund
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/invoices/<id>/credit-note -H "$H" -H "$J" -d '{"amount":"40","reason":"discount"}'
+# pay a customer's credit back, and a supplier debit note (return goods)
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/customers/<id>/refunds -H "$H" -H "$J" -d '{"currency":"USD","amount":"20","method_id":"<cash box>"}'
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/bills/<id>/debit-note -H "$H" -H "$J" -d '{"amount":"55.5"}'
+
+# stock: transfer between warehouses, void a fuel / adjustment document, movements report
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/stock/transfers -H "$H" -H "$J" -d '{"item_id":"<id>","from_warehouse_id":"<id>","to_warehouse_id":"<id>","quantity":"400"}'
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/stock/docs/<id>/void -H "$H" -H "$J" -d '{}'
+curl -s "https://paxve.com/api/v1/companies/$CID/reports/stock-moves?from=2026-11-01&to=2026-11-30" -H "$H"
+
+# any table to Excel: {title, columns:[{label,numeric}], rows:[[...]], footer:[[...]]} → .xlsx
+curl -s -X POST https://paxve.com/api/v1/export/xlsx -H "$H" -H "$J" -o report.xlsx -d '{"title":"Test","columns":[{"label":"A"}],"rows":[["x"]]}'
+
 # a balanced journal entry, posted immediately
 curl -s -X POST https://paxve.com/api/v1/companies/$CID/journal -H "$H" -H "$J" -d '{
   "date":"2026-11-18", "memo":"Owner contribution", "post":true,

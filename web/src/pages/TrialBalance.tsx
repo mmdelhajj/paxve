@@ -5,6 +5,7 @@ import { api } from '../api';
 import { useCompany } from '../company';
 import { formatAmount, notifyError, today } from '../util';
 import PageHeader from '../components/PageHeader';
+import ExportMenu from '../components/ExportMenu';
 
 interface Row { account_id: string; code: string; name: string; type: string; debit: string; credit: string; balance: string }
 interface TB { base_currency: string; rows: Row[]; total_debit: string; total_credit: string }
@@ -27,10 +28,16 @@ export default function TrialBalance() {
   const dec = decimalsOf(company.base_currency);
 
   return (
-    <Stack gap="lg" maw={1100}>
-      <PageHeader title={t('reports.trialBalance')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })}`}>
+    <Stack gap="lg" maw={1100} className="print-area">
+      <PageHeader title={t('reports.trialBalance')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${from} → ${to}`}>
         <TextInput type="date" size="xs" label={t('reports.from')} value={from} onChange={(e) => setFrom(e.currentTarget.value)} />
         <TextInput type="date" size="xs" label={t('reports.to')} value={to} onChange={(e) => setTo(e.currentTarget.value)} />
+        <ExportMenu disabled={!data?.rows.length} table={() => data && ({
+          title: t('reports.trialBalance'), subtitle: `${company.name_en} · ${from} → ${to} · ${company.base_currency}`,
+          columns: [{ label: t('reports.account') }, { label: t('reports.debit'), numeric: true }, { label: t('reports.credit'), numeric: true }, { label: t('reports.balance'), numeric: true }],
+          rows: data.rows.map((r) => [`${r.code} · ${r.name}`, r.debit, r.credit, r.balance]),
+          footer: [[t('reports.totals'), data.total_debit, data.total_credit, '']],
+        })} />
       </PageHeader>
       <Paper withBorder>
         {data === null ? (

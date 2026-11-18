@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Center, Group, Loader, Paper, SimpleGrid, Stack, Table, Text, TextInput } from '@mantine/core';
+import { Badge, Center, Group, Loader, Paper, SegmentedControl, SimpleGrid, Stack, Table, Text, TextInput } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
@@ -23,13 +23,14 @@ export default function Payments({ me }: { me: Me }) {
   const [data, setData] = useState<{ rows: Payment[]; by_method: ByMethod[] } | null>(null);
   const [view, setView] = useState<string | null>(null);
   const [limit, setLimit] = useState(200);
+  const [kind, setKind] = useState<'payment' | 'credit_note'>('payment');
   const canManage = me.role === 'admin' || me.role === 'accountant';
 
   const load = useCallback(() => {
     if (!company) return;
-    const p = new URLSearchParams({ from, to, q: dq, limit: String(limit) });
+    const p = new URLSearchParams({ from, to, q: dq, limit: String(limit), kind });
     api<{ rows: Payment[]; by_method: ByMethod[] }>(`/companies/${company.id}/payments?${p}`).then(setData).catch((e) => notifyError(t, e));
-  }, [company, from, to, dq, limit, t]);
+  }, [company, from, to, dq, limit, kind, t]);
   useEffect(load, [load]);
 
   if (!company) return null;
@@ -40,6 +41,8 @@ export default function Payments({ me }: { me: Me }) {
         <TextInput type="date" size="sm" value={from} onChange={(e) => setFrom(e.currentTarget.value)} aria-label={t('reports.from')} />
         <TextInput type="date" size="sm" value={to} onChange={(e) => setTo(e.currentTarget.value)} aria-label={t('reports.to')} />
         <TextInput size="sm" leftSection={<IconSearch size={16} />} placeholder={t('customers.search')} value={q} onChange={(e) => setQ(e.currentTarget.value)} w={220} />
+        <SegmentedControl size="xs" value={kind} onChange={(v) => setKind(v as 'payment' | 'credit_note')}
+          data={[{ value: 'payment', label: t('bill.payments') }, { value: 'credit_note', label: t('gap.creditNotes') }]} />
       </PageHeader>
       {data && data.by_method.length > 0 && (
         <>

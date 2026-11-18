@@ -636,3 +636,33 @@ paths:
   /companies/{cid}/bank/reconciliation:
     parameters: [{ $ref: '#/components/parameters/cid' }]
     get: { summary: "Book balance vs statement balance (?method_id, to) with unmatched items on both sides", responses: { "200": { description: OK } } }
+  /companies/{cid}/billing/jobs:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Background billing runs (large companies: billing/run returns 202 with a job when there are more than 1,500 subscriptions or async: true)", responses: { "200": { description: OK } } }
+  /companies/{cid}/billing/jobs/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: "Billing job progress {status running|done|failed, total, processed, created, skipped_count, skipped, totals, error}", responses: { "200": { description: OK } } }
+  /companies/{cid}/invoices/{id}/credit-note:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Credit note {amount? (incl. tax, default everything not yet credited), date?, reason?, refund_method_id?}; reverses revenue and tax in proportion at the invoice's rate", responses: { "201": { description: Created (a payment of kind credit_note) }, "422": { description: credit_exceeds_invoice } } }
+  /companies/{cid}/customers/{id}/refunds:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Pay customer credit back {currency, amount, method_id, date?, notes?}; stored as an invoice of kind refund, settled by the credit; void it with invoices/{id}/void", responses: { "201": { description: Created }, "422": { description: refund_exceeds_credit } } }
+  /companies/{cid}/bills/{id}/debit-note:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Supplier debit note {amount?, date?, reason?}; reverses cost, stock (at the bill's cost) and input tax in proportion; void it with supplier-payments/{id}/void", responses: { "201": { description: Created } } }
+  /companies/{cid}/stock/docs/{id}/void:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: Void a fuel-used or stock-adjustment document (refused when the stock is no longer there), responses: { "200": { description: OK }, "422": { description: insufficient_stock } } }
+  /companies/{cid}/stock/transfers:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Warehouse transfers (from, to), responses: { "200": { description: OK } } }
+    post: { summary: "Move stock {item_id, from_warehouse_id, to_warehouse_id, quantity, date?, notes?} at average cost; no journal entry", responses: { "201": { description: Created } } }
+  /companies/{cid}/stock/transfers/{id}/void:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: Void a transfer, responses: { "200": { description: OK } } }
+  /companies/{cid}/reports/stock-moves:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Stock movements with running quantity/value, plus opening/in/out/closing per item and warehouse (from, to, item_id?, warehouse_id?)", responses: { "200": { description: OK } } }
+  /export/xlsx:
+    post: { summary: "Excel workbook from a table {title, subtitle?, rtl?, columns: [{label, numeric?}], rows: [[...]], footer?: [[...]]}", responses: { "200": { description: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet } } }

@@ -9,6 +9,7 @@ import { api, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader, { Confirm } from '../../components/PageHeader';
+import ExportMenu from '../../components/ExportMenu';
 import { currentPeriod } from '../../billing';
 import { useMethods } from '../hr/Employees';
 
@@ -229,9 +230,16 @@ export function AssetRegister() {
   if (!company) return null;
   const dec = decimalsOf(company.base_currency);
   return (
-    <Stack gap="lg" maw={1100}>
-      <PageHeader title={t('fa.register')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })}`}>
+    <Stack gap="lg" maw={1100} className="print-area">
+      <PageHeader title={t('fa.register')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${to}`}>
         <TextInput type="date" size="xs" label={t('reports2.asOf')} value={to} onChange={(e) => setTo(e.currentTarget.value)} />
+        <ExportMenu disabled={!d?.rows.length} table={() => d && ({
+          title: t('fa.register'), subtitle: `${company.name_en} · ${to} · ${company.base_currency}`,
+          columns: [{ label: t('fa.name') }, { label: t('fa.purchaseDate') }, { label: t('fa.cost'), numeric: true },
+            { label: t('fa.accumulated'), numeric: true }, { label: t('fa.nbv'), numeric: true }],
+          rows: d.rows.map((r) => [`${r.code} · ${r.name}`, r.purchase_date, r.cost, r.accumulated, r.net_book_value]),
+          footer: [[t('reports.totals'), '', d.total_cost, d.total_accumulated, d.total_net_book_value]],
+        })} />
       </PageHeader>
       <Paper withBorder>
         {!d ? <Center p="xl"><Loader size="sm" /></Center> : d.rows.length === 0 ? <Text c="dimmed" ta="center" p="xl">{t('common.empty')}</Text> : (

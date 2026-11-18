@@ -76,12 +76,28 @@ export function BillView({ id, canVoid, onClose, onChanged }: { id: string; canV
   const [d, setD] = useState<BillDetail | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [debit, setDebit] = useState<{ amount: string; reason: string } | null>(null);
 
   useEffect(() => {
     if (!company) return;
     api<BillDetail>(`/companies/${company.id}/bills/${id}`).then(setD).catch((e) => { notifyError(t, e); onClose(); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company, id]);
+
+  async function doDebit() {
+    if (!company || !debit) return;
+    setBusy(true);
+    try {
+      setD(await api<BillDetail>(`/companies/${company.id}/bills/${id}/debit-note`, { method: 'POST', body: debit }));
+      notifySaved(t);
+      setDebit(null);
+      onChanged?.();
+    } catch (e) {
+      notifyError(t, e);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function doVoid() {
     if (!company) return;
@@ -144,9 +160,31 @@ export function BillView({ id, canVoid, onClose, onChanged }: { id: string; canV
             </Paper>
           )}
           {confirm && <Confirm text={t('pur.voidBillConfirm')} yesLabel={t('pur.voidBill')} noLabel={t('common.cancel')} busy={busy} onYes={doVoid} onNo={() => setConfirm(false)} />}
+          {debit && (
+            <Paper withBorder p="sm" className="no-print">
+              <Stack gap="xs">
+                <Text fw={600} size="sm">{t('gap.debitNoteNew')}</Text>
+                <Text size="xs" c="dimmed">{t('gap.debitHint')}</Text>
+                <Group grow>
+                  <TextInput label={t('gap.creditAmount')} dir="ltr" placeholder={formatAmount(b.total, dec)} value={debit.amount}
+                    rightSection={<Text size="xs" c="dimmed">{b.currency}</Text>}
+                    onChange={(e) => setDebit({ ...debit, amount: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
+                  <TextInput label={t('invoices.reason')} value={debit.reason} onChange={(e) => setDebit({ ...debit, reason: e.currentTarget.value })} />
+                </Group>
+                <Group justify="flex-end">
+                  <Button variant="default" size="xs" onClick={() => setDebit(null)}>{t('common.cancel')}</Button>
+                  <Button size="xs" color="orange" loading={busy} onClick={doDebit}>{t('gap.debitNote')}</Button>
+                </Group>
+              </Stack>
+            </Paper>
+          )}
           <Group justify="space-between" className="no-print">
-            {canVoid && b.status !== 'void' && b.paid === '0.0000' && !confirm
-              ? <Button variant="subtle" color="red" onClick={() => setConfirm(true)}>{t('pur.voidBill')}</Button> : <span />}
+            <Group gap="xs">
+              {canVoid && b.status !== 'void' && b.paid === '0.0000' && !confirm
+                ? <Button variant="subtle" color="red" onClick={() => setConfirm(true)}>{t('pur.voidBill')}</Button> : null}
+              {canVoid && b.status !== 'void' && !debit && !confirm
+                ? <Button variant="subtle" color="orange" onClick={() => setDebit({ amount: '', reason: '' })}>{t('gap.debitNote')}</Button> : null}
+            </Group>
             <Group gap="xs">
               <Button variant="default" onClick={onClose}>{t('common.close')}</Button>
               <Button leftSection={<IconPrinter size={16} />} onClick={() => void printPage()}>{t('invoices.print')}</Button>

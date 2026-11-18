@@ -20,7 +20,7 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
   const { company, decimalsOf } = useCompany();
   const [d, setD] = useState<Detail | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
-  const [modal, setModal] = useState<null | 'edit' | 'pay' | 'invoice' | 'sub'>(null);
+  const [modal, setModal] = useState<null | 'edit' | 'pay' | 'invoice' | 'sub' | 'refund'>(null);
   const [editSub, setEditSub] = useState<Subscription | null>(null);
   const [viewInvoice, setViewInvoice] = useState<string | null>(null);
   const [viewPayment, setViewPayment] = useState<string | null>(null);
@@ -79,6 +79,9 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
           <Paper withBorder p="md" h="100%">
             <Text size="xs" c="dimmed" tt="uppercase" fw={600}>{t('customers.credit')}</Text>
             <div style={{ marginTop: 6 }}><MoneyList items={c.credit} kind="credit" /></div>
+            {canManage && c.credit.length > 0 && (
+              <Button size="xs" variant="light" color="orange" mt="sm" onClick={() => setModal('refund')}>{t('gap.refundNew')}</Button>
+            )}
           </Paper>
         </Grid.Col>
       </Grid>
@@ -159,7 +162,7 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
                   <Table.Tbody>
                     {d.invoices.map((iv) => (
                       <Table.Tr key={iv.id} style={{ cursor: 'pointer' }} onClick={() => setViewInvoice(iv.id)}>
-                        <Table.Td ff="monospace">{iv.number}</Table.Td>
+                        <Table.Td ff="monospace">{iv.number}{iv.kind === 'refund' && <Badge ml={6} size="xs" color="orange" variant="light">{t('gap.refund')}</Badge>}</Table.Td>
                         <Table.Td>{formatDate(iv.issue_date)}</Table.Td>
                         <Table.Td>{iv.period ?? '—'}</Table.Td>
                         <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(iv.total, decimalsOf(iv.currency))} {iv.currency}</Table.Td>
@@ -188,7 +191,7 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
                   <Table.Tbody>
                     {d.payments.map((p) => (
                       <Table.Tr key={p.id} style={{ cursor: 'pointer', opacity: p.status === 'void' ? 0.5 : 1 }} onClick={() => setViewPayment(p.id)}>
-                        <Table.Td ff="monospace">{p.number}</Table.Td>
+                        <Table.Td ff="monospace">{p.number}{p.kind === 'credit_note' && <Badge ml={6} size="xs" color="orange" variant="light">{t('gap.creditNote')}</Badge>}</Table.Td>
                         <Table.Td>{formatDate(p.payment_date)}</Table.Td>
                         <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(p.amount, decimalsOf(p.currency))} {p.currency}</Table.Td>
                         <Table.Td c="dimmed">{p.received_by}</Table.Td>
@@ -212,6 +215,7 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
         <NewInvoice customerId={c.id} customerName={c.name} onClose={() => setModal(null)}
           onDone={(iid) => { setModal(null); load(); setViewInvoice(iid); }} />
       )}
+      {modal === 'refund' && <RefundForm customerId={c.id} credit={c.credit} onClose={() => setModal(null)} onDone={(iid) => { setModal(null); load(); setViewInvoice(iid); }} />}
       {modal === 'sub' && <SubscriptionForm customerId={c.id} sub={editSub} onClose={() => setModal(null)} onSaved={() => { setModal(null); load(); }} />}
       {viewInvoice && <InvoiceView id={viewInvoice} canVoid={canManage} onClose={() => setViewInvoice(null)} onChanged={load} />}
       {viewPayment && <PaymentView id={viewPayment} canVoid={canManage} onClose={() => setViewPayment(null)} onChanged={load} />}
@@ -341,6 +345,59 @@ function SubscriptionForm({ customerId, sub, onClose, onSaved }: { customerId: s
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
             <Button type="submit" loading={busy} disabled={!f.plan_id}>{t('common.save')}</Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
+  );
+}
+
+function RefundForm({ customerId, credit, onClose, onDone }: { customerId: string; credit: { currency: string; credit?: string }[]; onClose: () => void; onDone: (id: string) => void }) {
+  const { t } = useTranslation();
+  const { company, decimalsOf } = useCompany();
+  const [methods, setMethods] = useState<{ id: string; name: string; currency: string; is_active: boolean }[]>([]);
+  const [f, setF] = useState({ currency: credit[0]?.currency ?? '', amount: credit[0]?.credit ?? '', method_id: '', date: today(), notes: '' });
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (company) api<typeof methods>(`/companies/${company.id}/payment-methods`).then((m) => {
+      const a = m.filter((x) => x.is_active); setMethods(a);
+      setF((x) => ({ ...x, method_id: (a.find((y) => y.currency === x.currency) ?? a[0])?.id ?? '' }));
+    }).catch(() => {});
+  }, [company]);
+  const max = credit.find((x) => x.currency === f.currency)?.credit ?? '0';
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!company) return;
+    setBusy(true);
+    try {
+      const r = await api<{ invoice: { id: string } }>(`/companies/${company.id}/customers/${customerId}/refunds`, { method: 'POST', body: f });
+      notifySaved(t);
+      onDone(r.invoice.id);
+    } catch (err) {
+      notifyError(t, err);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal opened onClose={onClose} title={t('gap.refundNew')}>
+      <form onSubmit={submit}>
+        <Stack>
+          <Text size="sm" c="dimmed">{t('gap.refundHint')}</Text>
+          <Group grow>
+            <Select label={t('gap.currency')} data={credit.map((x) => x.currency)} value={f.currency} allowDeselect={false}
+              onChange={(v) => setF({ ...f, currency: v ?? f.currency, amount: credit.find((x) => x.currency === v)?.credit ?? '' })} />
+            <TextInput label={t('payments.amount')} dir="ltr" required value={f.amount}
+              description={`≤ ${formatAmount(max, decimalsOf(f.currency))} ${f.currency}`}
+              onChange={(e) => setF({ ...f, amount: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
+          </Group>
+          <Select label={t('gap.paidFrom')} data={methods.map((m) => ({ value: m.id, label: `${m.name} (${m.currency})` }))} value={f.method_id || null}
+            allowDeselect={false} onChange={(v) => setF({ ...f, method_id: v ?? '' })} />
+          <TextInput type="date" label={t('payments.date')} value={f.date} onChange={(e) => setF({ ...f, date: e.currentTarget.value })} />
+          <TextInput label={t('pur.notes')} value={f.notes} onChange={(e) => setF({ ...f, notes: e.currentTarget.value })} />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
+            <Button type="submit" color="orange" loading={busy} disabled={!Number(f.amount) || !f.method_id}>{t('gap.refund')}</Button>
           </Group>
         </Stack>
       </form>

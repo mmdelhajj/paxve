@@ -12,7 +12,7 @@ import (
 )
 
 const paymentCols = `p.id, p.number, p.customer_id, c.code AS customer_code, c.name AS customer_name, p.payment_date,
-	p.currency, p.amount::text AS amount, p.change_currency, p.change_amount::text AS change_amount, p.status,
+	p.currency, p.amount::text AS amount, p.change_currency, p.change_amount::text AS change_amount, p.status, p.kind, p.invoice_id,
 	p.journal_entry_id, p.notes, u.full_name AS received_by, p.created_at`
 
 type tenderIn struct {
@@ -205,6 +205,10 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 		if changeM != nil && changeAmt.IsPositive() {
 			lines = append(lines, jline{Account: changeM.Account, Desc: "Change · " + changeM.Name, Currency: changeM.Currency, Credit: changeAmt})
 		}
+		// earlier credits (advances, credit notes) settle open invoices first, with their own FX difference
+		if err := autoAllocate(ctx, tx, cid, set, in.CustomerID, in.Currency, ""); err != nil {
+			return nil, err
+		}
 		arLines, err := arCreditLines(ctx, tx, *set.AR, set.Base, in.CustomerID, name, in.Currency, applied, payRateS)
 		if err != nil {
 			return nil, err
@@ -222,10 +226,10 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 		}
 		var id string
 		if err := tx.QueryRow(ctx, `INSERT INTO payments (company_id, number, customer_id, payment_date, currency, amount,
-			change_method_id, change_currency, change_amount, journal_entry_id, notes, client_ref)
-			VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, $9::numeric, $10, $11, nullif($12, '')) RETURNING id::text`,
+			change_method_id, change_currency, change_amount, journal_entry_id, notes, client_ref, ar_rate)
+			VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, $9::numeric, $10, $11, nullif($12, ''), $13::numeric) RETURNING id::text`,
 			cid, number, in.CustomerID, in.Date, in.Currency, applied.String(), changeMethod, changeCur, changeAmt.String(),
-			je, strings.TrimSpace(in.Notes), in.ClientRef).Scan(&id); err != nil {
+			je, strings.TrimSpace(in.Notes), in.ClientRef, payRateS).Scan(&id); err != nil {
 			return nil, err
 		}
 		for _, t := range tenders {
@@ -234,7 +238,7 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 		}
-		if err := autoAllocate(ctx, tx, in.CustomerID, in.Currency); err != nil {
+		if err := autoAllocate(ctx, tx, cid, set, in.CustomerID, in.Currency, id); err != nil {
 			return nil, err
 		}
 		if err := autoMessage(ctx, tx, cid, "payment_received", in.CustomerID, nil, &id); err != nil {
@@ -314,6 +318,13 @@ func (s *Server) listPayments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit, offset := queryInt(r, "limit", 200, 2000), queryInt(r, "offset", 0, 1<<30)
+	kindCond := " AND p.kind = 'payment'"
+	switch q.Get("kind") {
+	case "credit_note":
+		kindCond = " AND p.kind = 'credit_note'"
+	case "all":
+		kindCond = ""
+	}
 	receivedBy := "" // bind parameter $6: only payments received by this user
 	if isCollector(r) {
 		receivedBy = principal(r).ID
@@ -323,7 +334,7 @@ func (s *Server) listPayments(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		cond := `p.company_id = $1 AND p.payment_date BETWEEN $2::date AND $3::date AND ($4 = '' OR p.customer_id = $4::uuid)
 			AND ($5 = '' OR c.name ILIKE '%' || $5 || '%' OR c.code ILIKE $5 || '%' OR p.number::text = $5)
-			AND ($6 = '' OR p.received_by = $6::uuid)`
+			AND ($6 = '' OR p.received_by = $6::uuid)` + kindCond
 		rows, err := queryJSON(ctx, tx, `SELECT `+paymentCols+` FROM payments p JOIN customers c ON c.id = p.customer_id
 			LEFT JOIN users u ON u.id = p.received_by WHERE `+cond+` ORDER BY p.payment_date DESC, p.number DESC LIMIT $7 OFFSET $8`,
 			r.PathValue("cid"), from, to, customer, search, receivedBy, limit, offset)
@@ -363,10 +374,10 @@ func (s *Server) voidPayment(w http.ResponseWriter, r *http.Request) {
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		var number int64
-		var status, customer string
+		var status, customer, kind string
 		var je *string
-		err := tx.QueryRow(ctx, `SELECT number, status, customer_id::text, journal_entry_id::text FROM payments
-			WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).Scan(&number, &status, &customer, &je)
+		err := tx.QueryRow(ctx, `SELECT number, status, customer_id::text, journal_entry_id::text, kind FROM payments
+			WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).Scan(&number, &status, &customer, &je, &kind)
 		if err == pgx.ErrNoRows {
 			return nil, notFound()
 		}
@@ -379,16 +390,24 @@ func (s *Server) voidPayment(w http.ResponseWriter, r *http.Request) {
 		if _, err := lockCustomer(ctx, tx, cid, customer); err != nil {
 			return nil, err
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO payment_allocations (payment_id, invoice_id, amount)
-			SELECT payment_id, invoice_id, -sum(amount) FROM payment_allocations WHERE payment_id = $1
-			GROUP BY payment_id, invoice_id HAVING sum(amount) <> 0`, id); err != nil {
+		label := map[string]string{"payment": "payment", "credit_note": "credit note"}[kind]
+		if err := reverseAllocations(ctx, tx, id, fmt.Sprintf("Void %s #%d · FX", label, number)); err != nil {
 			return nil, err
+		}
+		// a refund paid out of this credit must be voided first (the credit would go negative)
+		var refunded bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM invoices WHERE customer_id = $1 AND kind = 'refund'
+			AND status IN ('open', 'partial'))`, customer).Scan(&refunded); err != nil {
+			return nil, err
+		}
+		if refunded {
+			return nil, &apiError{status: http.StatusConflict, code: "refund_uses_credit"}
 		}
 		var rev *string
 		if je != nil {
 			var rid string
 			if err := tx.QueryRow(ctx, `SELECT reverse_journal_entry($1, current_date, $2)::text`,
-				*je, fmt.Sprintf("Void payment #%d %s", number, strings.TrimSpace(in.Reason))).Scan(&rid); err != nil {
+				*je, fmt.Sprintf("Void %s #%d %s", label, number, strings.TrimSpace(in.Reason))).Scan(&rid); err != nil {
 				return nil, err
 			}
 			rev = &rid

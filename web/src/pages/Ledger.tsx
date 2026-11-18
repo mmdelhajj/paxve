@@ -5,6 +5,7 @@ import { api, type Account } from '../api';
 import { useCompany } from '../company';
 import { accountLabel, formatAmount, formatDate, notifyError, today } from '../util';
 import PageHeader from '../components/PageHeader';
+import ExportMenu from '../components/ExportMenu';
 
 interface Row {
   entry_id: string; number: number; date: string; memo: string; description: string; currency: string;
@@ -36,11 +37,18 @@ export default function Ledger({ accountId }: { accountId: string }) {
   const dec = decimalsOf(company.base_currency);
 
   return (
-    <Stack gap="lg" maw={1200}>
+    <Stack gap="lg" maw={1200} className="print-area">
       <PageHeader title={account ? accountLabel(account) : t('reports.ledger')}
         subtitle={`${t('reports.ledger')} · ${t('reports.amountsIn', { cur: company.base_currency })}`}>
         <TextInput type="date" size="xs" label={t('reports.from')} value={from} onChange={(e) => setFrom(e.currentTarget.value)} />
         <TextInput type="date" size="xs" label={t('reports.to')} value={to} onChange={(e) => setTo(e.currentTarget.value)} />
+        <ExportMenu disabled={!data} table={() => data && ({
+          title: `${t('reports.ledger')} ${account ? accountLabel(account) : ''}`, subtitle: `${company.name_en} · ${from} → ${to} · ${company.base_currency}`,
+          columns: [{ label: t('journal.date') }, { label: t('journal.number') }, { label: t('journal.memo') }, { label: t('reports.debit'), numeric: true },
+            { label: t('reports.credit'), numeric: true }, { label: t('reports.balance'), numeric: true }],
+          rows: [['', '', t('reports.opening'), '', '', data.opening],
+            ...data.rows.map((r) => [r.date, r.number, [r.memo, r.description].filter(Boolean).join(' · '), r.base_debit, r.base_credit, r.balance])],
+        })} />
       </PageHeader>
       <Paper withBorder>
         {data === null ? (
