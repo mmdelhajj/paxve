@@ -32,7 +32,8 @@ func (s *Server) listCustomers(w http.ResponseWriter, r *http.Request) {
 	area := q.Get("area_id")
 	status := q.Get("status")
 	onlyDue := q.Get("due") == "1"
-	if area != "" && !isUUID(area) {
+	box, station := q.Get("box_id"), q.Get("station_id")
+	if (area != "" && !isUUID(area)) || (box != "" && !isUUID(box)) || (station != "" && !isUUID(station)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -46,7 +47,9 @@ func (s *Server) listCustomers(w http.ResponseWriter, r *http.Request) {
 			  AND ($4 = '' OR c.status = $4)
 			  AND (NOT $5 OR EXISTS (SELECT 1 FROM invoices i WHERE i.customer_id = c.id AND i.status IN ('open', 'partial')))
 			  AND (NOT $8 OR c.area_id IN (SELECT id FROM areas WHERE collector_id = app_user()))
-			ORDER BY c.name LIMIT $6 OFFSET $7`, r.PathValue("cid"), search, area, status, onlyDue, limit, offset, isCollector(r))
+			  AND ($9 = '' OR EXISTS (SELECT 1 FROM subscriptions s WHERE s.customer_id = c.id AND s.box_id = $9::uuid))
+			  AND ($10 = '' OR EXISTS (SELECT 1 FROM subscriptions s JOIN boxes b ON b.id = s.box_id WHERE s.customer_id = c.id AND b.station_id = $10::uuid))
+			ORDER BY c.name LIMIT $6 OFFSET $7`, r.PathValue("cid"), search, area, status, onlyDue, limit, offset, isCollector(r), box, station)
 	})
 }
 
@@ -141,7 +144,8 @@ func (s *Server) updateCustomer(w http.ResponseWriter, r *http.Request) {
 
 const subscriptionCols = `s.id, s.customer_id, s.plan_id, p.name AS plan_name, p.billing_type, p.currency,
 	p.base_fee::text AS base_fee, p.unit_price::text AS unit_price, p.unit_label, s.meter_no, s.start_date, s.status,
-	s.fee_override::text AS fee_override, s.initial_reading::text AS initial_reading, s.notes,
+	s.fee_override::text AS fee_override, s.initial_reading::text AS initial_reading, s.notes, s.box_id,
+	(SELECT b.code FROM boxes b WHERE b.id = s.box_id) AS box_code,
 	(SELECT r.reading::text FROM meter_readings r WHERE r.subscription_id = s.id ORDER BY r.period DESC LIMIT 1) AS last_reading,
 	(SELECT r.period FROM meter_readings r WHERE r.subscription_id = s.id ORDER BY r.period DESC LIMIT 1) AS last_period`
 
@@ -186,6 +190,7 @@ type subscriptionIn struct {
 	FeeOverride    *string `json:"fee_override"` // "" clears
 	InitialReading *string `json:"initial_reading"`
 	Notes          *string `json:"notes"`
+	BoxID          *string `json:"box_id"` // "" clears
 }
 
 func (in *subscriptionIn) valid(create bool) bool {
@@ -199,7 +204,7 @@ func (in *subscriptionIn) valid(create bool) bool {
 		_, ok := money(*p)
 		return ok
 	}
-	return optUUID(in.PlanID) && (in.StartDate == nil || validDate(*in.StartDate)) &&
+	return optUUID(in.PlanID) && optUUID(in.BoxID) && (in.StartDate == nil || validDate(*in.StartDate)) &&
 		(in.Status == nil || *in.Status == "active" || *in.Status == "suspended" || *in.Status == "ended") &&
 		okNum(in.FeeOverride, true) && okNum(in.InitialReading, false)
 }
@@ -233,15 +238,18 @@ func (s *Server) createSubscription(w http.ResponseWriter, r *http.Request) {
 		if err := checkPlanLimit(ctx, tx); err != nil {
 			return nil, err
 		}
+		if err := checkBox(ctx, tx, cid, deref(in.BoxID)); err != nil {
+			return nil, err
+		}
 		start := deref(in.StartDate)
 		if start == "" {
 			start = today()
 		}
 		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO subscriptions (company_id, customer_id, plan_id, meter_no, start_date, fee_override, initial_reading, notes)
-			VALUES ($1, $2, $3, $4, $5::date, nullif($6, '')::numeric, coalesce(nullif($7, '')::numeric, 0), $8) RETURNING id::text`,
+		if err := tx.QueryRow(ctx, `INSERT INTO subscriptions (company_id, customer_id, plan_id, meter_no, start_date, fee_override, initial_reading, notes, box_id)
+			VALUES ($1, $2, $3, $4, $5::date, nullif($6, '')::numeric, coalesce(nullif($7, '')::numeric, 0), $8, nullif($9, '')::uuid) RETURNING id::text`,
 			cid, customer, *in.PlanID, strings.TrimSpace(deref(in.MeterNo)), start, deref(in.FeeOverride),
-			deref(in.InitialReading), deref(in.Notes)).Scan(&id); err != nil {
+			deref(in.InitialReading), deref(in.Notes), deref(in.BoxID)).Scan(&id); err != nil {
 			return nil, err
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+subscriptionCols+` FROM subscriptions s JOIN plans p ON p.id = s.plan_id WHERE s.id = $1`, id)
@@ -264,6 +272,9 @@ func (s *Server) updateSubscription(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 		}
+		if err := checkBox(ctx, tx, cid, deref(in.BoxID)); err != nil {
+			return nil, err
+		}
 		if in.Status != nil && *in.Status == "active" {
 			var cur string
 			if err := tx.QueryRow(ctx, `SELECT status FROM subscriptions WHERE id = $1 AND company_id = $2`, id, cid).Scan(&cur); err == nil && cur != "active" {
@@ -275,9 +286,10 @@ func (s *Server) updateSubscription(w http.ResponseWriter, r *http.Request) {
 		tag, err := tx.Exec(ctx, `UPDATE subscriptions SET plan_id = coalesce($3::uuid, plan_id), meter_no = coalesce(trim($4), meter_no),
 			start_date = coalesce($5::date, start_date), status = coalesce($6, status),
 			fee_override = CASE WHEN $7::text IS NULL THEN fee_override ELSE nullif($7, '')::numeric END,
-			initial_reading = coalesce($8::numeric, initial_reading), notes = coalesce($9, notes)
+			initial_reading = coalesce($8::numeric, initial_reading), notes = coalesce($9, notes),
+			box_id = CASE WHEN $10::text IS NULL THEN box_id ELSE nullif($10, '')::uuid END
 			WHERE id = $1 AND company_id = $2`,
-			id, cid, in.PlanID, in.MeterNo, in.StartDate, in.Status, in.FeeOverride, in.InitialReading, in.Notes)
+			id, cid, in.PlanID, in.MeterNo, in.StartDate, in.Status, in.FeeOverride, in.InitialReading, in.Notes, in.BoxID)
 		if err != nil {
 			return nil, err
 		}
@@ -294,13 +306,15 @@ func (s *Server) updateSubscription(w http.ResponseWriter, r *http.Request) {
 func (s *Server) readingSheet(w http.ResponseWriter, r *http.Request) {
 	period := r.URL.Query().Get("period")
 	area := r.URL.Query().Get("area_id")
-	if !validPeriod(period) || (area != "" && !isUUID(area)) {
+	box, station := r.URL.Query().Get("box_id"), r.URL.Query().Get("station_id")
+	if !validPeriod(period) || (area != "" && !isUUID(area)) || (box != "" && !isUUID(box)) || (station != "" && !isUUID(station)) {
 		writeErr(w, http.StatusBadRequest, "invalid_period")
 		return
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		return queryJSON(ctx, tx, `
 			SELECT s.id AS subscription_id, c.id AS customer_id, c.code, c.name, ar.name AS area_name, s.meter_no,
+			       (SELECT b.code FROM boxes b WHERE b.id = s.box_id) AS box_code,
 			       p.name AS plan_name, p.unit_label,
 			       coalesce((SELECT r.reading FROM meter_readings r WHERE r.subscription_id = s.id AND r.period < $2
 			                 ORDER BY r.period DESC LIMIT 1), s.initial_reading)::text AS previous,
@@ -313,7 +327,9 @@ func (s *Server) readingSheet(w http.ResponseWriter, r *http.Request) {
 			WHERE s.company_id = $1 AND s.status = 'active' AND c.status = 'active'
 			  AND ($3 = '' OR c.area_id = $3::uuid)
 			  AND (NOT $4 OR ar.collector_id = app_user())
-			ORDER BY ar.name NULLS LAST, c.name`, r.PathValue("cid"), period, area, isCollector(r))
+			  AND ($5 = '' OR s.box_id = $5::uuid)
+			  AND ($6 = '' OR s.box_id IN (SELECT id FROM boxes WHERE station_id = $6::uuid))
+			ORDER BY ar.name NULLS LAST, c.name`, r.PathValue("cid"), period, area, isCollector(r), box, station)
 	})
 }
 

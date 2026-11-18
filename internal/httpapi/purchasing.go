@@ -607,6 +607,7 @@ type billLineIn struct {
 	Description string `json:"description"`
 	Quantity    string `json:"quantity"`
 	UnitPrice   string `json:"unit_price"`
+	TaxRateID   string `json:"tax_rate_id"`
 }
 
 func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
@@ -666,6 +667,8 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 			desc          string
 			qty, price    decimal.Decimal
 			amount, value decimal.Decimal
+			tax           *taxInfo
+			taxAmount     decimal.Decimal
 		}
 		lines := []line{}
 		total := decimal.Zero
@@ -717,8 +720,12 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 				return nil, badRequest("bad_request")
 			}
 			ln.amount = qty.Mul(price).Round(dec)
-			ln.value = ln.amount.DivRound(rate, 4) // base value, same rounding as the journal
-			total = total.Add(ln.amount)
+			ln.value = ln.amount.DivRound(rate, 4) // base value, same rounding as the journal (tax excluded)
+			if ln.tax, err = loadTaxRate(ctx, tx, cid, l.TaxRateID, "purchases"); err != nil {
+				return nil, err
+			}
+			ln.taxAmount = taxOn(ln.amount, ln.tax, dec)
+			total = total.Add(ln.amount).Add(ln.taxAmount)
 			lines = append(lines, ln)
 		}
 		if !total.IsPositive() {
@@ -731,6 +738,9 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 		jl := []jline{}
 		for _, l := range lines {
 			jl = append(jl, jline{Account: l.account, Desc: l.desc, Currency: in.Currency, Debit: l.amount, Rate: rateS})
+			if l.tax != nil && l.taxAmount.IsPositive() {
+				jl = append(jl, jline{Account: l.tax.Account, Desc: l.tax.Name + " · " + l.desc, Currency: in.Currency, Debit: l.taxAmount, Rate: rateS})
+			}
 		}
 		jl = append(jl, jline{Account: *ps.AP, Desc: name, Currency: in.Currency, Credit: total, Rate: rateS})
 		je, err := postJournal(ctx, tx, cid, set, in.BillDate, fmt.Sprintf("Bill #%d · %s", number, name), fmt.Sprintf("BILL-%d", number), "bill", jl)
@@ -752,9 +762,13 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 			if l.wh != "" {
 				wh = &l.wh
 			}
-			if _, err := tx.Exec(ctx, `INSERT INTO bill_lines (bill_id, line_no, item_id, warehouse_id, account_id, description, quantity, unit_price, amount)
-				VALUES ($1, $2, $3, $4, $5, $6, $7::numeric, $8::numeric, $9::numeric)`,
-				id, i+1, itemID, wh, l.account, l.desc, l.qty.String(), l.price.String(), l.amount.String()); err != nil {
+			var taxID *string
+			if l.tax != nil {
+				taxID = &l.tax.ID
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO bill_lines (bill_id, line_no, item_id, warehouse_id, account_id, description, quantity, unit_price, amount,
+				tax_rate_id, tax_amount) VALUES ($1, $2, $3, $4, $5, $6, $7::numeric, $8::numeric, $9::numeric, $10, $11::numeric)`,
+				id, i+1, itemID, wh, l.account, l.desc, l.qty.String(), l.price.String(), l.amount.String(), taxID, l.taxAmount.String()); err != nil {
 				return nil, err
 			}
 			if l.item != nil && l.item.Kind == "stock" {
@@ -781,7 +795,8 @@ func loadBill(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 		return nil, err
 	}
 	lines, err := queryJSON(ctx, tx, `SELECT l.line_no, l.item_id, it.code AS item_code, it.unit, l.warehouse_id, l.account_id, a.code AS account_code,
-		l.description, l.quantity::text AS quantity, l.unit_price::text AS unit_price, l.amount::text AS amount
+		l.description, l.quantity::text AS quantity, l.unit_price::text AS unit_price, l.amount::text AS amount,
+		l.tax_amount::text AS tax_amount, (SELECT t.name FROM tax_rates t WHERE t.id = l.tax_rate_id) AS tax_name
 		FROM bill_lines l JOIN accounts a ON a.id = l.account_id LEFT JOIN items it ON it.id = l.item_id
 		WHERE l.bill_id = $1 ORDER BY l.line_no`, id)
 	if err != nil {
@@ -1257,12 +1272,17 @@ func (s *Server) createStockDoc(w http.ResponseWriter, r *http.Request) {
 		AccountID   string `json:"account_id"`
 		Date        string `json:"date"`
 		Notes       string `json:"notes"`
+		GeneratorID string `json:"generator_id"` // fuel: which generator used it
 	}
 	if !decodeBody(w, r, &in) {
 		return
 	}
 	if in.Date == "" {
 		in.Date = today()
+	}
+	if in.GeneratorID != "" && !isUUID(in.GeneratorID) {
+		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
 	}
 	qty, err := decimal.NewFromString(strings.TrimSpace(in.Quantity))
 	if (kind != "fuel" && kind != "adjust") || err != nil || qty.IsZero() || qty.Exponent() < -4 || (kind == "fuel" && qty.IsNegative()) ||
@@ -1304,6 +1324,13 @@ func (s *Server) createStockDoc(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := requirePostable(ctx, tx, cid, account); err != nil {
 			return nil, err
+		}
+		var genID *string
+		if in.GeneratorID != "" {
+			if err := checkGenerator(ctx, tx, cid, in.GeneratorID); err != nil {
+				return nil, err
+			}
+			genID = &in.GeneratorID
 		}
 		have, avg, err := lockStock(ctx, tx, it.ID, wh)
 		if err != nil {
@@ -1359,13 +1386,13 @@ func (s *Server) createStockDoc(w http.ResponseWriter, r *http.Request) {
 			signedValue = value.Neg()
 		}
 		if err := tx.QueryRow(ctx, `INSERT INTO stock_docs (company_id, number, kind, doc_date, item_id, warehouse_id, quantity, value, account_id,
-			notes, journal_entry_id) VALUES ($1, $2, $3, $4::date, $5, $6, $7::numeric, $8::numeric, $9, $10, $11) RETURNING id::text`,
+			notes, journal_entry_id, generator_id) VALUES ($1, $2, $3, $4::date, $5, $6, $7::numeric, $8::numeric, $9, $10, $11, $12) RETURNING id::text`,
 			cid, number, kind, in.Date, it.ID, wh, func() string {
 				if out {
 					return amount.Neg().String()
 				}
 				return amount.String()
-			}(), signedValue.String(), account, strings.TrimSpace(in.Notes), je).Scan(&docID); err != nil {
+			}(), signedValue.String(), account, strings.TrimSpace(in.Notes), je, genID).Scan(&docID); err != nil {
 			return nil, err
 		}
 		if out {
@@ -1382,6 +1409,7 @@ func (s *Server) createStockDoc(w http.ResponseWriter, r *http.Request) {
 
 const stockDocCols = `d.id, d.number, d.kind, d.doc_date, d.item_id, it.code AS item_code, it.name AS item_name, it.unit, w.name AS warehouse,
 	d.quantity::text AS quantity, d.value::text AS value, a.code AS account_code, a.name AS account_name, d.notes,
+	d.generator_id, (SELECT g.name FROM generators g WHERE g.id = d.generator_id) AS generator_name,
 	u.full_name AS created_by, d.created_at`
 
 const stockDocFrom = ` FROM stock_docs d JOIN items it ON it.id = d.item_id JOIN warehouses w ON w.id = d.warehouse_id

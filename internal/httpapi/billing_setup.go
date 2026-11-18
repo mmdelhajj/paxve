@@ -13,16 +13,17 @@ import (
 func (s *Server) getBillingSettings(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		return queryJSONOne(ctx, tx, `SELECT base_currency, local_currency, ar_account_id, fx_gain_account_id,
-			fx_loss_account_id, default_revenue_account_id FROM companies WHERE id = $1`, r.PathValue("cid"))
+			fx_loss_account_id, default_revenue_account_id, show_local_currency_on_bills FROM companies WHERE id = $1`, r.PathValue("cid"))
 	})
 }
 
 func (s *Server) putBillingSettings(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		AR      *string `json:"ar_account_id"`
-		FXGain  *string `json:"fx_gain_account_id"`
-		FXLoss  *string `json:"fx_loss_account_id"`
-		Revenue *string `json:"default_revenue_account_id"`
+		AR        *string `json:"ar_account_id"`
+		FXGain    *string `json:"fx_gain_account_id"`
+		FXLoss    *string `json:"fx_loss_account_id"`
+		Revenue   *string `json:"default_revenue_account_id"`
+		ShowLocal *bool   `json:"show_local_currency_on_bills"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -46,8 +47,9 @@ func (s *Server) putBillingSettings(w http.ResponseWriter, r *http.Request) {
 			ar_account_id = CASE WHEN $2::text IS NULL THEN ar_account_id ELSE nullif($2, '')::uuid END,
 			fx_gain_account_id = CASE WHEN $3::text IS NULL THEN fx_gain_account_id ELSE nullif($3, '')::uuid END,
 			fx_loss_account_id = CASE WHEN $4::text IS NULL THEN fx_loss_account_id ELSE nullif($4, '')::uuid END,
-			default_revenue_account_id = CASE WHEN $5::text IS NULL THEN default_revenue_account_id ELSE nullif($5, '')::uuid END
-			WHERE id = $1`, cid, in.AR, in.FXGain, in.FXLoss, in.Revenue)
+			default_revenue_account_id = CASE WHEN $5::text IS NULL THEN default_revenue_account_id ELSE nullif($5, '')::uuid END,
+			show_local_currency_on_bills = coalesce($6, show_local_currency_on_bills)
+			WHERE id = $1`, cid, in.AR, in.FXGain, in.FXLoss, in.Revenue, in.ShowLocal)
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +57,7 @@ func (s *Server) putBillingSettings(w http.ResponseWriter, r *http.Request) {
 			return nil, notFound()
 		}
 		return queryJSONOne(ctx, tx, `SELECT base_currency, local_currency, ar_account_id, fx_gain_account_id,
-			fx_loss_account_id, default_revenue_account_id FROM companies WHERE id = $1`, cid)
+			fx_loss_account_id, default_revenue_account_id, show_local_currency_on_bills FROM companies WHERE id = $1`, cid)
 	})
 }
 
@@ -239,7 +241,8 @@ func (s *Server) updateArea(w http.ResponseWriter, r *http.Request) {
 // ---- plans ----
 
 const planCols = `p.id, p.name, p.billing_type, p.currency, p.base_fee::text AS base_fee, p.unit_price::text AS unit_price,
-	p.unit_label, p.revenue_account_id, a.code AS revenue_account_code, p.is_active,
+	p.unit_label, p.revenue_account_id, a.code AS revenue_account_code, p.is_active, p.tax_rate_id,
+	(SELECT t.name FROM tax_rates t WHERE t.id = p.tax_rate_id) AS tax_rate_name,
 	(SELECT count(*) FROM subscriptions s WHERE s.plan_id = p.id AND s.status = 'active') AS active_subscriptions`
 
 func (s *Server) listPlans(w http.ResponseWriter, r *http.Request) {
@@ -258,6 +261,7 @@ type planIn struct {
 	UnitLabel        *string `json:"unit_label"`
 	RevenueAccountID *string `json:"revenue_account_id"`
 	IsActive         *bool   `json:"is_active"`
+	TaxRateID        *string `json:"tax_rate_id"` // "" = no tax
 }
 
 func (in *planIn) valid(create bool) bool {
@@ -274,7 +278,7 @@ func (in *planIn) valid(create bool) bool {
 	return (in.Name == nil || strings.TrimSpace(*in.Name) != "") &&
 		(in.BillingType == nil || *in.BillingType == "fixed" || *in.BillingType == "metered") &&
 		(in.Currency == nil || currencyRe.MatchString(*in.Currency)) &&
-		okMoney(in.BaseFee) && okMoney(in.UnitPrice) && optUUID(in.RevenueAccountID)
+		okMoney(in.BaseFee) && okMoney(in.UnitPrice) && optUUID(in.RevenueAccountID) && optUUID(in.TaxRateID)
 }
 
 func (s *Server) createPlan(w http.ResponseWriter, r *http.Request) {
@@ -302,11 +306,14 @@ func (s *Server) createPlan(w http.ResponseWriter, r *http.Request) {
 		if err := requirePostable(ctx, tx, cid, rev); err != nil {
 			return nil, err
 		}
+		if err := checkTaxRate(ctx, tx, cid, deref(in.TaxRateID), "sales"); err != nil {
+			return nil, err
+		}
 		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO plans (company_id, name, billing_type, currency, base_fee, unit_price, unit_label, revenue_account_id)
-			VALUES ($1, $2, $3, $4, coalesce(nullif($5, '')::numeric, 0), coalesce(nullif($6, '')::numeric, 0), coalesce(nullif($7, ''), 'kWh'), $8)
+		if err := tx.QueryRow(ctx, `INSERT INTO plans (company_id, name, billing_type, currency, base_fee, unit_price, unit_label, revenue_account_id, tax_rate_id)
+			VALUES ($1, $2, $3, $4, coalesce(nullif($5, '')::numeric, 0), coalesce(nullif($6, '')::numeric, 0), coalesce(nullif($7, ''), 'kWh'), $8, nullif($9, '')::uuid)
 			RETURNING id::text`, cid, strings.TrimSpace(*in.Name), *in.BillingType, *in.Currency,
-			deref(in.BaseFee), deref(in.UnitPrice), deref(in.UnitLabel), rev).Scan(&id); err != nil {
+			deref(in.BaseFee), deref(in.UnitPrice), deref(in.UnitLabel), rev, deref(in.TaxRateID)).Scan(&id); err != nil {
 			return nil, err
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+planCols+` FROM plans p JOIN accounts a ON a.id = p.revenue_account_id WHERE p.id = $1`, id)
@@ -329,11 +336,14 @@ func (s *Server) updatePlan(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 		}
-		tag, err := tx.Exec(ctx, `UPDATE plans SET name = coalesce(trim($3), name), billing_type = coalesce($4, billing_type),
+		if err := checkTaxRate(ctx, tx, cid, deref(in.TaxRateID), "sales"); err != nil {
+			return nil, err
+		}
+		tag, err := tx.Exec(ctx, `UPDATE plans SET tax_rate_id = CASE WHEN $11::text IS NULL THEN tax_rate_id ELSE nullif($11, '')::uuid END, name = coalesce(trim($3), name), billing_type = coalesce($4, billing_type),
 			currency = coalesce($5, currency), base_fee = coalesce($6::numeric, base_fee), unit_price = coalesce($7::numeric, unit_price),
 			unit_label = coalesce(nullif($8, ''), unit_label), revenue_account_id = coalesce(nullif($9, '')::uuid, revenue_account_id),
 			is_active = coalesce($10, is_active) WHERE id = $1 AND company_id = $2`,
-			id, cid, in.Name, in.BillingType, in.Currency, in.BaseFee, in.UnitPrice, in.UnitLabel, in.RevenueAccountID, in.IsActive)
+			id, cid, in.Name, in.BillingType, in.Currency, in.BaseFee, in.UnitPrice, in.UnitLabel, in.RevenueAccountID, in.IsActive, in.TaxRateID)
 		if err != nil {
 			return nil, err
 		}

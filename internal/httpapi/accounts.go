@@ -325,7 +325,13 @@ func applyBillingDefaults(ctx context.Context, tx pgx.Tx, cid string, tpl *chart
 			return err
 		}
 	}
-	return nil
+	// Lebanese rules: bills also show the total in the second currency (LBP).
+	if tpl.Key == "lebanon" {
+		if _, err := tx.Exec(ctx, `UPDATE companies SET show_local_currency_on_bills = true WHERE id = $1 AND local_currency <> base_currency`, cid); err != nil {
+			return err
+		}
+	}
+	return ensureDefaultTax(ctx, tx, cid, tpl.Key, ids)
 }
 
 func deref(p *string) string {

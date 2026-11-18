@@ -20,7 +20,8 @@ export default function Stock({ me }: { me: Me }) {
   const [items, setItems] = useState<Item[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [kind, setKind] = useState<'fuel' | 'adjust'>('fuel');
-  const [f, setF] = useState({ item_id: '', warehouse_id: '', quantity: '', unit_cost: '', notes: '', date: today() });
+  const [f, setF] = useState({ item_id: '', warehouse_id: '', quantity: '', unit_cost: '', notes: '', date: today(), generator_id: '' });
+  const [generators, setGenerators] = useState<{ id: string; name: string; station_name: string; fuel_item_id: string | null; status: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const canEdit = me.role !== 'read_only';
 
@@ -32,6 +33,8 @@ export default function Stock({ me }: { me: Me }) {
   useEffect(load, [load]);
   useEffect(() => {
     if (company) api<Warehouse[]>(`/companies/${company.id}/warehouses`).then(setWarehouses).catch(() => {});
+    if (company) api<{ id: string; name: string; station_name: string; fuel_item_id: string | null; status: string }[]>(`/companies/${company.id}/generators`)
+      .then((g) => setGenerators(g.filter((x) => x.status !== 'retired'))).catch(() => {});
   }, [company]);
   if (!company) return null;
   const bdec = decimalsOf(company.base_currency);
@@ -42,7 +45,7 @@ export default function Stock({ me }: { me: Me }) {
     if (!company) return;
     setBusy(true);
     try {
-      await api(`/companies/${company.id}/stock/${kind}`, { method: 'POST', body: f });
+      await api(`/companies/${company.id}/stock/${kind}`, { method: 'POST', body: kind === 'fuel' ? f : { ...f, generator_id: '' } });
       notifySaved(t);
       setF({ ...f, quantity: '', unit_cost: '', notes: '' });
       load();
@@ -69,6 +72,11 @@ export default function Stock({ me }: { me: Me }) {
                     data={[{ value: 'fuel', label: t('pur.fuel') }, { value: 'adjust', label: t('pur.adjust') }]} />
                   <Text size="sm" c="dimmed">{kind === 'fuel' ? t('pur.fuelHint') : t('pur.adjustHint')}</Text>
                   <TextInput type="date" label={t('invoices.date')} value={f.date} onChange={(e) => setF({ ...f, date: e.currentTarget.value })} />
+                  {kind === 'fuel' && generators.length > 0 && (
+                    <Select label={t('net.generator')} clearable value={f.generator_id || null}
+                      data={generators.map((g) => ({ value: g.id, label: `${g.name} · ${g.station_name}` }))}
+                      onChange={(v) => { const g = generators.find((x) => x.id === v); setF({ ...f, generator_id: v ?? '', item_id: g?.fuel_item_id ?? f.item_id }); }} />
+                  )}
                   <Select label={t('pur.item')} required searchable data={items.map((i) => ({ value: i.id, label: `${i.name} · ${Number(i.quantity)} ${i.unit}` }))}
                     value={f.item_id || null} onChange={(v) => setF({ ...f, item_id: v ?? '' })} />
                   {warehouses.length > 1 && <Select label={t('pur.warehouse')} data={warehouses.map((w) => ({ value: w.id, label: w.name }))}

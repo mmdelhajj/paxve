@@ -8,7 +8,7 @@ import { api, type Rate } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, notifySaved, roundChange, today } from '../../util';
 import { Confirm } from '../../components/PageHeader';
-import { invoiceColor, type InvoiceDetail, type Money, type PaymentDetail, type PaymentMethod } from '../../billing';
+import { invoiceColor, type InvoiceDetail, type Money, type PaymentDetail, type PaymentMethod, type TaxRate } from '../../billing';
 import { WhatsAppButton } from './Messages';
 
 export function MoneyList({ items, kind = 'due' }: { items: Money[]; kind?: 'due' | 'credit' }) {
@@ -92,12 +92,19 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
                         <span dir="ltr">{l.meta.previous} → {l.meta.current} = {l.meta.used} {l.meta.unit} × {formatAmount(l.unit_price, 4).replace(/\.?0+$/, '')}</span>
                       ) : l.description}
                     </td>
-                    <td className="num">{formatAmount(l.amount, dec)}</td>
+                    <td className="num">
+                      {formatAmount(l.amount, dec)}
+                      {l.tax_amount && Number(l.tax_amount) > 0 && <div style={{ fontSize: 11 }}>+ {l.tax_name}: {formatAmount(l.tax_amount, dec)}</div>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr><th>{t('invoices.total')}</th><th className="num">{formatAmount(inv.total, dec)} {inv.currency}</th></tr>
+                {inv.local_currency && inv.local_currency_total && (
+                  <tr><td>{t('net.localTotal', { cur: inv.local_currency, rate: Number(inv.local_rate ?? 0).toLocaleString('en-US'), date: formatDate(inv.issue_date) })}</td>
+                    <td className="num" style={{ fontWeight: 700 }}>{formatAmount(inv.local_currency_total, decimalsOf(inv.local_currency))} {inv.local_currency}</td></tr>
+                )}
                 {inv.paid !== '0.0000' && <tr><td>{t('invoices.paid')}</td><td className="num">{formatAmount(inv.paid, dec)}</td></tr>}
                 {inv.status !== 'void' && <tr><th>{t('invoices.balance')}</th><th className="num">{formatAmount(inv.balance, dec)} {inv.currency}</th></tr>}
               </tfoot>
@@ -213,6 +220,10 @@ export function Receipt({ d }: { d: PaymentDetail }) {
             <tr><td>{t('payments.change')}</td><td className="num">-{formatAmount(p.change_amount, decimalsOf(p.change_currency))} {p.change_currency}</td></tr>
           )}
           <tr><th>{t('payments.amount')}</th><th className="num">{formatAmount(p.amount, decimalsOf(p.currency))} {p.currency}</th></tr>
+          {d.local && (
+            <tr><td>{t('net.localTotal', { cur: d.local.currency, rate: Number(d.local.rate).toLocaleString('en-US'), date: formatDate(d.local.date) })}</td>
+              <td className="num">{formatAmount(d.local.amount, decimalsOf(d.local.currency))} {d.local.currency}</td></tr>
+          )}
           {d.allocations.map((a, i) => (
             <tr key={'a' + i}><td>{t('invoices.invoice')} #{a.invoice_number}{a.period ? ` (${a.period})` : ''}</td>
               <td className="num">{formatAmount(a.amount, decimalsOf(p.currency))}</td></tr>
@@ -395,7 +406,7 @@ export function ReceivePayment({ customerId, customerName, due, onClose, onDone 
 
 // ---------- manual invoice ----------
 
-interface ManualLine { key: number; description: string; quantity: string; unit_price: string; item_id?: string | null }
+interface ManualLine { key: number; description: string; quantity: string; unit_price: string; item_id?: string | null; tax_rate_id?: string | null }
 interface SaleItem { id: string; code: string; name: string; unit: string; kind: string; sale_price: string; quantity: string; is_active: boolean }
 
 export function NewInvoice({ customerId, customerName, onClose, onDone }: {
@@ -408,10 +419,13 @@ export function NewInvoice({ customerId, customerName, onClose, onDone }: {
   const [lines, setLines] = useState<ManualLine[]>([{ key: tk++, description: '', quantity: '1', unit_price: '' }]);
   const [busy, setBusy] = useState(false);
   const [items, setItems] = useState<SaleItem[]>([]);
+  const [taxes, setTaxes] = useState<TaxRate[]>([]);
   useEffect(() => {
     if (company) api<SaleItem[]>(`/companies/${company.id}/items`).then((x) => setItems(x.filter((i) => i.is_active))).catch(() => {});
+    if (company) api<TaxRate[]>(`/companies/${company.id}/tax-rates`).then((x) => setTaxes(x.filter((i) => i.is_active && i.applies_to !== 'purchases'))).catch(() => {});
   }, [company]);
-  const total = lines.reduce((s, l) => s + Number(l.quantity || 0) * Number(l.unit_price || 0), 0);
+  const rateOf = (id?: string | null) => Number(taxes.find((x) => x.id === id)?.rate ?? 0);
+  const total = lines.reduce((s, l) => { const a = Number(l.quantity || 0) * Number(l.unit_price || 0); return s + a + a * rateOf(l.tax_rate_id) / 100; }, 0);
 
   async function submit() {
     if (!company) return;
@@ -420,7 +434,7 @@ export function NewInvoice({ customerId, customerName, onClose, onDone }: {
       const r = await api<InvoiceDetail>(`/companies/${company.id}/invoices`, {
         method: 'POST',
         body: { customer_id: customerId, currency, issue_date: date, due_date: date,
-          lines: lines.filter((l) => l.description && l.unit_price).map(({ description, quantity, unit_price, item_id }) => ({ description, quantity, unit_price, item_id: item_id ?? '' })) },
+          lines: lines.filter((l) => l.description && l.unit_price).map(({ description, quantity, unit_price, item_id, tax_rate_id }) => ({ description, quantity, unit_price, item_id: item_id ?? '', tax_rate_id: tax_rate_id ?? '' })) },
       });
       notifySaved(t);
       onDone(r.invoice.id);
@@ -459,6 +473,11 @@ export function NewInvoice({ customerId, customerName, onClose, onDone }: {
                         }} />
                     )}
                     <TextInput size="xs" value={l.description} onChange={(e) => { const v = e.currentTarget.value; setLines((ls) => ls.map((x) => (x.key === l.key ? { ...x, description: v } : x))); }} />
+                    {taxes.length > 0 && (
+                      <Select size="xs" clearable placeholder={t('net.noTax')} value={l.tax_rate_id ?? null} comboboxProps={{ withinPortal: true }}
+                        data={taxes.map((x) => ({ value: x.id, label: x.name }))}
+                        onChange={(v) => setLines((ls) => ls.map((x) => (x.key === l.key ? { ...x, tax_rate_id: v } : x)))} />
+                    )}
                   </Stack>
                 </Table.Td>
                 <Table.Td><TextInput size="xs" dir="ltr" value={l.quantity} onChange={(e) => { const v = e.currentTarget.value.replace(/[^\d.]/g, ''); setLines((ls) => ls.map((x) => (x.key === l.key ? { ...x, quantity: v } : x))); }} /></Table.Td>

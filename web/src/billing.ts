@@ -9,6 +9,7 @@ export interface Customer {
 export interface Plan {
   id: string; name: string; billing_type: 'fixed' | 'metered'; currency: string; base_fee: string; unit_price: string;
   unit_label: string; revenue_account_id: string; revenue_account_code: string; is_active: boolean; active_subscriptions: number;
+  tax_rate_id: string | null; tax_rate_name: string | null;
 }
 
 export interface Area { id: string; name: string; collector_id: string | null; collector_name: string | null; is_active: boolean; customers: number }
@@ -22,7 +23,7 @@ export interface Subscription {
   id: string; customer_id: string; plan_id: string; plan_name: string; billing_type: 'fixed' | 'metered'; currency: string;
   base_fee: string; unit_price: string; unit_label: string; meter_no: string; start_date: string;
   status: 'active' | 'suspended' | 'ended'; fee_override: string | null; initial_reading: string; notes: string;
-  last_reading: string | null; last_period: string | null;
+  last_reading: string | null; last_period: string | null; box_id: string | null; box_code: string | null;
 }
 
 export interface Invoice {
@@ -35,9 +36,10 @@ export interface InvoiceDetail {
   invoice: Invoice & {
     customer_phone: string; customer_address: string; area_name: string | null; meter_no: string | null;
     company_name: string; company_name_ar: string;
+    local_currency: string | null; local_rate: string | null; local_currency_total: string | null; box_code: string | null;
   };
   lines: { line_no: number; kind: 'fee' | 'usage' | 'other'; description: string; quantity: string; unit_price: string; amount: string;
-    meta: Record<string, string> }[];
+    meta: Record<string, string>; tax_amount?: string; tax_name?: string | null }[];
   payments: { payment_id: string; payment_number: number; payment_date: string; amount: string }[];
 }
 
@@ -52,6 +54,12 @@ export interface PaymentDetail {
   tenders: { method: string; currency: string; amount: string; rate: string }[];
   allocations: { invoice_id: string; invoice_number: number; period: string | null; amount: string }[];
   customer_balance: { due: Money[]; credit: Money[] };
+  local?: { currency: string; rate: string; amount: string; date: string };
+}
+
+export interface TaxRate {
+  id: string; name: string; rate: string; applies_to: 'sales' | 'purchases' | 'both'; account_id: string | null; account_code: string | null;
+  purchase_account_id: string | null; purchase_account_code: string | null; is_default: boolean; is_active: boolean;
 }
 
 export function currentPeriod(): string {

@@ -8,9 +8,10 @@ import { api, type Account, type Me, type User } from '../../api';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, notifyError, notifySaved } from '../../util';
 import PageHeader from '../../components/PageHeader';
-import type { Area, PaymentMethod, Plan } from '../../billing';
+import type { Area, PaymentMethod, Plan, TaxRate } from '../../billing';
 
-interface Settings { ar_account_id: string | null; fx_gain_account_id: string | null; fx_loss_account_id: string | null; default_revenue_account_id: string | null }
+interface Settings { ar_account_id: string | null; fx_gain_account_id: string | null; fx_loss_account_id: string | null; default_revenue_account_id: string | null;
+  show_local_currency_on_bills?: boolean; local_currency?: string; base_currency?: string }
 
 export default function Setup({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
@@ -21,7 +22,8 @@ export default function Setup({ me }: { me: Me }) {
   const [areas, setAreas] = useState<Area[]>([]);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [edit, setEdit] = useState<{ kind: 'plan' | 'area' | 'method'; item: Plan | Area | PaymentMethod | null } | null>(null);
+  const [taxes, setTaxes] = useState<TaxRate[]>([]);
+  const [edit, setEdit] = useState<{ kind: 'plan' | 'area' | 'method' | 'tax'; item: Plan | Area | PaymentMethod | TaxRate | null } | null>(null);
   const canManage = me.role === 'admin' || me.role === 'accountant';
 
   const load = useCallback(() => {
@@ -32,6 +34,7 @@ export default function Setup({ me }: { me: Me }) {
     api<Plan[]>(`${base}/plans`).then(setPlans).catch(() => {});
     api<Area[]>(`${base}/areas`).then(setAreas).catch(() => {});
     api<PaymentMethod[]>(`${base}/payment-methods`).then(setMethods).catch(() => {});
+    api<TaxRate[]>(`${base}/tax-rates`).then(setTaxes).catch(() => {});
     if (me.role === 'admin') api<User[]>('/users').then(setUsers).catch(() => {});
   }, [company, me.role]);
   useEffect(load, [load]);
@@ -39,7 +42,7 @@ export default function Setup({ me }: { me: Me }) {
   if (!company) return null;
   const postable = accounts.filter((a) => a.is_postable && a.is_active).map((a) => ({ value: a.id, label: accountLabel(a) }));
 
-  async function saveSetting(key: keyof Settings, value: string | null) {
+  async function saveSetting(key: keyof Settings, value: string | boolean | null) {
     if (!company) return;
     try {
       setSettings(await api<Settings>(`/companies/${company.id}/billing/settings`, { method: 'PUT', body: { [key]: value ?? '' } }));
@@ -63,6 +66,10 @@ export default function Setup({ me }: { me: Me }) {
               onChange={(v) => saveSetting(k, v)} />
           ))}
         </SimpleGrid>
+        {settings && settings.local_currency !== settings.base_currency && (
+          <Switch mt="md" disabled={!canManage} checked={!!settings.show_local_currency_on_bills}
+            label={t('net.showLocal', { cur: settings.local_currency })} onChange={(e) => saveSetting('show_local_currency_on_bills', e.currentTarget.checked)} />
+        )}
       </Paper>
 
       <Section title={t('plans.title')} onAdd={canManage ? () => setEdit({ kind: 'plan', item: null }) : undefined} addLabel={t('plans.new')}>
@@ -75,7 +82,7 @@ export default function Setup({ me }: { me: Me }) {
             <Table.Tbody>
               {plans.map((p) => (
                 <Table.Tr key={p.id} style={{ opacity: p.is_active ? 1 : 0.5 }}>
-                  <Table.Td fw={500}>{p.name}</Table.Td>
+                  <Table.Td fw={500}>{p.name}{p.tax_rate_name && <Badge ms={6} size="xs" variant="outline">{p.tax_rate_name}</Badge>}</Table.Td>
                   <Table.Td><Badge variant="light" color={p.billing_type === 'metered' ? 'blue' : 'grape'}>{t(`plans.${p.billing_type}`)}</Badge></Table.Td>
                   <Table.Td dir="ltr" style={{ textAlign: 'start' }}>{formatAmount(p.base_fee, decimalsOf(p.currency))} {p.currency}</Table.Td>
                   <Table.Td dir="ltr" style={{ textAlign: 'start' }}>{p.billing_type === 'metered' ? `${Number(p.unit_price)} / ${p.unit_label}` : '—'}</Table.Td>
@@ -119,7 +126,26 @@ export default function Setup({ me }: { me: Me }) {
         </Section>
       </SimpleGrid>
 
-      {edit?.kind === 'plan' && <PlanForm plan={edit.item as Plan | null} postable={postable} currencies={currencies.map((c) => c.code)}
+      <Section title={t('net.taxes')} onAdd={canManage ? () => setEdit({ kind: 'tax', item: null }) : undefined} addLabel={t('net.newTax')}>
+        <Table verticalSpacing="xs">
+          <Table.Tbody>
+            {taxes.map((x) => (
+              <Table.Tr key={x.id} style={{ opacity: x.is_active ? 1 : 0.5 }}>
+                <Table.Td fw={500}>{x.name}</Table.Td>
+                <Table.Td dir="ltr">{x.rate}%</Table.Td>
+                <Table.Td><Badge variant="light">{t(`net.applies.${x.applies_to}`)}</Badge></Table.Td>
+                <Table.Td c="dimmed" ff="monospace" dir="ltr">{[x.account_code, x.purchase_account_code].filter(Boolean).join(' / ')}</Table.Td>
+                <Table.Td>{canManage && <Button size="compact-xs" variant="subtle" onClick={() => setEdit({ kind: 'tax', item: x })}>{t('common.edit')}</Button>}</Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+        <Text size="xs" c="dimmed" px="md" pb="sm">{t('net.taxHint')}</Text>
+      </Section>
+
+      {edit?.kind === 'tax' && <TaxForm tax={edit.item as TaxRate | null} postable={postable}
+        onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
+      {edit?.kind === 'plan' && <PlanForm plan={edit.item as Plan | null} postable={postable} currencies={currencies.map((c) => c.code)} taxes={taxes}
         onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
       {edit?.kind === 'method' && <MethodForm method={edit.item as PaymentMethod | null} postable={postable} currencies={currencies.map((c) => c.code)} users={users}
         onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
@@ -161,8 +187,41 @@ function useSave(url: string, isNew: boolean, onSaved: () => void) {
   };
 }
 
-function PlanForm({ plan, postable, currencies, onClose, onSaved }: {
-  plan: Plan | null; postable: { value: string; label: string }[]; currencies: string[]; onClose: () => void; onSaved: () => void;
+function TaxForm({ tax, postable, onClose, onSaved }: {
+  tax: TaxRate | null; postable: { value: string; label: string }[]; onClose: () => void; onSaved: () => void;
+}) {
+  const { t } = useTranslation();
+  const { company } = useCompany();
+  const [f, setF] = useState({
+    name: tax?.name ?? '', rate: tax?.rate ?? '', applies_to: tax?.applies_to ?? 'both', account_id: tax?.account_id ?? '',
+    purchase_account_id: tax?.purchase_account_id ?? '', is_active: tax?.is_active ?? true,
+  });
+  const { busy, save } = useSave(`/companies/${company?.id}/tax-rates${tax ? `/${tax.id}` : ''}`, !tax, onSaved);
+  return (
+    <Modal opened onClose={onClose} title={tax?.name ?? t('net.newTax')}>
+      <form onSubmit={(e) => { e.preventDefault(); void save(f); }}>
+        <Stack>
+          <Group grow>
+            <TextInput label={t('net.taxName')} required value={f.name} onChange={(e) => setF({ ...f, name: e.currentTarget.value })} data-autofocus />
+            <TextInput label={t('net.rate')} required dir="ltr" value={f.rate} rightSection="%" onChange={(e) => setF({ ...f, rate: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
+          </Group>
+          <SegmentedControl value={f.applies_to} onChange={(v) => setF({ ...f, applies_to: v as TaxRate['applies_to'] })}
+            data={(['sales', 'purchases', 'both'] as const).map((k) => ({ value: k, label: t(`net.applies.${k}`) }))} />
+          {f.applies_to !== 'purchases' && <Select label={t('net.salesAccount')} searchable data={postable} value={f.account_id || null} onChange={(v) => setF({ ...f, account_id: v ?? '' })} />}
+          {f.applies_to !== 'sales' && <Select label={t('net.purchaseAccount')} searchable data={postable} value={f.purchase_account_id || null} onChange={(v) => setF({ ...f, purchase_account_id: v ?? '' })} />}
+          {tax && <Switch label={t('common.active')} checked={f.is_active} onChange={(e) => setF({ ...f, is_active: e.currentTarget.checked })} />}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
+            <Button type="submit" loading={busy}>{t('common.save')}</Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
+  );
+}
+
+function PlanForm({ plan, postable, currencies, taxes, onClose, onSaved }: {
+  plan: Plan | null; postable: { value: string; label: string }[]; currencies: string[]; taxes: TaxRate[]; onClose: () => void; onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const { company } = useCompany();
@@ -170,6 +229,7 @@ function PlanForm({ plan, postable, currencies, onClose, onSaved }: {
     name: plan?.name ?? '', billing_type: plan?.billing_type ?? 'fixed', currency: plan?.currency ?? company?.base_currency ?? 'USD',
     base_fee: plan ? String(Number(plan.base_fee)) : '', unit_price: plan ? String(Number(plan.unit_price)) : '',
     unit_label: plan?.unit_label ?? 'kWh', revenue_account_id: plan?.revenue_account_id ?? '', is_active: plan?.is_active ?? true,
+    tax_rate_id: plan?.tax_rate_id ?? '',
   });
   const { busy, save } = useSave(`/companies/${company?.id}/plans${plan ? `/${plan.id}` : ''}`, !plan, onSaved);
   const set = (k: keyof typeof f) => (v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
@@ -192,6 +252,9 @@ function PlanForm({ plan, postable, currencies, onClose, onSaved }: {
           )}
           <Select label={t('plans.revenue')} searchable clearable data={postable} value={f.revenue_account_id || null}
             placeholder={t('setup.revenue')} onChange={(v) => set('revenue_account_id')(v ?? '')} />
+          <Select label={t('net.tax')} clearable placeholder={t('net.noTax')} value={f.tax_rate_id || null}
+            data={taxes.filter((x) => x.is_active && x.applies_to !== 'purchases').map((x) => ({ value: x.id, label: x.name }))}
+            onChange={(v) => set('tax_rate_id')(v ?? '')} />
           {plan && <Switch label={t('common.active')} checked={f.is_active} onChange={(e) => set('is_active')(e.currentTarget.checked)} />}
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>

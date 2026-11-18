@@ -113,7 +113,7 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
                     {d.subscriptions.map((s) => (
                       <Table.Tr key={s.id} style={{ opacity: s.status === 'ended' ? 0.5 : 1 }}>
                         <Table.Td fw={500}>{s.plan_name}<Text size="xs" c="dimmed">{t(`plans.${s.billing_type}`)}</Text></Table.Td>
-                        <Table.Td ff="monospace">{s.meter_no || '—'}</Table.Td>
+                        <Table.Td ff="monospace">{s.meter_no || '—'}{s.box_code && <Text size="xs" c="dimmed">{t('net.box')}: {s.box_code}</Text>}</Table.Td>
                         <Table.Td dir="ltr" style={{ textAlign: 'start' }}>
                           {formatAmount(s.fee_override ?? s.base_fee, decimalsOf(s.currency))} {s.currency}
                           {s.fee_override && <Badge ms={4} size="xs" variant="outline">*</Badge>}
@@ -211,10 +211,11 @@ function SubscriptionForm({ customerId, sub, onClose, onSaved }: { customerId: s
   const { t } = useTranslation();
   const { company } = useCompany();
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [boxes, setBoxes] = useState<{ id: string; code: string; station_name: string; is_active: boolean }[]>([]);
   const [f, setF] = useState({
     plan_id: sub?.plan_id ?? '', meter_no: sub?.meter_no ?? '', start_date: sub?.start_date ?? today(),
     fee_override: sub?.fee_override ? String(Number(sub.fee_override)) : '', initial_reading: sub ? String(Number(sub.initial_reading)) : '0',
-    status: sub?.status ?? 'active', notes: sub?.notes ?? '',
+    status: sub?.status ?? 'active', notes: sub?.notes ?? '', box_id: sub?.box_id ?? '',
   });
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
@@ -222,6 +223,7 @@ function SubscriptionForm({ customerId, sub, onClose, onSaved }: { customerId: s
 
   useEffect(() => {
     if (company) api<Plan[]>(`/companies/${company.id}/plans`).then((ps) => setPlans(ps.filter((p) => p.is_active || p.id === sub?.plan_id))).catch(() => {});
+    if (company) api<{ id: string; code: string; station_name: string; is_active: boolean }[]>(`/companies/${company.id}/boxes`).then(setBoxes).catch(() => {});
   }, [company, sub]);
 
   async function submit(e: React.FormEvent) {
@@ -248,6 +250,10 @@ function SubscriptionForm({ customerId, sub, onClose, onSaved }: { customerId: s
             data={plans.map((p) => ({ value: p.id, label: `${p.name} · ${Number(p.base_fee)} ${p.currency}${p.billing_type === 'metered' ? ` + ${Number(p.unit_price)}/${p.unit_label}` : ''}` }))} />
           <Group grow>
             <TextInput label={t('customers.meter')} dir="ltr" value={f.meter_no} onChange={(e) => set('meter_no')(e.currentTarget.value)} />
+            {boxes.length > 0 && (
+              <Select label={t('net.box')} clearable searchable value={f.box_id || null} onChange={(v) => set('box_id')(v ?? '')}
+                data={boxes.filter((b) => b.is_active || b.id === f.box_id).map((b) => ({ value: b.id, label: `${b.code} · ${b.station_name}` }))} />
+            )}
             <TextInput type="date" label={t('customers.start')} value={f.start_date} onChange={(e) => set('start_date')(e.currentTarget.value)} />
           </Group>
           <Group grow>

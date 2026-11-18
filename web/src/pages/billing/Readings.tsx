@@ -6,6 +6,7 @@ import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { notifyError } from '../../util';
 import PageHeader from '../../components/PageHeader';
+import StationSelect from '../../components/StationSelect';
 import { currentPeriod, type Area } from '../../billing';
 
 interface Row {
@@ -18,6 +19,7 @@ export default function Readings({ me }: { me: Me }) {
   const { company } = useCompany();
   const [period, setPeriod] = useState(currentPeriod());
   const [area, setArea] = useState<string | null>(null);
+  const [station, setStation] = useState<string | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -27,11 +29,11 @@ export default function Readings({ me }: { me: Me }) {
   const load = useCallback(() => {
     if (!company || !/^\d{4}-\d{2}$/.test(period)) return;
     setRows(null);
-    api<Row[]>(`/companies/${company.id}/readings?period=${period}&area_id=${area ?? ''}`).then((r) => {
+    api<Row[]>(`/companies/${company.id}/readings?period=${period}&area_id=${area ?? ''}&station_id=${station ?? ''}`).then((r) => {
       setRows(r);
       setValues(Object.fromEntries(r.map((x) => [x.subscription_id, x.current ? String(Number(x.current)) : ''])));
     }).catch((e) => notifyError(t, e));
-  }, [company, period, area, t]);
+  }, [company, period, area, station, t]);
   useEffect(load, [load]);
   useEffect(() => {
     if (company) api<Area[]>(`/companies/${company.id}/areas`).then(setAreas).catch(() => {});
@@ -62,6 +64,7 @@ export default function Readings({ me }: { me: Me }) {
     <Stack gap="lg" maw={1200}>
       <PageHeader title={t('readings.title')} subtitle={company.name_en}>
         <TextInput type="month" size="sm" value={period} onChange={(e) => setPeriod(e.currentTarget.value)} aria-label={t('readings.period')} />
+        <StationSelect value={station} onChange={setStation} />
         <Select size="sm" placeholder={t('readings.allAreas')} clearable value={area} onChange={setArea} w={180}
           data={areas.map((a) => ({ value: a.id, label: a.name }))} />
         {canEdit && <Button loading={busy} disabled={changed.length === 0} onClick={save}>{t('readings.save')} {changed.length > 0 && `(${changed.length})`}</Button>}

@@ -7,6 +7,7 @@ import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { notifyError, notifySaved } from '../../util';
 import PageHeader from '../../components/PageHeader';
+import StationSelect from '../../components/StationSelect';
 import type { Area, Customer } from '../../billing';
 import { MoneyList } from './docs';
 
@@ -18,15 +19,16 @@ export default function Customers({ me }: { me: Me }) {
   const [q, setQ] = useState('');
   const [dq] = useDebouncedValue(q, 250);
   const [area, setArea] = useState<string | null>(null);
+  const [station, setStation] = useState<string | null>(null);
   const [onlyDue, setOnlyDue] = useState(false);
   const [creating, setCreating] = useState(false);
   const canEdit = me.role !== 'read_only';
 
   const load = useCallback(() => {
     if (!company) return;
-    const p = new URLSearchParams({ q: dq, area_id: area ?? '', due: onlyDue ? '1' : '' });
+    const p = new URLSearchParams({ q: dq, area_id: area ?? '', station_id: station ?? '', due: onlyDue ? '1' : '' });
     api<Customer[]>(`/companies/${company.id}/customers?${p}`).then(setRows).catch((e) => notifyError(t, e));
-  }, [company, dq, area, onlyDue, t]);
+  }, [company, dq, area, station, onlyDue, t]);
   useEffect(load, [load]);
   useEffect(() => {
     if (company) api<Area[]>(`/companies/${company.id}/areas`).then(setAreas).catch(() => {});
@@ -42,6 +44,7 @@ export default function Customers({ me }: { me: Me }) {
       <Group gap="sm" wrap="wrap">
         <TextInput leftSection={<IconSearch size={16} />} placeholder={t('customers.search')} value={q}
           onChange={(e) => setQ(e.currentTarget.value)} w={300} />
+        <StationSelect value={station} onChange={setStation} w={200} />
         <Select placeholder={t('readings.allAreas')} clearable value={area} onChange={setArea} w={200}
           data={areas.map((a) => ({ value: a.id, label: a.name }))} />
         <Checkbox label={t('customers.onlyDue')} checked={onlyDue} onChange={(e) => setOnlyDue(e.currentTarget.checked)} />

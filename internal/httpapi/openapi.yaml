@@ -444,3 +444,58 @@ paths:
   /companies/{cid}/reports/expenses:
     parameters: [{ $ref: '#/components/parameters/cid' }]
     get: { summary: Expense accounts for a period (from the ledger), responses: { "200": { description: OK } } }
+
+  # ---- network, generator operations, tariffs, taxes (module F) ----
+  /companies/{cid}/stations:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Stations (generator sites), responses: { "200": { description: OK } } }
+    post: { summary: "Create a station {name, location, notes}", responses: { "201": { description: Created } } }
+  /companies/{cid}/stations/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    patch: { summary: Update a station, responses: { "200": { description: OK } } }
+  /companies/{cid}/generators:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Generators with last hour-meter reading and outage state, responses: { "200": { description: OK } } }
+    post: { summary: "Create a generator {station_id, name, kva, brand, serial, fuel_item_id, status}", responses: { "201": { description: Created } } }
+  /companies/{cid}/generators/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    patch: { summary: Update a generator, responses: { "200": { description: OK } } }
+  /companies/{cid}/generators/{id}/log:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: Engine hours, outages and fuel used by this generator, responses: { "200": { description: OK } } }
+  /companies/{cid}/generators/{id}/hours:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Record the engine hour-meter {date, hour_meter} (one per day, never below the previous)", responses: { "200": { description: OK }, "422": { $ref: '#/components/responses/Error' } } }
+  /companies/{cid}/generators/{id}/outages:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Start (or record) an outage {started_at?, ended_at?, reason}", responses: { "200": { description: OK } } }
+  /companies/{cid}/generators/{id}/outages/{oid}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }, { name: oid, in: path, required: true, schema: { type: string, format: uuid } }]
+    patch: { summary: "End or edit an outage {ended_at: 'now' | RFC3339}", responses: { "200": { description: OK } } }
+  /companies/{cid}/boxes:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Distribution boxes (filter ?station_id=), responses: { "200": { description: OK } } }
+    post: { summary: "Create a box {station_id, code, location}", responses: { "201": { description: Created } } }
+  /companies/{cid}/boxes/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    patch: { summary: Update a box, responses: { "200": { description: OK } } }
+  /companies/{cid}/tariffs:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Official tariff history (price per kWh and fixed fees per plan, per month), responses: { "200": { description: OK } } }
+    post: { summary: "Create or update the tariff of a month {period, currency, price_per_kwh, fixed_fees: {plan_id: amount}}", responses: { "200": { description: OK } } }
+  /companies/{cid}/tariffs/{id}/apply:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Copy the tariff into plans {plan_ids} (metered: unit price; fixed: fee). Plans must be in the tariff currency.", responses: { "200": { description: OK }, "422": { $ref: '#/components/responses/Error' } } }
+  /companies/{cid}/tax-rates:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Tax rates (VAT), responses: { "200": { description: OK } } }
+    post: { summary: "Create a tax rate {name, rate, applies_to: sales|purchases|both, account_id, purchase_account_id}", responses: { "201": { description: Created } } }
+  /companies/{cid}/tax-rates/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    patch: { summary: Update a tax rate, responses: { "200": { description: OK } } }
+  /companies/{cid}/reports/vat:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: VAT collected vs recoverable for a period (?from&to), responses: { "200": { description: OK } } }
+  /companies/{cid}/reports/generators:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Generator performance: hours run, fuel, litres/hour, outages; kWh billed and fuel cost per kWh per station", responses: { "200": { description: OK } } }

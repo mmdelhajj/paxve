@@ -48,11 +48,16 @@ import Expenses from './pages/purchases/Expenses';
 import Items, { ItemDetail } from './pages/purchases/Items';
 import Stock from './pages/purchases/Stock';
 import { APAging, StockValuation, ExpensesReport } from './pages/purchases/PurchReports';
+import Network from './pages/network/Network';
+import Tariffs from './pages/network/Tariffs';
+import { VatReport, GeneratorReport } from './pages/network/NetReports';
+import { IconBolt, IconTopologyStar3, IconReceipt2, IconEngine } from '@tabler/icons-react';
 
 type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | 'ledger' | 'companies' | 'users' |
   'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup' |
   'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform' | 'import' | 'messages' |
-  'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'expenses-report';
+  'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'expenses-report' |
+  'network' | 'tariffs' | 'vat-report' | 'generator-report';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
@@ -65,6 +70,8 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'readings', label: 'bill.readings', icon: IconGauge },
       { key: 'invoices', label: 'bill.invoices', icon: IconFileInvoice },
       { key: 'payments', label: 'bill.payments', icon: IconCash },
+      { key: 'network', label: 'net.title', icon: IconTopologyStar3 },
+      { key: 'tariffs', label: 'net.tariffs', icon: IconBolt },
       { key: 'messages', label: 'msg.nav', icon: IconMessage },
       { key: 'cash', label: 'nav.cash', icon: IconBuildingBank },
       { key: 'collect', label: 'collector.mode', icon: IconDeviceMobile },
@@ -101,6 +108,8 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'ap-aging', label: 'pur.apAging', icon: IconUserDollar },
       { key: 'stock-valuation', label: 'pur.valuation', icon: IconPackages },
       { key: 'expenses-report', label: 'pur.expensesReport', icon: IconChartPie },
+      { key: 'vat-report', label: 'net.vatReport', icon: IconReceipt2 },
+      { key: 'generator-report', label: 'net.genReport', icon: IconEngine },
     ],
   },
   {
@@ -119,7 +128,8 @@ const sections: { label?: string; items: NavItem[] }[] = [
 const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users',
   'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform', 'import', 'messages',
-  'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'expenses-report'];
+  'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'expenses-report',
+  'network', 'tariffs', 'vat-report', 'generator-report'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -281,6 +291,10 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'aging' && <Aging />}
         {current === 'collections' && <Collections />}
         {current === 'cash' && <Cash me={me} />}
+        {current === 'network' && <Network me={me} />}
+        {current === 'tariffs' && <Tariffs me={me} />}
+        {current === 'vat-report' && <VatReport />}
+        {current === 'generator-report' && <GeneratorReport />}
         {current === 'platform' && me.is_platform_admin && <Platform />}
       </AppShell.Main>
 

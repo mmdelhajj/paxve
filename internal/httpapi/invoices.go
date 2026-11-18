@@ -21,8 +21,10 @@ type invLine struct {
 	Description string
 	Quantity    decimal.Decimal
 	UnitPrice   decimal.Decimal
-	Amount      decimal.Decimal
+	Amount      decimal.Decimal // before tax
 	Meta        map[string]any
+	Tax         *taxInfo // optional sales tax on this line
+	TaxAmount   decimal.Decimal
 }
 
 // issueInvoice numbers, books (Dr receivables / Cr revenue) and stores an invoice, then applies any customer credit.
@@ -31,9 +33,18 @@ func issueInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSettin
 	if err := set.requireAR(); err != nil {
 		return "", 0, err
 	}
-	total := decimal.Zero
+	total, net := decimal.Zero, decimal.Zero
+	taxByAccount := map[string]decimal.Decimal{}
+	taxOrder := []string{}
 	for _, l := range lines {
-		total = total.Add(l.Amount)
+		net = net.Add(l.Amount)
+		total = total.Add(l.Amount).Add(l.TaxAmount)
+		if l.Tax != nil && l.TaxAmount.IsPositive() {
+			if _, ok := taxByAccount[l.Tax.Account]; !ok {
+				taxOrder = append(taxOrder, l.Tax.Account)
+			}
+			taxByAccount[l.Tax.Account] = taxByAccount[l.Tax.Account].Add(l.TaxAmount)
+		}
 	}
 	if !total.IsPositive() {
 		return "", 0, badRequest("zero_invoice")
@@ -46,17 +57,29 @@ func issueInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSettin
 	if period != nil {
 		memo += " · " + *period
 	}
-	je, err := postJournal(ctx, tx, cid, set, issue, memo, fmt.Sprintf("INV-%d", number), "invoice", []jline{
-		{Account: *set.AR, Desc: customerName, Currency: currency, Debit: total},
-		{Account: revenue, Desc: customerName, Currency: currency, Credit: total},
-	})
+	// one rate for every line keeps receivable = revenue + tax exactly in base currency
+	rate, err := resolveRate(ctx, tx, cid, set.Base, currency, issue, "")
 	if err != nil {
 		return "", 0, err
 	}
+	jl := []jline{{Account: *set.AR, Desc: customerName, Currency: currency, Debit: total, Rate: rate}}
+	if net.IsPositive() {
+		jl = append(jl, jline{Account: revenue, Desc: customerName, Currency: currency, Credit: net, Rate: rate})
+	}
+	for _, acc := range taxOrder {
+		jl = append(jl, jline{Account: acc, Desc: "Tax · " + customerName, Currency: currency, Credit: taxByAccount[acc], Rate: rate})
+	}
+	je, err := postJournal(ctx, tx, cid, set, issue, memo, fmt.Sprintf("INV-%d", number), "invoice", jl)
+	if err != nil {
+		return "", 0, err
+	}
+	localCur, localRate, localTotal := localSnapshot(ctx, tx, cid, set, currency, issue, total)
 	var id string
 	if err := tx.QueryRow(ctx, `INSERT INTO invoices (company_id, number, customer_id, subscription_id, period, issue_date, due_date,
-		currency, total, journal_entry_id, notes) VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9::numeric, $10, $11) RETURNING id::text`,
-		cid, number, customerID, subscriptionID, period, issue, due, currency, total.String(), je, notes).Scan(&id); err != nil {
+		currency, total, journal_entry_id, notes, local_currency, local_rate, local_currency_total)
+		VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9::numeric, $10, $11, $12, $13::numeric, $14::numeric) RETURNING id::text`,
+		cid, number, customerID, subscriptionID, period, issue, due, currency, total.String(), je, notes,
+		localCur, localRate, localTotal).Scan(&id); err != nil {
 		return "", 0, err
 	}
 	for i, l := range lines {
@@ -64,9 +87,13 @@ func issueInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSettin
 		if l.Meta == nil {
 			meta = []byte("{}")
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO invoice_lines (invoice_id, line_no, kind, description, quantity, unit_price, amount, meta)
-			VALUES ($1, $2, $3, $4, $5::numeric, $6::numeric, $7::numeric, $8)`,
-			id, i+1, l.Kind, l.Description, l.Quantity.String(), l.UnitPrice.String(), l.Amount.String(), meta); err != nil {
+		var taxID *string
+		if l.Tax != nil {
+			taxID = &l.Tax.ID
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO invoice_lines (invoice_id, line_no, kind, description, quantity, unit_price, amount, meta, tax_rate_id, tax_amount)
+			VALUES ($1, $2, $3, $4, $5::numeric, $6::numeric, $7::numeric, $8, $9, $10::numeric)`,
+			id, i+1, l.Kind, l.Description, l.Quantity.String(), l.UnitPrice.String(), l.Amount.String(), meta, taxID, l.TaxAmount.String()); err != nil {
 			return "", 0, err
 		}
 	}
@@ -88,6 +115,8 @@ func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) {
 		IssueDate string `json:"issue_date"`
 		DueDate   string `json:"due_date"`
 		AreaID    string `json:"area_id"`
+		StationID string `json:"station_id"`
+		BoxID     string `json:"box_id"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -100,7 +129,7 @@ func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) {
 		in.DueDate = t.AddDate(0, 0, 10).Format(time.DateOnly)
 	}
 	if !validPeriod(in.Period) || !validDate(in.IssueDate) || !validDate(in.DueDate) || in.DueDate < in.IssueDate ||
-		(in.AreaID != "" && !isUUID(in.AreaID)) {
+		(in.AreaID != "" && !isUUID(in.AreaID)) || (in.StationID != "" && !isUUID(in.StationID)) || (in.BoxID != "" && !isUUID(in.BoxID)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -116,12 +145,12 @@ func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) {
 		type sub struct {
 			ID, Customer, CustomerName, Plan, PlanName, Type, Currency, Revenue, UnitLabel string
 			Fee, Price, Initial                                                            string
-			Override, Current, Previous                                                    *string
+			Override, Current, Previous, TaxRateID                                         *string
 		}
 		rows, err := tx.Query(ctx, `
 			SELECT s.id::text, s.customer_id::text, c.name, p.id::text, p.name, p.billing_type, p.currency::text,
 			       p.revenue_account_id::text, p.unit_label, p.base_fee::text, p.unit_price::text, s.initial_reading::text,
-			       s.fee_override::text,
+			       s.fee_override::text, p.tax_rate_id::text,
 			       (SELECT r.reading::text FROM meter_readings r WHERE r.subscription_id = s.id AND r.period = $2),
 			       (SELECT r.reading::text FROM meter_readings r WHERE r.subscription_id = s.id AND r.period < $2 ORDER BY r.period DESC LIMIT 1)
 			FROM subscriptions s
@@ -129,15 +158,17 @@ func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) {
 			JOIN customers c ON c.id = s.customer_id
 			WHERE s.company_id = $1 AND s.status = 'active' AND c.status = 'active' AND s.start_date <= $3::date
 			  AND ($4 = '' OR c.area_id = $4::uuid)
+			  AND ($5 = '' OR s.box_id = $5::uuid)
+			  AND ($6 = '' OR s.box_id IN (SELECT id FROM boxes WHERE station_id = $6::uuid))
 			  AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.subscription_id = s.id AND i.period = $2 AND i.status <> 'void')
-			ORDER BY c.name`, cid, in.Period, periodEnd(in.Period), in.AreaID)
+			ORDER BY c.name`, cid, in.Period, periodEnd(in.Period), in.AreaID, in.BoxID, in.StationID)
 		if err != nil {
 			return nil, err
 		}
 		subs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (sub, error) {
 			var x sub
 			err := row.Scan(&x.ID, &x.Customer, &x.CustomerName, &x.Plan, &x.PlanName, &x.Type, &x.Currency, &x.Revenue,
-				&x.UnitLabel, &x.Fee, &x.Price, &x.Initial, &x.Override, &x.Current, &x.Previous)
+				&x.UnitLabel, &x.Fee, &x.Price, &x.Initial, &x.Override, &x.TaxRateID, &x.Current, &x.Previous)
 			return x, err
 		})
 		if err != nil {
@@ -151,6 +182,7 @@ func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) {
 		skips := []skipped{}
 		totals := map[string]decimal.Decimal{}
 		decs := map[string]int32{}
+		taxes := map[string]*taxInfo{}
 		for _, x := range subs {
 			if _, ok := decs[x.Currency]; !ok {
 				if decs[x.Currency], err = currencyDecimals(ctx, tx, x.Currency); err != nil {
@@ -192,9 +224,22 @@ func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) {
 						Meta: map[string]any{"previous": prev.String(), "current": cur.String(), "used": used.String(), "unit": x.UnitLabel}})
 				}
 			}
+			if x.TaxRateID != nil {
+				t, ok := taxes[*x.TaxRateID]
+				if !ok {
+					if t, err = loadTaxRate(ctx, tx, cid, *x.TaxRateID, "sales"); err != nil {
+						return nil, err
+					}
+					taxes[*x.TaxRateID] = t
+				}
+				for i := range lines {
+					lines[i].Tax = t
+					lines[i].TaxAmount = taxOn(lines[i].Amount, t, dec)
+				}
+			}
 			sum := decimal.Zero
 			for _, l := range lines {
-				sum = sum.Add(l.Amount)
+				sum = sum.Add(l.Amount).Add(l.TaxAmount)
 			}
 			if !sum.IsPositive() {
 				skips = append(skips, skipped{x.CustomerName, "zero_invoice"})
@@ -231,6 +276,7 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 			UnitPrice   string `json:"unit_price"`
 			ItemID      string `json:"item_id"` // optional: sell a stock item (takes it out of stock at average cost)
 			WarehouseID string `json:"warehouse_id"`
+			TaxRateID   string `json:"tax_rate_id"`
 		} `json:"lines"`
 	}
 	if !decodeBody(w, r, &in) {
@@ -291,7 +337,13 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 			if !ok1 || !ok2 || strings.TrimSpace(l.Description) == "" {
 				return nil, badRequest("bad_request")
 			}
-			lines = append(lines, invLine{Kind: "other", Description: strings.TrimSpace(l.Description), Quantity: q, UnitPrice: p, Amount: q.Mul(p).Round(dec)})
+			tax, err := loadTaxRate(ctx, tx, cid, l.TaxRateID, "sales")
+			if err != nil {
+				return nil, err
+			}
+			amt := q.Mul(p).Round(dec)
+			lines = append(lines, invLine{Kind: "other", Description: strings.TrimSpace(l.Description), Quantity: q, UnitPrice: p, Amount: amt,
+				Tax: tax, TaxAmount: taxOn(amt, tax, dec)})
 		}
 		id, number, err := issueInvoice(ctx, tx, cid, set, in.CustomerID, name, nil, nil, in.IssueDate, in.DueDate, in.Currency, rev, in.Notes, lines)
 		if err != nil {
@@ -336,15 +388,20 @@ func loadInvoice(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 		return nil, notFound()
 	}
 	inv, err := queryJSONOne(ctx, tx, `SELECT `+invoiceCols+`, c.phone AS customer_phone, c.address AS customer_address,
-		ar.name AS area_name, s.meter_no, co.name_en AS company_name, co.name_ar AS company_name_ar
+		ar.name AS area_name, s.meter_no, co.name_en AS company_name, co.name_ar AS company_name_ar,
+		i.local_currency, trim_scale(i.local_rate)::text AS local_rate, i.local_currency_total::text AS local_currency_total,
+		bx.code AS box_code
 		FROM invoices i JOIN customers c ON c.id = i.customer_id JOIN companies co ON co.id = i.company_id
 		LEFT JOIN areas ar ON ar.id = c.area_id LEFT JOIN subscriptions s ON s.id = i.subscription_id
+		LEFT JOIN boxes bx ON bx.id = s.box_id
 		WHERE i.id = $1 AND i.company_id = $2`, id, cid)
 	if err != nil {
 		return nil, err
 	}
 	lines, err := queryJSON(ctx, tx, `SELECT line_no, kind, description, quantity::text AS quantity, unit_price::text AS unit_price,
-		amount::text AS amount, meta FROM invoice_lines WHERE invoice_id = $1 ORDER BY line_no`, id)
+		amount::text AS amount, meta, tax_amount::text AS tax_amount,
+		(SELECT t.name FROM tax_rates t WHERE t.id = invoice_lines.tax_rate_id) AS tax_name
+		FROM invoice_lines WHERE invoice_id = $1 ORDER BY line_no`, id)
 	if err != nil {
 		return nil, err
 	}

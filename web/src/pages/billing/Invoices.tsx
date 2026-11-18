@@ -9,6 +9,7 @@ import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, today } from '../../util';
 import PageHeader, { Confirm } from '../../components/PageHeader';
+import StationSelect from '../../components/StationSelect';
 import { currentPeriod, invoiceColor, type Invoice } from '../../billing';
 import { InvoiceView } from './docs';
 
@@ -107,6 +108,7 @@ function RunBilling({ defaultPeriod, onClose, onDone }: { defaultPeriod: string;
   const { company, decimalsOf } = useCompany();
   const [period, setPeriod] = useState(defaultPeriod);
   const [issue, setIssue] = useState(today());
+  const [station, setStation] = useState<string | null>(null);
   const [due, setDue] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 10); return d.toISOString().slice(0, 10); });
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -116,7 +118,7 @@ function RunBilling({ defaultPeriod, onClose, onDone }: { defaultPeriod: string;
     if (!company) return;
     setBusy(true);
     try {
-      const r = await api<RunResult>(`/companies/${company.id}/billing/run`, { method: 'POST', body: { period, issue_date: issue, due_date: due } });
+      const r = await api<RunResult>(`/companies/${company.id}/billing/run`, { method: 'POST', body: { period, issue_date: issue, due_date: due, station_id: station ?? '' } });
       setResult(r);
       onDone(period);
     } catch (e) {
@@ -146,6 +148,7 @@ function RunBilling({ defaultPeriod, onClose, onDone }: { defaultPeriod: string;
       ) : (
         <Stack>
           <TextInput type="month" label={t('billing.period')} value={period} onChange={(e) => setPeriod(e.currentTarget.value)} />
+          <StationSelect value={station} onChange={setStation} label={t('net.station')} w={300} />
           <Group grow>
             <TextInput type="date" label={t('billing.issueDate')} value={issue} onChange={(e) => setIssue(e.currentTarget.value)} />
             <TextInput type="date" label={t('billing.dueDate')} value={due} onChange={(e) => setDue(e.currentTarget.value)} />

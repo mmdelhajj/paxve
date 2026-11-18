@@ -269,7 +269,19 @@ func loadPayment(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]json.RawMessage{"payment": pay, "tenders": tenders, "allocations": allocs, "customer_balance": bal}, nil
+	out := map[string]json.RawMessage{"payment": pay, "tenders": tenders, "allocations": allocs, "customer_balance": bal}
+	// amount applied shown in the company's second currency (Lebanese bills/receipts in LBP)
+	var pcur, pamt, pdate string
+	if err := tx.QueryRow(ctx, `SELECT currency::text, amount::text, payment_date::text FROM payments WHERE id = $1`, id).Scan(&pcur, &pamt, &pdate); err == nil {
+		if set, err := loadBillingSettings(ctx, tx, cid); err == nil {
+			a, _ := decimal.NewFromString(pamt)
+			if cur, rate, amt := localSnapshot(ctx, tx, cid, set, pcur, pdate, a); cur != nil {
+				b, _ := json.Marshal(map[string]string{"currency": *cur, "rate": *rate, "amount": *amt, "date": pdate})
+				out["local"] = b
+			}
+		}
+	}
+	return out, nil
 }
 
 func (s *Server) getPayment(w http.ResponseWriter, r *http.Request) {

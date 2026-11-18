@@ -157,9 +157,9 @@ export function BillView({ id, canVoid, onClose, onChanged }: { id: string; canV
   );
 }
 
-interface LineState { key: number; item_id: string | null; account_id: string | null; warehouse_id: string | null; description: string; quantity: string; unit_price: string }
+interface LineState { key: number; item_id: string | null; account_id: string | null; warehouse_id: string | null; description: string; quantity: string; unit_price: string; tax_rate_id: string | null }
 let lk = 1;
-const blank = (): LineState => ({ key: lk++, item_id: null, account_id: null, warehouse_id: null, description: '', quantity: '1', unit_price: '' });
+const blank = (): LineState => ({ key: lk++, item_id: null, account_id: null, warehouse_id: null, description: '', quantity: '1', unit_price: '', tax_rate_id: null });
 
 export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; onClose: () => void; onDone: (id: string) => void }) {
   const { t } = useTranslation();
@@ -175,10 +175,13 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
   const [ref, setRef] = useState('');
   const [lines, setLines] = useState<LineState[]>([blank()]);
   const [busy, setBusy] = useState(false);
+  const [taxes, setTaxes] = useState<{ id: string; name: string; rate: string; applies_to: string; is_active: boolean }[]>([]);
 
   useEffect(() => {
     if (!company) return;
     const base = `/companies/${company.id}`;
+    api<{ id: string; name: string; rate: string; applies_to: string; is_active: boolean }[]>(`${base}/tax-rates`)
+      .then((x) => setTaxes(x.filter((r) => r.is_active && r.applies_to !== 'sales'))).catch(() => {});
     if (!supplier) api<Supplier[]>(`${base}/suppliers`).then((s) => setSuppliers(s.filter((x) => x.status === 'active'))).catch(() => {});
     api<Item[]>(`${base}/items`).then((x) => setItems(x.filter((i) => i.is_active))).catch(() => {});
     api<Account[]>(`${base}/accounts`).then((a) => setAccounts(a.filter((x) => x.is_postable && x.is_active))).catch(() => {});
@@ -187,7 +190,11 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
 
   const itemById = new Map(items.map((i) => [i.id, i]));
   const dec = decimalsOf(currency ?? 'USD');
-  const total = lines.reduce((s, l) => s + Math.round(Number(l.quantity || 0) * Number(l.unit_price || 0) * 10 ** dec) / 10 ** dec, 0);
+  const taxRate = (id: string | null) => Number(taxes.find((x) => x.id === id)?.rate ?? 0);
+  const total = lines.reduce((s, l) => {
+    const a = Math.round(Number(l.quantity || 0) * Number(l.unit_price || 0) * 10 ** dec) / 10 ** dec;
+    return s + a + Math.round(a * taxRate(l.tax_rate_id) / 100 * 10 ** dec) / 10 ** dec;
+  }, 0);
   const upd = (key: number, p: Partial<LineState>) => setLines((ls) => ls.map((x) => (x.key === key ? { ...x, ...p } : x)));
 
   async function submit() {
@@ -200,7 +207,7 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
           supplier_id: supplierId, currency, bill_date: date, due_date: due < date ? date : due, supplier_ref: ref,
           lines: lines.filter((l) => l.unit_price !== '' && (l.item_id || l.description)).map((l) => ({
             item_id: l.item_id ?? '', account_id: l.account_id ?? '', warehouse_id: l.warehouse_id ?? '',
-            description: l.description, quantity: l.quantity, unit_price: l.unit_price,
+            description: l.description, quantity: l.quantity, unit_price: l.unit_price, tax_rate_id: l.tax_rate_id ?? '',
           })),
         },
       });
@@ -248,6 +255,11 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
                           <Select size="xs" searchable clearable placeholder={t('pur.defaultExpense')} value={l.account_id}
                             data={accounts.filter((a) => a.type === 'expense' || a.type === 'asset').map((a) => ({ value: a.id, label: accountLabel(a) }))}
                             onChange={(v) => upd(l.key, { account_id: v })} comboboxProps={{ withinPortal: true }} />
+                        )}
+                        {taxes.length > 0 && (
+                          <Select size="xs" clearable placeholder={t('net.noTax')} value={l.tax_rate_id}
+                            data={taxes.map((x) => ({ value: x.id, label: x.name }))}
+                            onChange={(v) => upd(l.key, { tax_rate_id: v })} comboboxProps={{ withinPortal: true }} />
                         )}
                       </Stack>
                     </Table.Td>
