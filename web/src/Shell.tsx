@@ -22,7 +22,7 @@ import {
   IconHourglass, IconMoneybag, IconBuildingBank, IconDeviceMobile, IconWorld, IconMessage, IconTruck, IconReceipt,
   IconCashBanknote, IconReceiptTax, IconPackage, IconGasStation, IconPackages, IconChartPie, IconUserDollar, IconBolt,
   IconTopologyStar3, IconReceipt2, IconEngine, IconRepeat, IconId, IconCoins, IconBuildingFactory2,
-  IconTargetArrow, IconFileDescription, IconShoppingCart, IconFileText, IconChartLine,
+  IconTargetArrow, IconFileDescription, IconShoppingCart, IconFileText, IconChartLine, IconCashRegister,
 } from '@tabler/icons-react';
 import TrialBanner from './components/TrialBanner';
 
@@ -83,6 +83,10 @@ const Statements = lazy(() => import('./pages/sales/Statements'));
 const CustomerStatement = lazy(() => named(import('./pages/sales/Statements'), 'CustomerStatement'));
 const Crm = lazy(() => import('./pages/crm/Crm'));
 const ActivitiesPage = lazy(() => named(import('./pages/crm/Crm'), 'ActivitiesPage'));
+const PosApp = lazy(() => import('./pages/pos/PosApp'));
+const PosSetup = lazy(() => import('./pages/pos/PosAdmin'));
+const PosSessions = lazy(() => named(import('./pages/pos/PosAdmin'), 'PosSessions'));
+const PosReport = lazy(() => named(import('./pages/pos/PosAdmin'), 'PosReport'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -92,7 +96,7 @@ type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | '
   'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'stock-moves' | 'expenses-report' |
   'network' | 'tariffs' | 'vat-report' | 'generator-report' | 'print-bills' |
   'employees' | 'payroll' | 'assets' | 'asset-register' | 'recurring' | 'bank-rec' |
-  'crm' | 'activities' | 'quotes' | 'orders' | 'statements' | 'statement' | 'sales-report';
+  'crm' | 'activities' | 'quotes' | 'orders' | 'statements' | 'statement' | 'sales-report' | 'pos' | 'pos-setup' | 'pos-sessions' | 'pos-report';
 
 interface NavItem { key: Page; label: string; icon: typeof IconBuilding; roles?: Role[] }
 
@@ -120,6 +124,14 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'quotes', label: 'sales.quotes', icon: IconFileDescription },
       { key: 'orders', label: 'sales.orders', icon: IconShoppingCart },
       { key: 'statements', label: 'stmt.bulk', icon: IconFileText },
+    ],
+  },
+  {
+    label: 'pos.nav',
+    items: [
+      { key: 'pos', label: 'pos.open', icon: IconCashRegister, roles: ['admin', 'accountant', 'data_entry'] },
+      { key: 'pos-sessions', label: 'pos.sessions', icon: IconReceipt2 },
+      { key: 'pos-setup', label: 'pos.setup', icon: IconSettings, roles: ['admin', 'accountant'] },
     ],
   },
   {
@@ -163,6 +175,7 @@ const sections: { label?: string; items: NavItem[] }[] = [
       { key: 'aging', label: 'reports2.aging', icon: IconHourglass },
       { key: 'collections', label: 'reports2.collections', icon: IconMoneybag },
       { key: 'sales-report', label: 'sales.report', icon: IconChartLine },
+      { key: 'pos-report', label: 'pos.report', icon: IconCashRegister },
       { key: 'ap-aging', label: 'pur.apAging', icon: IconUserDollar },
       { key: 'stock-valuation', label: 'pur.valuation', icon: IconPackages },
       { key: 'stock-moves', label: 'gap.moves', icon: IconPackages },
@@ -191,7 +204,7 @@ const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-ba
   'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'stock-moves', 'expenses-report',
   'network', 'tariffs', 'vat-report', 'generator-report', 'print-bills',
   'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec',
-  'crm', 'activities', 'quotes', 'orders', 'statements', 'statement', 'sales-report'];
+  'crm', 'activities', 'quotes', 'orders', 'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report'];
 
 function readHash(): [Page, string] {
   const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -215,6 +228,9 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   const blocked = sections.flatMap((s) => s.items).some((i) => i.key === page && !allowed(i));
   const current: Page = blocked ? 'dashboard' : page;
 
+  if (me.role === 'cashier' || current === 'pos') {
+    return <Suspense fallback={pageFallback}><PosApp me={me} onLogout={me.role === 'cashier' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
+  }
   if (me.role === 'collector' || current === 'collect') {
     return <Suspense fallback={pageFallback}><CollectorApp me={me} onLogout={me.role === 'collector' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
   }
@@ -383,6 +399,9 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         {current === 'statements' && <Statements me={me} />}
         {current === 'statement' && <CustomerStatement id={param} key={param} />}
         {current === 'sales-report' && <SalesReport />}
+        {current === 'pos-setup' && <PosSetup me={me} />}
+        {current === 'pos-sessions' && <PosSessions />}
+        {current === 'pos-report' && <PosReport />}
         {current === 'platform' && me.is_platform_admin && <Platform />}
         </Suspense>
       </AppShell.Main>

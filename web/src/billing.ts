@@ -44,7 +44,7 @@ export interface InvoiceDetail {
     sales_order_id?: string | null; order_number?: number | null;
   };
   lines: { line_no: number; kind: 'fee' | 'usage' | 'other'; description: string; quantity: string; unit_price: string; amount: string;
-    meta: Record<string, string>; tax_amount?: string; tax_name?: string | null }[];
+    meta: Record<string, string>; tax_amount?: string; tax_name?: string | null; id?: string; item_id?: string | null; credited_quantity?: string }[];
   payments: { payment_id: string; payment_number: number; payment_date: string; amount: string }[];
 }
 

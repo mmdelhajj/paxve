@@ -644,7 +644,7 @@ paths:
     get: { summary: "Billing job progress {status running|done|failed, total, processed, created, skipped_count, skipped, totals, error}", responses: { "200": { description: OK } } }
   /companies/{cid}/invoices/{id}/credit-note:
     parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
-    post: { summary: "Credit note {amount? (incl. tax, default everything not yet credited), date?, reason?, refund_method_id?}; reverses revenue and tax in proportion at the invoice's rate", responses: { "201": { description: Created (a payment of kind credit_note) }, "422": { description: credit_exceeds_invoice } } }
+    post: { summary: "Credit note {amount? (incl. tax, default everything not yet credited) or lines? [{line_no, quantity}] (only those lines, their goods come back to stock), date?, reason?, refund_method_id?}; reverses revenue and tax at the invoice's rate", responses: { "201": { description: Created (a payment of kind credit_note) }, "422": { description: credit_exceeds_invoice } } }
   /companies/{cid}/customers/{id}/refunds:
     parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
     post: { summary: "Pay customer credit back {currency, amount, method_id, date?, notes?}; stored as an invoice of kind refund, settled by the credit; void it with invoices/{id}/void", responses: { "201": { description: Created }, "422": { description: refund_exceeds_credit } } }
@@ -664,5 +664,45 @@ paths:
   /companies/{cid}/reports/stock-moves:
     parameters: [{ $ref: '#/components/parameters/cid' }]
     get: { summary: "Stock movements with running quantity/value, plus opening/in/out/closing per item and warehouse (from, to, item_id?, warehouse_id?)", responses: { "200": { description: OK } } }
+  /companies/{cid}/pos/registers:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Registers (tills) with their open session, responses: { "200": { description: OK } } }
+    post: { summary: "Create a register {name, currency, method_ids[], warehouse_id?, customer_id? (walk-in; created when empty), revenue_account_id?, over_short_account_id?, cashier_refunds?, cashier_price_edit?, receipt_footer?}", responses: { "201": { description: Created } } }
+  /companies/{cid}/pos/registers/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    patch: { summary: "Update a register (same fields, is_active)", responses: { "200": { description: OK } } }
+  /companies/{cid}/pos/categories:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: Product categories for the till, responses: { "200": { description: OK } } }
+    post: { summary: "Create a category {name, name_i18n?, color?, seq?}", responses: { "201": { description: Created } } }
+  /companies/{cid}/pos/catalog:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { name: register_id, in: query, required: true, schema: { type: string } }]
+    get: { summary: "Everything a till needs (cached for offline use): items with price in the till currency, barcode, image, tax, stock; categories; boxes; latest rates", responses: { "200": { description: OK } } }
+  /companies/{cid}/pos/sessions:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Sessions (register_id?, status?)", responses: { "200": { description: OK } } }
+    post: { summary: "Open a session {register_id, opening: [{method_id, amount}]}", responses: { "201": { description: Created }, "409": { description: session_open } } }
+  /companies/{cid}/pos/sessions/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: "X / Z report: drawer per box (opening, in, out, expected, counted, difference), sales / returns / tax per currency, items, cashiers", responses: { "200": { description: OK } } }
+  /companies/{cid}/pos/sessions/{id}/close:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Close {counted: [{method_id, amount}], notes?}; differences are posted to the over/short account", responses: { "200": { description: OK } } }
+  /companies/{cid}/pos/orders:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "Orders (session_id?, from?, to?, q?)", responses: { "200": { description: OK } } }
+    post: { summary: "Sale {session_id, lines: [{item_id, quantity, unit_price?, discount_pct?}], tenders: [{method_id, amount}], change_method_id?, customer_id? (default walk-in), on_account?, client_ref? (idempotent)}; books an invoice, the cost of sales and the till payment", responses: { "201": { description: Created }, "409": { description: session_closed }, "422": { description: insufficient_payment } } }
+  /companies/{cid}/pos/orders/{id}:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    get: { summary: "Order with lines (returned quantities), tenders and change", responses: { "200": { description: OK } } }
+  /companies/{cid}/pos/orders/{id}/refund:
+    parameters: [{ $ref: '#/components/parameters/cid' }, { $ref: '#/components/parameters/id' }]
+    post: { summary: "Return {session_id, lines?: [{line_no, quantity}] (empty = everything), method_id? (box paying back; empty = customer credit), reason?, client_ref?}", responses: { "201": { description: Created } } }
+  /companies/{cid}/pos/customers:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    post: { summary: "Quick customer from the till {name, phone?}", responses: { "201": { description: Created } } }
+  /companies/{cid}/reports/pos:
+    parameters: [{ $ref: '#/components/parameters/cid' }]
+    get: { summary: "POS sales (from, to, group day|session|cashier|register|product|method)", responses: { "200": { description: OK } } }
   /export/xlsx:
     post: { summary: "Excel workbook from a table {title, subtitle?, rtl?, columns: [{label, numeric?}], rows: [[...]], footer?: [[...]]}", responses: { "200": { description: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet } } }

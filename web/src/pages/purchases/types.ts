@@ -12,6 +12,7 @@ export interface Item {
   quantity: string; value: string; avg_cost: string;
   is_sellable?: boolean; is_purchasable?: boolean; sale_tax_rate_id?: string | null; description?: string;
   prices?: { currency: string; price: string }[];
+  barcode?: string; category_id?: string | null; image?: string; pos_visible?: boolean;
 }
 
 export interface Warehouse { id: string; name: string; is_active: boolean; value: string }

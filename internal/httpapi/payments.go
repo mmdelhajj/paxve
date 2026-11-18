@@ -30,6 +30,8 @@ type paymentIn struct {
 	ChangeMethodID string     `json:"change_method_id"`
 	Notes          string     `json:"notes"`
 	ClientRef      string     `json:"client_ref"` // set by offline devices; the same ref is stored only once
+
+	upTo decimal.Decimal // internal (POS on-account sale): apply what was received, at most this much; the rest is change
 }
 
 type method struct {
@@ -83,172 +85,186 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 	collector := isCollector(r)
 	me := principal(r).ID
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		if in.ClientRef != "" {
-			var existing string
-			err := tx.QueryRow(ctx, `SELECT id::text FROM payments WHERE client_ref = $1 AND company_id = $2`, in.ClientRef, cid).Scan(&existing)
-			if err == nil {
-				return loadPayment(ctx, tx, cid, existing) // already received (phone retried after going offline)
-			}
-			if err != pgx.ErrNoRows {
-				return nil, err
-			}
-		}
-		if collector {
-			var mine bool
-			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM customers c JOIN areas a ON a.id = c.area_id
-				WHERE c.id = $1 AND a.collector_id = app_user())`, in.CustomerID).Scan(&mine); err != nil || !mine {
-				return nil, &apiError{status: http.StatusForbidden, code: "forbidden"}
-			}
-		}
-		usable := func(m method) bool { return m.Active && (!collector || m.UserID == nil || *m.UserID == me) }
-		set, err := loadBillingSettings(ctx, tx, cid)
+		id, err := receivePayment(ctx, tx, cid, in, collector, me)
 		if err != nil {
-			return nil, err
-		}
-		if err := set.requireAR(); err != nil {
-			return nil, err
-		}
-		name, err := lockCustomer(ctx, tx, cid, in.CustomerID)
-		if err != nil {
-			return nil, err
-		}
-		methods, err := loadMethods(ctx, tx, cid)
-		if err != nil {
-			return nil, err
-		}
-		payRateS, err := resolveRate(ctx, tx, cid, set.Base, in.Currency, in.Date, "")
-		if err != nil {
-			return nil, err
-		}
-		payRate, _ := decimal.NewFromString(payRateS)
-
-		type tender struct {
-			m      method
-			amount decimal.Decimal
-			rate   string
-		}
-		tenders := []tender{}
-		received := decimal.Zero
-		for _, t := range in.Tenders {
-			m, ok := methods[t.MethodID]
-			amt, ok2 := money(t.Amount)
-			if !ok || !usable(m) || !ok2 || !amt.IsPositive() {
-				return nil, badRequest("invalid_tender")
-			}
-			given := strings.TrimSpace(t.Rate)
-			if given != "" {
-				if rv, err := decimal.NewFromString(given); err != nil || !rv.IsPositive() {
-					return nil, badRequest("invalid_rate")
-				}
-			}
-			rateS, err := resolveRate(ctx, tx, cid, set.Base, m.Currency, in.Date, given)
-			if err != nil {
-				return nil, err
-			}
-			rate, _ := decimal.NewFromString(rateS)
-			received = received.Add(amt.Mul(payRate).DivRound(rate, 10))
-			tenders = append(tenders, tender{m, amt, rateS})
-		}
-		received = received.Round(4)
-
-		applied := received
-		if strings.TrimSpace(in.Amount) != "" {
-			a, ok := money(in.Amount)
-			if !ok || !a.IsPositive() {
-				return nil, badRequest("invalid_amount")
-			}
-			// allow a rounding tolerance of 0.01 in the payment currency
-			if a.Sub(received).GreaterThan(decimal.NewFromFloat(0.01)) {
-				return nil, &apiError{status: http.StatusUnprocessableEntity, code: "insufficient_payment",
-					detail: received.String() + " " + in.Currency}
-			}
-			applied = a
-		}
-		if !applied.IsPositive() {
-			return nil, badRequest("invalid_amount")
-		}
-
-		var changeM *method
-		changeAmt := decimal.Zero
-		if extra := received.Sub(applied); extra.IsPositive() {
-			if in.ChangeMethodID == "" {
-				return nil, badRequest("change_method_required")
-			}
-			m, ok := methods[in.ChangeMethodID]
-			if !ok || !usable(m) {
-				return nil, badRequest("change_method_required")
-			}
-			crS, err := resolveRate(ctx, tx, cid, set.Base, m.Currency, in.Date, "")
-			if err != nil {
-				return nil, err
-			}
-			cr, _ := decimal.NewFromString(crS)
-			dec, err := currencyDecimals(ctx, tx, m.Currency)
-			if err != nil {
-				return nil, err
-			}
-			changeAmt = extra.Mul(cr).Div(payRate).RoundFloor(dec)
-			if m.ChangeRounding.IsPositive() { // e.g. LBP change rounded down to 1,000 or 5,000
-				changeAmt = changeAmt.Div(m.ChangeRounding).Floor().Mul(m.ChangeRounding)
-			}
-			changeM = &m
-		}
-
-		var number int64
-		if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'payment')`, cid).Scan(&number); err != nil {
-			return nil, err
-		}
-		lines := []jline{}
-		for _, t := range tenders {
-			lines = append(lines, jline{Account: t.m.Account, Desc: t.m.Name, Currency: t.m.Currency, Debit: t.amount, Rate: t.rate})
-		}
-		if changeM != nil && changeAmt.IsPositive() {
-			lines = append(lines, jline{Account: changeM.Account, Desc: "Change · " + changeM.Name, Currency: changeM.Currency, Credit: changeAmt})
-		}
-		// earlier credits (advances, credit notes) settle open invoices first, with their own FX difference
-		if err := autoAllocate(ctx, tx, cid, set, in.CustomerID, in.Currency, ""); err != nil {
-			return nil, err
-		}
-		arLines, err := arCreditLines(ctx, tx, *set.AR, set.Base, in.CustomerID, name, in.Currency, applied, payRateS)
-		if err != nil {
-			return nil, err
-		}
-		lines = append(lines, arLines...)
-		je, err := postJournal(ctx, tx, cid, set, in.Date, fmt.Sprintf("Payment #%d · %s", number, name),
-			fmt.Sprintf("PAY-%d", number), "payment", lines)
-		if err != nil {
-			return nil, err
-		}
-
-		var changeMethod, changeCur *string
-		if changeM != nil && changeAmt.IsPositive() {
-			changeMethod, changeCur = &changeM.ID, &changeM.Currency
-		}
-		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO payments (company_id, number, customer_id, payment_date, currency, amount,
-			change_method_id, change_currency, change_amount, journal_entry_id, notes, client_ref, ar_rate)
-			VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, $9::numeric, $10, $11, nullif($12, ''), $13::numeric) RETURNING id::text`,
-			cid, number, in.CustomerID, in.Date, in.Currency, applied.String(), changeMethod, changeCur, changeAmt.String(),
-			je, strings.TrimSpace(in.Notes), in.ClientRef, payRateS).Scan(&id); err != nil {
-			return nil, err
-		}
-		for _, t := range tenders {
-			if _, err := tx.Exec(ctx, `INSERT INTO payment_tenders (payment_id, method_id, currency, amount, rate)
-				VALUES ($1, $2, $3, $4::numeric, $5::numeric)`, id, t.m.ID, t.m.Currency, t.amount.String(), t.rate); err != nil {
-				return nil, err
-			}
-		}
-		if err := autoAllocate(ctx, tx, cid, set, in.CustomerID, in.Currency, id); err != nil {
-			return nil, err
-		}
-		if err := autoMessage(ctx, tx, cid, "payment_received", in.CustomerID, nil, &id); err != nil {
-			return nil, err
-		}
-		if err := reconnectIfCleared(ctx, tx, cid, in.CustomerID); err != nil {
 			return nil, err
 		}
 		return loadPayment(ctx, tx, cid, id)
 	})
+}
+
+// receivePayment books a customer payment (see createPayment) and returns its id. collector: limit to the
+// collector's area and own cash boxes (me).
+func receivePayment(ctx context.Context, tx pgx.Tx, cid string, in paymentIn, collector bool, me string) (string, error) {
+	if in.ClientRef != "" {
+		var existing string
+		err := tx.QueryRow(ctx, `SELECT id::text FROM payments WHERE client_ref = $1 AND company_id = $2`, in.ClientRef, cid).Scan(&existing)
+		if err == nil {
+			return existing, nil // already received (phone retried after going offline)
+		}
+		if err != pgx.ErrNoRows {
+			return "", err
+		}
+	}
+	if collector {
+		var mine bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM customers c JOIN areas a ON a.id = c.area_id
+			WHERE c.id = $1 AND a.collector_id = app_user())`, in.CustomerID).Scan(&mine); err != nil || !mine {
+			return "", &apiError{status: http.StatusForbidden, code: "forbidden"}
+		}
+	}
+	usable := func(m method) bool { return m.Active && (!collector || m.UserID == nil || *m.UserID == me) }
+	set, err := loadBillingSettings(ctx, tx, cid)
+	if err != nil {
+		return "", err
+	}
+	if err := set.requireAR(); err != nil {
+		return "", err
+	}
+	name, err := lockCustomer(ctx, tx, cid, in.CustomerID)
+	if err != nil {
+		return "", err
+	}
+	methods, err := loadMethods(ctx, tx, cid)
+	if err != nil {
+		return "", err
+	}
+	payRateS, err := resolveRate(ctx, tx, cid, set.Base, in.Currency, in.Date, "")
+	if err != nil {
+		return "", err
+	}
+	payRate, _ := decimal.NewFromString(payRateS)
+
+	type tender struct {
+		m      method
+		amount decimal.Decimal
+		rate   string
+	}
+	tenders := []tender{}
+	received := decimal.Zero
+	for _, t := range in.Tenders {
+		m, ok := methods[t.MethodID]
+		amt, ok2 := money(t.Amount)
+		if !ok || !usable(m) || !ok2 || !amt.IsPositive() {
+			return "", badRequest("invalid_tender")
+		}
+		given := strings.TrimSpace(t.Rate)
+		if given != "" {
+			if rv, err := decimal.NewFromString(given); err != nil || !rv.IsPositive() {
+				return "", badRequest("invalid_rate")
+			}
+		}
+		rateS, err := resolveRate(ctx, tx, cid, set.Base, m.Currency, in.Date, given)
+		if err != nil {
+			return "", err
+		}
+		rate, _ := decimal.NewFromString(rateS)
+		received = received.Add(amt.Mul(payRate).DivRound(rate, 10))
+		tenders = append(tenders, tender{m, amt, rateS})
+	}
+	received = received.Round(4)
+
+	applied := received
+	if in.upTo.IsPositive() {
+		applied = decimal.Min(received, in.upTo)
+	} else if strings.TrimSpace(in.Amount) != "" {
+		a, ok := money(in.Amount)
+		if !ok || !a.IsPositive() {
+			return "", badRequest("invalid_amount")
+		}
+		// allow a rounding tolerance of 0.01 in the payment currency
+		if a.Sub(received).GreaterThan(decimal.NewFromFloat(0.01)) {
+			return "", &apiError{status: http.StatusUnprocessableEntity, code: "insufficient_payment",
+				detail: received.String() + " " + in.Currency}
+		}
+		applied = a
+	}
+	if !applied.IsPositive() {
+		return "", badRequest("invalid_amount")
+	}
+
+	var changeM *method
+	changeAmt := decimal.Zero
+	if extra := received.Sub(applied); extra.IsPositive() {
+		if in.ChangeMethodID == "" {
+			return "", badRequest("change_method_required")
+		}
+		m, ok := methods[in.ChangeMethodID]
+		if !ok || !usable(m) {
+			return "", badRequest("change_method_required")
+		}
+		crS, err := resolveRate(ctx, tx, cid, set.Base, m.Currency, in.Date, "")
+		if err != nil {
+			return "", err
+		}
+		cr, _ := decimal.NewFromString(crS)
+		dec, err := currencyDecimals(ctx, tx, m.Currency)
+		if err != nil {
+			return "", err
+		}
+		changeAmt = extra.Mul(cr).Div(payRate).RoundFloor(dec)
+		if m.ChangeRounding.IsPositive() { // e.g. LBP change rounded down to 1,000 or 5,000
+			changeAmt = changeAmt.Div(m.ChangeRounding).Floor().Mul(m.ChangeRounding)
+		}
+		changeM = &m
+	}
+
+	var number int64
+	if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'payment')`, cid).Scan(&number); err != nil {
+		return "", err
+	}
+	lines := []jline{}
+	for _, t := range tenders {
+		lines = append(lines, jline{Account: t.m.Account, Desc: t.m.Name, Currency: t.m.Currency, Debit: t.amount, Rate: t.rate})
+	}
+	if changeM != nil && changeAmt.IsPositive() {
+		lines = append(lines, jline{Account: changeM.Account, Desc: "Change · " + changeM.Name, Currency: changeM.Currency, Credit: changeAmt})
+	}
+	// earlier credits (advances, credit notes) settle open invoices first, with their own FX difference
+	if err := autoAllocate(ctx, tx, cid, set, in.CustomerID, in.Currency, ""); err != nil {
+		return "", err
+	}
+	arLines, err := arCreditLines(ctx, tx, *set.AR, set.Base, in.CustomerID, name, in.Currency, applied, payRateS)
+	if err != nil {
+		return "", err
+	}
+	lines = append(lines, arLines...)
+	je, err := postJournal(ctx, tx, cid, set, in.Date, fmt.Sprintf("Payment #%d · %s", number, name),
+		fmt.Sprintf("PAY-%d", number), "payment", lines)
+	if err != nil {
+		return "", err
+	}
+
+	var changeMethod, changeCur *string
+	if changeM != nil && changeAmt.IsPositive() {
+		changeMethod, changeCur = &changeM.ID, &changeM.Currency
+	}
+	var id string
+	if err := tx.QueryRow(ctx, `INSERT INTO payments (company_id, number, customer_id, payment_date, currency, amount,
+		change_method_id, change_currency, change_amount, journal_entry_id, notes, client_ref, ar_rate)
+		VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, $9::numeric, $10, $11, nullif($12, ''), $13::numeric) RETURNING id::text`,
+		cid, number, in.CustomerID, in.Date, in.Currency, applied.String(), changeMethod, changeCur, changeAmt.String(),
+		je, strings.TrimSpace(in.Notes), in.ClientRef, payRateS).Scan(&id); err != nil {
+		return "", err
+	}
+	for _, t := range tenders {
+		if _, err := tx.Exec(ctx, `INSERT INTO payment_tenders (payment_id, method_id, currency, amount, rate)
+			VALUES ($1, $2, $3, $4::numeric, $5::numeric)`, id, t.m.ID, t.m.Currency, t.amount.String(), t.rate); err != nil {
+			return "", err
+		}
+	}
+	if err := autoAllocate(ctx, tx, cid, set, in.CustomerID, in.Currency, id); err != nil {
+		return "", err
+	}
+	if !isQuiet(ctx) {
+		if err := autoMessage(ctx, tx, cid, "payment_received", in.CustomerID, nil, &id); err != nil {
+			return "", err
+		}
+	}
+	if err := reconnectIfCleared(ctx, tx, cid, in.CustomerID); err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 func loadPayment(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
@@ -293,7 +309,7 @@ func loadPayment(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 
 func (s *Server) getPayment(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		if isCollector(r) {
+		if isFrontline(r) {
 			var mine bool
 			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM payments WHERE id::text = $1 AND received_by = app_user())`,
 				r.PathValue("id")).Scan(&mine); err != nil || !mine {
@@ -326,7 +342,7 @@ func (s *Server) listPayments(w http.ResponseWriter, r *http.Request) {
 		kindCond = ""
 	}
 	receivedBy := "" // bind parameter $6: only payments received by this user
-	if isCollector(r) {
+	if isFrontline(r) {
 		receivedBy = principal(r).ID
 	} else if by := q.Get("received_by"); isUUID(by) {
 		receivedBy = by

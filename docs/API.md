@@ -93,6 +93,20 @@ curl -s -X POST https://paxve.com/api/v1/companies/$CID/crm/leads -H "$H" -H "$J
 curl -s -X POST https://paxve.com/api/v1/companies/$CID/crm/activities -H "$H" -H "$J" -d '{"lead_id":"<id>","kind":"call","summary":"Call back","due_date":"2026-11-20"}'
 curl -s -X POST https://paxve.com/api/v1/companies/$CID/crm/leads/<id>/convert -H "$H" -H "$J" -d '{}'
 
+# credit note by line: only the goods of these lines come back to stock
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/invoices/<id>/credit-note -H "$H" -H "$J" -d '{"lines":[{"line_no":2,"quantity":"1"}]}'
+
+# point of sale: register (till), session, sale, return, close (cashier role: only these endpoints)
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/pos/registers -H "$H" -H "$J" -d '{"name":"Shop till","currency":"USD","method_ids":["<cash USD>","<cash LBP>"]}'
+curl -s "https://paxve.com/api/v1/companies/$CID/pos/catalog?register_id=<id>" -H "$H"   # items + prices in the till currency, categories, boxes, rates
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/pos/sessions -H "$H" -H "$J" -d '{"register_id":"<id>","opening":[{"method_id":"<cash USD>","amount":"50"}]}'
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/pos/orders -H "$H" -H "$J" -d '{"session_id":"<id>","client_ref":"pxv-0001abcd",
+  "lines":[{"item_id":"<id>","quantity":"2"}],"tenders":[{"method_id":"<cash LBP>","amount":"500000"}],"change_method_id":"<cash LBP>"}'
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/pos/orders/<id>/refund -H "$H" -H "$J" -d '{"session_id":"<id>","lines":[{"line_no":1,"quantity":"1"}],"method_id":"<cash USD>"}'
+curl -s https://paxve.com/api/v1/companies/$CID/pos/sessions/<id> -H "$H"     # X / Z report: drawer per box (opening, in, out, expected), sales, tax, items
+curl -s -X POST https://paxve.com/api/v1/companies/$CID/pos/sessions/<id>/close -H "$H" -H "$J" -d '{"counted":[{"method_id":"<cash USD>","amount":"48"}]}'
+curl -s "https://paxve.com/api/v1/companies/$CID/reports/pos?from=2026-11-01&to=2026-11-30&group=product" -H "$H"   # day|session|cashier|register|product|method
+
 # a balanced journal entry, posted immediately
 curl -s -X POST https://paxve.com/api/v1/companies/$CID/journal -H "$H" -H "$J" -d '{
   "date":"2026-11-18", "memo":"Owner contribution", "post":true,

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActionIcon, Anchor, Badge, Button, Center, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Switch, Table, Text, Textarea, TextInput, Title,
+  ActionIcon, Anchor, Badge, Button, Center, FileButton, Group, Image, Loader, Modal, Paper, Select, SimpleGrid, Stack, Switch, Table, Text, Textarea, TextInput, Title,
 } from '@mantine/core';
+import { resizeImage } from '../../image';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconArrowBack, IconEdit, IconPlus, IconSearch, IconSettings, IconTrash } from '@tabler/icons-react';
+import { IconArrowBack, IconEdit, IconPhoto, IconPlus, IconSearch, IconSettings, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
@@ -68,7 +69,7 @@ export default function Items({ me }: { me: Me }) {
 }
 
 function ItemForm({ item, onClose, onSaved }: { item?: Item; onClose: () => void; onSaved: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { company, currencies } = useCompany();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [f, setF] = useState({
@@ -78,13 +79,16 @@ function ItemForm({ item, onClose, onSaved }: { item?: Item; onClose: () => void
     revenue_account_id: item?.revenue_account_id ?? '', is_active: item?.is_active ?? true,
     is_sellable: item?.is_sellable ?? true, is_purchasable: item?.is_purchasable ?? true,
     sale_tax_rate_id: item?.sale_tax_rate_id ?? '', description: item?.description ?? '',
+    barcode: item?.barcode ?? '', category_id: item?.category_id ?? '', image: item?.image ?? '', pos_visible: item?.pos_visible ?? true,
   });
+  const [categories, setCategories] = useState<{ id: string; name: string; name_i18n: Record<string, string>; is_active: boolean }[]>([]);
   const [prices, setPrices] = useState<{ currency: string; price: string }[]>((item?.prices ?? []).map((p) => ({ currency: p.currency, price: String(Number(p.price)) })));
   const [taxes, setTaxes] = useState<{ id: string; name: string; applies_to: string; is_active: boolean }[]>([]);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (company) api<Account[]>(`/companies/${company.id}/accounts`).then((a) => setAccounts(a.filter((x) => x.is_postable && x.is_active))).catch(() => {});
     if (company) api<typeof taxes>(`/companies/${company.id}/tax-rates`).then((x) => setTaxes(x.filter((r) => r.is_active && r.applies_to !== 'purchases'))).catch(() => {});
+    if (company) api<typeof categories>(`/companies/${company.id}/pos/categories`).then((x) => setCategories(x.filter((c) => c.is_active))).catch(() => {});
   }, [company]);
   const opts = (types: string[]) => accounts.filter((a) => types.includes(a.type)).map((a) => ({ value: a.id, label: accountLabel(a) }));
   const set = (k: keyof typeof f) => (v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
@@ -137,6 +141,23 @@ function ItemForm({ item, onClose, onSaved }: { item?: Item; onClose: () => void
               value={f.sale_tax_rate_id || null} onChange={(v) => set('sale_tax_rate_id')(v ?? '')} />
             <Textarea label={t('catalog.description')} autosize minRows={2} value={f.description} onChange={(e) => set('description')(e.currentTarget.value)}
               description={t('catalog.descriptionHint')} />
+            <Group grow align="flex-end">
+              <TextInput label={t('pos.barcode')} dir="ltr" value={f.barcode} onChange={(e) => set('barcode')(e.currentTarget.value.trim())}
+                placeholder="6221234567890" />
+              <Select label={t('pos.category')} clearable searchable data={categories.map((c) => ({ value: c.id, label: c.name_i18n?.[i18n.language] || c.name }))}
+                value={f.category_id || null} onChange={(v) => set('category_id')(v ?? '')} />
+            </Group>
+            <Group gap="sm" align="center">
+              {f.image ? <Image src={f.image} w={64} h={64} radius="sm" fit="cover" alt="" /> : <Center w={64} h={64} bg="gray.1" style={{ borderRadius: 6 }}><IconPhoto size={22} color="gray" /></Center>}
+              <FileButton accept="image/*" onChange={async (file) => {
+                if (!file) return;
+                try { set('image')(await resizeImage(file)); } catch (err) { notifyError(t, err); }
+              }}>
+                {(props) => <Button {...props} size="xs" variant="light">{t('pos.photo')}</Button>}
+              </FileButton>
+              {f.image && <Button size="xs" variant="subtle" color="red" onClick={() => set('image')('')}>{t('pos.removePhoto')}</Button>}
+              <Switch ms="auto" label={t('pos.showInPos')} checked={f.pos_visible} onChange={(e) => set('pos_visible')(e.currentTarget.checked)} />
+            </Group>
             <Stack gap={4}>
               <Text size="sm" fw={500}>{t('catalog.prices')}</Text>
               <Text size="xs" c="dimmed">{t('catalog.pricesHint')}</Text>

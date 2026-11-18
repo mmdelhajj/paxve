@@ -88,6 +88,7 @@ var lebanon = []Account{
 	a("63", "6", "expense", true, "Taxes and duties", "الضرائب والرسوم", "Impôts et taxes"),
 	a("641", "6", "expense", true, "Salaries and wages", "الرواتب والأجور", "Salaires et traitements"),
 	a("645", "6", "expense", true, "Social charges", "الأعباء الاجتماعية", "Charges sociales"),
+	a("658", "6", "expense", true, "Cash over / short", "فروقات الصندوق (زيادة / نقص)", "Écarts de caisse"),
 	a("666", "6", "expense", true, "Exchange losses", "خسائر فروقات الصرف", "Pertes de change"),
 	a("68", "6", "expense", true, "Depreciation expense", "مخصصات الاستهلاكات", "Dotations aux amortissements"),
 

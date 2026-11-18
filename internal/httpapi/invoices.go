@@ -27,6 +27,8 @@ type invLine struct {
 	TaxAmount   decimal.Decimal
 	Revenue     string  // optional revenue account of this line ("" = the invoice's revenue account)
 	OrderLineID *string // sales order line billed by this line
+	ItemID      *string // catalog item sold on this line (stock items: taken out of WarehouseID)
+	WarehouseID *string
 }
 
 // issueInvoice numbers, books (Dr receivables / Cr revenue) and stores an invoice, then applies any customer credit.
@@ -110,17 +112,32 @@ func issueInvoiceFor(ctx context.Context, tx pgx.Tx, cid string, set *billingSet
 		if l.Tax != nil {
 			taxID = &l.Tax.ID
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO invoice_lines (invoice_id, line_no, kind, description, quantity, unit_price, amount, meta, tax_rate_id, tax_amount, order_line_id)
-			VALUES ($1, $2, $3, $4, $5::numeric, $6::numeric, $7::numeric, $8, $9, $10::numeric, $11)`,
-			id, i+1, l.Kind, l.Description, l.Quantity.String(), l.UnitPrice.String(), l.Amount.String(), meta, taxID, l.TaxAmount.String(), l.OrderLineID); err != nil {
+		acc := revenue
+		if l.Revenue != "" {
+			acc = l.Revenue
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO invoice_lines (invoice_id, line_no, kind, description, quantity, unit_price, amount, meta, tax_rate_id,
+			tax_amount, order_line_id, item_id, warehouse_id, revenue_account_id)
+			VALUES ($1, $2, $3, $4, $5::numeric, $6::numeric, $7::numeric, $8, $9, $10::numeric, $11, $12, $13, nullif($14, '')::uuid)`,
+			id, i+1, l.Kind, l.Description, l.Quantity.String(), l.UnitPrice.String(), l.Amount.String(), meta, taxID, l.TaxAmount.String(),
+			l.OrderLineID, l.ItemID, l.WarehouseID, acc); err != nil {
 			return "", 0, err
 		}
 	}
 	if err := autoAllocate(ctx, tx, cid, set, customerID, currency, ""); err != nil {
 		return "", 0, err
 	}
+	if isQuiet(ctx) {
+		return id, number, nil
+	}
 	return id, number, autoMessage(ctx, tx, cid, "invoice_issued", customerID, &id, nil)
 }
+
+// quiet: documents created at the till (POS) do not send the automatic WhatsApp / SMS messages.
+type quietKey struct{}
+
+func quietCtx(ctx context.Context) context.Context { return context.WithValue(ctx, quietKey{}, true) }
+func isQuiet(ctx context.Context) bool             { v, _ := ctx.Value(quietKey{}).(bool); return v }
 
 func periodEnd(period string) string {
 	t, _ := time.Parse("2006-01", period)
@@ -189,6 +206,7 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 			q, ok1 := money(l.Quantity)
 			p, ok2 := money(l.UnitPrice)
 			lineRev := ""
+			var itemID, whID *string
 			if l.ItemID != "" {
 				it, err := loadItem(ctx, tx, cid, l.ItemID)
 				if err != nil {
@@ -197,8 +215,14 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 				if strings.TrimSpace(l.Description) == "" {
 					l.Description = it.Name
 				}
+				itemID = &it.ID
 				if it.Kind == "stock" && ok1 && q.IsPositive() {
-					sales = append(sales, saleLine{ItemID: it.ID, WarehouseID: l.WarehouseID, Qty: q})
+					wh, err := checkWarehouse(ctx, tx, cid, l.WarehouseID)
+					if err != nil {
+						return nil, err
+					}
+					whID = &wh
+					sales = append(sales, saleLine{ItemID: it.ID, WarehouseID: wh, Qty: q})
 				}
 				if it.Revenue != nil && in.RevenueAccountID == "" {
 					lineRev = *it.Revenue
@@ -213,7 +237,7 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 			}
 			amt := q.Mul(p).Round(dec)
 			lines = append(lines, invLine{Kind: "other", Description: strings.TrimSpace(l.Description), Quantity: q, UnitPrice: p, Amount: amt,
-				Tax: tax, TaxAmount: taxOn(amt, tax, dec), Revenue: lineRev})
+				Tax: tax, TaxAmount: taxOn(amt, tax, dec), Revenue: lineRev, ItemID: itemID, WarehouseID: whID})
 		}
 		id, number, err := issueInvoice(ctx, tx, cid, set, in.CustomerID, name, nil, nil, in.IssueDate, in.DueDate, in.Currency, rev, in.Notes, lines)
 		if err != nil {
@@ -270,9 +294,11 @@ func loadInvoice(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	lines, err := queryJSON(ctx, tx, `SELECT line_no, kind, description, quantity::text AS quantity, unit_price::text AS unit_price,
-		amount::text AS amount, meta, tax_amount::text AS tax_amount,
-		(SELECT t.name FROM tax_rates t WHERE t.id = invoice_lines.tax_rate_id) AS tax_name
+	lines, err := queryJSON(ctx, tx, `SELECT id, line_no, kind, description, quantity::text AS quantity, unit_price::text AS unit_price,
+		amount::text AS amount, meta, tax_amount::text AS tax_amount, item_id,
+		(SELECT t.name FROM tax_rates t WHERE t.id = invoice_lines.tax_rate_id) AS tax_name,
+		(SELECT coalesce(sum(cl.quantity), 0) FROM credit_note_lines cl JOIN payments p ON p.id = cl.payment_id AND p.status = 'posted'
+		  WHERE cl.invoice_line_id = invoice_lines.id)::text AS credited_quantity
 		FROM invoice_lines WHERE invoice_id = $1 ORDER BY line_no`, id)
 	if err != nil {
 		return nil, err

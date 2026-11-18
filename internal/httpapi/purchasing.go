@@ -443,7 +443,7 @@ func autoAllocateSupplier(ctx context.Context, tx pgx.Tx, cid, supplierID, curre
 
 const itemCols = `it.id, it.code, it.name, it.name_i18n, it.kind, it.unit, it.sale_price::text AS sale_price, it.sale_currency,
 	it.inventory_account_id, it.expense_account_id, it.revenue_account_id, it.is_active,
-	it.is_sellable, it.is_purchasable, it.sale_tax_rate_id, it.description,
+	it.is_sellable, it.is_purchasable, it.sale_tax_rate_id, it.description, it.barcode, it.category_id, it.image, it.pos_visible,
 	coalesce((SELECT json_agg(json_build_object('currency', ip.currency, 'price', ip.price::text) ORDER BY ip.currency)
 	          FROM item_prices ip WHERE ip.item_id = it.id), '[]'::json) AS prices,
 	coalesce((SELECT sum(st.quantity) FROM stock st WHERE st.item_id = it.id), 0)::text AS quantity,
@@ -455,7 +455,7 @@ func (s *Server) listItems(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		return queryJSON(ctx, tx, `SELECT `+itemCols+` FROM items it WHERE it.company_id = $1
-			AND ($2 = '' OR it.name ILIKE '%' || $2 || '%' OR it.code ILIKE $2 || '%')
+			AND ($2 = '' OR it.name ILIKE '%' || $2 || '%' OR it.code ILIKE $2 || '%' OR it.barcode = $2)
 			ORDER BY it.is_active DESC, it.name LIMIT 2000`, r.PathValue("cid"), q)
 	})
 }
@@ -477,6 +477,10 @@ func (s *Server) saveItem(w http.ResponseWriter, r *http.Request) {
 		IsPurchasable      *bool             `json:"is_purchasable"`
 		SaleTaxRateID      *string           `json:"sale_tax_rate_id"` // "" removes
 		Description        *string           `json:"description"`
+		Barcode            *string           `json:"barcode"`
+		CategoryID         *string           `json:"category_id"` // "" removes
+		Image              *string           `json:"image"`       // data:image/... URL, "" removes
+		POSVisible         *bool             `json:"pos_visible"`
 		Prices             *[]struct {
 			Currency string `json:"currency"`
 			Price    string `json:"price"`
@@ -501,7 +505,8 @@ func (s *Server) saveItem(w http.ResponseWriter, r *http.Request) {
 			seen[p.Currency] = true
 		}
 	}
-	if !optUUID(in.SaleTaxRateID) {
+	if !optUUID(in.SaleTaxRateID) || !optUUID(in.CategoryID) || (in.Barcode != nil && len(strings.TrimSpace(*in.Barcode)) > 64) ||
+		(in.Image != nil && *in.Image != "" && (!strings.HasPrefix(*in.Image, "data:image/") || len(*in.Image) > 120000)) {
 		okMoney = false
 	}
 	if (create && (in.Name == nil || strings.TrimSpace(*in.Name) == "")) || (in.Name != nil && strings.TrimSpace(*in.Name) == "") ||
@@ -603,6 +608,30 @@ func (s *Server) saveItem(w http.ResponseWriter, r *http.Request) {
 			sale_tax_rate_id = CASE WHEN $4::text IS NULL THEN sale_tax_rate_id ELSE nullif($4, '')::uuid END,
 			description = coalesce(trim($5), description) WHERE id = $1`,
 			id, in.IsSellable, in.IsPurchasable, in.SaleTaxRateID, in.Description); err != nil {
+			return nil, err
+		}
+		if in.CategoryID != nil && *in.CategoryID != "" {
+			var ok bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM item_categories WHERE id = $1 AND company_id = $2)`, *in.CategoryID, cid).Scan(&ok); err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, badRequest("invalid_category")
+			}
+		}
+		var barcode *string
+		if in.Barcode != nil {
+			b := strings.TrimSpace(*in.Barcode)
+			barcode = &b
+		}
+		_, err = tx.Exec(ctx, `UPDATE items SET barcode = coalesce($2, barcode),
+			category_id = CASE WHEN $3::text IS NULL THEN category_id ELSE nullif($3, '')::uuid END,
+			image = coalesce($4, image), pos_visible = coalesce($5, pos_visible) WHERE id = $1`,
+			id, barcode, in.CategoryID, in.Image, in.POSVisible)
+		if isUniqueViolation(err) {
+			return nil, &apiError{status: http.StatusConflict, code: "barcode_taken"}
+		}
+		if err != nil {
 			return nil, err
 		}
 		if in.Prices != nil {

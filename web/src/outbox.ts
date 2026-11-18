@@ -1,4 +1,4 @@
-// Offline support for collectors: customers are cached on the phone, payments taken without
+// Offline support for collectors and tills: customers / catalog are cached on the device, payments and sales taken without
 // internet are queued with a unique client_ref and sent when the connection comes back.
 // The server stores a client_ref only once, so retries never create double payments.
 
@@ -11,6 +11,8 @@ export interface QueuedPayment {
   created_at: string;
   body: Record<string, unknown>;
   error?: string;
+  /** API path to send to (default: the company's payments). POS sales use /pos/orders. */
+  path?: string;
 }
 
 const KEY = 'paxve.outbox';
@@ -55,7 +57,7 @@ export async function syncOutbox(): Promise<number> {
   try {
     for (const p of read()) {
       try {
-        await api(`/companies/${p.company_id}/payments`, { method: 'POST', body: { ...p.body, client_ref: p.client_ref } });
+        await api(p.path ?? `/companies/${p.company_id}/payments`, { method: 'POST', body: { ...p.body, client_ref: p.client_ref } });
         write(read().filter((x) => x.client_ref !== p.client_ref));
         sent++;
       } catch (e) {

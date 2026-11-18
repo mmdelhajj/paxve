@@ -1,7 +1,7 @@
 import { printPage } from '../../native';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActionIcon, Alert, Badge, Button, Center, Divider, Group, Loader, Modal, Paper, Select, SimpleGrid, Stack, Table, Text, TextInput,
+  ActionIcon, Alert, Badge, Button, Center, Divider, Group, Loader, Modal, Paper, SegmentedControl, Select, SimpleGrid, Stack, Table, Text, TextInput,
 } from '@mantine/core';
 import { IconPlus, IconPrinter, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
@@ -36,7 +36,7 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
   const [confirm, setConfirm] = useState(false);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
-  const [credit, setCredit] = useState<{ amount: string; reason: string; refund_method_id: string } | null>(null);
+  const [credit, setCredit] = useState<{ amount: string; reason: string; refund_method_id: string; mode: string; qty: Record<number, string> } | null>(null);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
 
   const reload = () => {
@@ -46,7 +46,7 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
   useEffect(reload, [company, id]);
 
   async function openCredit() {
-    setCredit({ amount: '', reason: '', refund_method_id: '' });
+    setCredit({ amount: '', reason: '', refund_method_id: '', mode: 'amount', qty: {} });
     if (company && !methods.length) api<PaymentMethod[]>(`/companies/${company.id}/payment-methods`).then((m) => setMethods(m.filter((x) => x.is_active))).catch(() => {});
   }
 
@@ -54,7 +54,11 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
     if (!company || !credit) return;
     setBusy(true);
     try {
-      await api(`/companies/${company.id}/invoices/${id}/credit-note`, { method: 'POST', body: credit });
+      const { mode, qty, ...rest } = credit;
+      const lines = Object.entries(qty).filter(([, q]) => Number(q) > 0).map(([n, q]) => ({ line_no: Number(n), quantity: q }));
+      await api(`/companies/${company.id}/invoices/${id}/credit-note`, {
+        method: 'POST', body: mode === 'lines' ? { ...rest, amount: '', lines } : rest,
+      });
       notifySaved(t);
       setCredit(null);
       reload();
@@ -154,12 +158,32 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
               <Stack gap="xs">
                 <Text fw={600} size="sm">{t('gap.creditNoteNew')}</Text>
                 <Text size="xs" c="dimmed">{t('gap.creditHint')}</Text>
-                <Group grow>
-                  <TextInput label={t('gap.creditAmount')} dir="ltr" placeholder={formatAmount(inv.total, dec)} value={credit.amount}
-                    rightSection={<Text size="xs" c="dimmed">{inv.currency}</Text>}
-                    onChange={(e) => setCredit({ ...credit, amount: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
-                  <TextInput label={t('invoices.reason')} value={credit.reason} onChange={(e) => setCredit({ ...credit, reason: e.currentTarget.value })} />
-                </Group>
+                <SegmentedControl size="xs" value={credit.mode} onChange={(v) => setCredit({ ...credit, mode: v })}
+                  data={[{ value: 'amount', label: t('pos.creditByAmount') }, { value: 'lines', label: t('pos.creditByLine') }]} />
+                {credit.mode === 'lines' ? (
+                  <Stack gap={4}>
+                    {d.lines.map((l) => {
+                      const left = Number(l.quantity) - Number(l.credited_quantity ?? 0);
+                      return (
+                        <Group key={l.line_no} gap="xs" wrap="nowrap" justify="space-between">
+                          <Text size="sm" style={{ flex: 1, minWidth: 0 }} truncate>{l.description}</Text>
+                          <Text size="xs" c="dimmed" dir="ltr">{t('pos.left')}: {left}</Text>
+                          <TextInput w={90} size="xs" dir="ltr" inputMode="decimal" placeholder="0" disabled={left <= 0}
+                            value={credit.qty[l.line_no] ?? ''}
+                            onChange={(e) => setCredit({ ...credit, qty: { ...credit.qty, [l.line_no]: e.currentTarget.value.replace(/[^\d.]/g, '') } })} />
+                        </Group>
+                      );
+                    })}
+                    <TextInput label={t('invoices.reason')} value={credit.reason} onChange={(e) => setCredit({ ...credit, reason: e.currentTarget.value })} />
+                  </Stack>
+                ) : (
+                  <Group grow>
+                    <TextInput label={t('gap.creditAmount')} dir="ltr" placeholder={formatAmount(inv.total, dec)} value={credit.amount}
+                      rightSection={<Text size="xs" c="dimmed">{inv.currency}</Text>}
+                      onChange={(e) => setCredit({ ...credit, amount: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
+                    <TextInput label={t('invoices.reason')} value={credit.reason} onChange={(e) => setCredit({ ...credit, reason: e.currentTarget.value })} />
+                  </Group>
+                )}
                 <Select label={t('gap.refundNow')} clearable placeholder={t('gap.keepAsCredit')} value={credit.refund_method_id || null}
                   data={methods.map((m) => ({ value: m.id, label: `${m.name} (${m.currency})` }))}
                   onChange={(v) => setCredit({ ...credit, refund_method_id: v ?? '' })} />

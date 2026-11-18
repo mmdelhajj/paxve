@@ -28,9 +28,10 @@ const (
 	RoleDataEntry  = "data_entry"
 	RoleReadOnly   = "read_only"
 	RoleCollector  = "collector"
+	RoleCashier    = "cashier"
 )
 
-var validRoles = map[string]bool{RoleAdmin: true, RoleAccountant: true, RoleDataEntry: true, RoleReadOnly: true, RoleCollector: true}
+var validRoles = map[string]bool{RoleAdmin: true, RoleAccountant: true, RoleDataEntry: true, RoleReadOnly: true, RoleCollector: true, RoleCashier: true}
 
 // Languages the interface ships with. Adding one = adding a translation file in web/src/locales.
 var supportedLocales = map[string]bool{"en": true, "ar": true, "fr": true}
@@ -285,6 +286,26 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PATCH "+v+"/companies/{cid}/crm/activities/{id}", s.auth(only(s.saveActivity, entry...)))
 	mux.Handle("DELETE "+v+"/companies/{cid}/crm/activities/{id}", s.auth(only(s.deleteActivity, entry...)))
 
+	// point of sale (cashiers see only this)
+	pos := []string{RoleAdmin, RoleAccountant, RoleDataEntry, RoleCashier}
+	mux.Handle("GET "+v+"/companies/{cid}/pos/registers", s.field(only(s.listRegisters, pos...)))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/registers", s.auth(only(s.saveRegister, write...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/pos/registers/{id}", s.auth(only(s.saveRegister, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/categories", s.field(only(s.listCategories, pos...)))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/categories", s.auth(only(s.saveCategory, write...)))
+	mux.Handle("PATCH "+v+"/companies/{cid}/pos/categories/{id}", s.auth(only(s.saveCategory, write...)))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/catalog", s.field(only(s.posCatalog, pos...)))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/sessions", s.field(only(s.listSessions, pos...)))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/sessions", s.field(only(s.openSession, pos...)))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/sessions/{id}", s.field(only(s.getSession, pos...)))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/sessions/{id}/close", s.field(only(s.closeSession, pos...)))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/orders", s.field(only(s.listPosOrders, pos...)))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/orders", s.field(only(s.createPosOrder, pos...)))
+	mux.Handle("GET "+v+"/companies/{cid}/pos/orders/{id}", s.field(only(s.getPosOrder, pos...)))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/orders/{id}/refund", s.field(only(s.refundPosOrder, pos...)))
+	mux.Handle("POST "+v+"/companies/{cid}/pos/customers", s.field(only(s.posQuickCustomer, pos...)))
+	mux.Handle("GET "+v+"/companies/{cid}/reports/pos", s.auth(s.posReport))
+
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { writeErr(w, http.StatusNotFound, "not_found") })
 	// purchasing & stock
 	mux.Handle("GET "+v+"/companies/{cid}/purchasing/settings", s.auth(s.getPurchSettings))
@@ -430,14 +451,15 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 	return p, err
 }
 
-// auth: any signed-in office user (collectors are refused). field: also collectors.
+// auth: any signed-in office user (collectors and cashiers are refused). field: also collectors and cashiers
+// (each handler then decides what they may see, e.g. with only(...)).
 func (s *Server) auth(next http.HandlerFunc) http.Handler  { return s.authenticate(next, false) }
 func (s *Server) field(next http.HandlerFunc) http.Handler { return s.authenticate(next, true) }
 
 // authenticate accepts either a browser session cookie or "Authorization: Bearer pxv_..." API key.
 func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) http.Handler {
 	next := func(w http.ResponseWriter, r *http.Request) {
-		if !allowCollector && principal(r).Role == RoleCollector {
+		if role := principal(r).Role; !allowCollector && (role == RoleCollector || role == RoleCashier) {
 			writeErr(w, http.StatusForbidden, "forbidden")
 			return
 		}
@@ -474,6 +496,12 @@ func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) htt
 }
 
 func isCollector(r *http.Request) bool { return principal(r).Role == RoleCollector }
+
+// isFrontline: collectors and cashiers see only the money they took themselves.
+func isFrontline(r *http.Request) bool {
+	role := principal(r).Role
+	return role == RoleCollector || role == RoleCashier
+}
 
 func only(next http.HandlerFunc, roles ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

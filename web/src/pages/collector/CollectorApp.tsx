@@ -258,7 +258,7 @@ function ReceiptSheet({ d, onClose, onNeedPrinter }: { d: PaymentDetail; onClose
 
 // ---- choose a paired classic-Bluetooth printer (Android app) ----
 
-function PrinterPicker({ onClose, onConnected }: { onClose: () => void; onConnected: (name: string) => void }) {
+export function PrinterPicker({ onClose, onConnected }: { onClose: () => void; onConnected: (name: string) => void }) {
   const { t } = useTranslation();
   const [list, setList] = useState<PairedPrinter[] | null>(null);
   const [error, setError] = useState<string | null>(null);

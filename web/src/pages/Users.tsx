@@ -9,7 +9,7 @@ import { api, type Me, type Role, type User } from '../api';
 import { formatDate, notifyError, notifySaved } from '../util';
 import { languages } from '../i18n';
 
-const roles: Role[] = ['admin', 'accountant', 'data_entry', 'read_only', 'collector'];
+const roles: Role[] = ['admin', 'accountant', 'data_entry', 'read_only', 'collector', 'cashier'];
 
 export default function Users({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();

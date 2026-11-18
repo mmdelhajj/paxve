@@ -71,12 +71,19 @@ func entryLines(ctx context.Context, tx pgx.Tx, je string) ([]jeLine, error) {
 
 // ---------------- customer credit notes ----------------
 
+// creditLineIn: credit `quantity` of invoice line `line_no` (its price and tax in proportion).
+type creditLineIn struct {
+	LineNo   int    `json:"line_no"`
+	Quantity string `json:"quantity"`
+}
+
 func (s *Server) createCreditNote(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Amount         string `json:"amount"` // total incl. tax; "" = everything not yet credited
-		Date           string `json:"date"`
-		Reason         string `json:"reason"`
-		RefundMethodID string `json:"refund_method_id"` // optional: pay back at once the part the invoice does not need
+		Amount         string         `json:"amount"` // total incl. tax; "" = everything not yet credited (ignored with lines)
+		Lines          []creditLineIn `json:"lines"`  // optional: credit these lines only (goods of these lines come back)
+		Date           string         `json:"date"`
+		Reason         string         `json:"reason"`
+		RefundMethodID string         `json:"refund_method_id"` // optional: pay back at once the part the invoice does not need
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -85,7 +92,7 @@ func (s *Server) createCreditNote(w http.ResponseWriter, r *http.Request) {
 		in.Date = today()
 	}
 	cid, invID := r.PathValue("cid"), r.PathValue("id")
-	if !validDate(in.Date) || !isUUID(invID) || (in.RefundMethodID != "" && !isUUID(in.RefundMethodID)) {
+	if !validDate(in.Date) || !isUUID(invID) || (in.RefundMethodID != "" && !isUUID(in.RefundMethodID)) || len(in.Lines) > 200 {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -94,42 +101,216 @@ func (s *Server) createCreditNote(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		if err := set.requireAR(); err != nil {
-			return nil, err
-		}
-		var number int64
-		var customer, currency, totalS, paidS, status, kind, issue string
-		var je *string
-		err = tx.QueryRow(ctx, `SELECT number, customer_id::text, currency::text, total::text, paid::text, status, kind, journal_entry_id::text,
-			issue_date::text FROM invoices WHERE id = $1 AND company_id = $2 FOR UPDATE`, invID, cid).
-			Scan(&number, &customer, &currency, &totalS, &paidS, &status, &kind, &je, &issue)
-		if err == pgx.ErrNoRows {
-			return nil, notFound()
-		}
+		cn, err := creditInvoice(ctx, tx, cid, set, invID, in.Date, in.Reason, in.Amount, in.Lines, in.RefundMethodID)
 		if err != nil {
 			return nil, err
 		}
-		if status == "void" || kind != "invoice" || je == nil {
-			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+		return loadPayment(ctx, tx, cid, cn.id)
+	})
+}
+
+type creditResult struct {
+	id         string          // the credit note (payments row)
+	number     int64           // credit note number
+	amount     decimal.Decimal // credited, incl. tax
+	tax        decimal.Decimal
+	refundID   string          // refund document, when money was paid back at once
+	refundPaid decimal.Decimal // paid back, in the refund method's currency
+	refundCur  string
+}
+
+// creditInvoice books a credit note on an invoice: by amount (prorated over the invoice's revenue and tax) or by
+// lines (each line's own revenue account and tax; only the goods of those lines go back to stock).
+func creditInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings, invID, date, reasonIn, amountIn string,
+	lineReq []creditLineIn, refundMethodID string) (*creditResult, error) {
+	if err := set.requireAR(); err != nil {
+		return nil, err
+	}
+	var number int64
+	var customer, currency, totalS, paidS, status, kind, issue string
+	var je *string
+	err := tx.QueryRow(ctx, `SELECT number, customer_id::text, currency::text, total::text, paid::text, status, kind, journal_entry_id::text,
+		issue_date::text FROM invoices WHERE id = $1 AND company_id = $2 FOR UPDATE`, invID, cid).
+		Scan(&number, &customer, &currency, &totalS, &paidS, &status, &kind, &je, &issue)
+	if err == pgx.ErrNoRows {
+		return nil, notFound()
+	}
+	if err != nil {
+		return nil, err
+	}
+	invNumber := number
+	if status == "void" || kind != "invoice" || je == nil {
+		return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+	}
+	if date < issue {
+		return nil, badRequest("invalid_date")
+	}
+	name, err := lockCustomer(ctx, tx, cid, customer)
+	if err != nil {
+		return nil, err
+	}
+	total, _ := decimal.NewFromString(totalS)
+	var creditedS string
+	if err := tx.QueryRow(ctx, `SELECT coalesce(sum(amount), 0)::text FROM payments WHERE invoice_id = $1 AND kind = 'credit_note'
+		AND status = 'posted'`, invID).Scan(&creditedS); err != nil {
+		return nil, err
+	}
+	credited, _ := decimal.NewFromString(creditedS)
+	left := total.Sub(credited)
+	dec, err := currencyDecimals(ctx, tx, currency)
+	if err != nil {
+		return nil, err
+	}
+	lines, err := entryLines(ctx, tx, *je)
+	if err != nil {
+		return nil, err
+	}
+	arRate := ""
+	for _, l := range lines {
+		if l.account == *set.AR && l.debit.IsPositive() {
+			arRate = l.rate
+			break
 		}
-		if in.Date < issue {
-			return nil, badRequest("invalid_date")
+	}
+	if arRate == "" {
+		return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+	}
+
+	type debit struct {
+		account, rate string
+		value         decimal.Decimal
+	}
+	debits := []debit{}
+	addDebit := func(account, rate string, v decimal.Decimal) {
+		if !v.IsPositive() {
+			return
 		}
-		name, err := lockCustomer(ctx, tx, cid, customer)
+		for i := range debits {
+			if debits[i].account == account && debits[i].rate == rate {
+				debits[i].value = debits[i].value.Add(v)
+				return
+			}
+		}
+		debits = append(debits, debit{account, rate, v})
+	}
+	type credLine struct {
+		lineID    string
+		qty, amt  decimal.Decimal
+		tax       decimal.Decimal
+		item, wh  *string
+		stockItem bool
+	}
+	credLines := []credLine{}
+	amount, taxTotal := decimal.Zero, decimal.Zero
+
+	if len(lineReq) > 0 {
+		// tax accounts of the invoice (a line without its own revenue account falls back to the invoice's revenue lines)
+		type invLineRow struct {
+			id                 string
+			qty, amt, tax      decimal.Decimal
+			cq, ca, ct         decimal.Decimal
+			taxAcc, revAcc     *string
+			item, wh, itemKind *string
+		}
+		rows, err := tx.Query(ctx, `SELECT l.id::text, l.line_no, l.quantity::text, l.amount::text, l.tax_amount::text,
+			coalesce(c.q, 0)::text, coalesce(c.a, 0)::text, coalesce(c.t, 0)::text,
+			(SELECT t.account_id::text FROM tax_rates t WHERE t.id = l.tax_rate_id), l.revenue_account_id::text,
+			l.item_id::text, l.warehouse_id::text, it.kind
+			FROM invoice_lines l LEFT JOIN items it ON it.id = l.item_id
+			LEFT JOIN LATERAL (SELECT sum(cl.quantity) q, sum(cl.amount) a, sum(cl.tax_amount) t FROM credit_note_lines cl
+			  JOIN payments p ON p.id = cl.payment_id AND p.status = 'posted' WHERE cl.invoice_line_id = l.id) c ON true
+			WHERE l.invoice_id = $1`, invID)
 		if err != nil {
 			return nil, err
 		}
-		total, _ := decimal.NewFromString(totalS)
-		var creditedS string
-		if err := tx.QueryRow(ctx, `SELECT coalesce(sum(amount), 0)::text FROM payments WHERE invoice_id = $1 AND kind = 'credit_note'
-			AND status = 'posted'`, invID).Scan(&creditedS); err != nil {
+		byNo := map[int]invLineRow{}
+		for rows.Next() {
+			var x invLineRow
+			var no int
+			var q, a, t, cq, ca, ct string
+			if err := rows.Scan(&x.id, &no, &q, &a, &t, &cq, &ca, &ct, &x.taxAcc, &x.revAcc, &x.item, &x.wh, &x.itemKind); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			x.qty, _ = decimal.NewFromString(q)
+			x.amt, _ = decimal.NewFromString(a)
+			x.tax, _ = decimal.NewFromString(t)
+			x.cq, _ = decimal.NewFromString(cq)
+			x.ca, _ = decimal.NewFromString(ca)
+			x.ct, _ = decimal.NewFromString(ct)
+			byNo[no] = x
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
 			return nil, err
 		}
-		credited, _ := decimal.NewFromString(creditedS)
-		left := total.Sub(credited)
-		amount := left
-		if strings.TrimSpace(in.Amount) != "" {
-			a, ok := money(in.Amount)
+		// revenue / tax credit lines of the invoice entry, for lines without a stored revenue account
+		taxAccs := map[string]bool{}
+		for _, x := range byNo {
+			if x.taxAcc != nil {
+				taxAccs[*x.taxAcc] = true
+			}
+		}
+		revParts, revSrc := []decimal.Decimal{}, []jeLine{}
+		for _, l := range lines {
+			if l.credit.IsPositive() && l.currency == currency && l.account != *set.AR && !taxAccs[l.account] {
+				revParts = append(revParts, l.credit)
+				revSrc = append(revSrc, l)
+			}
+		}
+		seen := map[int]bool{}
+		for _, req := range lineReq {
+			x, ok := byNo[req.LineNo]
+			q, okq := money(req.Quantity)
+			if !ok || !okq || !q.IsPositive() || seen[req.LineNo] {
+				return nil, badRequest("invalid_line")
+			}
+			seen[req.LineNo] = true
+			remaining := x.qty.Sub(x.cq)
+			if q.GreaterThan(remaining) {
+				return nil, &apiError{status: http.StatusUnprocessableEntity, code: "credit_exceeds_invoice",
+					detail: fmt.Sprintf("#%d: %s", req.LineNo, remaining.String())}
+			}
+			var amt, tax decimal.Decimal
+			if q.Equal(remaining) {
+				amt, tax = x.amt.Sub(x.ca), x.tax.Sub(x.ct)
+			} else {
+				amt = x.amt.Mul(q).Div(x.qty).Round(dec)
+				tax = x.tax.Mul(q).Div(x.qty).Round(dec)
+			}
+			if amt.IsNegative() {
+				amt = decimal.Zero
+			}
+			if tax.IsNegative() {
+				tax = decimal.Zero
+			}
+			if x.revAcc != nil {
+				addDebit(*x.revAcc, arRate, amt)
+			} else if len(revSrc) > 0 {
+				for i, p := range prorate(revParts, amt, dec) {
+					addDebit(revSrc[i].account, revSrc[i].rate, p)
+				}
+			} else {
+				return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+			}
+			if tax.IsPositive() {
+				if x.taxAcc == nil {
+					return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+				}
+				addDebit(*x.taxAcc, arRate, tax)
+			}
+			amount = amount.Add(amt).Add(tax)
+			taxTotal = taxTotal.Add(tax)
+			credLines = append(credLines, credLine{lineID: x.id, qty: q, amt: amt, tax: tax, item: x.item, wh: x.wh,
+				stockItem: x.itemKind != nil && *x.itemKind == "stock" && x.wh != nil})
+		}
+		if !amount.IsPositive() || amount.GreaterThan(left) {
+			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "credit_exceeds_invoice", detail: left.String() + " " + currency}
+		}
+	} else {
+		amount = left
+		if strings.TrimSpace(amountIn) != "" {
+			a, ok := money(amountIn)
 			if !ok {
 				return nil, badRequest("invalid_amount")
 			}
@@ -138,19 +319,9 @@ func (s *Server) createCreditNote(w http.ResponseWriter, r *http.Request) {
 		if !amount.IsPositive() || amount.GreaterThan(left) {
 			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "credit_exceeds_invoice", detail: left.String() + " " + currency}
 		}
-		dec, err := currencyDecimals(ctx, tx, currency)
-		if err != nil {
-			return nil, err
-		}
-		lines, err := entryLines(ctx, tx, *je)
-		if err != nil {
-			return nil, err
-		}
-		arRate := ""
 		parts, src := []decimal.Decimal{}, []jeLine{}
 		for _, l := range lines {
-			if l.account == *set.AR && l.debit.IsPositive() {
-				arRate = l.rate
+			if l.account == *set.AR {
 				continue
 			}
 			if l.credit.IsPositive() && l.currency == currency {
@@ -158,75 +329,96 @@ func (s *Server) createCreditNote(w http.ResponseWriter, r *http.Request) {
 				src = append(src, l)
 			}
 		}
-		if arRate == "" || len(parts) == 0 {
+		if len(parts) == 0 {
 			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
 		}
-		if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'credit_note')`, cid).Scan(&number); err != nil {
-			return nil, err
-		}
-		var invNumber int64
-		_ = tx.QueryRow(ctx, `SELECT number FROM invoices WHERE id = $1`, invID).Scan(&invNumber)
-		reason := strings.TrimSpace(in.Reason)
-		desc := fmt.Sprintf("Credit note #%d · invoice #%d", number, invNumber)
-		jl := []jline{}
 		for i, p := range prorate(parts, amount, dec) {
-			if p.IsPositive() {
-				jl = append(jl, jline{Account: src[i].account, Desc: desc, Currency: currency, Debit: p, Rate: src[i].rate})
-			}
+			addDebit(src[i].account, src[i].rate, p)
 		}
-		jl = append(jl, jline{Account: *set.AR, Desc: name, Currency: currency, Credit: amount, Rate: arRate})
-		memo := desc + " · " + name
-		if reason != "" {
-			memo += " · " + reason
-		}
-		entry, err := postJournal(ctx, tx, cid, set, in.Date, memo, fmt.Sprintf("CN-%d", number), "credit_note", jl)
-		if err != nil {
-			return nil, err
-		}
-		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO payments (company_id, number, customer_id, payment_date, currency, amount, journal_entry_id,
-			notes, kind, invoice_id, ar_rate) VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, 'credit_note', $9, $10::numeric) RETURNING id::text`,
-			cid, number, customer, in.Date, currency, amount.String(), entry, reason, invID, arRate).Scan(&id); err != nil {
-			return nil, err
-		}
-		if err := returnSaleStock(ctx, tx, cid, set, invID, id, number, invNumber, in.Date, amount.Equal(left), amount.Div(total)); err != nil {
-			return nil, err
-		}
-		paid, _ := decimal.NewFromString(paidS)
-		if open := total.Sub(paid); open.IsPositive() {
-			apply := decimal.Min(open, amount)
-			if err := allocate(ctx, tx, cid, set, currency, openCredit{id: id, date: in.Date, rate: arRate, number: number},
-				openDebit{id: invID, date: issue, number: invNumber}, apply, true); err != nil {
+	}
+
+	if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'credit_note')`, cid).Scan(&number); err != nil {
+		return nil, err
+	}
+	reason := strings.TrimSpace(reasonIn)
+	desc := fmt.Sprintf("Credit note #%d · invoice #%d", number, invNumber)
+	jl := []jline{}
+	for _, d := range debits {
+		jl = append(jl, jline{Account: d.account, Desc: desc, Currency: currency, Debit: d.value, Rate: d.rate})
+	}
+	jl = append(jl, jline{Account: *set.AR, Desc: name, Currency: currency, Credit: amount, Rate: arRate})
+	memo := desc + " · " + name
+	if reason != "" {
+		memo += " · " + reason
+	}
+	entry, err := postJournal(ctx, tx, cid, set, date, memo, fmt.Sprintf("CN-%d", number), "credit_note", jl)
+	if err != nil {
+		return nil, err
+	}
+	res := &creditResult{number: number, amount: amount, tax: taxTotal}
+	if err := tx.QueryRow(ctx, `INSERT INTO payments (company_id, number, customer_id, payment_date, currency, amount, journal_entry_id,
+		notes, kind, invoice_id, ar_rate) VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, 'credit_note', $9, $10::numeric) RETURNING id::text`,
+		cid, number, customer, date, currency, amount.String(), entry, reason, invID, arRate).Scan(&res.id); err != nil {
+		return nil, err
+	}
+	if len(lineReq) > 0 {
+		back := map[string]decimal.Decimal{}
+		for _, c := range credLines {
+			if _, err := tx.Exec(ctx, `INSERT INTO credit_note_lines (payment_id, invoice_line_id, quantity, amount, tax_amount)
+				VALUES ($1, $2, $3::numeric, $4::numeric, $5::numeric)`, res.id, c.lineID, c.qty.String(), c.amt.String(), c.tax.String()); err != nil {
 				return nil, err
 			}
+			if c.stockItem {
+				k := *c.item + "|" + *c.wh
+				back[k] = back[k].Add(c.qty)
+			}
 		}
-		if err := autoAllocate(ctx, tx, cid, set, customer, currency, ""); err != nil {
+		if err := returnSaleStock(ctx, tx, cid, set, invID, res.id, number, invNumber, date, false, decimal.Zero, back); err != nil {
 			return nil, err
 		}
-		if in.RefundMethodID != "" {
-			var unapplied string
-			if err := tx.QueryRow(ctx, `SELECT (p.amount - coalesce((SELECT sum(a.amount) FROM payment_allocations a WHERE a.payment_id = p.id), 0))::text
-				FROM payments p WHERE p.id = $1`, id).Scan(&unapplied); err != nil {
+	} else if err := returnSaleStock(ctx, tx, cid, set, invID, res.id, number, invNumber, date, amount.Equal(left), amount.Div(total), nil); err != nil {
+		return nil, err
+	}
+	paid, _ := decimal.NewFromString(paidS)
+	if open := total.Sub(paid); open.IsPositive() {
+		apply := decimal.Min(open, amount)
+		if err := allocate(ctx, tx, cid, set, currency, openCredit{id: res.id, date: date, rate: arRate, number: number},
+			openDebit{id: invID, date: issue, number: invNumber}, apply, true); err != nil {
+			return nil, err
+		}
+	}
+	if err := autoAllocate(ctx, tx, cid, set, customer, currency, ""); err != nil {
+		return nil, err
+	}
+	if refundMethodID != "" {
+		var unapplied string
+		if err := tx.QueryRow(ctx, `SELECT (p.amount - coalesce((SELECT sum(a.amount) FROM payment_allocations a WHERE a.payment_id = p.id), 0))::text
+			FROM payments p WHERE p.id = $1`, res.id).Scan(&unapplied); err != nil {
+			return nil, err
+		}
+		if u, _ := decimal.NewFromString(unapplied); u.IsPositive() {
+			id, paidOut, cur, err := issueRefund(ctx, tx, cid, set, customer, name, currency, u, refundMethodID, date, "Credit note #"+fmt.Sprint(number))
+			if err != nil {
 				return nil, err
 			}
-			if u, _ := decimal.NewFromString(unapplied); u.IsPositive() {
-				if _, err := issueRefund(ctx, tx, cid, set, customer, name, currency, u, in.RefundMethodID, in.Date, "Credit note #"+fmt.Sprint(number)); err != nil {
-					return nil, err
-				}
-			}
+			res.refundID, res.refundPaid, res.refundCur = id, paidOut, cur
 		}
-		if err := reconnectIfCleared(ctx, tx, cid, customer); err != nil {
-			return nil, err
-		}
-		return loadPayment(ctx, tx, cid, id)
-	})
+	}
+	if err := reconnectIfCleared(ctx, tx, cid, customer); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
-// returnSaleStock: a credit note on an invoice that sold stock items brings that share of the goods back into stock
-// at the cost they left with (Dr inventory / Cr cost of sales). all: this credit note completes the invoice, so
-// everything not yet returned comes back (no rounding residue); otherwise ratio = credited amount / invoice total.
+// returnSaleStock: a credit note on an invoice that sold stock items brings goods back into stock at the cost they
+// left with (Dr inventory / Cr cost of sales). byQty (item|warehouse → quantity): return exactly those quantities
+// (credit note by lines). Otherwise all: this credit note completes the invoice, so everything not yet returned
+// comes back (no rounding residue); else ratio = credited amount / invoice total.
 func returnSaleStock(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings, invID, cnID string, cnNumber, invNumber int64,
-	date string, all bool, ratio decimal.Decimal) error {
+	date string, all bool, ratio decimal.Decimal, byQty map[string]decimal.Decimal) error {
+	if byQty != nil && len(byQty) == 0 {
+		return nil
+	}
 	type mv struct {
 		item, wh, name, kind string
 		inv, exp             *string
@@ -273,7 +465,19 @@ func returnSaleStock(ctx context.Context, tx pgx.Tx, cid string, set *billingSet
 			continue
 		}
 		q, v := m.qty, m.value
-		if !all {
+		if byQty != nil {
+			want, ok := byQty[m.item+"|"+m.wh]
+			if !ok {
+				continue
+			}
+			if want.LessThan(m.qty) {
+				q = want
+				v = decimal.Zero
+				if m.soldQty.IsPositive() {
+					v = decimal.Min(m.soldValue.Mul(want).Div(m.soldQty).Round(4), m.value)
+				}
+			}
+		} else if !all {
 			q = decimal.Min(m.soldQty.Mul(ratio).Round(4), m.qty)
 			v = decimal.Min(m.soldValue.Mul(ratio).Round(4), m.value)
 		}
@@ -347,40 +551,40 @@ func customerCredit(ctx context.Context, tx pgx.Tx, customer, currency string) (
 
 // issueRefund pays amount of the customer's credit (in currency) out of a cash box / bank.
 func issueRefund(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings, customer, name, currency string, amount decimal.Decimal,
-	methodID, date, notes string) (string, error) {
+	methodID, date, notes string) (string, decimal.Decimal, string, error) {
 	credit, err := customerCredit(ctx, tx, customer, currency)
 	if err != nil {
-		return "", err
+		return "", decimal.Zero, "", err
 	}
 	if amount.GreaterThan(credit) {
-		return "", &apiError{status: http.StatusUnprocessableEntity, code: "refund_exceeds_credit", detail: credit.String() + " " + currency}
+		return "", decimal.Zero, "", &apiError{status: http.StatusUnprocessableEntity, code: "refund_exceeds_credit", detail: credit.String() + " " + currency}
 	}
 	methods, err := loadMethods(ctx, tx, cid)
 	if err != nil {
-		return "", err
+		return "", decimal.Zero, "", err
 	}
 	m, ok := methods[methodID]
 	if !ok || !m.Active {
-		return "", badRequest("invalid_tender")
+		return "", decimal.Zero, "", badRequest("invalid_tender")
 	}
 	cRateS, err := resolveRate(ctx, tx, cid, set.Base, currency, date, "")
 	if err != nil {
-		return "", err
+		return "", decimal.Zero, "", err
 	}
 	mRateS, err := resolveRate(ctx, tx, cid, set.Base, m.Currency, date, "")
 	if err != nil {
-		return "", err
+		return "", decimal.Zero, "", err
 	}
 	mDec, err := currencyDecimals(ctx, tx, m.Currency)
 	if err != nil {
-		return "", err
+		return "", decimal.Zero, "", err
 	}
 	cRate, _ := decimal.NewFromString(cRateS)
 	mRate, _ := decimal.NewFromString(mRateS)
 	paid := amount.Mul(mRate).Div(cRate).Round(mDec)
 	var number int64
 	if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'refund')`, cid).Scan(&number); err != nil {
-		return "", err
+		return "", decimal.Zero, "", err
 	}
 	je, err := postJournal(ctx, tx, cid, set, date, fmt.Sprintf("Refund #%d · %s", number, name), fmt.Sprintf("REF-%d", number), "refund",
 		[]jline{
@@ -388,20 +592,20 @@ func issueRefund(ctx context.Context, tx pgx.Tx, cid string, set *billingSetting
 			{Account: m.Account, Desc: "Refund · " + m.Name, Currency: m.Currency, Credit: paid, Rate: mRateS},
 		})
 	if err != nil {
-		return "", err
+		return "", decimal.Zero, "", err
 	}
 	var id string
 	if err := tx.QueryRow(ctx, `INSERT INTO invoices (company_id, number, customer_id, issue_date, due_date, currency, total, journal_entry_id,
 		notes, kind, refund_method_id) VALUES ($1, $2, $3, $4::date, $4::date, $5, $6::numeric, $7, $8, 'refund', $9) RETURNING id::text`,
 		cid, number, customer, date, currency, amount.String(), je, notes, m.ID).Scan(&id); err != nil {
-		return "", err
+		return "", decimal.Zero, "", err
 	}
 	desc := fmt.Sprintf("Refund · %s %s %s", m.Name, paid.String(), m.Currency)
 	if _, err := tx.Exec(ctx, `INSERT INTO invoice_lines (invoice_id, line_no, kind, description, quantity, unit_price, amount)
 		VALUES ($1, 1, 'other', $2, 1, $3::numeric, $3::numeric)`, id, desc, amount.String()); err != nil {
-		return "", err
+		return "", decimal.Zero, "", err
 	}
-	return id, autoAllocate(ctx, tx, cid, set, customer, currency, "")
+	return id, paid, m.Currency, autoAllocate(ctx, tx, cid, set, customer, currency, "")
 }
 
 func (s *Server) createRefund(w http.ResponseWriter, r *http.Request) {
@@ -436,7 +640,7 @@ func (s *Server) createRefund(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		id, err := issueRefund(ctx, tx, cid, set, r.PathValue("id"), name, in.Currency, amt, in.MethodID, in.Date, strings.TrimSpace(in.Notes))
+		id, _, _, err := issueRefund(ctx, tx, cid, set, r.PathValue("id"), name, in.Currency, amt, in.MethodID, in.Date, strings.TrimSpace(in.Notes))
 		if err != nil {
 			return nil, err
 		}
