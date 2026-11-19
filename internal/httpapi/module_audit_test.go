@@ -224,7 +224,9 @@ func TestAttachmentsDecliningAndPurchaseChecks(t *testing.T) {
 	if str(as.body["method"]) != "declining" {
 		t.Fatalf("method: %s", as.raw)
 	}
+	eqDec(t, "declining next charge shown", as.body["monthly"], "400")
 	eqDec(t, "declining month 1", o.c.ok("POST", o.p("/depreciation/run"), map[string]any{"period": "2026-01"}, 200).body["total"], "400")
+	eqDec(t, "declining next charge after month 1", obj(o.c.ok("GET", o.p("/assets"), nil, 200).body["rows"].([]any)[0])["monthly"], "386.67")
 	eqDec(t, "declining month 2", o.c.ok("POST", o.p("/depreciation/run"), map[string]any{"period": "2026-02"}, 200).body["total"], "386.67")
 	o.trialBalanced(t)
 }

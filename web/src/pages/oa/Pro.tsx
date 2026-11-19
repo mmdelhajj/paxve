@@ -411,9 +411,9 @@ export function FxRevaluation({ me }: { me: Me }) {
         <section className="mx-box">
           <div className="mx-pay">
             {pv && <>
-              <div>{t('oa.fx.gain')}: <b className="ok">{formatAmount(pv.total_gain, bd)} {pv.base_currency}</b></div>
-              <div>{t('oa.fx.loss')}: <b className="red">{formatAmount(pv.total_loss, bd)} {pv.base_currency}</b></div>
-              <div>{t('oa.fx.net')}: <b>{formatAmount(pv.net, bd)} {pv.base_currency}</b></div>
+              <div>{t('oa.fx.gain')}: <b className="ok" dir="ltr">{formatAmount(pv.total_gain, bd)} {pv.base_currency}</b></div>
+              <div>{t('oa.fx.loss')}: <b className="red" dir="ltr">{formatAmount(pv.total_loss, bd)} {pv.base_currency}</b></div>
+              <div>{t('oa.fx.net')}: <b dir="ltr">{formatAmount(pv.net, bd)} {pv.base_currency}</b></div>
               <small>{t('oa.fx.explain')}</small>
               {pv.posted ? <div className="mx-flash good">{t('oa.fx.alreadyDone')}</div>
                 : canRun && <button className="mx-btn" disabled={pv.rows.length === 0} onClick={() => { if (window.confirm(t('oa.fx.runQ', { p: period }))) api(`${base}/fx-revaluation`, { method: 'POST', body: { period } }).then(() => { setMsg({ ok: true, text: t('oa.fx.done') }); load(); reloadPast(); }).catch((e) => setMsg({ ok: false, text: errorText(t, e) })); }}>{t('oa.fx.run')}</button>}
@@ -421,7 +421,7 @@ export function FxRevaluation({ me }: { me: Me }) {
             <Flash m={msg} />
             <h3 style={{ margin: '8px 0 0' }}>{t('oa.fx.past')}</h3>
             {past.length === 0 ? <small>—</small> : past.map((p) => (
-              <div key={p.id} className="mx-note"><b>{p.period}</b> · {t('oa.fx.entry')} #{p.entry_number}{p.reversal_number ? ` / #${p.reversal_number}` : ''} · +{formatAmount(p.total_gain, bd)} −{formatAmount(p.total_loss, bd)}</div>
+              <div key={p.id} className="mx-note"><b>{p.period}</b> · {t('oa.fx.entry')} #{p.entry_number}{p.reversal_number ? ` / #${p.reversal_number}` : ''} · <bdi dir="ltr">+{formatAmount(p.total_gain, bd)} −{formatAmount(p.total_loss, bd)}</bdi></div>
             ))}
           </div>
         </section>

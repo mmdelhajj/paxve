@@ -13,13 +13,24 @@ import (
 
 // Fixed assets, straight-line monthly depreciation (in base currency) and disposal.
 
+// depreciation booked so far and the number of months booked, for one asset row "a"
+const (
+	assetAcc  = `coalesce((SELECT sum(d.amount) FROM depreciation_lines d WHERE d.asset_id = a.id), 0)`
+	assetDone = `(SELECT count(*) FROM depreciation_lines d WHERE d.asset_id = a.id)`
+)
+
 const assetCols = `a.id, a.code, a.name, a.category, a.purchase_date, a.currency, a.cost::text AS cost, a.cost_base::text AS cost_base,
 	a.salvage_base::text AS salvage_base, a.useful_life_months, a.start_period, a.asset_account_id, aa.code AS asset_account_code,
 	a.accum_account_id, a.expense_account_id, a.status, a.disposal_date, a.disposal_proceeds_base::text AS disposal_proceeds_base,
 	a.notes, a.created_at, a.cost_center_id, a.method, trim_scale(a.declining_factor)::text AS declining_factor,
 	coalesce((SELECT sum(d.amount) FROM depreciation_lines d WHERE d.asset_id = a.id), 0)::text AS accumulated,
 	(a.cost_base - coalesce((SELECT sum(d.amount) FROM depreciation_lines d WHERE d.asset_id = a.id), 0))::text AS net_book_value,
-	round((a.cost_base - a.salvage_base) / a.useful_life_months, 2)::text AS monthly,
+	-- the next month's charge: declining balance changes every month (same formula as depreciate)
+	(CASE WHEN a.method = 'declining' THEN greatest(0, least(greatest(
+	    round((a.cost_base - ` + assetAcc + `) * a.declining_factor / a.useful_life_months, 2),
+	    round((a.cost_base - a.salvage_base - ` + assetAcc + `) / greatest(a.useful_life_months - ` + assetDone + `, 1), 2)),
+	  a.cost_base - a.salvage_base - ` + assetAcc + `))
+	 ELSE round((a.cost_base - a.salvage_base) / a.useful_life_months, 2) END)::text AS monthly,
 	(SELECT max(d.period) FROM depreciation_lines d WHERE d.asset_id = a.id) AS last_period,
 	(SELECT count(*) FROM depreciation_lines d WHERE d.asset_id = a.id) AS months_done`
 
