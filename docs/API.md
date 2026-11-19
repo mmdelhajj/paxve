@@ -260,3 +260,18 @@ All under `/companies/{cid}`. The service routes belong to the `svc` app (403 `a
 | `GET /maintenance/log?generator_id=` · `POST /maintenance/log {plan_id \| generator_id + task, done_date, hour_meter?, cost?, currency?, notes?}` (service.create) | work done; a plan's last-done moves forward |
 | `POST /employees/{id}/login {email, locale}` (users.create + payroll.edit) | creates the employee's self-service user with the ready-made "Employee (self-service)" role, links it, returns a one-time `password`; 409 `already_linked` |
 | `GET /pos/price-list?customer_id=&currency=` (pos.view) | the customer's active price list in the till currency (`name`, `items[] {item_id, min_qty, price}`) |
+
+## Finishing stage endpoints (migration 00035)
+
+| Area | Endpoints |
+|---|---|
+| Proration | GET/PUT /companies/{cid}/billing/proration · POST /subscriptions/{id}/change-plan {plan_id, date} · POST /subscriptions/{id}/stop {date} · GET /subscriptions/{id}/changes |
+| Receipts, 3-way match | POST /purchase-orders/{id}/receive {date, delivery_ref, lines:[{po_line_id, quantity}]} · GET /purchase-orders/{id}/match · POST /goods-receipts/{id}/cancel · GET/PUT /purchasing/matching {mode: off\|warn\|block, tolerance}; POST /purchase-orders/{id}/bill answers warnings |
+| Supplier prices | GET/POST /supplier-prices · PUT/DELETE /supplier-prices/{id} · GET /supplier-prices/best?supplier_id&item_id&currency&qty&date; a PO line with an empty unit_price is priced from the list |
+| Expense claims | GET/POST /self/claims · POST /self/claims/{id}/cancel · GET/POST /hr/claims · POST /hr/claims/{id}/decide {decision, account_id, pay_via, note} · POST /hr/claims/{id}/pay {method_id, date} |
+| Custom fields | GET/POST /custom-fields · PUT /custom-fields/{id} · GET /custom-fields/report?entity&key&value · GET/PUT /custom-values/{entity}/{id} {values} (entity: customers, suppliers, items, invoices, employees) |
+| Manufacturing | GET/POST /mfg/boms · GET/PUT /mfg/boms/{id} · GET/POST /mfg/orders · GET /mfg/orders/{id} · POST /mfg/orders/{id}/produce {scrap_qty, lines} · POST /mfg/orders/{id}/cancel · POST /mfg/scrap |
+| HR | GET/POST /hr/rotations · PUT /hr/rotations/{id} · POST /hr/rotations/{id}/assign · GET/PUT /hr/roster · POST /hr/leave/accrue {period} · POST /hr/leave/adjust · GET /hr/leave/accruals · GET/PUT /hr/clock-settings · GET /hr/attendance/{id}/photo · GET/POST /hr/devices · PATCH /hr/devices/{id}; POST /self/clock takes photo (base64) |
+| Fingerprint push (public) | GET /iclock/cdata?SN= (handshake) · POST /iclock/cdata?SN=&table=ATTLOG · GET\|POST /iclock/getrequest, /iclock/devicecmd (also on plain HTTP port 80) |
+| Online payments | GET/POST /payment-gateways · PUT /payment-gateways/{id} · GET /payment-intents?status= · POST /payment-intents/{id}/confirm\|reject; public: GET /portal/{token}/pay-options · POST /portal/{token}/invoices/{id}/pay {gateway_id, reference, phone} · POST /pay/webhook/{gid} (Stripe-Signature, or HMAC signature over order\|status\|amount\|currency\|ref) · GET/POST /pay/sim/{token} (test mode) |
+| E-invoicing | GET/PUT /einvoice/config?kind=zatca\|eta · POST /einvoice/zatca/onboard {otp \| production: true} · POST /invoices/{id}/einvoice {submit} · GET /invoices/{id}/einvoice[?xml=1] |

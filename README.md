@@ -106,6 +106,14 @@ See [docs/API.md](docs/API.md) and the OpenAPI spec at `https://paxve.com/api/v1
   kits, reorder rules with replenishment and days-left, stock counts, landed costs, price lists with quantity breaks
   (shown live on the POS till for a named customer).
 
+## Finishing stage
+
+Online payment on the customer portal (Stripe, any bank hosted payment page, Whish / OMT transfer reference), ZATCA
+phase 2 (checked against the ZATCA sandbox) and Egypt ETA e-invoicing, employee expense claims, custom fields,
+manufacturing (bills of materials, production orders, scrap), water utilities, goods receipts with 3-way matching
+and supplier price lists, subscription proration, rotating shifts, leave accrual history, clock-in selfie and
+geofence, ZKTeco fingerprint push (ADMS), invoices printed in the customer's language. See docs/GAP_ANALYSIS.md.
+
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the

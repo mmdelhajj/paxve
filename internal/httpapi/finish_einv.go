@@ -339,6 +339,9 @@ func (s *Server) zatcaOnboard(w http.ResponseWriter, r *http.Request) {
 		}
 		cfg["csid"] = str2(res["binarySecurityToken"])
 		cfg["compliance_request_id"] = fmt.Sprint(res["requestID"])
+		if f, ok := res["requestID"].(float64); ok {
+			cfg["compliance_request_id"] = fmt.Sprintf("%.0f", f)
+		}
 		if cfg["csid_secret"], err = sealSecret(str2(res["secret"])); err != nil {
 			return nil, err
 		}
@@ -459,13 +462,13 @@ func zatcaXMLParts(inv *einvInvoice, cfg map[string]any, counter int64, pih, doc
 	fmt.Fprintf(&b2, `<cac:TaxTotal><cbc:TaxAmount currencyID="SAR">%s</cbc:TaxAmount></cac:TaxTotal><cac:TaxTotal><cbc:TaxAmount currencyID="%s">%s</cbc:TaxAmount>`,
 		m2(inv.Tax), inv.Currency, m2(inv.Tax))
 	for _, k := range rates {
-		cat := "S"
-		if byRate[k].tax.IsZero() {
-			cat = "Z"
+		cat, reason := "S", ""
+		if byRate[k].tax.IsZero() { // no VAT on the line: outside the scope of VAT, with its exemption reason (BR-KSA-69)
+			cat, reason = "O", `<cbc:TaxExemptionReasonCode>VATEX-SA-OOS</cbc:TaxExemptionReasonCode><cbc:TaxExemptionReason>Not subject to VAT</cbc:TaxExemptionReason>`
 		}
 		fmt.Fprintf(&b2, `<cac:TaxSubtotal><cbc:TaxableAmount currencyID="%s">%s</cbc:TaxableAmount><cbc:TaxAmount currencyID="%s">%s</cbc:TaxAmount>`+
-			`<cac:TaxCategory><cbc:ID>%s</cbc:ID><cbc:Percent>%s</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal>`,
-			inv.Currency, m2(byRate[k].net), inv.Currency, m2(byRate[k].tax), cat, k)
+			`<cac:TaxCategory><cbc:ID>%s</cbc:ID><cbc:Percent>%s</cbc:Percent>%s<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal>`,
+			inv.Currency, m2(byRate[k].net), inv.Currency, m2(byRate[k].tax), cat, k, reason)
 	}
 	b2.WriteString(`</cac:TaxTotal>`)
 	fmt.Fprintf(&b2, `<cac:LegalMonetaryTotal><cbc:LineExtensionAmount currencyID="%[1]s">%[2]s</cbc:LineExtensionAmount><cbc:TaxExclusiveAmount currencyID="%[1]s">%[2]s</cbc:TaxExclusiveAmount>`+
@@ -474,7 +477,7 @@ func zatcaXMLParts(inv *einvInvoice, cfg map[string]any, counter int64, pih, doc
 	for i, l := range inv.Lines {
 		cat := "S"
 		if l.Tax.IsZero() {
-			cat = "Z"
+			cat = "O"
 		}
 		fmt.Fprintf(&b2, `<cac:InvoiceLine><cbc:ID>%d</cbc:ID><cbc:InvoicedQuantity unitCode="PCE">%s</cbc:InvoicedQuantity><cbc:LineExtensionAmount currencyID="%s">%s</cbc:LineExtensionAmount>`+
 			`<cac:TaxTotal><cbc:TaxAmount currencyID="%s">%s</cbc:TaxAmount><cbc:RoundingAmount currencyID="%s">%s</cbc:RoundingAmount></cac:TaxTotal>`+

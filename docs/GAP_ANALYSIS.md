@@ -124,13 +124,43 @@ Status: **Yes** = done and tested · **Partial** = the common case works, edge c
 4. One-click self-service login for an employee with the ready-made "Employee" role.
 5. Payroll with a missing exchange rate names the currency and links to Exchange rates.
 
-## Still open (honest list, most useful first)
+## Closed in the finishing stage (migration 00035)
 
-1. Online payment on the customer portal (needs a Lebanese gateway: Whish, OMT, card acquirer).
-2. ZATCA phase 2 and Egypt ETA e-invoice clearance.
-3. Employee expense claims; live fingerprint-device link.
-4. Custom fields / screen designer (Odoo Studio).
-5. Manufacturing orders (kits work; no production orders).
-6. Separate receipt step and 3-way match (receipt and bill are one step today); vendor price lists.
-7. Proration when a subscription changes plan mid-month.
-8. Native review of the 8 machine-translated languages.
+1. **Online payment on the customer portal**: pluggable gateways per company: Stripe Checkout (signed webhooks), any
+   bank / processor *hosted payment page* (HMAC-signed redirect and callback: the adapter for Areeba / MEPS-style 3-D
+   Secure pages), and Whish / OMT / bank *transfer reference* confirmed by staff. Idempotent posting into the chosen cash
+   box / bank, applied to the invoice. Test mode with a built-in simulator page.
+2. **ZATCA phase 2**: secp256k1 key + CSR with ZATCA extensions, compliance CSID (OTP) and production CSID, UBL 2.1
+   XML with ICV / PIH chain, invoice hash, XAdES signature, phase-2 QR (tags 1–9), reporting (simplified) / clearance
+   (standard). Checked against the ZATCA developer-portal sandbox on 19 Nov 2026: compliance CSID issued; the
+   compliance invoice check answered REPORTED, XSD valid, no errors.
+3. **Egypt ETA**: document JSON v1.0, ETA canonical serialization + SHA-256, signing through the company's own signing
+   service (USB token / HSM: CAdES-BES is made by the token holder), submission with client id / secret (pre-production
+   or production).
+4. **Expense claims** (self-service with receipt photo → manager / HR approval → booked → reimbursed in cash or with
+   the salary); **live fingerprint link**: ZKTeco ADMS push (/iclock/cdata, registered serials, optional IP lock).
+5. **Custom fields** on customers, suppliers, items, invoices, employees (text, number, date, choice, yes/no, required,
+   AR/FR labels) with a report grid (filter, Excel / CSV export). No drag-and-drop screen designer.
+6. **Manufacturing app**: bills of materials, production orders (FIFO / average component cost + labour + overhead,
+   scrap units), scrap of any stock item. **Water** as a business type (metered m³ on the same billing engine).
+7. **Goods receipts and 3-way matching** (off / warn / block, price tolerance) and **supplier price lists**
+   (quantity breaks, validity, supplier codes, lead days) that price purchase orders.
+8. **Proration**: start / stop mid-month, plan change with a prorated charge or credit note, change history.
+9. HR: **rotating shifts** and roster overrides, **leave accrual history** (monthly / yearly, carry-over,
+   adjustments), **clock-in selfie + geofence**, **KSA GOSI phased rates** for Saudis joining after 3 July 2024.
+10. Print an invoice in the **customer's language**; deferral schedule names follow the reader's language.
+11. Machine translations: obvious accounting-term errors corrected in the 8 extra languages (balance, journal voucher,
+    receipt / payment voucher, aging, leave accrual, expense claims…).
+
+## Still open (honest list)
+
+1. A native-speaker review of the 8 machine-translated languages (the obvious errors are fixed, the tone is not).
+2. Real merchant accounts: a Lebanese acquirer's exact hosted-page field names (the generic adapter signs
+   order|status|amount|currency|ref; a bank with another format needs a small mapping), live Stripe keys.
+3. ZATCA production onboarding with the taxpayer's real OTP, and the full compliance-check set (credit / debit notes as
+   ZATCA documents are not generated yet: only tax invoices).
+4. ETA: the signing service on the taxpayer's computer (Paxve calls it; ETA's own signer or a small token helper).
+5. Fingerprint devices: tested with the ADMS protocol, not yet with a physical ZKTeco unit.
+6. Screen designer (moving fields around like Odoo Studio), work centers / routings / MRP planning in manufacturing.
+7. Goods receipts do not move stock on their own (stock and its cost still come in with the bill; the receipt is the
+   control document).
