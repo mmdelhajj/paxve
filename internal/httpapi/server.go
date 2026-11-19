@@ -159,6 +159,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/companies", s.field(s.listCompanies))
 	mux.Handle("POST "+v+"/companies", s.auth(s.createCompany))
 	mux.Handle("PATCH "+v+"/companies/{cid}", s.auth(s.updateCompany))
+	mux.Handle("PUT "+v+"/companies/{cid}/apps", s.auth(s.updateApps))
 	mux.Handle("GET "+v+"/users", s.auth(s.listUsers))
 	mux.Handle("POST "+v+"/users", s.auth(s.createUser))
 	mux.Handle("PATCH "+v+"/users/{id}", s.auth(s.updateUser))
@@ -629,6 +630,10 @@ func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) htt
 		}
 		if cid := r.PathValue("cid"); cid != "" && !companyAllowed(p, cid) {
 			writeErr(w, http.StatusNotFound, "not_found")
+			return
+		}
+		if !s.appAllowed(r, p) {
+			writeErr(w, http.StatusForbidden, "app_disabled")
 			return
 		}
 		handler(w, r.WithContext(context.WithValue(r.Context(), principalKey{}, p)))

@@ -1,31 +1,17 @@
-import { useEffect, useState } from 'react';
-import {
-  AppShell, Avatar, Box, Burger, Button, Group, Menu, Modal, NavLink, PasswordInput, ScrollArea, Select, Stack, Text,
-  UnstyledButton,
-} from '@mantine/core';
-import { applyLang, languages } from './i18n';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Alert, Button, Center, Group, Loader, Menu, Modal, PasswordInput, Stack } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import {
-  IconApi, IconArrowsExchange, IconBook2, IconBuilding, IconChevronDown, IconHistory, IconKey, IconLayoutDashboard,
-  IconListDetails, IconLogout, IconScale, IconUsers,
-} from '@tabler/icons-react';
+import { IconChevronDown, IconKey, IconLogout, IconShieldLock } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, can, type Me } from './api';
+import { api, can, type Me, type Rate } from './api';
 import { useCompany } from './company';
-import { notifyError, notifySaved } from './util';
-import LangSwitch from './components/LangSwitch';
-import Logo from './components/Logo';
-import { lazy, Suspense } from 'react';
-import { Center, Loader } from '@mantine/core';
-import {
-  IconFileImport, IconDatabaseImport, IconCash, IconFileInvoice, IconGauge, IconSettings, IconUserCircle, IconReportMoney, IconChartBar,
-  IconHourglass, IconMoneybag, IconBuildingBank, IconDeviceMobile, IconWorld, IconMessage, IconTruck, IconReceipt,
-  IconCashBanknote, IconReceiptTax, IconPackage, IconGasStation, IconPackages, IconChartPie, IconUserDollar, IconBolt,
-  IconTopologyStar3, IconReceipt2, IconEngine, IconRepeat, IconId, IconCoins, IconBuildingFactory2,
-  IconTargetArrow, IconFileDescription, IconShoppingCart, IconFileText, IconChartLine, IconCashRegister,
-  IconChecklist, IconBuildingSkyscraper, IconShieldLock,
-} from '@tabler/icons-react';
+import { applyLang, languages } from './i18n';
+import { formatAmount, notifyError, notifySaved, today } from './util';
+import { ALL_APPS, appOfPage, RIBBON, tileOf, type Tile } from './ribbon';
+import { openScreen, takeNewWindowRequest } from './nav';
+import type { PaymentMethod } from './billing';
 import TrialBanner from './components/TrialBanner';
+import './magic.css';
 
 // Pages are loaded on demand (code splitting) so the first screen downloads only what it needs.
 const named = <T extends Record<string, unknown>>(p: Promise<T>, k: keyof T) =>
@@ -38,7 +24,6 @@ const Accounts = lazy(() => import('./pages/Accounts'));
 const Journal = lazy(() => import('./pages/Journal'));
 const Rates = lazy(() => import('./pages/Rates'));
 const TrialBalance = lazy(() => import('./pages/TrialBalance'));
-const Ledger = lazy(() => import('./pages/Ledger'));
 const Developers = lazy(() => import('./pages/Developers'));
 const Import = lazy(() => import('./pages/Import'));
 const MagicImport = lazy(() => import('./pages/MagicImport'));
@@ -54,7 +39,6 @@ const ProfitLoss = lazy(() => named(import('./pages/Reports'), 'ProfitLoss'));
 const BalanceSheet = lazy(() => named(import('./pages/Reports'), 'BalanceSheet'));
 const Aging = lazy(() => named(import('./pages/Reports'), 'Aging'));
 const Collections = lazy(() => named(import('./pages/Reports'), 'Collections'));
-const Cash = lazy(() => import('./pages/Cash'));
 const Platform = lazy(() => import('./pages/Platform'));
 const CollectorApp = lazy(() => import('./pages/collector/CollectorApp'));
 const Suppliers = lazy(() => import('./pages/purchases/Suppliers'));
@@ -92,340 +76,386 @@ const PosReport = lazy(() => named(import('./pages/pos/PosAdmin'), 'PosReport'))
 const MySecurity = lazy(() => import('./pages/Security'));
 const Approvals = lazy(() => import('./pages/Approvals'));
 const Consolidated = lazy(() => import('./pages/Consolidated'));
+// Magic-style screens
+const Jibaya = lazy(() => import('./pages/magic/Jibaya'));
+const Voucher = lazy(() => import('./pages/magic/Voucher'));
+const Subscribers = lazy(() => import('./pages/magic/Subscribers'));
+const DailyMovement = lazy(() => import('./pages/magic/DailyMovement'));
+const MagicLedger = lazy(() => import('./pages/magic/MagicLedger'));
+const Boxes = lazy(() => import('./pages/magic/Boxes'));
+const Apps = lazy(() => import('./pages/magic/Apps'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
-type Page = 'dashboard' | 'accounts' | 'journal' | 'rates' | 'trial-balance' | 'ledger' | 'companies' | 'users' |
-  'audit' | 'developers' | 'customers' | 'customer' | 'readings' | 'invoices' | 'payments' | 'billing-setup' |
-  'profit-loss' | 'balance-sheet' | 'aging' | 'collections' | 'cash' | 'collect' | 'platform' | 'import' | 'messages' |
-  'suppliers' | 'supplier' | 'bills' | 'supplier-payments' | 'expenses' | 'items' | 'item' | 'stock' | 'ap-aging' | 'stock-valuation' | 'stock-moves' | 'expenses-report' |
-  'network' | 'tariffs' | 'vat-report' | 'generator-report' | 'print-bills' |
-  'employees' | 'payroll' | 'assets' | 'asset-register' | 'recurring' | 'bank-rec' |
-  'crm' | 'activities' | 'quotes' | 'orders' | 'statements' | 'statement' | 'sales-report' | 'pos' | 'pos-setup' | 'pos-sessions' | 'pos-report' | 'magic-import' | 'security' | 'approvals' | 'consolidated';
+/** Screens that open one window per record (the param is part of the window identity). */
+const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'voucher']);
+/** Screens that use the whole work area themselves (no padding, own scrolling). */
+const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash']);
+const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
+  'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
+  'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
+  'stock', 'ap-aging', 'stock-valuation', 'stock-moves', 'expenses-report', 'network', 'tariffs', 'vat-report', 'generator-report',
+  'print-bills', 'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec', 'crm', 'activities', 'quotes', 'orders',
+  'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
+  'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps']);
 
-interface NavItem { key: Page; label: string; icon: typeof IconBuilding; perm?: string }
+interface Win { id: number; page: string; param: string }
 
-const sections: { label?: string; items: NavItem[] }[] = [
-  { items: [{ key: 'dashboard', label: 'nav.dashboard', icon: IconLayoutDashboard, perm: 'reports.view' }] },
-  {
-    label: 'bill.nav',
-    items: [
-      { key: 'customers', label: 'bill.customers', icon: IconUserCircle, perm: 'customers.view' },
-      { key: 'readings', label: 'bill.readings', icon: IconGauge, perm: 'collections.view' },
-      { key: 'invoices', label: 'bill.invoices', icon: IconFileInvoice, perm: 'billing.view' },
-      { key: 'payments', label: 'bill.payments', icon: IconCash, perm: 'collections.view' },
-      { key: 'network', label: 'net.title', icon: IconTopologyStar3, perm: 'network.view' },
-      { key: 'tariffs', label: 'net.tariffs', icon: IconBolt, perm: 'billing.view' },
-      { key: 'messages', label: 'msg.nav', icon: IconMessage, perm: 'messaging.view' },
-      { key: 'cash', label: 'nav.cash', icon: IconBuildingBank, perm: 'collections.view' },
-      { key: 'collect', label: 'collector.mode', icon: IconDeviceMobile, perm: 'collections.create' },
-      { key: 'billing-setup', label: 'bill.setup', icon: IconSettings, perm: 'billing.view' },
-    ],
-  },
-  {
-    label: 'sales.nav',
-    items: [
-      { key: 'crm', label: 'crm.title', icon: IconTargetArrow, perm: 'crm.view' },
-      { key: 'quotes', label: 'sales.quotes', icon: IconFileDescription, perm: 'sales.view' },
-      { key: 'orders', label: 'sales.orders', icon: IconShoppingCart, perm: 'sales.view' },
-      { key: 'statements', label: 'stmt.bulk', icon: IconFileText, perm: 'customers.view' },
-    ],
-  },
-  {
-    label: 'pos.nav',
-    items: [
-      { key: 'pos', label: 'pos.open', icon: IconCashRegister, perm: 'pos.create' },
-      { key: 'pos-sessions', label: 'pos.sessions', icon: IconReceipt2, perm: 'reports.view' },
-      { key: 'pos-setup', label: 'pos.setup', icon: IconSettings, perm: 'pos.manage' },
-    ],
-  },
-  {
-    label: 'pur.nav',
-    items: [
-      { key: 'suppliers', label: 'pur.suppliers', icon: IconTruck, perm: 'suppliers.view' },
-      { key: 'bills', label: 'pur.bills', icon: IconReceipt, perm: 'purchasing.view' },
-      { key: 'supplier-payments', label: 'pur.supplierPayments', icon: IconCashBanknote, perm: 'purchasing.view' },
-      { key: 'expenses', label: 'pur.expenses', icon: IconReceiptTax, perm: 'expenses.view' },
-      { key: 'items', label: 'pur.items', icon: IconPackage, perm: 'stock.view' },
-      { key: 'stock', label: 'pur.stock', icon: IconGasStation, perm: 'stock.view' },
-    ],
-  },
-  {
-    label: 'nav.accounting',
-    items: [
-      { key: 'journal', label: 'nav.journal', icon: IconListDetails, perm: 'accounting.view' },
-      { key: 'accounts', label: 'nav.accounts', icon: IconBook2, perm: 'accounting.view' },
-      { key: 'rates', label: 'nav.rates', icon: IconArrowsExchange, perm: 'accounting.view' },
-      { key: 'recurring', label: 'rec.nav', icon: IconRepeat, perm: 'accounting.view' },
-      { key: 'bank-rec', label: 'bank.nav', icon: IconBuildingBank, perm: 'bank.edit' },
-    ],
-  },
-  {
-    label: 'hr.nav',
-    items: [
-      { key: 'employees', label: 'hr.employees', icon: IconId, perm: 'payroll.view' },
-      { key: 'payroll', label: 'hr.payroll', icon: IconCoins, perm: 'payroll.view' },
-    ],
-  },
-  {
-    label: 'fa.nav',
-    items: [{ key: 'assets', label: 'fa.title', icon: IconBuildingFactory2, perm: 'assets.view' }],
-  },
-  {
-    label: 'reports2.nav',
-    items: [
-      { key: 'profit-loss', label: 'reports2.pl', icon: IconReportMoney },
-      { key: 'balance-sheet', label: 'reports2.bs', icon: IconChartBar },
-      { key: 'trial-balance', label: 'nav.trialBalance', icon: IconScale },
-      { key: 'aging', label: 'reports2.aging', icon: IconHourglass },
-      { key: 'collections', label: 'reports2.collections', icon: IconMoneybag },
-      { key: 'sales-report', label: 'sales.report', icon: IconChartLine },
-      { key: 'pos-report', label: 'pos.report', icon: IconCashRegister },
-      { key: 'ap-aging', label: 'pur.apAging', icon: IconUserDollar },
-      { key: 'stock-valuation', label: 'pur.valuation', icon: IconPackages },
-      { key: 'stock-moves', label: 'gap.moves', icon: IconPackages },
-      { key: 'expenses-report', label: 'pur.expensesReport', icon: IconChartPie },
-      { key: 'vat-report', label: 'net.vatReport', icon: IconReceipt2 },
-      { key: 'generator-report', label: 'net.genReport', icon: IconEngine },
-      { key: 'asset-register', label: 'fa.register', icon: IconBuildingFactory2 },
-      { key: 'consolidated', label: 'sec.consolidated', icon: IconBuildingSkyscraper },
-    ],
-  },
-  {
-    label: 'nav.settings',
-    items: [
-      { key: 'companies', label: 'nav.companies', icon: IconBuilding, perm: 'settings.view' },
-      { key: 'users', label: 'nav.users', icon: IconUsers, perm: 'users.view' },
-      { key: 'approvals', label: 'sec.approvals', icon: IconChecklist },
-      { key: 'audit', label: 'nav.audit', icon: IconHistory, perm: 'audit.view' },
-      { key: 'import', label: 'nav.import', icon: IconFileImport, perm: 'import.create' },
-      { key: 'magic-import', label: 'nav.magicImport', icon: IconDatabaseImport, perm: 'import.manage' },
-      { key: 'developers', label: 'nav.developers', icon: IconApi, perm: 'api.view' },
-      { key: 'platform', label: 'platform.title', icon: IconWorld },
-    ],
-  },
-];
+function readHash(): [string, string] {
+  const [p, ...rest] = window.location.hash.replace(/^#\/?/, '').split('/');
+  return [KNOWN.has(p) ? p : 'dashboard', rest.join('/')];
+}
+const winKey = (page: string, param: string) => (PER_RECORD.has(page) ? `${page}/${param}` : page);
 
-const allPages: Page[] = ['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users',
-  'audit', 'developers', 'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss',
-  'balance-sheet', 'aging', 'collections', 'cash', 'collect', 'platform', 'import', 'messages',
-  'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item', 'stock', 'ap-aging', 'stock-valuation', 'stock-moves', 'expenses-report',
-  'network', 'tariffs', 'vat-report', 'generator-report', 'print-bills',
-  'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec',
-  'crm', 'activities', 'quotes', 'orders', 'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals', 'consolidated'];
+let nextWin = 1;
 
-function readHash(): [Page, string] {
-  const [p, param = ''] = window.location.hash.replace(/^#\/?/, '').split('/');
-  return [allPages.includes(p as Page) ? (p as Page) : 'dashboard', param];
+function loadWins(): Win[] {
+  try {
+    const v = JSON.parse(sessionStorage.getItem('paxve.wins') || '[]') as Win[];
+    if (Array.isArray(v)) return v.filter((w) => KNOWN.has(w.page)).map((w) => ({ ...w, id: nextWin++ }));
+  } catch { /* storage unavailable */ }
+  return [];
 }
 
 export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) => void; onLogout: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { companies, company, setCompanyId } = useCompany();
-  const [opened, { toggle, close }] = useDisclosure();
-  const [[page, param], setRoute] = useState<[Page, string]>(readHash);
+  const [[page, param], setRoute] = useState<[string, string]>(readHash);
+  const [wins, setWins] = useState<Win[]>(() => {
+    const [p, a] = readHash();
+    const saved = loadWins();
+    const k = winKey(p, a);
+    const hit = saved.find((w) => winKey(w.page, w.param) === k);
+    if (hit) { hit.param = a; return saved; }
+    return [...saved, { id: nextWin++, page: p, param: a }].slice(-12);
+  });
+  const [active, setActive] = useState<number>(() => wins.find((w) => winKey(w.page, w.param) === winKey(...readHash()))?.id ?? wins[wins.length - 1]?.id ?? 0);
+  const [openTab, setOpenTab] = useState<string | null>(null);
+  const [pinned, setPinned] = useState<boolean>(() => { try { return localStorage.getItem('paxve.ribbonPinned') === '1'; } catch { return false; } });
   const [pwOpen, pw] = useDisclosure(false);
+  const winsRef = useRef(wins);
+  winsRef.current = wins;
+  const activeRef = useRef(active);
+  activeRef.current = active;
 
+  const apps = useMemo(() => new Set(company?.apps ?? ALL_APPS), [company]);
+  const biz = company?.business_type ?? 'generator';
+
+  // hash → window: a new window when asked for, the existing window of that screen, or the current window
   useEffect(() => {
-    const f = () => setRoute(readHash());
+    const f = () => {
+      const [p, a] = readHash();
+      const wantNewWindow = takeNewWindowRequest();
+      setRoute([p, a]);
+      const ws = winsRef.current;
+      const k = winKey(p, a);
+      const hit = ws.find((w) => winKey(w.page, w.param) === k);
+      if (hit) {
+        if (hit.param !== a) setWins(ws.map((w) => (w.id === hit.id ? { ...w, param: a } : w)));
+        setActive(hit.id);
+      } else if (wantNewWindow || !ws.some((w) => w.id === activeRef.current)) {
+        const w = { id: nextWin++, page: p, param: a };
+        let next = [...ws, w];
+        if (next.length > 12) next = next.filter((x) => x.id !== next.find((y) => y.id !== activeRef.current)!.id);
+        setWins(next);
+        setActive(w.id);
+      } else {
+        setWins(ws.map((w) => (w.id === activeRef.current ? { ...w, page: p, param: a } : w)));
+      }
+    };
     window.addEventListener('hashchange', f);
     return () => window.removeEventListener('hashchange', f);
   }, []);
 
-  // menu entries follow the user's permissions (the server checks them again on every call)
-  const allowed = (i: NavItem) => (i.key === 'platform' ? me.is_platform_admin : i.key === 'approvals' ? true : can(me, i.perm ?? 'reports.view'));
-  const navItems = sections.flatMap((s) => s.items);
-  const blocked = navItems.some((i) => i.key === page && !allowed(i));
-  const home: Page = navItems.find(allowed)?.key ?? 'security';
-  const current: Page = blocked || (page === 'dashboard' && !can(me, 'reports.view')) ? home : page;
+  useEffect(() => {
+    try { sessionStorage.setItem('paxve.wins', JSON.stringify(wins.map(({ page: p, param: a }) => ({ page: p, param: a })))); } catch { /* */ }
+  }, [wins]);
 
-  if (me.role === 'cashier' || current === 'pos') {
+  // global keys: F2 = الجباية (search), Ctrl+F4 closes the current window
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'F2' && can(me, 'collections.create')) {
+        e.preventDefault();
+        openScreen('jibaya');
+        setTimeout(() => window.dispatchEvent(new Event('paxve:jibaya-search')), 30);
+      } else if (e.key === 'F4' && e.ctrlKey) {
+        e.preventDefault();
+        closeWin(activeRef.current);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me]);
+
+  const allowed = useCallback((tile: Tile) => {
+    if (tile.platform) return me.is_platform_admin;
+    if (tile.app && !apps.has(tile.app)) return false;
+    return tile.any ? true : can(me, tile.perm ?? 'reports.view');
+  }, [apps, me]);
+
+  const tabs = RIBBON.filter((tab) => (!tab.app || apps.has(tab.app)) && tab.tiles.some(allowed));
+  // a screen the user may not use (by permission) shows a notice instead of failing calls; the server checks again
+  const blocked = (p: string) => {
+    const ts = RIBBON.flatMap((tab) => tab.tiles).filter((x) => x.page === p);
+    return ts.length > 0 && !ts.some((x) => (x.platform ? me.is_platform_admin : x.any || can(me, x.perm ?? 'reports.view')));
+  };
+
+  function closeWin(id: number) {
+    const ws = winsRef.current;
+    const i = ws.findIndex((w) => w.id === id);
+    if (i < 0) return;
+    const next = ws.filter((w) => w.id !== id);
+    setWins(next);
+    if (id === activeRef.current) {
+      const n = next[Math.min(i, next.length - 1)];
+      if (n) { setActive(n.id); window.location.hash = `#/${n.page}${n.param ? '/' + n.param : ''}`; }
+      else { setActive(0); window.location.hash = '#/dashboard'; }
+    }
+  }
+  function focusWin(w: Win) {
+    setActive(w.id);
+    const h = `#/${w.page}${w.param ? '/' + w.param : ''}`;
+    if (window.location.hash !== h) window.location.hash = h;
+  }
+
+  // full-screen modes that replace the whole shell
+  if (me.role === 'cashier' || page === 'pos') {
     return <Suspense fallback={pageFallback}><PosApp me={me} onLogout={me.role === 'cashier' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
   }
-  if (me.role === 'collector' || current === 'collect') {
+  if (me.role === 'collector' || page === 'collect') {
     return <Suspense fallback={pageFallback}><CollectorApp me={me} onLogout={me.role === 'collector' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
   }
-  if (current === 'print-bills') {
+  if (page === 'print-bills') {
     return <Suspense fallback={pageFallback}><BulkPrint initialPeriod={param} /></Suspense>;
   }
 
   async function logout() {
-    try {
-      await api('/auth/logout', { method: 'POST' });
-    } finally {
-      onLogout();
-    }
+    try { await api('/auth/logout', { method: 'POST' }); } finally { onLogout(); }
   }
-
   function saveLocale(locale: string) {
     api<Me>('/me', { method: 'PATCH', body: { locale } }).then(onMe).catch(() => {});
   }
 
+  const tabCaption = (w: Win) => {
+    const tile = tileOf(w.page, w.param);
+    return tile ? t(tile.label) : t(`mx.page.${w.page}`, { defaultValue: w.page });
+  };
+  const visibleTab = openTab ?? (pinned ? tabs[0]?.id ?? null : null);
+  const shownTab = tabs.find((x) => x.id === visibleTab);
+  const year = new Date().getFullYear();
+  const companyName = company ? (i18n.language === 'ar' && company.name_ar ? company.name_ar : company.name_en) : '';
+
   return (
-    <AppShell
-      header={{ height: 60 }}
-      navbar={{ width: 250, breakpoint: 'sm', collapsed: { mobile: !opened } }}
-      padding="lg"
-    >
-      <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
-          <Group gap="sm" wrap="nowrap">
-            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-            <Box visibleFrom="xs"><Logo /></Box>
-            {companies.length > 0 && (
-              <Select
-                size="xs"
-                w={{ base: 150, sm: 220 }}
-                aria-label={t('common.company')}
-                leftSection={<IconBuilding size={14} />}
-                value={company?.id ?? null}
-                allowDeselect={false}
-                data={companies.map((c) => ({ value: c.id, label: c.name_ar && document.dir === 'rtl' ? c.name_ar : c.name_en }))}
-                onChange={(v) => v && setCompanyId(v)}
-              />
-            )}
-          </Group>
-          <Group gap="sm" wrap="nowrap">
-            <Box visibleFrom="sm"><LangSwitch onChange={saveLocale} /></Box>
-            <Menu position="bottom-end" withArrow>
-              <Menu.Target>
-                <UnstyledButton>
-                  <Group gap={6} wrap="nowrap">
-                    <Avatar size="sm" color="teal" radius="xl">
-                      {me.full_name.slice(0, 1).toUpperCase()}
-                    </Avatar>
-                    <Text size="sm" visibleFrom="md">
-                      {me.full_name}
-                    </Text>
-                    <IconChevronDown size={14} />
-                  </Group>
-                </UnstyledButton>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>
-                  {me.tenant_name} · {me.role_name || t(`roles.${me.role}`)}
-                </Menu.Label>
-                <Menu.Label>{me.email}</Menu.Label>
-                <Box hiddenFrom="sm">
-                  <Menu.Divider />
-                  <Menu.Label>{t('common.language')}</Menu.Label>
-                  {languages.map((l) => (
-                    <Menu.Item key={l.code} onClick={() => { applyLang(l.code); saveLocale(l.code); }}>{l.label}</Menu.Item>
-                  ))}
-                  <Menu.Divider />
-                </Box>
-                <Menu.Item leftSection={<IconShieldLock size={16} />} component="a" href="#/security">
-                  {t('sec.mySecurity')}
-                </Menu.Item>
-                <Menu.Item leftSection={<IconKey size={16} />} onClick={pw.open}>
-                  {t('common.changePassword')}
-                </Menu.Item>
-                <Menu.Item color="red" leftSection={<IconLogout size={16} />} onClick={logout}>
-                  {t('common.logout')}
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          </Group>
-        </Group>
-      </AppShell.Header>
+    <div className={`mx-app mx-biz-${biz}`}>
+      <div className="mx-title">
+        <span className="mx-brand">Paxve</span>
+        <span>{companyName} — {year} — {me.full_name}</span>
+        <span className="mx-sp" />
+        {companies.length > 1 && (
+          <select className="mx-tsel" aria-label={t('common.company')} value={company?.id ?? ''} onChange={(e) => setCompanyId(e.currentTarget.value)}>
+            {companies.map((c) => <option key={c.id} value={c.id}>{i18n.language === 'ar' && c.name_ar ? c.name_ar : c.name_en}</option>)}
+          </select>
+        )}
+        <select className="mx-tsel" aria-label={t('common.language')} value={i18n.language} onChange={(e) => { applyLang(e.currentTarget.value); saveLocale(e.currentTarget.value); }}>
+          {languages.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+        </select>
+        <Menu position="bottom-end" withArrow>
+          <Menu.Target>
+            <button className="mx-tbtn" aria-label={me.full_name}>{me.full_name.split(' ')[0]} <IconChevronDown size={12} /></button>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Label>{me.tenant_name} · {me.role_name || t(`roles.${me.role}`)}</Menu.Label>
+            <Menu.Label>{me.email}</Menu.Label>
+            <Menu.Item leftSection={<IconShieldLock size={16} />} onClick={() => openScreen('security')}>{t('sec.mySecurity')}</Menu.Item>
+            <Menu.Item leftSection={<IconKey size={16} />} onClick={pw.open}>{t('common.changePassword')}</Menu.Item>
+            <Menu.Item color="red" leftSection={<IconLogout size={16} />} onClick={logout}>{t('common.logout')}</Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+      </div>
 
-      <AppShell.Navbar p="sm">
-        <ScrollArea>
-          {sections.map((s, i) => {
-            const items = s.items.filter(allowed);
-            if (items.length === 0) return null;
-            return (
-              <Stack key={i} gap={2} mb="md">
-                {s.label && (
-                  <Text size="xs" fw={600} c="dimmed" tt="uppercase" px="sm" mb={4}>
-                    {t(s.label)}
-                  </Text>
-                )}
-                {items.map((p) => (
-                  <NavLink
-                    key={p.key}
-                    href={`#/${p.key}`}
-                    label={t(p.label)}
-                    leftSection={<p.icon size={18} stroke={1.6} />}
-                    active={current === p.key || (current === 'ledger' && p.key === 'trial-balance') || (current === 'customer' && p.key === 'customers') || (current === 'supplier' && p.key === 'suppliers') || (current === 'item' && p.key === 'items') || (current === 'activities' && p.key === 'crm') || (current === 'statement' && p.key === 'statements')}
-                    onClick={close}
-                    style={{ borderRadius: 'var(--mantine-radius-md)' }}
-                  />
-                ))}
-              </Stack>
-            );
-          })}
-        </ScrollArea>
-      </AppShell.Navbar>
+      <nav className="mx-ribbon" role="tablist" aria-label={t('mx.menus')}>
+        {tabs.map((tab) => (
+          <button key={tab.id} className="mx-rtab" role="tab" aria-selected={visibleTab === tab.id}
+            onClick={() => setOpenTab(openTab === tab.id && !pinned ? null : tab.id)}>{t(tab.label)}</button>
+        ))}
+        <button className="mx-pin" onClick={() => {
+          const v = !pinned;
+          setPinned(v);
+          try { localStorage.setItem('paxve.ribbonPinned', v ? '1' : '0'); } catch { /* */ }
+          if (!v) setOpenTab(null);
+        }}>{pinned ? t('mx.unpin') : t('mx.pin')}</button>
+      </nav>
+      {shownTab && (
+        <div className="mx-tiles" role="toolbar" aria-label={t(shownTab.label)}>
+          {shownTab.tiles.filter(allowed).map((tile) => (
+            <button key={tile.page + (tile.param ?? '') + tile.label} className="mx-tile"
+              onClick={() => { if (!pinned) setOpenTab(null); openScreen(tile.page, tile.param ?? ''); }}>
+              <span className="mx-ico" style={{ background: `linear-gradient(${shownTab.color}cc, ${shownTab.color})` }}><tile.icon size={22} stroke={1.7} /></span>
+              <span>{t(tile.label)}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
-      <AppShell.Main bg="var(--mantine-color-gray-0)">
-        <TrialBanner me={me} />
-        <Suspense fallback={pageFallback}>
-        {current === 'dashboard' && <Dashboard me={me} />}
-        {current === 'accounts' && <Accounts me={me} />}
-        {current === 'journal' && <Journal me={me} openId={param} />}
-        {current === 'rates' && <Rates me={me} />}
-        {current === 'trial-balance' && <TrialBalance />}
-        {current === 'ledger' && <Ledger accountId={param} />}
-        {current === 'companies' && <Companies me={me} />}
-        {current === 'users' && <Users me={me} />}
-        {current === 'audit' && <Audit />}
-        {current === 'developers' && <Developers />}
-        {current === 'import' && <Import />}
-        {current === 'magic-import' && <MagicImport />}
-        {current === 'messages' && <Messages me={me} />}
-        {current === 'suppliers' && <Suppliers me={me} />}
-        {current === 'supplier' && <SupplierDetail me={me} id={param} key={param} />}
-        {current === 'bills' && <Bills me={me} />}
-        {current === 'supplier-payments' && <SupplierPayments me={me} />}
-        {current === 'expenses' && <Expenses me={me} />}
-        {current === 'items' && <Items me={me} />}
-        {current === 'item' && <ItemDetail me={me} id={param} key={param} />}
-        {current === 'stock' && <Stock me={me} />}
-        {current === 'ap-aging' && <APAging />}
-        {current === 'stock-valuation' && <StockValuation />}
-        {current === 'stock-moves' && <StockMoves />}
-        {current === 'expenses-report' && <ExpensesReport />}
-        {current === 'customers' && <Customers me={me} />}
-        {current === 'customer' && <CustomerDetail me={me} id={param} key={param} />}
-        {current === 'readings' && <Readings me={me} />}
-        {current === 'invoices' && <Invoices me={me} />}
-        {current === 'payments' && <Payments me={me} />}
-        {current === 'billing-setup' && <BillingSetup me={me} />}
-        {current === 'profit-loss' && <ProfitLoss />}
-        {current === 'balance-sheet' && <BalanceSheet />}
-        {current === 'aging' && <Aging />}
-        {current === 'collections' && <Collections />}
-        {current === 'cash' && <Cash me={me} />}
-        {current === 'network' && <Network me={me} />}
-        {current === 'tariffs' && <Tariffs me={me} />}
-        {current === 'vat-report' && <VatReport />}
-        {current === 'generator-report' && <GeneratorReport />}
-        {current === 'employees' && <Employees me={me} />}
-        {current === 'payroll' && <Payroll me={me} />}
-        {current === 'assets' && <Assets me={me} />}
-        {current === 'asset-register' && <AssetRegister />}
-        {current === 'recurring' && <Recurring me={me} />}
-        {current === 'bank-rec' && <BankRec me={me} />}
-        {current === 'crm' && <Crm me={me} />}
-        {current === 'activities' && <ActivitiesPage me={me} />}
-        {current === 'quotes' && <Quotes me={me} kind="quotes" key="quotes" />}
-        {current === 'orders' && <Quotes me={me} kind="orders" key="orders" />}
-        {current === 'statements' && <Statements me={me} />}
-        {current === 'statement' && <CustomerStatement id={param} key={param} />}
-        {current === 'sales-report' && <SalesReport />}
-        {current === 'pos-setup' && <PosSetup me={me} />}
-        {current === 'pos-sessions' && <PosSessions />}
-        {current === 'pos-report' && <PosReport />}
-        {current === 'platform' && me.is_platform_admin && <Platform />}
-        {current === 'security' && <MySecurity me={me} onMe={onMe} />}
-        {current === 'approvals' && <Approvals me={me} />}
-        {current === 'consolidated' && <Consolidated />}
-        </Suspense>
-      </AppShell.Main>
+      <div className="mx-wins" role="tablist" aria-label={t('mx.openScreens')}>
+        {wins.map((w) => (
+          <div key={w.id} className="mx-win" role="tab" tabIndex={0} aria-selected={w.id === active}
+            onClick={() => focusWin(w)} onKeyDown={(e) => { if (e.key === 'Enter') focusWin(w); }}
+            onAuxClick={(e) => { if (e.button === 1) closeWin(w.id); }}>
+            <span>{tabCaption(w)}</span>
+            <button className="mx-x" aria-label={t('common.close')} onClick={(e) => { e.stopPropagation(); closeWin(w.id); }}>✕</button>
+          </div>
+        ))}
+      </div>
 
+      <main className="mx-work" onClick={() => { if (openTab && !pinned) setOpenTab(null); }}>
+        {wins.map((w) => (
+          <section key={w.id} className={`mx-pane ${FULL.has(w.page) ? 'mx-full' : ''}`} hidden={w.id !== active} aria-label={tabCaption(w)}>
+            {w.id === active && !FULL.has(w.page) && <TrialBanner me={me} />}
+            <Suspense fallback={pageFallback}>
+              {blocked(w.page)
+                ? <Alert color="red" maw={640}>{t('errors.forbidden')}</Alert>
+                : <PageView me={me} onMe={onMe} page={w.page} param={w.param} active={w.id === active} apps={apps} />}
+            </Suspense>
+          </section>
+        ))}
+        {wins.length === 0 && <Center h="100%" c="dimmed">{t('mx.noScreens')}</Center>}
+      </main>
+
+      <StatusBar me={me} />
       <ChangePassword opened={pwOpen} onClose={pw.close} />
-    </AppShell>
+    </div>
+  );
+}
+
+function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: Me) => void; page: string; param: string; active: boolean; apps: Set<string> }) {
+  const { t } = useTranslation();
+  const app = appOfPage(page);
+  if (app && !apps.has(app)) {
+    return (
+      <Alert color="yellow" maw={640} title={t('mx.appOffTitle')}>
+        {t('mx.appOff', { app: t(`mx.apps.${app}.name`) })}{' '}
+        {can(me, 'settings.manage') && <Button size="xs" variant="light" onClick={() => openScreen('apps')}>{t('mx.t.apps')}</Button>}
+      </Alert>
+    );
+  }
+  const views: Record<string, () => ReactNode> = {
+    dashboard: () => <Dashboard me={me} />,
+    accounts: () => <Accounts me={me} />,
+    journal: () => <Journal me={me} openId={param} />,
+    rates: () => <Rates me={me} />,
+    'trial-balance': () => <TrialBalance />,
+    ledger: () => <MagicLedger accountId={param} />,
+    companies: () => <Companies me={me} />,
+    users: () => <Users me={me} />,
+    audit: () => <Audit />,
+    developers: () => <Developers />,
+    import: () => <Import />,
+    'magic-import': () => <MagicImport />,
+    messages: () => <Messages me={me} />,
+    suppliers: () => <Suppliers me={me} />,
+    supplier: () => <SupplierDetail me={me} id={param} key={param} />,
+    bills: () => <Bills me={me} />,
+    'supplier-payments': () => <SupplierPayments me={me} />,
+    expenses: () => <Expenses me={me} />,
+    items: () => <Items me={me} />,
+    item: () => <ItemDetail me={me} id={param} key={param} />,
+    stock: () => <Stock me={me} />,
+    'ap-aging': () => <APAging />,
+    'stock-valuation': () => <StockValuation />,
+    'stock-moves': () => <StockMoves />,
+    'expenses-report': () => <ExpensesReport />,
+    customers: () => <Customers me={me} />,
+    customer: () => <CustomerDetail me={me} id={param} key={param} />,
+    readings: () => <Readings me={me} />,
+    invoices: () => <Invoices me={me} />,
+    payments: () => <Payments me={me} />,
+    'billing-setup': () => <BillingSetup me={me} />,
+    'profit-loss': () => <ProfitLoss />,
+    'balance-sheet': () => <BalanceSheet />,
+    aging: () => <Aging />,
+    collections: () => <Collections />,
+    cash: () => <Boxes me={me} />,
+    network: () => <Network me={me} />,
+    tariffs: () => <Tariffs me={me} />,
+    'vat-report': () => <VatReport />,
+    'generator-report': () => <GeneratorReport />,
+    employees: () => <Employees me={me} />,
+    payroll: () => <Payroll me={me} />,
+    assets: () => <Assets me={me} />,
+    'asset-register': () => <AssetRegister />,
+    recurring: () => <Recurring me={me} />,
+    'bank-rec': () => <BankRec me={me} />,
+    crm: () => <Crm me={me} />,
+    activities: () => <ActivitiesPage me={me} />,
+    quotes: () => <Quotes me={me} kind="quotes" key="quotes" />,
+    orders: () => <Quotes me={me} kind="orders" key="orders" />,
+    statements: () => <Statements me={me} />,
+    statement: () => <CustomerStatement id={param} key={param} />,
+    'sales-report': () => <SalesReport />,
+    'pos-setup': () => <PosSetup me={me} />,
+    'pos-sessions': () => <PosSessions />,
+    'pos-report': () => <PosReport />,
+    platform: () => (me.is_platform_admin ? <Platform /> : null),
+    security: () => <MySecurity me={me} onMe={onMe} />,
+    approvals: () => <Approvals me={me} />,
+    consolidated: () => <Consolidated />,
+    jibaya: () => <Jibaya me={me} mode={param} active={active} />,
+    voucher: () => <Voucher me={me} kind={param} key={param} />,
+    subscribers: () => <Subscribers me={me} />,
+    daily: () => <DailyMovement />,
+    apps: () => <Apps me={me} />,
+  };
+  return <>{(views[page] ?? views.dashboard)()}</>;
+}
+
+interface Box { id: string; name: string; currency: string; user_id: string | null; balance: string }
+
+/** Bottom bar: user, own cash box, exchange rate, today's collections, key hints. */
+function StatusBar({ me }: { me: Me }) {
+  const { t } = useTranslation();
+  const { company, decimalsOf } = useCompany();
+  const [box, setBox] = useState<string>('');
+  const [rate, setRate] = useState<string>('');
+  const [todayCash, setToday] = useState<string>('');
+
+  const load = useCallback(() => {
+    if (!company) return;
+    const cid = company.id;
+    if (can(me, 'collections.view')) {
+      api<PaymentMethod[]>(`/companies/${cid}/payment-methods`).then((ms) => {
+        const mine = ms.filter((m) => m.is_active && m.user_id === me.id);
+        setBox(mine.map((m) => m.name).join(' / '));
+      }).catch(() => {});
+      api<{ by_method: { currency: string; received: string; change_given: string }[] }>(
+        `/companies/${cid}/payments?from=${today()}&to=${today()}&received_by=${me.id}&limit=1`).then((r) => {
+        const sums = new Map<string, number>();
+        for (const m of r.by_method ?? []) sums.set(m.currency, (sums.get(m.currency) ?? 0) + Number(m.received) - Number(m.change_given));
+        setToday([...sums].map(([c, v]) => `${formatAmount(v, decimalsOf(c))} ${c}`).join(' + ') || '0');
+      }).catch(() => {});
+    }
+    api<{ rates: Rate[] }>(`/companies/${cid}/rates/latest`).then((r) => {
+      const local = company.local_currency !== company.base_currency ? r.rates.find((x) => x.currency === company.local_currency) : undefined;
+      setRate(local ? `1 ${company.base_currency} = ${formatAmount(local.rate, 0)} ${local.currency}` : '');
+    }).catch(() => {});
+  }, [company, me, decimalsOf]);
+
+  useEffect(() => {
+    load();
+    const id = setInterval(load, 60_000);
+    window.addEventListener('paxve:paid', load);
+    return () => { clearInterval(id); window.removeEventListener('paxve:paid', load); };
+  }, [load]);
+
+  return (
+    <footer className="mx-status">
+      <span>{t('mx.user')}: <b>{me.full_name}</b></span>
+      {box && <span>{t('mx.box')}: <b>{box}</b></span>}
+      {rate && <span>{t('mx.rate')}: <b dir="ltr">{rate}</b></span>}
+      {todayCash && <span>{t('mx.today')}: <b dir="ltr">{todayCash}</b></span>}
+      <span><kbd>F2</kbd> {t('mx.keyF2')} · <kbd>F9</kbd> {t('mx.keyF9')} · <kbd>Esc</kbd> {t('mx.keyEsc')}</span>
+    </footer>
   );
 }
 

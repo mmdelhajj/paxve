@@ -39,6 +39,8 @@ export interface Company {
   is_active: boolean;
   created_at: string;
   lock_date: string | null;
+  apps?: string[];                 // enabled apps (see ribbon.ts)
+  business_type?: 'generator' | 'internet' | 'satellite';
 }
 
 export interface User {

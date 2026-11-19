@@ -320,11 +320,12 @@ func queueMessage(ctx context.Context, tx pgx.Tx, r *renderer, m *msgCtx, event 
 
 // autoMessage is called inside invoice/payment transactions when the company enabled automatic sending.
 func autoMessage(ctx context.Context, tx pgx.Tx, cid, event, customerID string, invoiceID, paymentID *string) error {
-	var onPay, onInv bool
-	if err := tx.QueryRow(ctx, `SELECT auto_send_on_payment, auto_send_on_invoice FROM companies WHERE id = $1`, cid).Scan(&onPay, &onInv); err != nil {
+	var onPay, onInv, msgApp bool
+	// the WhatsApp & SMS app switched off (companies.apps) stops automatic messages too
+	if err := tx.QueryRow(ctx, `SELECT auto_send_on_payment, auto_send_on_invoice, 'msg' = ANY (apps) FROM companies WHERE id = $1`, cid).Scan(&onPay, &onInv, &msgApp); err != nil {
 		return err
 	}
-	if (event == "payment_received" && !onPay) || (event == "invoice_issued" && !onInv) {
+	if !msgApp || (event == "payment_received" && !onPay) || (event == "invoice_issued" && !onInv) {
 		return nil
 	}
 	if err := seedTemplates(ctx, tx, cid); err != nil {

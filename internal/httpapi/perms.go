@@ -175,6 +175,7 @@ var routePerms = map[string]string{
 	// organisation, users, roles, security
 	"POST /companies":                     "settings.manage",
 	"PATCH /companies/{cid}":              "settings.manage",
+	"PUT /companies/{cid}/apps":           "settings.manage",
 	"GET /companies/{cid}/approval-rules": "settings.view",
 	"PUT /companies/{cid}/approval-rules": "settings.manage",
 	"GET /security/settings":              "users.view",

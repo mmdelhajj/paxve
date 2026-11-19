@@ -23,10 +23,10 @@ const fullPageLoader = (
 const font = '"IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif';
 
 const theme = createTheme({
-  primaryColor: 'teal',
+  primaryColor: 'blue',
   fontFamily: font,
   headings: { fontFamily: font },
-  defaultRadius: 'md',
+  defaultRadius: 'sm',
 });
 
 function DirectionSync() {

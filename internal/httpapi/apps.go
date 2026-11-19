@@ -1,0 +1,173 @@
+package httpapi
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+
+	"github.com/mmdelhajj/paxve/internal/db"
+)
+
+// Apps are Odoo-style modules a company switches on or off (companies.apps). The core apps
+// (gen = subscriptions & billing, acc = accounting, col = collections) are always on. A route that
+// belongs to a switched-off app answers 403 "app_disabled", so the API and the UI agree.
+
+var knownApps = []string{"gen", "acc", "col", "msg", "stk", "pur", "net", "sat", "pos", "hr", "crm"}
+var coreApps = []string{"gen", "acc", "col"}
+
+// appRoutes: path fragment (after /companies/{cid}) → app. Checked in order; first match wins.
+// Reference lookups other modules also use (items for invoice lines, tax rates…) stay open for GET.
+var appRoutes = []struct {
+	prefix string
+	app    string
+	getsOK bool // GET stays allowed when the app is off (shared reference data)
+}{
+	{"/pos/", "pos", false},
+	{"/reports/pos", "pos", false},
+	{"/employees", "hr", false},
+	{"/payroll", "hr", false},
+	{"/crm/", "crm", false},
+	{"/sales/", "crm", false},
+	{"/reports/sales", "crm", false},
+	{"/routers", "net", false},
+	{"/isp/", "net", false},
+	{"/router-actions", "net", false},
+	{"/items", "stk", true},
+	{"/warehouses", "stk", true},
+	{"/stock/", "stk", false},
+	{"/reports/stock-", "stk", false},
+	{"/suppliers", "pur", true},
+	{"/bills", "pur", false},
+	{"/supplier-payments", "pur", false},
+	{"/expenses", "pur", false},
+	{"/purchasing/", "pur", true},
+	{"/reports/ap-aging", "pur", false},
+	{"/reports/expenses", "pur", false},
+	{"/message-providers", "msg", false},
+	{"/message-templates", "msg", false},
+	{"/messages", "msg", false},
+	{"/statements/send", "msg", false},
+	{"/send-document", "msg", false},
+}
+
+// appForRoute returns the app a mux pattern belongs to ("" = core, always allowed).
+func appForRoute(method, path string) string {
+	_, rest, ok := strings.Cut(path, "/companies/{cid}")
+	if !ok {
+		return ""
+	}
+	for _, a := range appRoutes {
+		if strings.HasPrefix(rest, a.prefix) {
+			if a.getsOK && method == http.MethodGet {
+				return ""
+			}
+			return a.app
+		}
+	}
+	return ""
+}
+
+type appCacheEntry struct {
+	apps []string
+	exp  time.Time
+}
+
+var appCache sync.Map // company id → appCacheEntry
+
+func forgetApps(cid string) { appCache.Delete(cid) }
+
+// companyApps reads the enabled apps of a company of this tenant (cached 30 s).
+func (s *Server) companyApps(ctx context.Context, tenantID, cid string) ([]string, bool) {
+	if v, ok := appCache.Load(cid); ok {
+		e := v.(appCacheEntry)
+		if time.Now().Before(e.exp) {
+			return e.apps, true
+		}
+	}
+	pool := s.OwnerPool
+	if pool == nil {
+		pool = s.Pool
+	}
+	var apps []string
+	err := pool.QueryRow(ctx, `SELECT apps FROM companies WHERE id = $1::uuid AND tenant_id = $2::uuid`, cid, tenantID).Scan(&apps)
+	if err != nil {
+		return nil, false
+	}
+	appCache.Store(cid, appCacheEntry{apps: apps, exp: time.Now().Add(30 * time.Second)})
+	return apps, true
+}
+
+// appAllowed: false when the route belongs to an app the company switched off.
+func (s *Server) appAllowed(r *http.Request, p *Principal) bool {
+	cid := r.PathValue("cid")
+	if cid == "" || !isUUID(cid) {
+		return true
+	}
+	method, path, _ := strings.Cut(r.Pattern, " ")
+	app := appForRoute(method, strings.TrimPrefix(path, v1))
+	if app == "" {
+		return true
+	}
+	apps, ok := s.companyApps(r.Context(), p.TenantID, cid)
+	if !ok {
+		return true // unknown company: the handler answers 404 as before
+	}
+	return slices.Contains(apps, app)
+}
+
+// PUT /companies/{cid}/apps {apps: [...], business_type}
+func (s *Server) updateApps(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	cid := r.PathValue("cid")
+	if !isUUID(cid) {
+		writeErr(w, http.StatusNotFound, "not_found")
+		return
+	}
+	var in struct {
+		Apps         []string `json:"apps"`
+		BusinessType *string  `json:"business_type"`
+	}
+	if err := decode(w, r, &in); err != nil || in.Apps == nil {
+		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	set := append([]string{}, coreApps...)
+	for _, a := range in.Apps {
+		if !slices.Contains(knownApps, a) {
+			writeErr(w, http.StatusBadRequest, "bad_request")
+			return
+		}
+		if !slices.Contains(set, a) {
+			set = append(set, a)
+		}
+	}
+	if in.BusinessType != nil && *in.BusinessType != "generator" && *in.BusinessType != "internet" && *in.BusinessType != "satellite" {
+		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	var c company
+	err := db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `UPDATE companies SET apps = $2, business_type = coalesce($3, business_type)
+			WHERE id = $1 RETURNING `+companyCols, cid, set, in.BusinessType)
+		if err != nil {
+			return err
+		}
+		c, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByPos[company])
+		return err
+	})
+	forgetApps(cid)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		writeErr(w, http.StatusNotFound, "not_found")
+	case err != nil:
+		serverErr(w, r, err)
+	default:
+		writeJSON(w, http.StatusOK, c)
+	}
+}

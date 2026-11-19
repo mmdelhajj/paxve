@@ -20,9 +20,12 @@ type company struct {
 	IsActive      bool      `json:"is_active"`
 	CreatedAt     time.Time `json:"created_at"`
 	LockDate      *string   `json:"lock_date"` // books locked up to this date (inclusive)
+	Apps          []string  `json:"apps"`          // enabled apps (Odoo-style modules), see apps.go
+	BusinessType  string    `json:"business_type"` // generator | internet | satellite (tints the UI)
 }
 
-const companyCols = `id::text, name_en, name_ar, base_currency::text, local_currency::text, is_active, created_at, lock_date::text`
+const companyCols = `id::text, name_en, name_ar, base_currency::text, local_currency::text, is_active, created_at, lock_date::text,
+	apps, business_type`
 
 func (s *Server) listCompanies(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
