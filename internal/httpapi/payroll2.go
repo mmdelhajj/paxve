@@ -98,7 +98,7 @@ func rateBetween(ctx context.Context, tx pgx.Tx, cid, base, from, to, date strin
 	f, _ := decimal.NewFromString(rf)
 	t, _ := decimal.NewFromString(rt)
 	if f.IsZero() {
-		return decimal.Zero, badRequest("no_rate")
+		return decimal.Zero, &apiError{status: http.StatusUnprocessableEntity, code: "no_rate", detail: from}
 	}
 	return t.Div(f), nil
 }

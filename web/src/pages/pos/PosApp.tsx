@@ -196,8 +196,22 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
   const dec = decimalsOf(currency);
   const canEdit = office || !!reg?.cashier_price_edit;
 
+  // the named customer's price list (same rule as the server: best quantity break in the till currency)
+  const [plist, setPlist] = useState<{ name: string | null; items: { item_id: string; min_qty: string; price: string }[] }>({ name: null, items: [] });
+  useEffect(() => {
+    if (!cid || !customer || !online) { setPlist({ name: null, items: [] }); return; }
+    api<typeof plist>(`/companies/${cid}/pos/price-list?customer_id=${customer.id}&currency=${currency}`).then(setPlist).catch(() => setPlist({ name: null, items: [] }));
+  }, [cid, customer, currency, online]);
+  const listPrice = (itemId: string, qty: number): number | null => {
+    let best: { q: number; p: number } | null = null;
+    for (const x of plist.items) {
+      if (x.item_id === itemId && Number(x.min_qty) <= qty && (!best || Number(x.min_qty) > best.q)) best = { q: Number(x.min_qty), p: Number(x.price) };
+    }
+    return best ? best.p : null;
+  };
+
   const priced = cart.map((l) => {
-    const price = l.price !== '' ? Number(l.price) : Number(l.item.price);
+    const price = l.price !== '' ? Number(l.price) : (listPrice(l.item.id, Number(l.qty || 0)) ?? Number(l.item.price));
     const disc = Number(l.discount || 0);
     const amount = round(Number(l.qty || 0) * price * (100 - disc) / 100, dec);
     const tax = l.item.tax_rate ? round(amount * Number(l.item.tax_rate) / 100, dec) : 0;
@@ -320,6 +334,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
           <Group gap={6} wrap="nowrap">
             <IconUser size={16} />
             <Text size="sm" fw={500} truncate>{customer ? customer.name : t('pos.walkIn')}</Text>
+            {customer && plist.name && <Text size="xs" c="teal" truncate>{t('pos.priceList', { name: plist.name })}</Text>}
           </Group>
         </UnstyledButton>
         {customer && <ActionIcon size="sm" variant="subtle" color="gray" onClick={() => setCustomer(null)} aria-label="x"><IconX size={14} /></ActionIcon>}

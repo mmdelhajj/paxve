@@ -388,6 +388,7 @@ var routePerms = map[string]string{
 	"POST /companies/{cid}/pos/categories":          "pos.manage",
 	"PATCH /companies/{cid}/pos/categories/{id}":    "pos.manage",
 	"GET /companies/{cid}/pos/catalog":              "pos.view",
+	"GET /companies/{cid}/pos/price-list":           "pos.view",
 	"GET /companies/{cid}/pos/sessions":             "pos.view",
 	"POST /companies/{cid}/pos/sessions":            "pos.create",
 	"GET /companies/{cid}/pos/sessions/{id}":        "pos.view",
@@ -474,6 +475,7 @@ var routePerms = map[string]string{
 	"GET /companies/{cid}/employees/{id}/file":               "payroll.view",
 	"PUT /companies/{cid}/employees/{id}/file":               "payroll.edit",
 	"GET /companies/{cid}/employees/{id}/end-of-service":     "payroll.view",
+	"POST /companies/{cid}/employees/{id}/login":             "users.create", // payroll.edit checked inside
 	"POST /companies/{cid}/employees/{id}/documents":         "payroll.edit",
 	"GET /companies/{cid}/employees/{id}/documents/{did}":    "payroll.view",
 	"DELETE /companies/{cid}/employees/{id}/documents/{did}": "payroll.edit",

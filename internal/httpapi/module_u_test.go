@@ -204,3 +204,35 @@ func TestSelfServiceAttendanceLeave(t *testing.T) {
 	o.c.ok("GET", o.p("/hr/leave/balances?year=2026"), nil, 200)
 	o.c.ok("GET", o.p("/reports/hr/attendance?period=2026-12"), nil, 200)
 }
+
+// The ready-made self-service login: one call creates the user with the Employee role and links it.
+func TestEmployeeLoginPreset(t *testing.T) {
+	needDB(t)
+	o := signup(t, "lebanon")
+	emp := str(o.c.ok("POST", o.p("/employees"), map[string]any{"name": "Rami", "currency": "USD", "salary": "700", "hire_date": "2025-01-01"}, 201).body["id"])
+	email := "rami" + randHex(4) + "@example.com"
+	res := o.c.ok("POST", o.p("/employees/"+emp+"/login"), map[string]any{"email": email, "locale": "en"}, 201)
+	if r := o.c.do("POST", o.p("/employees/"+emp+"/login"), map[string]any{"email": "x" + email}); r.status != 409 {
+		t.Fatalf("second login: %d", r.status)
+	}
+	rami := loginAs(t, email, str(res.body["password"]))
+	if home := rami.ok("GET", o.p("/self"), nil, 200); str(obj(home.body["employee"])["name"]) != "Rami" {
+		t.Fatalf("self: %s", home.raw)
+	}
+	if r := rami.do("GET", o.p("/customers"), nil); r.status != 403 {
+		t.Fatalf("employee sees customers: %d", r.status)
+	}
+	// a second employee reuses the same role
+	emp2 := str(o.c.ok("POST", o.p("/employees"), map[string]any{"name": "Lina", "currency": "USD", "salary": "700", "hire_date": "2025-01-01"}, 201).body["id"])
+	o.c.ok("POST", o.p("/employees/"+emp2+"/login"), map[string]any{"email": "lina" + randHex(4) + "@example.com"}, 201)
+	roles := o.c.ok("GET", "/roles", nil, 200)
+	n := 0
+	for _, x := range roles.list {
+		if str(obj(x)["name"]) == employeeRoleName {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("employee roles: %d (%s)", n, roles.raw)
+	}
+}

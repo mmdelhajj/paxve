@@ -477,7 +477,7 @@ const en = {
     openSession: 'Open the session', openingHint: 'Count the cash already in the drawer (opening float).', needOnline: 'Opening and closing a session needs the internet.',
     closeSession: 'Close the session', countHint: 'Count the money in each box and type what you have.', notes: 'Notes',
     searchOrScan: 'Search or scan a barcode', camera: 'Scan with the camera', notFound: 'No product with this code', noItems: 'No products to sell yet. Mark items as "Can be sold" in Items.',
-    cart: 'Cart', emptyCart: 'Tap a product to add it', walkIn: 'Walk-in customer', customer: 'Customer', newCustomer: 'New customer',
+    cart: 'Cart', emptyCart: 'Tap a product to add it', walkIn: 'Walk-in customer', priceList: 'Price list: {{name}}', customer: 'Customer', newCustomer: 'New customer',
     clear: 'Clear', pay: 'Pay', remove: 'Remove', qty: 'Quantity', price: 'Unit price', discount: 'Discount', noPriceEdit: 'Only your manager can change prices on this till.',
     tax: 'Tax', total: 'Total', payment: 'Payment', toPay: 'To pay', exact: 'Exact', left: 'Left', confirm: 'Confirm sale',
     onAccount: 'On account', onAccountFor: 'Leave the unpaid part on {{name}}\'s account', walkInFull: 'A walk-in sale must be paid in full (choose a customer to sell on account).',
@@ -721,6 +721,7 @@ const en = {
     invalid_account: 'One of the accounts cannot be used (inactive, a group, or another currency)',
     posted_locked: 'Posted entries cannot be changed. Reverse the entry instead.',
     wrong_status: 'This action is not possible for this entry',
+    already_linked: 'This employee already has a login.',
     no_rate: 'No exchange rate for {{detail}} on this date. Add it in Exchange rates.',
     duplicate: 'This already exists',
     chart_not_empty: 'This company already has accounts',
@@ -1037,7 +1038,8 @@ const en = {
   },
   hr2: {
     serialsHint: 'Serial numbers received, separated by commas (one per unit).', lotsHint: 'Lots received: number:quantity:expiry date; separated by ;',
-    saved: 'Saved', title: 'HR & payroll', add: 'Add', save: 'Save', cancel: 'Cancel', approve: 'Approve', reject: 'Reject', print: 'Print', apply: 'Apply',
+    saved: 'Saved', openRates: 'Open exchange rates →', makeLogin: 'Create self-service login', makeLoginHint: 'Uses the e-mail above and the ready-made "Employee" role: clock in/out, leave, own payslips only',
+    loginMade: 'Login created for {{email}}. Temporary password (shown once): {{password}} — the employee can change it after signing in.', title: 'HR & payroll', add: 'Add', save: 'Save', cancel: 'Cancel', approve: 'Approve', reject: 'Reject', print: 'Print', apply: 'Apply',
     calculate: 'Calculate', delete: 'Delete', upload: 'Upload a file', downloadFailed: 'The file could not be downloaded.',
     m: { people: 'Employees', attendance: 'Attendance', leave: 'Leave', payroll: 'Payroll', rules: 'Payroll rules', reports: 'HR reports', self: 'My page' },
     help: {

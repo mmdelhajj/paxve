@@ -479,7 +479,7 @@ const fr: Messages = {
     openSession: 'Ouvrir la session', openingHint: 'Comptez les espèces déjà dans le tiroir (fond de caisse).', needOnline: 'Ouvrir et fermer une session demande internet.',
     closeSession: 'Fermer la session', countHint: 'Comptez l\'argent de chaque caisse et saisissez le montant.', notes: 'Notes',
     searchOrScan: 'Chercher ou scanner un code-barres', camera: 'Scanner avec la caméra', notFound: 'Aucun produit avec ce code', noItems: 'Aucun produit à vendre. Cochez « Peut être vendu » dans Articles.',
-    cart: 'Panier', emptyCart: 'Touchez un produit pour l\'ajouter', walkIn: 'Client comptoir', customer: 'Client', newCustomer: 'Nouveau client',
+    cart: 'Panier', emptyCart: 'Touchez un produit pour l\'ajouter', walkIn: 'Client comptoir', priceList: 'Liste de prix : {{name}}', customer: 'Client', newCustomer: 'Nouveau client',
     clear: 'Vider', pay: 'Payer', remove: 'Retirer', qty: 'Quantité', price: 'Prix unitaire', discount: 'Remise', noPriceEdit: 'Seul votre responsable peut changer les prix sur cette caisse.',
     tax: 'Taxe', total: 'Total', payment: 'Paiement', toPay: 'À payer', exact: 'Montant exact', left: 'Reste', confirm: 'Valider la vente',
     onAccount: 'En compte', onAccountFor: 'Laisser le reste sur le compte de {{name}}', walkInFull: 'Une vente comptoir doit être payée en entier (choisissez un client pour vendre en compte).',
@@ -723,6 +723,7 @@ const fr: Messages = {
     invalid_account: "Un des comptes n'est pas utilisable (inactif, groupe ou autre devise)",
     posted_locked: "Les écritures validées ne peuvent pas être modifiées. Extournez l'écriture.",
     wrong_status: "Cette action n'est pas possible pour cette écriture",
+    already_linked: 'Cet employé a déjà un accès.',
     no_rate: 'Aucun taux de change pour {{detail}} à cette date. Ajoutez-le dans Taux de change.',
     duplicate: 'Existe déjà',
     chart_not_empty: 'Cette société a déjà des comptes',
@@ -1039,7 +1040,8 @@ const fr: Messages = {
   },
   hr2: {
     serialsHint: 'Numéros de série reçus, séparés par des virgules (un par unité).', lotsHint: 'Lots reçus : numéro:quantité:date d’expiration ; séparés par ;',
-    saved: 'Enregistré', title: 'RH et paie', add: 'Ajouter', save: 'Enregistrer', cancel: 'Annuler', approve: 'Accepter', reject: 'Refuser', print: 'Imprimer', apply: 'Appliquer',
+    saved: 'Enregistré', openRates: 'Ouvrir les taux de change →', makeLogin: 'Créer un accès employé', makeLoginHint: "Utilise l'e-mail ci-dessus et le rôle « Employé » prêt : pointage, congés, ses propres bulletins seulement",
+    loginMade: 'Accès créé pour {{email}}. Mot de passe temporaire (affiché une fois) : {{password}} — l\'employé pourra le changer après connexion.', title: 'RH et paie', add: 'Ajouter', save: 'Enregistrer', cancel: 'Annuler', approve: 'Accepter', reject: 'Refuser', print: 'Imprimer', apply: 'Appliquer',
     calculate: 'Calculer', delete: 'Supprimer', upload: 'Joindre un fichier', downloadFailed: 'Le fichier n’a pas pu être téléchargé.',
     m: { people: 'Employés', attendance: 'Présence', leave: 'Congés', payroll: 'Paie', rules: 'Règles de paie', reports: 'Rapports RH', self: 'Ma page' },
     help: {

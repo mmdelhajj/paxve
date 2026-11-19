@@ -1,19 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { API_BASE, api, can, type Me } from '../../api';
+import { API_BASE, ApiError, api, can, type Me } from '../../api';
 import { useCompany } from '../../company';
 import DataGrid, { type Col } from '../../components/DataGrid';
 import { errorText, formatAmount, formatDate, today } from '../../util';
 import { openExternal, printPage, saveFile } from '../../native';
 import { Help, useBoxes, useCostCenters } from '../acc/common';
 
-type Msg = { ok: boolean; text: string } | null;
+type Msg = { ok: boolean; text: string; code?: string } | null;
 const MODES = ['people', 'attendance', 'leave', 'payroll', 'rules', 'reports'] as const;
 type Mode = typeof MODES[number];
 
 function Flash({ m }: { m: Msg }) {
-  return m ? <div className={`mx-flash ${m.ok ? 'good' : 'bad'}`}>{m.text}</div> : null;
+  const { t } = useTranslation();
+  if (!m) return null;
+  return (
+    <div className={`mx-flash ${m.ok ? 'good' : 'bad'}`}>
+      {m.text}
+      {m.code === 'no_rate' && <> <a href="#/rates" className="mx-link">{t('hr2.openRates')}</a></>}
+    </div>
+  );
 }
 function useList<T>(path: string | null, deps: unknown[] = []): [T[], () => void] {
   const [rows, setRows] = useState<T[]>([]);
@@ -33,7 +40,7 @@ function useRun(t: (k: string) => string) {
       after?.(v);
       return v;
     } catch (e) {
-      setMsg({ ok: false, text: errorText(t as never, e) });
+      setMsg({ ok: false, text: errorText(t as never, e), code: e instanceof ApiError ? e.code : undefined });
       return undefined;
     }
   }, [t]);
@@ -131,7 +138,7 @@ function People({ me }: { me: Me }) {
   const canEdit = can(me, 'payroll.edit');
   const boxes = useBoxes();
   const ccs = useCostCenters();
-  const [users] = useList<UserRow>(can(me, 'users.view') ? '/users' : null);
+  const [users, reloadUsers] = useList<UserRow>(can(me, 'users.view') ? '/users' : null);
   const [schedules] = useList<Schedule>(base && `${base}/hr/schedules`);
 
   const loadFile = useCallback((e: Emp) => {
@@ -251,6 +258,13 @@ function People({ me }: { me: Me }) {
               <label>{t('hr2.userLink')}<select disabled={!canEdit} value={String(b.user_id ?? '')} onChange={(e) => setB({ ...b, user_id: e.currentTarget.value })}>
                 <option value="">—</option>{users.map((u) => <option key={u.id} value={u.id}>{u.full_name} · {u.email}</option>)}</select></label>
               <small>{t('hr2.userLinkHint')}</small>
+              {canEdit && can(me, 'users.create') && !b.user_id && (
+                <button className="mx-btn sm" disabled={!String(f.email ?? '').includes('@')} title={t('hr2.makeLoginHint')}
+                  onClick={() => void run(api<{ user_id: string; email: string; password: string }>(`${base}/employees/${sel.id}/login`, { method: 'POST', body: { email: String(f.email ?? ''), locale: i18n.language } }))
+                    .then((x) => { if (x) { setMsg({ ok: true, text: t('hr2.loginMade', { email: x.email, password: x.password }) }); setB({ ...b, user_id: x.user_id }); setSel({ ...sel, user_id: x.user_id }); reload(); reloadUsers(); } })}>
+                  {t('hr2.makeLogin')}
+                </button>
+              )}
             </>)}
             {tab === 'contract' && (<>
               {bf('hire_date', t('hr2.hireDate'), 'date')}
@@ -550,7 +564,7 @@ function PayrollMode({ me }: { me: Me }) {
   async function wps() {
     if (!cur || !base) return;
     const res = await fetch(`${API_BASE}${base}/payroll/${cur.run.id}/wps`, { credentials: 'include' });
-    if (!res.ok) { const j = await res.json().catch(() => ({})); run(Promise.reject(Object.assign(new Error(j.error ?? 'error'), { code: j.error, status: res.status }))); return; }
+    if (!res.ok) { const j = await res.json().catch(() => ({})); run(Promise.reject(new ApiError(res.status, j.error ?? 'server_error', j.detail))); return; }
     const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'wps.sif';
     await saveFile(name, await res.blob(), 'text/csv');
   }
