@@ -245,3 +245,18 @@ All under `/api/v1/companies/{cid}` (permission in brackets).
 | `GET /payroll/{id}/payslips/{pid}` · `GET /payroll/{id}/wps` | payslip with lines, UAE SIF file |
 | `GET /reports/hr/{register,social,tax,cost,attendance,leave}?period=&group=` | HR reports |
 | `GET /self`, `POST /self/clock`, `POST /self/leave`, `POST /self/leave/{id}/cancel`, `GET /self/payslips/{pid}`, `GET /self/team-leave` (any signed-in user linked to an employee) | self-service |
+## Final stage: service desk, maintenance, employee login, till price list
+
+All under `/companies/{cid}`. The service routes belong to the `svc` app (403 `app_disabled` when it is off).
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /tickets?status=open\|all\|new\|in_progress\|waiting\|done\|cancelled&customer_id=&q=` (service.view) | service requests, urgent first |
+| `POST /tickets {customer_id?, subscription_id?, subject, category, priority, channel, contact_phone, description, assigned_to, due_at}` (service.create) | new numbered request; category one of outage, no_internet, slow, no_signal, meter, billing, new_connection, move, disconnect, complaint, other |
+| `GET /tickets/{id}` · `PATCH /tickets/{id}` (service.edit) · `POST /tickets/{id}/notes {body}` (service.create) | details with notes; status changes are written as notes; `resolved_at` is set on done / cancelled |
+| `GET /tickets/summary` | open, overdue, urgent, by category, last 30 days opened / closed / average hours |
+| `GET /maintenance` (service.view) | generator maintenance tasks with `hours_now`, `due_hours`, `due_date`, `hours_left`, `days_left`, `state` (due / soon / ok / off) |
+| `POST /maintenance/tasks {generator_id, task, every_hours?, every_days?, last_done_hours?, last_done_date?}` · `PATCH /maintenance/tasks/{id}` (service.manage) | maintenance plan |
+| `GET /maintenance/log?generator_id=` · `POST /maintenance/log {plan_id \| generator_id + task, done_date, hour_meter?, cost?, currency?, notes?}` (service.create) | work done; a plan's last-done moves forward |
+| `POST /employees/{id}/login {email, locale}` (users.create + payroll.edit) | creates the employee's self-service user with the ready-made "Employee (self-service)" role, links it, returns a one-time `password`; 409 `already_linked` |
+| `GET /pos/price-list?customer_id=&currency=` (pos.view) | the customer's active price list in the till currency (`name`, `items[] {item_id, min_qty, price}`) |

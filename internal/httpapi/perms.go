@@ -550,17 +550,17 @@ var routePerms = map[string]string{
 	"GET /companies/{cid}/journal/{id}/source":  "accounting.view",
 
 	// service desk and generator maintenance
-	"GET /companies/{cid}/tickets":                     "service.view",
-	"POST /companies/{cid}/tickets":                    "service.create",
-	"GET /companies/{cid}/tickets/summary":             "service.view",
-	"GET /companies/{cid}/tickets/{id}":                "service.view",
-	"PATCH /companies/{cid}/tickets/{id}":              "service.edit",
-	"POST /companies/{cid}/tickets/{id}/notes":         "service.create",
-	"GET /companies/{cid}/maintenance":                 "service.view",
-	"POST /companies/{cid}/maintenance/tasks":          "service.manage",
-	"PATCH /companies/{cid}/maintenance/tasks/{id}":    "service.manage",
-	"GET /companies/{cid}/maintenance/log":             "service.view",
-	"POST /companies/{cid}/maintenance/log":            "service.create",
+	"GET /companies/{cid}/tickets":                  "service.view",
+	"POST /companies/{cid}/tickets":                 "service.create",
+	"GET /companies/{cid}/tickets/summary":          "service.view",
+	"GET /companies/{cid}/tickets/{id}":             "service.view",
+	"PATCH /companies/{cid}/tickets/{id}":           "service.edit",
+	"POST /companies/{cid}/tickets/{id}/notes":      "service.create",
+	"GET /companies/{cid}/maintenance":              "service.view",
+	"POST /companies/{cid}/maintenance/tasks":       "service.manage",
+	"PATCH /companies/{cid}/maintenance/tasks/{id}": "service.manage",
+	"GET /companies/{cid}/maintenance/log":          "service.view",
+	"POST /companies/{cid}/maintenance/log":         "service.create",
 }
 
 // permForPattern returns the permission of a mux pattern ("" when the route is not declared).

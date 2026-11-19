@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { api } from '../../api';
+import { ApiError, api } from '../../api';
 import { useCompany } from '../../company';
 import { errorText, formatAmount, formatDate, today } from '../../util';
 import { printPage } from '../../native';
@@ -40,7 +40,7 @@ export default function SelfService() {
   const [busy, setBusy] = useState(false);
   const load = useCallback(() => {
     if (!base) return;
-    api<Home>(`${base}/self`).then((h) => { setHome(h); setErr(''); }).catch((e) => setErr(errorText(t, e)));
+    api<Home>(`${base}/self`).then((h) => { setHome(h); setErr(''); }).catch((e) => setErr(e instanceof ApiError && e.code === 'no_employee_file' ? 'no_file' : errorText(t, e)));
     api<Team[]>(`${base}/self/team-leave`).then(setTeam).catch(() => setTeam([]));
   }, [base, t]);
   useEffect(load, [load]);
@@ -57,7 +57,8 @@ export default function SelfService() {
     await act(api(`${base}/self/clock`, { method: 'POST', body: pos ? { lat: pos.coords.latitude, lng: pos.coords.longitude } : {} }), t('hr2.self.clocked'));
     setBusy(false);
   }
-  if (err) return <div className="mx-pay"><div className="mx-flash bad">{err}</div><p>{t('hr2.self.noFile')}</p></div>;
+  if (err === 'no_file') return <div className="mx-pay"><p>{t('hr2.self.noFile')}</p></div>;
+  if (err) return <div className="mx-pay"><div className="mx-flash bad">{err}</div></div>;
   if (!home) return null;
   const e = home.employee;
   const todayRow = home.attendance.find((a) => a.work_date.slice(0, 10) === today());

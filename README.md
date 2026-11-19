@@ -1,8 +1,8 @@
 # Paxve
 
 Cloud accounting and billing for subscription businesses — generator electricity, internet, satellite TV, VOD —
-built for Lebanon and the region, usable anywhere: **any currency, English / Arabic (RTL) / French, multi-tenant SaaS,
-open REST API.**
+built for Lebanon and the region, usable anywhere: **any currency, 11 languages (Arabic / Persian / Urdu / Kurdish RTL),
+19 country packs, multi-tenant SaaS, open REST API.**
 
 Live: https://paxve.com
 
@@ -11,10 +11,10 @@ Live: https://paxve.com
 | Area | Features |
 |---|---|
 | **Magic-style desk** | The office UI works like the legacy Magic desktop program: collapsible ribbon of tabs with picture tiles (Magic's Arabic names), several screens open at once as tabs that keep their state, status bar (user, cash box, rate, today's collections). Dense grids everywhere: filter row, sort, footer totals, right-click copy / Excel / CSV / print, double-click to open. **الجباية** collection screen driven by the keyboard (filter → ↓ → Enter → amount → Enter = saved and printed; F2 / F9 / Esc), barcode collection, meter readings saved on Enter, late payers, collector hand-over, "correct payment" (void by reversal and re-enter); paper-style cash receipt / expense / payment vouchers with the amount in Arabic words |
-| **Apps** | Odoo-style modules switched on or off per company (subscriptions, accounting, collection always on; WhatsApp/SMS, stock, purchases, internet, satellite, POS, payroll, sales & CRM optional). Menus follow, and the API answers `403 app_disabled` for a switched-off app. Business type (generator / internet / satellite) tints the interface |
+| **Apps** | Odoo-style modules switched on or off per company (subscriptions, accounting, collection always on; WhatsApp/SMS, stock, purchases, internet, satellite, POS, payroll, sales & CRM, service & maintenance optional). Menus follow, and the API answers `403 app_disabled` for a switched-off app. Business type (generator / internet / satellite) tints the interface |
 | **Accounting** | Chart of accounts with templates (Lebanese PCG, international), names in any language; journal entries in any currency, always balanced; posted entries immutable (reversal only); gap-free numbering; period lock; trial balance, ledger, profit & loss, balance sheet |
 | **Professional accounting** | Cheques received and issued with every step (receive, deposit, collect, endorse to a supplier, returned by the supplier, part paid in cash, give back, bounce, freeze, bank paid, cancel, undo) and a due-date register; buy / sell dollars between cash boxes with the exchange gain or loss; fiscal year closing (result → retained earnings, year locked) and reopening; cost centers (branch, station, generator, project) tagged automatically from bills, diesel and expenses, re-taggable on posted lines, profit per cost center; monthly budgets with budget-vs-actual; opening balances wizard; cash flow statement; period comparison (month / same month last year / year / last 6 months); drill-down from every report line to the ledger, the journal entry and the source document; a "?" help panel on every accounting screen and an owner summary in plain sentences on the dashboard |
-| **Currencies** | 65+ ISO currencies, base + second currency per company, daily official / buy / sell rates, realized FX gain/loss booked automatically |
+| **Currencies** | All 156 ISO currencies, base + second currency per company, daily official / buy / sell rates, realized FX gain/loss booked automatically |
 | **Billing** | Customers, areas, plans (fixed monthly or metered: base fee + kWh × price), subscriptions, meter-reading sheets, one-click monthly billing run, manual invoices, printable invoices |
 | **Payments** | Pay in several currencies at once (e.g. USD + LBP), automatic change (rounded to 1,000 / 5,000 LBP if wanted), oldest invoices paid first, customer balances per currency, aging report |
 | **Collectors** | Collector role limited to their areas; mobile collector mode (PWA, works offline, payments queued and synced once — idempotent); Bluetooth ESC/POS receipts (Arabic rendered as image); personal cash boxes and handover |
@@ -23,7 +23,8 @@ Live: https://paxve.com
 | **Reports & export** | Every report (trial balance, ledger, P&L, balance sheet, aging, VAT, stock, POS, sales…) exports to Excel (RTL in Arabic), CSV or print / PDF; financial reports read daily ledger totals, so they stay fast on millions of journal lines |
 | **Purchases & stock** | Suppliers, purchase bills (AP), supplier payments, expenses, items and warehouses with weighted-average cost, fuel consumption, stock adjustments, stock valuation, AP aging |
 | **Point of sale** | Touch / tablet / phone till: product grid with categories and photos, search, barcode (USB/Bluetooth scanner or camera), discounts, walk-in or named customer, on-account sales, mixed USD/LBP payment with change, offline sales sent once when back online; cashier role, sessions with opening float and counted closing (over/short posted), X/Z reports, returns by line, Bluetooth or printer receipts, POS report by day / session / cashier / product / payment method |
-| **HR & payroll** | Employee file (personal data, photo, documents with expiry, contract with end reminder, manager, bank / IBAN), salary split in two currencies, housing / commission / fixed components, advances with monthly recovery, schedules, holidays, attendance (phone clock-in with location, fingerprint CSV import, lateness / overtime), leave (types per country, monthly accrual, balances, phone requests, manager approval), detailed payslips with country rules (Lebanon NSSF branches and ceilings, family allowances, salary tax brackets and family deductions, daily transport; KSA GOSI and gratuity; UAE gratuity and WPS file), draft → approved → posted → paid per currency, payslip print / WhatsApp, employee self-service page, HR reports. See `docs/PAYROLL.md` |
+| **HR & payroll** | Employee file (personal data, photo, documents with expiry, contract with end reminder, manager, bank / IBAN), salary split in two currencies, housing / commission / fixed components, advances with monthly recovery, schedules, holidays, attendance (phone clock-in with location, fingerprint CSV import, lateness / overtime), leave (types per country, monthly accrual, balances, phone requests, manager approval), detailed payslips with country rules (Lebanon NSSF branches and ceilings, family allowances, salary tax brackets and family deductions, daily transport; KSA GOSI and gratuity; UAE gratuity and WPS file), draft → approved → posted → paid per currency, payslip print / WhatsApp, employee self-service page with a one-click login (ready-made "Employee" role), HR reports. See `docs/PAYROLL.md` |
+| **Service & maintenance** | Service desk app: numbered customer requests (power cut, no internet, meter, bill, new connection, complaint…) with priority, assignee, deadline, notes and status history, open / urgent / late summary; generator maintenance plans every N running hours and/or N days, due / soon from the hour-meter log, work log with cost |
 | **Fixed assets** | Asset register, straight-line monthly depreciation (idempotent per month), disposal with gain/loss, net book value report |
 | **Recurring & bank** | Recurring journal entries / expenses posted automatically on due dates (respecting the period lock); bank statement import, auto-matching (amount ± 3 days), quick entries for fees, reconciliation report |
 | **ISP automation** | MikroTik RouterOS API (PPPoE secrets / hotspot users): internet cut automatically when bills are overdue > N days and restored after payment, manual suspend / reconnect, queued router actions with retries, test connection (see docs/ISP.md) |
@@ -102,4 +103,11 @@ See [docs/API.md](docs/API.md) and the OpenAPI spec at `https://paxve.com/api/v1
 - All ISO 4217 currencies; automatic daily rates (opt-in, never over a typed rate); statements in any presentation currency.
 - 11 interface languages (8 machine-translated, RTL for Persian / Urdu / Kurdish), customer language, per-tenant text corrections.
 - Stock: FIFO or average costing per item, lots / serial numbers with expiry and traceability, units of measure on purchases,
-  kits, reorder rules with replenishment and days-left, stock counts, landed costs, price lists with quantity breaks.
+  kits, reorder rules with replenishment and days-left, stock counts, landed costs, price lists with quantity breaks
+  (shown live on the POS till for a named customer).
+
+## How Paxve compares
+
+See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the
+honest list of what is still open (purchase orders, late fees / dunning levels, FX revaluation, deferred revenue, online
+portal payment, ZATCA phase 2 / Egypt ETA, expense claims, custom fields).

@@ -117,14 +117,14 @@ function Tickets({ me }: { me: Me }) {
   }
 
   const cols: Col<Ticket>[] = [
-    { key: 'n', title: '#', get: (r) => r.number, num: true, width: 50 },
+    { key: 'n', title: '#', get: (r) => r.number, render: (r) => String(r.number), num: true, width: 50 },
     { key: 'prio', title: t('svc.priority'), get: (r) => t(`svc.prio.${r.priority}`), width: 80, cls: (r) => (r.priority === 'urgent' || r.priority === 'high' ? 'red' : '') },
     { key: 'subject', title: t('svc.subject'), get: (r) => r.subject, width: 220 },
     { key: 'cust', title: t('svc.customer'), get: (r) => (r.customer_name ? `${r.customer_code ?? ''} ${r.customer_name}` : r.contact_phone), width: 160 },
     { key: 'cat', title: t('svc.category'), get: (r) => t(`svc.cat.${r.category}`), width: 110 },
     { key: 'status', title: t('svc.status'), get: (r) => t(`svc.st.${r.status}`), width: 90, cls: (r) => (r.overdue ? 'red' : '') },
     { key: 'who', title: t('svc.assigned'), get: (r) => r.assigned_name ?? '', width: 110 },
-    { key: 'age', title: t('svc.age'), get: (r) => Number(r.age_hours), render: (r) => ageText(t, Number(r.age_hours)), num: true, width: 70 },
+    { key: 'age', title: t('svc.age'), get: (r) => Number(r.age_hours), render: (r) => ageText(t, Number(r.age_hours)), width: 70 },
     { key: 'at', title: t('svc.opened'), get: (r) => r.created_at, render: (r) => formatDateTime(r.created_at), width: 130 },
   ];
 
@@ -255,7 +255,7 @@ function Maintenance({ me }: { me: Me }) {
     { key: 'd', title: t('svc.date'), get: (r) => r.done_date, render: (r) => formatDate(r.done_date), width: 100 },
     { key: 'g', title: t('svc.generator'), get: (r) => r.generator_name, width: 120 },
     { key: 't', title: t('svc.task'), get: (r) => r.task, width: 160 },
-    { key: 'h', title: t('svc.hoursNow'), get: (r) => Number(r.hour_meter ?? 0), num: true, width: 80 },
+    { key: 'h', title: t('svc.hoursNow'), get: (r) => Number(r.hour_meter ?? 0), render: (r) => (r.hour_meter ? formatAmount(r.hour_meter, 0) : ''), num: true, width: 80 },
     { key: 'c', title: t('svc.cost'), get: (r) => Number(r.cost), render: (r) => (Number(r.cost) ? `${formatAmount(r.cost)} ${r.currency ?? ''}` : ''), num: true, width: 100 },
     { key: 'n', title: t('svc.notes'), get: (r) => r.notes, width: 160 },
   ];
