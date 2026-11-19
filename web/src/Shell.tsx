@@ -10,7 +10,7 @@ import { formatAmount, notifyError, notifySaved, today } from './util';
 import { ALL_APPS, appOfPage, RIBBON, tileOf, type Tile } from './ribbon';
 import { openScreen, takeNewWindowRequest } from './nav';
 import type { PaymentMethod } from './billing';
-import TrialBanner from './components/TrialBanner';
+import SubBanner from './components/SubBanner';
 import './magic.css';
 import { PaneActive } from './paneActive';
 
@@ -48,7 +48,8 @@ const Compare = lazy(() => named(import('./pages/acc/Reports3'), 'Compare'));
 const MonthlyBills = lazy(() => import('./pages/magic/MonthlyBills'));
 const SubsManage = lazy(() => import('./pages/magic/SubsManage'));
 const PrintBills = lazy(() => import('./pages/magic/PrintBills'));
-const Platform = lazy(() => import('./pages/Platform'));
+const PlatformConsole = lazy(() => import('./pages/platform/Console'));
+const MySub = lazy(() => import('./pages/platform/MySub'));
 const CollectorApp = lazy(() => import('./pages/collector/CollectorApp'));
 const Suppliers = lazy(() => import('./pages/purchases/Suppliers'));
 const SupplierDetail = lazy(() => named(import('./pages/purchases/Suppliers'), 'SupplierDetail'));
@@ -117,7 +118,7 @@ const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'vouche
 /** Screens that use the whole work area themselves (no padding, own scrolling). */
 const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash', 'invoices', 'customers', 'print-bills', 'trial-balance', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances',
-  'localization', 'translations', 'stock-pro', 'hr', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice']);
+  'localization', 'translations', 'stock-pro', 'hr', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'platform']);
 const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
   'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
   'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
@@ -125,7 +126,7 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'print-bills', 'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec', 'crm', 'activities', 'quotes', 'orders',
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
-  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice']);
+  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'my-sub']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -324,6 +325,8 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         </div>
       )}
 
+      <SubBanner me={me} />
+
       <div className="mx-wins" role="tablist" aria-label={t('mx.openScreens')}>
         {wins.map((w) => (
           <div key={w.id} className="mx-win" role="tab" tabIndex={0} aria-selected={w.id === active}
@@ -338,7 +341,6 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
       <main className="mx-work" onClick={() => { if (openTab && !pinned) setOpenTab(null); }}>
         {wins.map((w) => (
           <section key={w.id} className={`mx-pane ${FULL.has(w.page) ? 'mx-full' : ''}`} hidden={w.id !== active} aria-label={tabCaption(w)}>
-            {w.id === active && !FULL.has(w.page) && <TrialBanner me={me} />}
             <Suspense fallback={pageFallback}>
               {blocked(w.page)
                 ? <Alert color="red" maw={640}>{t('errors.forbidden')}</Alert>
@@ -435,7 +437,8 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     'pos-setup': () => <PosSetup me={me} />,
     'pos-sessions': () => <PosSessions />,
     'pos-report': () => <PosReport />,
-    platform: () => (me.is_platform_admin ? <Platform /> : null),
+    platform: () => (me.is_platform_admin ? <PlatformConsole initial={param} key={param} /> : null),
+    'my-sub': () => <MySub me={me} />,
     security: () => <MySecurity me={me} onMe={onMe} />,
     approvals: () => <Approvals me={me} />,
     consolidated: () => <Consolidated />,

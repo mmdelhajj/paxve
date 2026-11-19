@@ -8,9 +8,15 @@ export interface Me {
   full_name: string;
   role: Role;
   locale: string;
-  plan: 'trial' | 'starter' | 'business' | 'pro';
+  plan: string;
   trial_ends_at: string | null;
   is_platform_admin: boolean;
+  /** the organisation's Paxve plan: trial, active, grace (ended, still usable), expired (read-only), blocked */
+  sub_state?: 'trial' | 'active' | 'grace' | 'expired' | 'blocked';
+  paid_until?: string | null;
+  grace_ends?: string | null;
+  /** a platform owner is looking at this organisation (read-only support view) */
+  support?: { by: string; by_name: string; since: string } | null;
   role_id: string | null;
   role_name: string;
   permissions: string[];

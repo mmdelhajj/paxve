@@ -83,6 +83,9 @@ func (s *Server) createCompany(w http.ResponseWriter, r *http.Request) {
 	}
 	var c company
 	err := db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
+		if err := checkTenantLimit(ctx, tx, "companies"); err != nil {
+			return err
+		}
 		rows, err := tx.Query(ctx,
 			`INSERT INTO companies (name_en, name_ar, base_currency, local_currency) VALUES ($1, $2, $3, $4) RETURNING `+companyCols,
 			strings.TrimSpace(in.NameEn), strings.TrimSpace(in.NameAr), in.BaseCurrency, in.LocalCurrency)

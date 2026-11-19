@@ -9,6 +9,7 @@ import {
   IconFileDollar, IconCurrencyDollar, IconSitemap, IconCalendarCheck, IconDoorEnter, IconTimeline, IconArrowsLeftRight, IconLanguage,
   IconHeadset, IconTool, IconClipboardList, IconAlarm, IconScaleOutline, IconCalendarTime,
   IconSwitchHorizontal, IconTags, IconReceiptRefund, IconForms, IconHammer, IconFingerprint, IconCreditCard, IconFileCertificate, IconCalendarRepeat,
+  IconCrown, IconInbox,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
@@ -207,7 +208,17 @@ export const RIBBON: RibbonTab[] = [
       { page: 'magic-import', label: 'mx.t.magicImport', icon: IconDatabaseImport, perm: 'import.manage' },
       { page: 'developers', label: 'mx.t.developers', icon: IconApi, perm: 'api.view' },
       { page: 'security', label: 'mx.t.security', icon: IconShieldLock, any: true },
-      { page: 'platform', label: 'mx.t.platform', icon: IconWorld, platform: true },
+      { page: 'my-sub', label: 'pc.t.mySub', icon: IconCrown, perm: 'settings.view' },
+    ],
+  },
+  {
+    // the Paxve owner's back-office (platform admins only)
+    id: 'platform', label: 'pc.rib', color: '#7a3db8', tiles: [
+      { page: 'platform', param: 'dash', label: 'pc.t.dash', icon: IconLayoutDashboard, platform: true },
+      { page: 'platform', param: 'orgs', label: 'pc.t.orgs', icon: IconWorld, platform: true },
+      { page: 'platform', param: 'requests', label: 'pc.t.requests', icon: IconInbox, platform: true },
+      { page: 'platform', param: 'payments', label: 'pc.t.payments', icon: IconCashBanknote, platform: true },
+      { page: 'platform', param: 'plans', label: 'pc.t.plans', icon: IconCrown, platform: true },
     ],
   },
 ];

@@ -55,7 +55,18 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, r, err)
 		return
 	}
-	if !auth.Verify(in.Password, hash) || !active {
+	if !auth.Verify(in.Password, hash) {
+		s.limiter.fail(ip)
+		s.limiter.fail(emailKey)
+		writeErr(w, http.StatusUnauthorized, "invalid_credentials")
+		return
+	}
+	if !active {
+		// the password is right: say why when the whole organisation is blocked (an off user stays generic)
+		if reason, blocked := s.tenantBlocked(ctx, tid, uid); blocked {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "org_blocked", "detail": reason})
+			return
+		}
 		s.limiter.fail(ip)
 		s.limiter.fail(emailKey)
 		writeErr(w, http.StatusUnauthorized, "invalid_credentials")

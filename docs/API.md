@@ -275,3 +275,26 @@ All under `/companies/{cid}`. The service routes belong to the `svc` app (403 `a
 | Fingerprint push (public) | GET /iclock/cdata?SN= (handshake) · POST /iclock/cdata?SN=&table=ATTLOG · GET\|POST /iclock/getrequest, /iclock/devicecmd (also on plain HTTP port 80) |
 | Online payments | GET/POST /payment-gateways · PUT /payment-gateways/{id} · GET /payment-intents?status= · POST /payment-intents/{id}/confirm\|reject; public: GET /portal/{token}/pay-options · POST /portal/{token}/invoices/{id}/pay {gateway_id, reference, phone} · POST /pay/webhook/{gid} (Stripe-Signature, or HMAC signature over order\|status\|amount\|currency\|ref) · GET/POST /pay/sim/{token} (test mode) |
 | E-invoicing | GET/PUT /einvoice/config?kind=zatca\|eta · POST /einvoice/zatca/onboard {otp \| production: true} · POST /invoices/{id}/einvoice {submit} · GET /invoices/{id}/einvoice[?xml=1] |
+
+## Platform console (migration 00036)
+
+Only for the addresses in `PLATFORM_ADMINS` (browser session, never an API key); everyone else gets 403.
+
+| Endpoint | What it does |
+|---|---|
+| GET /platform/summary | counts per state (trial, active, grace, expired, blocked), MRR / ARR, sign-ups this month, ending in 7 days, lost in 30 days, open requests, money received per month |
+| GET /platform/tenants · GET /platform/tenants/{id} | every organisation with state, plan, ends_on, price, usage, country, last activity; the detail adds users (last sign-in), companies, usage, payments, events, requests |
+| PATCH /platform/tenants/{id} | name, plan (brings its limits), trial_ends_at, paid_until, billing_cycle, price_override / price_currency, grace_days, max_subscribers / max_users / max_companies (0 = unlimited), contact_phone / contact_email, notes, is_active |
+| POST /platform/tenants/{id}/renew | {period: month\|year\|custom, until?, plan?, amount?, currency?, method: cash\|whish\|omt\|bank\|card\|other, reference?, note?, request_id?} records a payment, extends paid_until from the current end (or today), lifts a block, closes the request |
+| POST /platform/tenants/{id}/block {reason} · /unblock · /extend-trial {days\|until} · /reset-password {user_id?} | block ends open sessions and sign-in answers 403 org_blocked with the reason; reset returns a one-time password |
+| POST /platform/tenants/{id}/support · POST /platform/support/end | read-only support view as the organisation's admin (2 hours at most, every write answers 403 support_read_only, audited) |
+| PATCH /platform/tenants/{id}/users/{uid} {is_active} | switch one user on / off |
+| GET /platform/payments?from&to · GET/POST /platform/plans · PATCH /platform/plans/{code} {…, apply_limits} | payments received; editable plans, prices and limits |
+| GET /platform/requests?status= · POST /platform/requests/{id}/done\|reject {answer} | renewal / upgrade requests sent by organisations |
+| POST /platform/lifecycle/run | run the daily worker now (state changes, reminders 7 / 3 / 1 days before and on expiry) |
+
+Organisation side: `GET /subscription` (plan, state, end date, usage against limits, payments, requests, plans offered),
+`PATCH /subscription {contact_phone}` and `POST /subscription/requests {kind: renew|upgrade, plan, cycle, method, reference, note}`
+(settings.manage). `GET /me` carries `sub_state`, `paid_until`, `grace_ends` and `support`. While the state is **expired** every
+write answers **402 subscription_expired** (sign-out, profile, security and the renewal request still work); **blocked**
+organisations cannot sign in.

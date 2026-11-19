@@ -195,6 +195,9 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		if err := noEscalation(principal(r), perms, in.CompanyIDs); err != nil {
 			return nil, err
 		}
+		if err := checkTenantLimit(ctx, tx, "users"); err != nil {
+			return nil, err
+		}
 		code, err := passwordProblem(ctx, tx, in.Password, in.Email)
 		if err != nil {
 			return nil, err

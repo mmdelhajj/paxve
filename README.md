@@ -114,6 +114,17 @@ manufacturing (bills of materials, production orders, scrap), water utilities, g
 and supplier price lists, subscription proration, rotating shifts, leave accrual history, clock-in selfie and
 geofence, ZKTeco fingerprint push (ADMS), invoices printed in the customer's language. See docs/GAP_ANALYSIS.md.
 
+## Platform console (the Paxve owner's back-office)
+
+Ribbon tab **Platform** (only for `PLATFORM_ADMINS`): overview (states, MRR / ARR, sign-ups, ending soon, churn, money
+per month), every organisation with search / filters / export, detail (users with last sign-in, companies, usage, payments,
+history), renew with payment (cash, Whish, OMT, bank, card), block with a reason / unblock, extend a trial, change plan,
+price and limits, reset the admin password (one-time), read-only support view, editable plans and prices, renewal requests.
+Lifecycle: trial → active → grace (N days, banner) → expired (read-only) → blocked (no sign-in); a worker records state
+changes and sends reminders 7 / 3 / 1 days before and on expiry through the owner's own WhatsApp / e-mail settings.
+Organisations see **Settings → My Paxve subscription** (plan, end date, usage against limits, payments) and send renewal
+requests from there. Optional `PAXVE_SALES_PHONE` / `PAXVE_SALES_EMAIL` are shown to them as where to pay.
+
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the

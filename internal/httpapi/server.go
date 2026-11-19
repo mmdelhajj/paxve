@@ -63,6 +63,10 @@ type Server struct {
 	AllowPrivateRouters bool
 	// RateFeed overrides the published exchange-rate source (tests); nil = open.er-api.com.
 	RateFeed RateFeed
+
+	// shown to organisations on "My Paxve subscription" (PAXVE_SALES_PHONE / PAXVE_SALES_EMAIL); renewal
+	// requests are also sent to this phone
+	platformContactPhone, platformContactEmail string
 }
 
 func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir string, platformAdmins []string) *Server {
@@ -74,7 +78,8 @@ func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir str
 	}
 	return &Server{Pool: pool, OwnerPool: ownerPool, Sessions: sessions, WebDir: webDir,
 		limiter: newLimiter(10, 15*time.Minute), signupLimiter: newLimiter(5, time.Hour), portalLimiter: newLimiter(120, 10*time.Minute), platformAdmins: admins,
-		apiKeyLimiter: newLimiter(30, 15*time.Minute), resetLimiter: newLimiter(5, time.Hour), mfaLimiter: newLimiter(5, 15*time.Minute)}
+		apiKeyLimiter: newLimiter(30, 15*time.Minute), resetLimiter: newLimiter(5, time.Hour), mfaLimiter: newLimiter(5, 15*time.Minute),
+		platformContactPhone: strings.TrimSpace(os.Getenv("PAXVE_SALES_PHONE")), platformContactEmail: strings.TrimSpace(os.Getenv("PAXVE_SALES_EMAIL"))}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -107,6 +112,21 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/companies/{cid}/invoices/print", s.auth(s.printInvoices))
 	mux.Handle("GET "+v+"/platform/tenants", s.auth(s.platformOnly(s.platformTenants)))
 	mux.Handle("PATCH "+v+"/platform/tenants/{id}", s.auth(s.platformOnly(s.platformUpdateTenant)))
+	mux.Handle("GET "+v+"/platform/summary", s.auth(s.platformOnly(s.platformSummary)))
+	mux.Handle("GET "+v+"/platform/tenants/{id}", s.auth(s.platformOnly(s.platformTenant)))
+	mux.Handle("POST "+v+"/platform/tenants/{id}/{op}", s.auth(s.platformOnly(s.platformTenantAction)))
+	mux.Handle("PATCH "+v+"/platform/tenants/{id}/users/{uid}", s.auth(s.platformOnly(s.platformUpdateUser)))
+	mux.Handle("GET "+v+"/platform/payments", s.auth(s.platformOnly(s.platformPayments)))
+	mux.Handle("GET "+v+"/platform/plans", s.auth(s.platformOnly(s.platformPlans)))
+	mux.Handle("POST "+v+"/platform/plans", s.auth(s.platformOnly(s.platformCreatePlan)))
+	mux.Handle("PATCH "+v+"/platform/plans/{code}", s.auth(s.platformOnly(s.platformUpdatePlan)))
+	mux.Handle("GET "+v+"/platform/requests", s.auth(s.platformOnly(s.platformRequests)))
+	mux.Handle("POST "+v+"/platform/requests/{id}/{op}", s.auth(s.platformOnly(s.platformRequestAction)))
+	mux.Handle("POST "+v+"/platform/lifecycle/run", s.auth(s.platformOnly(s.platformRunLifecycle)))
+	mux.Handle("POST "+v+"/platform/support/end", s.auth(s.endSupport))
+	mux.Handle("GET "+v+"/subscription", s.auth(s.mySubscription))
+	mux.Handle("PATCH "+v+"/subscription", s.auth(s.updateMySubscription))
+	mux.Handle("POST "+v+"/subscription/requests", s.auth(s.createSubscriptionRequest))
 
 	// session (browser) auth, two-factor, password reset
 	mux.HandleFunc("POST "+v+"/auth/login", s.login)
@@ -713,6 +733,11 @@ type Principal struct {
 	Plan            string     `json:"plan"`
 	TrialEndsAt     *time.Time `json:"trial_ends_at"`
 	IsPlatformAdmin bool       `json:"is_platform_admin"`
+	// Paxve subscription of the organisation: trial, active, grace, expired (read-only) or blocked
+	SubState  string       `json:"sub_state"`
+	PaidUntil *string      `json:"paid_until"`
+	GraceEnds *string      `json:"grace_ends"`
+	Support   *SupportInfo `json:"support,omitempty"` // a platform owner looking at this organisation (read-only)
 
 	RoleID           *string  `json:"role_id"`   // custom role, if any
 	RoleName         string   `json:"role_name"` // custom role name ("" = built-in)
@@ -775,13 +800,15 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 			SELECT u.id::text, u.tenant_id::text, t.name, u.email, u.full_name, u.role, u.locale,
 			       (u.is_active AND t.is_active), t.plan, t.trial_ends_at,
 			       u.role_id::text, coalesce(ro.name, ''), ro.permissions, ro.is_active,
-			       u.company_ids::text[], coalesce(m.enabled_at IS NOT NULL, false), t.require_mfa
+			       u.company_ids::text[], coalesce(m.enabled_at IS NOT NULL, false), t.require_mfa,
+			       tenant_state(t), t.paid_until::text, CASE WHEN t.paid_until IS NULL THEN NULL ELSE (t.paid_until + t.grace_days)::text END
 			FROM users u JOIN tenants t ON t.id = u.tenant_id
 			LEFT JOIN roles ro ON ro.id = u.role_id
 			LEFT JOIN user_mfa m ON m.user_id = u.id
 			WHERE u.id = $1`, sc.UserID).
 			Scan(&p.ID, &p.TenantID, &p.TenantName, &p.Email, &p.FullName, &p.Role, &p.Locale, &p.Active, &p.Plan,
-				&p.TrialEndsAt, &p.RoleID, &p.RoleName, &custom, &roleActive, &p.CompanyIDs, &p.MFAEnabled, &p.MFARequired)
+				&p.TrialEndsAt, &p.RoleID, &p.RoleName, &custom, &roleActive, &p.CompanyIDs, &p.MFAEnabled, &p.MFARequired,
+				&p.SubState, &p.PaidUntil, &p.GraceEnds)
 	})
 	if err != nil {
 		return p, err
@@ -845,6 +872,15 @@ func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) htt
 			writeErr(w, http.StatusForbidden, "mfa_setup_required")
 			return
 		}
+		readOnly := r.Method == http.MethodGet || r.Method == http.MethodHead
+		if p.Support != nil && !readOnly && !supportWriteRoutes[route] {
+			writeErr(w, http.StatusForbidden, "support_read_only")
+			return
+		}
+		if p.SubState == "expired" && !p.IsPlatformAdmin && !readOnly && !expiredWriteRoutes[route] {
+			writeErr(w, http.StatusPaymentRequired, "subscription_expired")
+			return
+		}
 		if !approved && perm != permAny && !p.perms[perm] {
 			writeErr(w, http.StatusForbidden, "forbidden")
 			return
@@ -890,8 +926,25 @@ func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) htt
 			writeErr(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
+		// support view: a platform owner looks at an organisation as its admin, read-only
+		support, err := s.checkSupport(ctx, r)
+		if errors.Is(err, errSessionRevoked) {
+			_ = s.Sessions.Destroy(ctx)
+			writeErr(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if err != nil {
+			serverErr(w, r, err)
+			return
+		}
+		uid, tid = s.Sessions.GetString(ctx, "uid"), s.Sessions.GetString(ctx, "tid") // a support view that ran out is ended
 		sc := db.Scope{TenantID: tid, UserID: uid, IP: clientIP(r)}
 		p, err := s.loadPrincipal(ctx, sc)
+		if support != nil && (errors.Is(err, pgx.ErrNoRows) || (err == nil && !p.Active)) {
+			s.restoreSupport(ctx) // the organisation or its admin was switched off meanwhile: back to the console
+			writeErr(w, http.StatusConflict, "support_ended")
+			return
+		}
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && !p.Active) {
 			_ = s.Sessions.Destroy(ctx)
 			writeErr(w, http.StatusUnauthorized, "unauthorized")
@@ -899,6 +952,12 @@ func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) htt
 		}
 		if err != nil {
 			serverErr(w, r, err)
+			return
+		}
+		if support != nil {
+			p.Support = support
+			p.IsPlatformAdmin = false
+			next(w, r, p, false)
 			return
 		}
 		sid, err := s.touchSession(ctx, sc, s.Sessions.GetString(ctx, "sid"), r)
