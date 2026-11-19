@@ -15,19 +15,19 @@ Status: **Yes** = done and tested · **Partial** = the common case works, edge c
 | Chart of accounts per country, multi-language names | Fiscal localisations (~90 countries) | 19 country packs + international template; names in any language | Partial (19 countries; others use the international pack) |
 | Journal entries, posted = immutable, reversal | Yes | Yes, enforced by PostgreSQL triggers; gap-free numbers | Yes |
 | Multi-currency, realised FX gain/loss | Yes | Yes, 156 ISO currencies, official / buy / sell rates, automatic daily rates (manual LBP rate never overwritten) | Yes |
-| Unrealised FX revaluation at period end | Yes (Enterprise) | No automatic revaluation entry | **No** — post a manual journal entry |
+| Unrealised FX revaluation at period end | Yes (Enterprise) | Month-end revaluation of cash, banks, AR, AP and foreign-currency accounts, reversed on the 1st | Yes (audit stage) |
 | Period lock, fiscal year closing / reopening | Lock dates; closing is manual in Odoo | Period lock + one-click year close to retained earnings, reopen with approval, per-company year start month | Yes |
 | Analytic accounting / cost centers | Analytic plans | Cost centers (branch, station, generator, project), auto-tagged, P&L per cost center | Yes |
 | Budgets, budget vs actual | Yes (Enterprise) | Monthly budgets per account / cost center | Yes |
 | Bank statement import & reconciliation | Yes + bank feeds (Plaid, Ponto…) | CSV import, auto-match ±3 days, quick entries | Partial (no live bank feeds — Lebanese banks offer none) |
 | Cheques (post-dated, endorse, bounce) | Basic (via payments) | Full lifecycle with due-date register | Yes (better than Odoo for Lebanon) |
-| Fixed assets & depreciation | Yes (Enterprise) | Straight-line, disposal with gain/loss | Partial (no declining-balance method) |
+| Fixed assets & depreciation | Yes (Enterprise) | Straight-line or declining balance (factor, switch to straight line), disposal with gain/loss | Yes |
 | Recurring entries | Yes | Yes | Yes |
 | Financial reports: TB, GL, P&L, BS, cash flow, comparison, drill-down | Yes | Yes, plus an owner summary in plain sentences | Yes |
 | Consolidation across companies | Yes (Enterprise) | Consolidated TB / P&L / BS in any currency | Yes |
 | Tax returns: VAT report | Per localisation | VAT report per rate; ZATCA phase-1 QR | Partial (no ZATCA phase-2 / Egypt ETA e-invoicing upload) |
-| Deferred revenue / prepaid expenses | Yes (Enterprise) | No automatic deferral schedule (recurring entries can spread a prepaid amount by hand) | **No** |
-| Follow-up / dunning letters | Yes | Unpaid-bill reminders by WhatsApp / SMS; internet cut after N days (ISP) | Partial (no escalating letter levels, no late fee) |
+| Deferred revenue / prepaid expenses | Yes (Enterprise) | Schedules from an invoice, bill or amount; monthly recognition by the daily worker | Yes (audit stage) |
+| Follow-up / dunning letters | Yes (Enterprise) | Levels by days overdue: message, fixed / % late-fee invoice, internet / power cut-off, daily run, history | Yes (audit stage) |
 | OCR of supplier bills | Yes (IAP, paid) | No | **No** |
 
 ## Subscriptions & billing (the core of the target business)
@@ -52,7 +52,7 @@ Status: **Yes** = done and tested · **Partial** = the common case works, edge c
 | Quotations → orders → deliveries → invoices | Yes | Yes, partial invoicing, quotes accepted on the portal | Yes |
 | Price lists, quantity breaks | Yes | Yes, per currency and per customer; **the till now shows the list price live** | Yes |
 | Credit notes / returns | Yes | By amount or by line, stock returned at cost, kit components returned | Yes |
-| Purchase orders / RFQs before the bill | Yes | Bills entered directly (with units, lots, serials, landed costs) | **No** — no PO / RFQ step or 3-way match |
+| Purchase orders / RFQs before the bill | Yes | RFQ → send (WhatsApp) → confirm → receive & bill in parts; over-billing refused; RFQs from minimum stock | Yes (2-way match; receipt and bill are one step) |
 | Supplier price comparison / vendor pricelists | Yes | No | **No** |
 | E-commerce website | Yes | No | N/A for now |
 
@@ -104,11 +104,20 @@ Status: **Yes** = done and tested · **Partial** = the common case works, edge c
 | Multi-company with isolation | Yes | Yes, enforced by PostgreSQL row security on every route | Yes |
 | REST API, webhooks | XML-RPC / JSON-RPC | REST + OpenAPI 3.1, signed webhooks | Yes |
 | Studio (custom fields / screens) | Yes (Enterprise) | No | **No** |
-| Document / attachment on any record | Yes | Employee documents only | **No** (general attachments) |
+| Document / attachment on any record | Yes | Attachments on invoices, bills, customers, tickets, POs, journal entries… (10 MB) | Yes (audit stage) |
 | Native mobile app | Yes | PWA (collector, POS, self-service) | Partial |
 
-## Closed in this stage
+## Closed in the Odoo audit stage (see ODOO_AUDIT.md)
 
+1. Purchase orders / RFQs with partial billing, "on order" in replenishment, RFQs from minimum stock.
+2. Dunning levels with late fees and service cut-off (internet and power), daily automatic run.
+3. Month-end unrealised exchange revaluation with automatic reversal.
+4. Deferred revenue and prepaid expense schedules.
+5. Attachments on any document.
+6. Declining-balance depreciation.
+7. Fixes found by the side-by-side test: goods revenue account, landed cost as the agent's supplier bill, duplicate supplier-invoice check, payment terms.
+
+## Closed in the final stage
 1. Service desk app (tickets for cuts, faults, meters, bills, new connections) with history and summary.
 2. Generator maintenance plans by running hours / days, with a work log.
 3. POS shows the customer's price-list price live.
@@ -117,13 +126,11 @@ Status: **Yes** = done and tested · **Partial** = the common case works, edge c
 
 ## Still open (honest list, most useful first)
 
-1. Purchase orders / RFQs and 3-way match.
-2. Late-payment fee and escalating dunning levels.
-3. Unrealised FX revaluation entry at month end.
-4. Deferred revenue schedules (yearly prepaid subscriptions).
-5. Online payment on the customer portal (needs a Lebanese gateway: Whish, OMT, card acquirer).
-6. ZATCA phase 2 and Egypt ETA e-invoice clearance.
-7. Employee expense claims; live fingerprint-device link.
-8. General attachments on any document; custom fields.
-9. Manufacturing orders, declining-balance depreciation.
-10. Native review of the 8 machine-translated languages.
+1. Online payment on the customer portal (needs a Lebanese gateway: Whish, OMT, card acquirer).
+2. ZATCA phase 2 and Egypt ETA e-invoice clearance.
+3. Employee expense claims; live fingerprint-device link.
+4. Custom fields / screen designer (Odoo Studio).
+5. Manufacturing orders (kits work; no production orders).
+6. Separate receipt step and 3-way match (receipt and bill are one step today); vendor price lists.
+7. Proration when a subscription changes plan mid-month.
+8. Native review of the 8 machine-translated languages.
