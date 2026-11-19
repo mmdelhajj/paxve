@@ -6,6 +6,7 @@ import {
   IconMessage, IconMoneybag, IconPackage, IconPackages, IconPrinter, IconReceipt, IconReceipt2, IconReceiptTax, IconRepeat,
   IconReportMoney, IconRouter, IconScale, IconShieldLock, IconShoppingCart, IconTargetArrow, IconTopologyStar3, IconTruck,
   IconUserCircle, IconUserDollar, IconUsers, IconUsersGroup, IconWorld, IconBarcode, IconWallet, IconCalendarStats,
+  IconFileDollar, IconCurrencyDollar, IconSitemap, IconCalendarCheck, IconDoorEnter, IconTimeline, IconArrowsLeftRight,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
@@ -43,6 +44,8 @@ export const RIBBON: RibbonTab[] = [
       { page: 'voucher', param: 'payment', label: 'mx.t.paymentVoucher', icon: IconCashBanknote, perm: 'purchasing.create', app: 'pur' },
       { page: 'payments', label: 'mx.t.payments', icon: IconWallet, perm: 'collections.view' },
       { page: 'cash', label: 'mx.t.boxes', icon: IconBuildingBank, perm: 'collections.view' },
+      { page: 'cheques', label: 'ax.t.cheques', icon: IconFileDollar, perm: 'collections.view' },
+      { page: 'exchange', label: 'ax.t.exchange', icon: IconCurrencyDollar, perm: 'collections.view' },
       { page: 'dashboard', label: 'mx.t.dashboard', icon: IconLayoutDashboard, perm: 'reports.view' },
     ],
   },
@@ -81,6 +84,14 @@ export const RIBBON: RibbonTab[] = [
       { page: 'trial-balance', label: 'mx.t.trialBalance', icon: IconScale },
       { page: 'profit-loss', label: 'mx.t.pl', icon: IconReportMoney },
       { page: 'balance-sheet', label: 'mx.t.bs', icon: IconChartBar },
+      { page: 'cash-flow', label: 'ax.t.cashFlow', icon: IconTimeline },
+      { page: 'compare', label: 'ax.t.compare', icon: IconArrowsLeftRight },
+      { page: 'cheques', label: 'ax.t.cheques', icon: IconFileDollar, perm: 'collections.view' },
+      { page: 'exchange', label: 'ax.t.exchange', icon: IconCurrencyDollar, perm: 'collections.view' },
+      { page: 'cost-centers', label: 'ax.t.costCenters', icon: IconSitemap, perm: 'accounting.view' },
+      { page: 'budgets', label: 'ax.t.budgets', icon: IconTargetArrow, perm: 'accounting.view' },
+      { page: 'fiscal-years', label: 'ax.t.fiscal', icon: IconCalendarCheck, perm: 'accounting.view' },
+      { page: 'opening-balances', label: 'ax.t.opening', icon: IconDoorEnter, perm: 'accounting.manage' },
       { page: 'rates', label: 'mx.t.rates', icon: IconArrowsExchange, perm: 'accounting.view' },
       { page: 'recurring', label: 'mx.t.recurring', icon: IconRepeat, perm: 'accounting.view' },
       { page: 'bank-rec', label: 'mx.t.bank', icon: IconBuildingBank, perm: 'bank.edit' },
@@ -92,6 +103,9 @@ export const RIBBON: RibbonTab[] = [
   {
     id: 'rep', label: 'mx.rib.rep', color: '#c0392b', tiles: [
       { page: 'aging', label: 'mx.t.aging', icon: IconHourglass },
+      { page: 'cash-flow', label: 'ax.t.cashFlow', icon: IconTimeline },
+      { page: 'compare', label: 'ax.t.compare', icon: IconArrowsLeftRight },
+      { page: 'cost-centers', label: 'ax.t.ccReport', icon: IconSitemap },
       { page: 'collections', label: 'mx.t.collectionsReport', icon: IconMoneybag },
       { page: 'generator-report', label: 'mx.t.genReport', icon: IconEngine, app: 'gen' },
       { page: 'asset-register', label: 'mx.t.assetRegister', icon: IconBuildingFactory2 },

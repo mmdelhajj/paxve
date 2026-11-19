@@ -15,7 +15,7 @@ export interface Plan {
 export interface Area { id: string; name: string; collector_id: string | null; collector_name: string | null; is_active: boolean; customers: number }
 
 export interface PaymentMethod {
-  id: string; name: string; kind: 'cash' | 'wallet' | 'bank' | 'card'; currency: string; account_id: string;
+  id: string; name: string; kind: 'cash' | 'wallet' | 'bank' | 'card' | 'cheque'; currency: string; account_id: string;
   account_code: string; account_name: string; is_active: boolean; sort: number; user_id: string | null; user_name: string | null; change_rounding: string | null;
 }
 

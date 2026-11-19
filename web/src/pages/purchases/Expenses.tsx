@@ -8,6 +8,7 @@ import { accountLabel, accountName, formatAmount, formatDate, notifyError, notif
 import PageHeader, { Confirm } from '../../components/PageHeader';
 import type { PaymentMethod } from '../../billing';
 import type { Expense } from './types';
+import { ccLabel, useCostCenters } from '../acc/common';
 
 interface Total { account_id: string; account_code: string; account_name: string; account_name_i18n: Record<string, string>; currency: string; count: number; total: string }
 
@@ -95,11 +96,12 @@ export default function Expenses({ me }: { me: Me }) {
 }
 
 function NewExpense({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { company } = useCompany();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
-  const [f, setF] = useState({ account_id: '', method_id: '', amount: '', description: '', date: today(), tax_rate_id: '', tax_included: false });
+  const [f, setF] = useState({ account_id: '', method_id: '', amount: '', description: '', date: today(), tax_rate_id: '', tax_included: false, cost_center_id: '' });
+  const centers = useCostCenters().filter((c) => c.is_active);
   const [taxes, setTaxes] = useState<{ id: string; name: string; rate: string; applies_to: string; is_active: boolean }[]>([]);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -141,6 +143,10 @@ function NewExpense({ onClose, onDone }: { onClose: () => void; onDone: () => vo
             <TextInput label={t('pur.amount')} dir="ltr" required value={f.amount} rightSection={<Text size="xs" c="dimmed">{m?.currency}</Text>}
               onChange={(e) => setF({ ...f, amount: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
           </Group>
+          {centers.length > 0 && (
+            <Select label={t('ax.cc.center')} clearable placeholder={t('ax.cc.none')} value={f.cost_center_id || null}
+              data={centers.map((c) => ({ value: c.id, label: ccLabel(c, i18n.language) }))} onChange={(v) => setF({ ...f, cost_center_id: v ?? '' })} />
+          )}
           {taxes.length > 0 && (
             <Group grow align="flex-end">
               <Select label={t('net.tax')} clearable placeholder={t('net.noTax')} value={f.tax_rate_id || null}

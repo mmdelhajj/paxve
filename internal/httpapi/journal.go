@@ -28,18 +28,20 @@ type entrySummary struct {
 }
 
 type entryLine struct {
-	ID          string `json:"id"`
-	LineNo      int    `json:"line_no"`
-	AccountID   string `json:"account_id"`
-	AccountCode string `json:"account_code"`
-	AccountName string `json:"account_name"`
-	Description string `json:"description"`
-	Currency    string `json:"currency"`
-	Debit       string `json:"debit"`
-	Credit      string `json:"credit"`
-	Rate        string `json:"rate"`
-	BaseDebit   string `json:"base_debit"`
-	BaseCredit  string `json:"base_credit"`
+	ID          string  `json:"id"`
+	LineNo      int     `json:"line_no"`
+	AccountID   string  `json:"account_id"`
+	AccountCode string  `json:"account_code"`
+	AccountName string  `json:"account_name"`
+	Description string  `json:"description"`
+	Currency    string  `json:"currency"`
+	Debit       string  `json:"debit"`
+	Credit      string  `json:"credit"`
+	Rate        string  `json:"rate"`
+	BaseDebit   string  `json:"base_debit"`
+	BaseCredit  string  `json:"base_credit"`
+	CostCenter  *string `json:"cost_center_id"`
+	CCName      *string `json:"cost_center_name"`
 }
 
 type entryDetail struct {
@@ -153,8 +155,9 @@ func loadEntry(ctx context.Context, tx pgx.Tx, cid, id string) (*entryDetail, er
 	}
 	rows, err := tx.Query(ctx, `
 		SELECT l.id::text, l.line_no, l.account_id::text, a.code, a.name, l.description, l.currency::text,
-		       l.debit::text, l.credit::text, trim_scale(l.rate)::text, l.base_debit::text, l.base_credit::text
-		FROM journal_lines l JOIN accounts a ON a.id = l.account_id
+		       l.debit::text, l.credit::text, trim_scale(l.rate)::text, l.base_debit::text, l.base_credit::text,
+		       l.cost_center_id::text, cc.code || ' · ' || cc.name
+		FROM journal_lines l JOIN accounts a ON a.id = l.account_id LEFT JOIN cost_centers cc ON cc.id = l.cost_center_id
 		WHERE l.entry_id = $1 ORDER BY l.line_no`, id)
 	if err != nil {
 		return nil, err
@@ -185,6 +188,7 @@ type lineIn struct {
 	Debit       string `json:"debit"`
 	Credit      string `json:"credit"`
 	Rate        string `json:"rate"`
+	CostCenter  string `json:"cost_center_id"`
 }
 
 type entryIn struct {
@@ -222,7 +226,7 @@ func (in *entryIn) parse() ([]parsedLine, error) {
 	}
 	out := make([]parsedLine, 0, len(in.Lines))
 	for _, l := range in.Lines {
-		if !isUUID(l.AccountID) {
+		if !isUUID(l.AccountID) || (l.CostCenter != "" && !isUUID(l.CostCenter)) {
 			return nil, badRequest("invalid_account")
 		}
 		dr, ok1 := parseAmount(l.Debit)
@@ -279,9 +283,9 @@ func writeLines(ctx context.Context, tx pgx.Tx, cid, base, entryID, date string,
 			return badRequest("invalid_account")
 		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO journal_lines (entry_id, line_no, account_id, description, currency, debit, credit, rate)
-			VALUES ($1, $2, $3, $4, $5, $6::numeric, $7::numeric, $8::numeric)`,
-			entryID, i+1, l.AccountID, strings.TrimSpace(l.Description), cur, l.debit.String(), l.credit.String(), rate); err != nil {
+			INSERT INTO journal_lines (entry_id, line_no, account_id, description, currency, debit, credit, rate, cost_center_id)
+			VALUES ($1, $2, $3, $4, $5, $6::numeric, $7::numeric, $8::numeric, nullif($9, '')::uuid)`,
+			entryID, i+1, l.AccountID, strings.TrimSpace(l.Description), cur, l.debit.String(), l.credit.String(), rate, l.CostCenter); err != nil {
 			return err
 		}
 	}

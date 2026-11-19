@@ -741,6 +741,7 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 		Currency    string       `json:"currency"`
 		Notes       string       `json:"notes"`
 		Lines       []billLineIn `json:"lines"`
+		CostCenter  string       `json:"cost_center_id"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -758,6 +759,7 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 	}
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		ctx = withCostCenter(ctx, in.CostCenter)
 		set, err := loadBillingSettings(ctx, tx, cid)
 		if err != nil {
 			return nil, err
@@ -1084,17 +1086,97 @@ const supPayCols = `p.id, p.number, p.supplier_id, su.name AS supplier_name, p.p
 	p.method_id, m.name AS method, p.paid_currency, p.paid_amount::text AS paid_amount, trim_scale(p.paid_rate)::text AS paid_rate,
 	p.status, p.kind, p.bill_id, (SELECT b.number FROM bills b WHERE b.id = p.bill_id) AS bill_number, p.journal_entry_id, p.notes, p.created_at`
 
-func (s *Server) createSupplierPayment(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		SupplierID string `json:"supplier_id"`
-		Date       string `json:"date"`
-		Currency   string `json:"currency"`
-		Amount     string `json:"amount"`
-		MethodID   string `json:"method_id"`
-		PaidAmount string `json:"paid_amount"`
-		PaidRate   string `json:"paid_rate"`
-		Notes      string `json:"notes"`
+type supPayIn struct {
+	SupplierID string `json:"supplier_id"`
+	Date       string `json:"date"`
+	Currency   string `json:"currency"`
+	Amount     string `json:"amount"`
+	MethodID   string `json:"method_id"`
+	PaidAmount string `json:"paid_amount"`
+	PaidRate   string `json:"paid_rate"`
+	Notes      string `json:"notes"`
+
+	allowCheque bool // internal (cheques module): the method may be a cheque box
+}
+
+// paySupplier books money paid to a supplier from one box (Dr payables / Cr box) and applies it to open bills.
+func paySupplier(ctx context.Context, tx pgx.Tx, cid string, in supPayIn) (string, error) {
+	paidAmt, ok := money(in.PaidAmount)
+	if !validDate(in.Date) || !currencyRe.MatchString(in.Currency) || !isUUID(in.MethodID) || !ok || !paidAmt.IsPositive() {
+		return "", badRequest("bad_request")
 	}
+	set, err := loadBillingSettings(ctx, tx, cid)
+	if err != nil {
+		return "", err
+	}
+	ps, err := loadPurchSettings(ctx, tx, cid)
+	if err != nil {
+		return "", err
+	}
+	if ps.AP == nil {
+		return "", notSetup("ap")
+	}
+	name, err := lockSupplier(ctx, tx, cid, in.SupplierID)
+	if err != nil {
+		return "", err
+	}
+	methods, err := loadMethods(ctx, tx, cid)
+	if err != nil {
+		return "", err
+	}
+	m, ok := methods[in.MethodID]
+	if !ok || (m.Kind == "cheque" && !in.allowCheque) || (m.Kind != "cheque" && !m.Active) {
+		return "", badRequest("invalid_tender")
+	}
+	given := strings.TrimSpace(in.PaidRate)
+	if given != "" {
+		if rv, err := decimal.NewFromString(given); err != nil || !rv.IsPositive() {
+			return "", badRequest("invalid_rate")
+		}
+	}
+	mRateS, err := resolveRate(ctx, tx, cid, set.Base, m.Currency, in.Date, given)
+	if err != nil {
+		return "", err
+	}
+	pRateS, err := resolveRate(ctx, tx, cid, set.Base, in.Currency, in.Date, "")
+	if err != nil {
+		return "", err
+	}
+	mRate, _ := decimal.NewFromString(mRateS)
+	pRate, _ := decimal.NewFromString(pRateS)
+	applied := paidAmt.Mul(pRate).DivRound(mRate, 4)
+	if strings.TrimSpace(in.Amount) != "" {
+		a, ok := money(in.Amount)
+		if !ok || !a.IsPositive() {
+			return "", badRequest("invalid_amount")
+		}
+		applied = a
+	}
+	var number int64
+	if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'supplier_payment')`, cid).Scan(&number); err != nil {
+		return "", err
+	}
+	je, err := postJournal(ctx, tx, cid, set, in.Date, fmt.Sprintf("Supplier payment #%d · %s", number, name),
+		fmt.Sprintf("SPAY-%d", number), "supplier_payment", []jline{
+			{Account: *ps.AP, Desc: name, Currency: in.Currency, Debit: applied, Rate: pRateS},
+			{Account: m.Account, Desc: m.Name, Currency: m.Currency, Credit: paidAmt, Rate: mRateS},
+		})
+	if err != nil {
+		return "", err
+	}
+	var id string
+	if err := tx.QueryRow(ctx, `INSERT INTO supplier_payments (company_id, number, supplier_id, payment_date, currency, amount, method_id,
+		paid_currency, paid_amount, paid_rate, journal_entry_id, notes)
+		VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, $9::numeric, $10::numeric, $11, $12) RETURNING id::text`,
+		cid, number, in.SupplierID, in.Date, in.Currency, applied.String(), m.ID, m.Currency, paidAmt.String(), mRateS, je,
+		strings.TrimSpace(in.Notes)).Scan(&id); err != nil {
+		return "", err
+	}
+	return id, autoAllocateSupplier(ctx, tx, cid, in.SupplierID, in.Currency)
+}
+
+func (s *Server) createSupplierPayment(w http.ResponseWriter, r *http.Request) {
+	var in supPayIn
 	if !decodeBody(w, r, &in) {
 		return
 	}
@@ -1108,74 +1190,8 @@ func (s *Server) createSupplierPayment(w http.ResponseWriter, r *http.Request) {
 	}
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		set, err := loadBillingSettings(ctx, tx, cid)
+		id, err := paySupplier(ctx, tx, cid, in)
 		if err != nil {
-			return nil, err
-		}
-		ps, err := loadPurchSettings(ctx, tx, cid)
-		if err != nil {
-			return nil, err
-		}
-		if ps.AP == nil {
-			return nil, notSetup("ap")
-		}
-		name, err := lockSupplier(ctx, tx, cid, in.SupplierID)
-		if err != nil {
-			return nil, err
-		}
-		methods, err := loadMethods(ctx, tx, cid)
-		if err != nil {
-			return nil, err
-		}
-		m, ok := methods[in.MethodID]
-		if !ok || !m.Active {
-			return nil, badRequest("invalid_tender")
-		}
-		given := strings.TrimSpace(in.PaidRate)
-		if given != "" {
-			if rv, err := decimal.NewFromString(given); err != nil || !rv.IsPositive() {
-				return nil, badRequest("invalid_rate")
-			}
-		}
-		mRateS, err := resolveRate(ctx, tx, cid, set.Base, m.Currency, in.Date, given)
-		if err != nil {
-			return nil, err
-		}
-		pRateS, err := resolveRate(ctx, tx, cid, set.Base, in.Currency, in.Date, "")
-		if err != nil {
-			return nil, err
-		}
-		mRate, _ := decimal.NewFromString(mRateS)
-		pRate, _ := decimal.NewFromString(pRateS)
-		applied := paidAmt.Mul(pRate).DivRound(mRate, 4)
-		if strings.TrimSpace(in.Amount) != "" {
-			a, ok := money(in.Amount)
-			if !ok || !a.IsPositive() {
-				return nil, badRequest("invalid_amount")
-			}
-			applied = a
-		}
-		var number int64
-		if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'supplier_payment')`, cid).Scan(&number); err != nil {
-			return nil, err
-		}
-		je, err := postJournal(ctx, tx, cid, set, in.Date, fmt.Sprintf("Supplier payment #%d · %s", number, name),
-			fmt.Sprintf("SPAY-%d", number), "supplier_payment", []jline{
-				{Account: *ps.AP, Desc: name, Currency: in.Currency, Debit: applied, Rate: pRateS},
-				{Account: m.Account, Desc: m.Name, Currency: m.Currency, Credit: paidAmt, Rate: mRateS},
-			})
-		if err != nil {
-			return nil, err
-		}
-		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO supplier_payments (company_id, number, supplier_id, payment_date, currency, amount, method_id,
-			paid_currency, paid_amount, paid_rate, journal_entry_id, notes)
-			VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, $9::numeric, $10::numeric, $11, $12) RETURNING id::text`,
-			cid, number, in.SupplierID, in.Date, in.Currency, applied.String(), m.ID, m.Currency, paidAmt.String(), mRateS, je,
-			strings.TrimSpace(in.Notes)).Scan(&id); err != nil {
-			return nil, err
-		}
-		if err := autoAllocateSupplier(ctx, tx, cid, in.SupplierID, in.Currency); err != nil {
 			return nil, err
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+supPayCols+`,
@@ -1208,61 +1224,75 @@ func (s *Server) voidSupplierPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		var number int64
-		var status, supplier, kind string
-		var je *string
-		err := tx.QueryRow(ctx, `SELECT number, status, supplier_id::text, journal_entry_id::text, kind FROM supplier_payments
-			WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).Scan(&number, &status, &supplier, &je, &kind)
-		if err == pgx.ErrNoRows {
-			return nil, notFound()
-		}
-		if err != nil {
+		var cheque bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM cheques WHERE company_id = $2 AND (supplier_payment_id = $1
+			OR id IN (SELECT cheque_id FROM cheque_events WHERE supplier_payment_id = $1 AND NOT undone)))`, id, cid).Scan(&cheque); err != nil {
 			return nil, err
 		}
-		if status == "void" {
-			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+		if cheque { // paid with a cheque: undone from the cheques register
+			return nil, &apiError{status: http.StatusConflict, code: "cheque_payment"}
 		}
-		if _, err := lockSupplier(ctx, tx, cid, supplier); err != nil {
-			return nil, err
-		}
-		fxRows, err := tx.Query(ctx, `SELECT a.fx_entry_id::text FROM supplier_allocations a JOIN journal_entries e ON e.id = a.fx_entry_id
-			WHERE a.payment_id = $1 AND e.reversed_by IS NULL AND e.status = 'posted'`, id)
-		if err != nil {
-			return nil, err
-		}
-		fxs, err := pgx.CollectRows(fxRows, pgx.RowTo[string])
-		if err != nil {
-			return nil, err
-		}
-		for _, fx := range fxs {
-			if _, err := tx.Exec(ctx, `SELECT reverse_journal_entry($1, current_date, $2)`, fx, fmt.Sprintf("Void supplier payment #%d FX", number)); err != nil {
-				return nil, err
-			}
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO supplier_allocations (payment_id, bill_id, amount)
-			SELECT payment_id, bill_id, -sum(amount) FROM supplier_allocations WHERE payment_id = $1
-			GROUP BY payment_id, bill_id HAVING sum(amount) <> 0`, id); err != nil {
-			return nil, err
-		}
-		var rev *string
-		if je != nil {
-			var rid string
-			if err := tx.QueryRow(ctx, `SELECT reverse_journal_entry($1, current_date, $2)::text`, *je,
-				fmt.Sprintf("Void %s #%d", map[string]string{"payment": "supplier payment", "debit_note": "debit note"}[kind], number)).Scan(&rid); err != nil {
-				return nil, err
-			}
-			rev = &rid
-		}
-		if kind == "debit_note" { // returned goods come back into stock
-			if err := reverseStockMoves(ctx, tx, cid, "debit_note", "debit_note_void", id, rev, fmt.Sprintf("Void debit note #%d", number)); err != nil {
-				return nil, err
-			}
-		}
-		if _, err := tx.Exec(ctx, `UPDATE supplier_payments SET status = 'void', void_entry_id = $2 WHERE id = $1`, id, rev); err != nil {
+		if err := voidSupplierPaymentTx(ctx, tx, cid, id); err != nil {
 			return nil, err
 		}
 		return map[string]bool{"ok": true}, nil
 	})
+}
+
+// voidSupplierPaymentTx reverses a supplier payment (or debit note) and un-applies it from its bills.
+func voidSupplierPaymentTx(ctx context.Context, tx pgx.Tx, cid, id string) error {
+	var number int64
+	var status, supplier, kind string
+	var je *string
+	err := tx.QueryRow(ctx, `SELECT number, status, supplier_id::text, journal_entry_id::text, kind FROM supplier_payments
+		WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).Scan(&number, &status, &supplier, &je, &kind)
+	if err == pgx.ErrNoRows {
+		return notFound()
+	}
+	if err != nil {
+		return err
+	}
+	if status == "void" {
+		return &apiError{status: http.StatusConflict, code: "wrong_status"}
+	}
+	if _, err := lockSupplier(ctx, tx, cid, supplier); err != nil {
+		return err
+	}
+	fxRows, err := tx.Query(ctx, `SELECT a.fx_entry_id::text FROM supplier_allocations a JOIN journal_entries e ON e.id = a.fx_entry_id
+		WHERE a.payment_id = $1 AND e.reversed_by IS NULL AND e.status = 'posted'`, id)
+	if err != nil {
+		return err
+	}
+	fxs, err := pgx.CollectRows(fxRows, pgx.RowTo[string])
+	if err != nil {
+		return err
+	}
+	for _, fx := range fxs {
+		if _, err := tx.Exec(ctx, `SELECT reverse_journal_entry($1, current_date, $2)`, fx, fmt.Sprintf("Void supplier payment #%d FX", number)); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO supplier_allocations (payment_id, bill_id, amount)
+		SELECT payment_id, bill_id, -sum(amount) FROM supplier_allocations WHERE payment_id = $1
+		GROUP BY payment_id, bill_id HAVING sum(amount) <> 0`, id); err != nil {
+		return err
+	}
+	var rev *string
+	if je != nil {
+		var rid string
+		if err := tx.QueryRow(ctx, `SELECT reverse_journal_entry($1, current_date, $2)::text`, *je,
+			fmt.Sprintf("Void %s #%d", map[string]string{"payment": "supplier payment", "debit_note": "debit note"}[kind], number)).Scan(&rid); err != nil {
+			return err
+		}
+		rev = &rid
+	}
+	if kind == "debit_note" { // returned goods come back into stock
+		if err := reverseStockMoves(ctx, tx, cid, "debit_note", "debit_note_void", id, rev, fmt.Sprintf("Void debit note #%d", number)); err != nil {
+			return err
+		}
+	}
+	_, err = tx.Exec(ctx, `UPDATE supplier_payments SET status = 'void', void_entry_id = $2 WHERE id = $1`, id, rev)
+	return err
 }
 
 // ---- expenses ----
@@ -1285,6 +1315,7 @@ func (s *Server) createExpense(w http.ResponseWriter, r *http.Request) {
 		SupplierID  string `json:"supplier_id"`
 		TaxRateID   string `json:"tax_rate_id"`  // optional recoverable tax (input VAT)
 		TaxIncluded bool   `json:"tax_included"` // amount already includes the tax (default: the tax is added)
+		CostCenter  string `json:"cost_center_id"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -1300,6 +1331,7 @@ func (s *Server) createExpense(w http.ResponseWriter, r *http.Request) {
 	}
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		ctx = withCostCenter(ctx, in.CostCenter)
 		set, err := loadBillingSettings(ctx, tx, cid)
 		if err != nil {
 			return nil, err
@@ -1462,6 +1494,7 @@ func (s *Server) createStockDoc(w http.ResponseWriter, r *http.Request) {
 	}
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		ctx = withCostCenter(ctx, generatorCostCenter(ctx, tx, in.GeneratorID))
 		set, err := loadBillingSettings(ctx, tx, cid)
 		if err != nil {
 			return nil, err

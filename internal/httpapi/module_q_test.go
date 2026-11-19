@@ -139,6 +139,15 @@ func seedEverything(t *testing.T, o *org) {
 		t.Errorf("seed approval request: %d %s", r.status, r.raw)
 	}
 	step(200, "PUT", "/approval-rules", map[string]any{"void": false})
+
+	// module S: cost center, budget, currency exchange, cheque
+	cc := id(step(201, "POST", "/cost-centers", map[string]any{"code": "BCC", "name": secretB + " cc", "station_id": station}), "id")
+	step(200, "PUT", "/budgets", map[string]any{"year": 2026, "cost_center_id": cc, "lines": []any{
+		map[string]any{"account_id": o.accounts["701"], "month": 11, "amount": "50"}}})
+	step(201, "POST", "/exchanges", map[string]any{"date": "2026-11-05", "from_method_id": usd, "to_method_id": lbp, "from_amount": "10",
+		"to_amount": "900000", "counterparty": secretB})
+	step(201, "POST", "/cheques", map[string]any{"direction": "in", "cheque_no": "B1", "bank_name": secretB, "receive_date": "2026-11-05",
+		"due_date": "2026-12-05", "currency": "USD", "amount": "5", "customer_id": cust})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -216,6 +225,7 @@ var idTable = map[string]string{
 	"payslips": "payslips", "assets": "assets", "recurring": "recurring_templates", "statements": "bank_statements",
 	"lines": "bank_statement_lines", "approvals": "approval_requests", "webhooks": "webhooks",
 	"webhook-deliveries": "webhook_deliveries", "ledger": "accounts",
+	"cost-centers": "cost_centers", "journal-lines": "journal_lines", "exchanges": "currency_exchanges", "cheques": "cheques",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -224,6 +234,7 @@ var paramValues = map[string][]string{
 	"type":   {"customers", "subscriptions", "opening_balances", "readings", "accounts"},
 	"kind":   {"fuel", "adjust"},
 	"action": {"confirm", "cancel", "send", "reopen", "unmatch", "ignore", "unignore"},
+	"op":     {"freeze", "unfreeze"},
 }
 
 type sweepCall struct{ method, path, pattern string }
@@ -305,8 +316,10 @@ func sweepBody(c sweepCall, ids map[string]string) any {
 		"/routers/{id}/test", "/router-actions/{id}/retry", "/messages/{id}/retry", "/webhooks/{id}/rotate", "/webhooks/{id}/test",
 		"/webhook-deliveries/{id}/retry", "/crm/leads/{id}/convert", "/approvals/{id}/approve", "/approvals/{id}/reject",
 		"/approvals/{id}/cancel", "/sales/orders/{id}/deliver", "/sales/orders/{id}/invoice", "/sales/orders/{id}/{action}",
-		"/bank/lines/{id}/{action}", "/journal/{id}/reverse":
+		"/bank/lines/{id}/{action}", "/journal/{id}/reverse", "/exchanges/{id}/void", "/cheques/{id}/{op}":
 		return map[string]any{}
+	case "/journal-lines/{id}":
+		return map[string]any{"cost_center_id": ""}
 	case "/customers/{id}/subscriptions":
 		return map[string]any{"plan_id": ids["plans"]}
 	case "/customers/{id}/refunds":

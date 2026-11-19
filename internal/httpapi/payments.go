@@ -30,27 +30,29 @@ type paymentIn struct {
 	ChangeMethodID string     `json:"change_method_id"`
 	Notes          string     `json:"notes"`
 	ClientRef      string     `json:"client_ref"` // set by offline devices; the same ref is stored only once
+	InvoiceID      string     `json:"invoice_id"` // optional: settle this invoice first (barcode collection)
 
-	upTo decimal.Decimal // internal (POS on-account sale): apply what was received, at most this much; the rest is change
+	upTo        decimal.Decimal // internal (POS on-account sale): apply what was received, at most this much; the rest is change
+	allowCheque bool            // internal (cheques module): the tender may be a cheque box
 }
 
 type method struct {
-	ID, Name, Currency, Account string
-	UserID                      *string
-	Active                      bool
-	ChangeRounding              decimal.Decimal // change given from this box is rounded down to this step (0 = currency decimals)
+	ID, Name, Currency, Account, Kind string
+	UserID                            *string
+	Active                            bool
+	ChangeRounding                    decimal.Decimal // change given from this box is rounded down to this step (0 = currency decimals)
 }
 
 func loadMethods(ctx context.Context, tx pgx.Tx, cid string) (map[string]method, error) {
 	rows, err := tx.Query(ctx, `SELECT id::text, name, currency::text, account_id::text, user_id::text, is_active,
-		coalesce(change_rounding, 0)::text FROM payment_methods WHERE company_id = $1`, cid)
+		coalesce(change_rounding, 0)::text, kind FROM payment_methods WHERE company_id = $1`, cid)
 	if err != nil {
 		return nil, err
 	}
 	list, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (method, error) {
 		var m method
 		var step string
-		err := row.Scan(&m.ID, &m.Name, &m.Currency, &m.Account, &m.UserID, &m.Active, &step)
+		err := row.Scan(&m.ID, &m.Name, &m.Currency, &m.Account, &m.UserID, &m.Active, &step, &m.Kind)
 		m.ChangeRounding, _ = decimal.NewFromString(step)
 		return m, err
 	})
@@ -77,7 +79,8 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 	}
 	in.ClientRef = strings.TrimSpace(in.ClientRef)
 	if !validDate(in.Date) || !currencyRe.MatchString(in.Currency) || len(in.Tenders) == 0 || len(in.Tenders) > 10 ||
-		(in.ChangeMethodID != "" && !isUUID(in.ChangeMethodID)) || (in.ClientRef != "" && (len(in.ClientRef) < 8 || len(in.ClientRef) > 64)) {
+		(in.ChangeMethodID != "" && !isUUID(in.ChangeMethodID)) || (in.ClientRef != "" && (len(in.ClientRef) < 8 || len(in.ClientRef) > 64)) ||
+		(in.InvoiceID != "" && !isUUID(in.InvoiceID)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -113,7 +116,13 @@ func receivePayment(ctx context.Context, tx pgx.Tx, cid string, in paymentIn, co
 			return "", &apiError{status: http.StatusForbidden, code: "forbidden"}
 		}
 	}
-	usable := func(m method) bool { return m.Active && (!collector || m.UserID == nil || *m.UserID == me) }
+	usable := func(m method) bool {
+		if m.Kind == "cheque" { // cheque boxes are used only through the cheques register
+			return in.allowCheque
+		}
+		return m.Active && (!collector || m.UserID == nil || *m.UserID == me)
+	}
+	ctx = withPreferredInvoice(ctx, in.InvoiceID)
 	set, err := loadBillingSettings(ctx, tx, cid)
 	if err != nil {
 		return "", err
@@ -389,54 +398,67 @@ func (s *Server) voidPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		var number int64
-		var status, customer, kind string
-		var je *string
-		err := tx.QueryRow(ctx, `SELECT number, status, customer_id::text, journal_entry_id::text, kind FROM payments
-			WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).Scan(&number, &status, &customer, &je, &kind)
-		if err == pgx.ErrNoRows {
-			return nil, notFound()
-		}
-		if err != nil {
+		var cheque bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM cheques WHERE payment_id = $1 AND company_id = $2)`, id, cid).Scan(&cheque); err != nil {
 			return nil, err
 		}
-		if status == "void" {
-			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+		if cheque { // a payment made by cheque is undone from the cheques register (bounce / return)
+			return nil, &apiError{status: http.StatusConflict, code: "cheque_payment"}
 		}
-		if _, err := lockCustomer(ctx, tx, cid, customer); err != nil {
-			return nil, err
-		}
-		label := map[string]string{"payment": "payment", "credit_note": "credit note"}[kind]
-		if err := reverseAllocations(ctx, tx, id, fmt.Sprintf("Void %s #%d · FX", label, number)); err != nil {
-			return nil, err
-		}
-		// a refund paid out of this credit must be voided first (the credit would go negative)
-		var refunded bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM invoices WHERE customer_id = $1 AND kind = 'refund'
-			AND status IN ('open', 'partial'))`, customer).Scan(&refunded); err != nil {
-			return nil, err
-		}
-		if refunded {
-			return nil, &apiError{status: http.StatusConflict, code: "refund_uses_credit"}
-		}
-		var rev *string
-		if je != nil {
-			var rid string
-			if err := tx.QueryRow(ctx, `SELECT reverse_journal_entry($1, current_date, $2)::text`,
-				*je, fmt.Sprintf("Void %s #%d %s", label, number, strings.TrimSpace(in.Reason))).Scan(&rid); err != nil {
-				return nil, err
-			}
-			rev = &rid
-		}
-		if kind == "credit_note" {
-			if err := voidCreditNoteStock(ctx, tx, cid, id, number); err != nil {
-				return nil, err
-			}
-		}
-		if _, err := tx.Exec(ctx, `UPDATE payments SET status = 'void', void_entry_id = $2,
-			notes = CASE WHEN $3 = '' THEN notes ELSE trim(notes || ' ' || $3) END WHERE id = $1`, id, rev, strings.TrimSpace(in.Reason)); err != nil {
+		if err := voidPaymentTx(ctx, tx, cid, id, in.Reason); err != nil {
 			return nil, err
 		}
 		return loadPayment(ctx, tx, cid, id)
 	})
+}
+
+// voidPaymentTx reverses a customer payment (or credit note) and un-applies it from its invoices.
+func voidPaymentTx(ctx context.Context, tx pgx.Tx, cid, id, reason string) error {
+	var number int64
+	var status, customer, kind string
+	var je *string
+	err := tx.QueryRow(ctx, `SELECT number, status, customer_id::text, journal_entry_id::text, kind FROM payments
+		WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).Scan(&number, &status, &customer, &je, &kind)
+	if err == pgx.ErrNoRows {
+		return notFound()
+	}
+	if err != nil {
+		return err
+	}
+	if status == "void" {
+		return &apiError{status: http.StatusConflict, code: "wrong_status"}
+	}
+	if _, err := lockCustomer(ctx, tx, cid, customer); err != nil {
+		return err
+	}
+	label := map[string]string{"payment": "payment", "credit_note": "credit note"}[kind]
+	if err := reverseAllocations(ctx, tx, id, fmt.Sprintf("Void %s #%d · FX", label, number)); err != nil {
+		return err
+	}
+	// a refund paid out of this credit must be voided first (the credit would go negative)
+	var refunded bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM invoices WHERE customer_id = $1 AND kind = 'refund'
+		AND status IN ('open', 'partial'))`, customer).Scan(&refunded); err != nil {
+		return err
+	}
+	if refunded {
+		return &apiError{status: http.StatusConflict, code: "refund_uses_credit"}
+	}
+	var rev *string
+	if je != nil {
+		var rid string
+		if err := tx.QueryRow(ctx, `SELECT reverse_journal_entry($1, current_date, $2)::text`,
+			*je, fmt.Sprintf("Void %s #%d %s", label, number, strings.TrimSpace(reason))).Scan(&rid); err != nil {
+			return err
+		}
+		rev = &rid
+	}
+	if kind == "credit_note" {
+		if err := voidCreditNoteStock(ctx, tx, cid, id, number); err != nil {
+			return err
+		}
+	}
+	_, err = tx.Exec(ctx, `UPDATE payments SET status = 'void', void_entry_id = $2,
+		notes = CASE WHEN $3 = '' THEN notes ELSE trim(notes || ' ' || $3) END WHERE id = $1`, id, rev, strings.TrimSpace(reason))
+	return err
 }

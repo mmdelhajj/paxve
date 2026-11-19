@@ -30,7 +30,7 @@ func (s *Server) profitLoss(w http.ResponseWriter, r *http.Request) {
 		rows, err := queryJSON(ctx, tx, `
 			SELECT a.id, a.code, a.name, a.name_i18n, a.type,
 			       (CASE WHEN a.type = 'income' THEN sum(l.base_credit - l.base_debit) ELSE sum(l.base_debit - l.base_credit) END)::text AS amount
-			FROM `+ledgerTotals("$1", "$2", "$3")+`
+			FROM `+plTotals("$1", "$2", "$3")+`
 			WHERE a.type IN ('income', 'expense')
 			GROUP BY a.id ORDER BY a.code`, cid, from, to)
 		if err != nil {
@@ -40,7 +40,7 @@ func (s *Server) profitLoss(w http.ResponseWriter, r *http.Request) {
 		if err := tx.QueryRow(ctx, `
 			SELECT coalesce(sum(l.base_credit - l.base_debit) FILTER (WHERE a.type = 'income'), 0)::text,
 			       coalesce(sum(l.base_debit - l.base_credit) FILTER (WHERE a.type = 'expense'), 0)::text
-			FROM `+ledgerTotals("$1", "$2", "$3"), cid, from, to).Scan(&income, &expense); err != nil {
+			FROM `+plTotals("$1", "$2", "$3"), cid, from, to).Scan(&income, &expense); err != nil {
 			return nil, err
 		}
 		inc, _ := decimal.NewFromString(income)

@@ -11,6 +11,8 @@ import StationSelect from '../../components/StationSelect';
 import { currentPeriod, type Area } from '../../billing';
 
 interface Line { kind: string; description: string; amount: string; unit_price: string; tax_amount: string | null; meta: Record<string, string> }
+export type BillRow = Row;
+export interface BillData { company: { name_en: string; name_ar: string }; rows: Row[]; portal_base: string }
 interface Row {
   id: string; number: number; period: string | null; issue_date: string; due_date: string; currency: string; total: string;
   paid: string; balance: string; status: string; local_currency: string | null; local_rate: string | null; local_currency_total: string | null;
@@ -22,7 +24,7 @@ interface Data { company: { name_en: string; name_ar: string }; rows: Row[]; por
 /** Printable sheet of many bills (A4, 3 per page, or 80 mm thermal roll) for collectors. */
 export default function BulkPrint({ initialPeriod }: { initialPeriod?: string }) {
   const { t, i18n } = useTranslation();
-  const { company, decimalsOf } = useCompany();
+  const { company } = useCompany();
   const [period, setPeriod] = useState(initialPeriod && /^\d{4}-\d{2}$/.test(initialPeriod) ? initialPeriod : currentPeriod());
   const [area, setArea] = useState<string | null>(null);
   const [station, setStation] = useState<string | null>(null);
@@ -87,49 +89,56 @@ export default function BulkPrint({ initialPeriod }: { initialPeriod?: string })
 
       {busy ? <Center p="xl"><Loader /></Center> : data && data.rows.length === 0 ? (
         <Text c="dimmed" ta="center" p="xl">{t('common.empty')}</Text>
-      ) : data && (
-        <div className={`print-doc bulk ${layout}`} dir={rtl ? 'rtl' : 'ltr'}>
-          {data.rows.map((r) => {
-            const dec = decimalsOf(r.currency);
-            const prev = Number(r.previous_balance);
-            return (
-              <div className="bill" key={r.id}>
-                <div className="bill-head">
-                  <div>
-                    <strong style={{ fontSize: 15 }}>{companyName}</strong>
-                    <div>{t('invoices.invoice')} #{r.number}{r.period ? ` · ${r.period}` : ''} · {formatDate(r.issue_date)}</div>
-                    <div><strong>{r.customer_name}</strong> ({r.customer_code}){r.customer_phone ? ` · ${r.customer_phone}` : ''}</div>
-                    <div className="muted">{[r.area_name, r.box_code && `${t('net.box')} ${r.box_code}`, r.meter_no && `${t('invoices.meter')} ${r.meter_no}`].filter(Boolean).join(' · ')}</div>
-                  </div>
-                  {qr[r.id] && <img src={qr[r.id]} alt="" className="qr" />}
-                </div>
-                <table>
-                  <tbody>
-                    {(r.lines ?? []).map((l, i) => (
-                      <tr key={i}>
-                        <td>{l.kind === 'usage' && l.meta?.previous
-                          ? <span dir="ltr">{l.meta.previous} → {l.meta.current} = {l.meta.used} {l.meta.unit} × {Number(l.unit_price)}</span>
-                          : l.description}</td>
-                        <td className="num">{formatAmount(l.amount, dec)}</td>
-                      </tr>
-                    ))}
-                    {Number(r.paid) > 0 && <tr><td>{t('invoices.paid')}</td><td className="num">-{formatAmount(r.paid, dec)}</td></tr>}
-                    {prev > 0 && <tr><td>{t('bulk.previous')}</td><td className="num">{formatAmount(prev, dec)}</td></tr>}
-                  </tbody>
-                  <tfoot>
-                    <tr><th>{t('bulk.totalDue')}</th><th className="num">{formatAmount(Number(r.balance) + prev, dec)} {r.currency}</th></tr>
-                    {r.local_currency_total && r.local_currency && r.local_currency !== r.currency && (
-                      <tr><td>{t('bulk.inLocal', { cur: r.local_currency, rate: r.local_rate })}</td>
-                        <td className="num">{formatAmount(r.local_currency_total, decimalsOf(r.local_currency))} {r.local_currency}</td></tr>
-                    )}
-                  </tfoot>
-                </table>
-                <div className="muted small">{t('invoices.due')}: {formatDate(r.due_date)} · {t('bulk.scan')}</div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      ) : data && <BillSheets rows={data.rows} qr={qr} layout={layout} companyName={companyName} rtl={rtl} />}
     </Box>
+  );
+}
+
+/** The printed bills (A4 three per page, or 80 mm roll), shared by the bulk print page and the الإيصالات print screen. */
+export function BillSheets({ rows, qr, layout, companyName, rtl }: { rows: BillRow[]; qr: Record<string, string>; layout: 'a4' | 'thermal'; companyName: string; rtl: boolean }) {
+  const { t } = useTranslation();
+  const { decimalsOf } = useCompany();
+  return (
+    <div className={`print-doc bulk ${layout}`} dir={rtl ? 'rtl' : 'ltr'}>
+      {rows.map((r) => {
+        const dec = decimalsOf(r.currency);
+        const prev = Number(r.previous_balance);
+        return (
+          <div className="bill" key={r.id}>
+            <div className="bill-head">
+              <div>
+                <strong style={{ fontSize: 15 }}>{companyName}</strong>
+                <div>{t('invoices.invoice')} #{r.number}{r.period ? ` · ${r.period}` : ''} · {formatDate(r.issue_date)}</div>
+                <div><strong>{r.customer_name}</strong> ({r.customer_code}){r.customer_phone ? ` · ${r.customer_phone}` : ''}</div>
+                <div className="muted">{[r.area_name, r.box_code && `${t('net.box')} ${r.box_code}`, r.meter_no && `${t('invoices.meter')} ${r.meter_no}`].filter(Boolean).join(' · ')}</div>
+              </div>
+              {qr[r.id] && <img src={qr[r.id]} alt="" className="qr" />}
+            </div>
+            <table>
+              <tbody>
+                {(r.lines ?? []).map((l, i) => (
+                  <tr key={i}>
+                    <td>{l.kind === 'usage' && l.meta?.previous
+                      ? <span dir="ltr">{l.meta.previous} → {l.meta.current} = {l.meta.used} {l.meta.unit} × {Number(l.unit_price)}</span>
+                      : l.description}</td>
+                    <td className="num">{formatAmount(l.amount, dec)}</td>
+                  </tr>
+                ))}
+                {Number(r.paid) > 0 && <tr><td>{t('invoices.paid')}</td><td className="num">-{formatAmount(r.paid, dec)}</td></tr>}
+                {prev > 0 && <tr><td>{t('bulk.previous')}</td><td className="num">{formatAmount(prev, dec)}</td></tr>}
+              </tbody>
+              <tfoot>
+                <tr><th>{t('bulk.totalDue')}</th><th className="num">{formatAmount(Number(r.balance) + prev, dec)} {r.currency}</th></tr>
+                {r.local_currency_total && r.local_currency && r.local_currency !== r.currency && (
+                  <tr><td>{t('bulk.inLocal', { cur: r.local_currency, rate: r.local_rate })}</td>
+                    <td className="num">{formatAmount(r.local_currency_total, decimalsOf(r.local_currency))} {r.local_currency}</td></tr>
+                )}
+              </tfoot>
+            </table>
+            <div className="muted small">{t('invoices.due')}: {formatDate(r.due_date)} · {t('bulk.scan')}</div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

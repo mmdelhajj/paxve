@@ -10,6 +10,11 @@ import (
 	"github.com/mmdelhajj/paxve/internal/db"
 )
 
+// plTotals: like ledgerTotals, without the year-closing entries (profit & loss of a period, see pl_totals).
+func plTotals(cid, from, to string) string {
+	return `pl_totals(` + cid + `, ` + from + `::date, ` + to + `::date) l JOIN accounts a ON a.id = l.account_id`
+}
+
 // ledgerTotals: posted totals per account and currency of company cid between two dates (SQL arguments),
 // joined to the account as "a" (see account_totals, migration 00023).
 func ledgerTotals(cid, from, to string) string {
@@ -100,6 +105,8 @@ type ledgerRow struct {
 	BaseDebit   string `json:"base_debit"`
 	BaseCredit  string `json:"base_credit"`
 	Balance     string `json:"balance"`
+	Source      string `json:"source"`
+	Reference   string `json:"reference"`
 }
 
 // accountLedger: posted movements of one account with running balance (base currency).
@@ -137,7 +144,8 @@ func (s *Server) accountLedger(w http.ResponseWriter, r *http.Request) {
 		rows, err := tx.Query(ctx, `
 			SELECT e.id::text, e.number, e.entry_date::text, e.memo, l.description, l.currency::text,
 			       l.debit::text, l.credit::text, l.base_debit::text, l.base_credit::text,
-			       ($4::numeric + sum(l.base_debit - l.base_credit) OVER (ORDER BY e.entry_date, e.number, l.line_no))::text
+			       ($4::numeric + sum(l.base_debit - l.base_credit) OVER (ORDER BY e.entry_date, e.number, l.line_no))::text,
+			       e.source, e.reference
 			FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id AND e.status = 'posted'
 			WHERE e.company_id = $1 AND l.account_id = $2 AND e.entry_date BETWEEN $3::date AND $5::date
 			ORDER BY e.entry_date, e.number, l.line_no

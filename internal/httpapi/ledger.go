@@ -59,12 +59,44 @@ func resolveRate(ctx context.Context, tx pgx.Tx, cid, base, cur, date, given str
 }
 
 type jline struct {
-	Account  string
-	Desc     string
-	Currency string
-	Debit    decimal.Decimal
-	Credit   decimal.Decimal
-	Rate     string // "" = latest official rate
+	Account    string
+	Desc       string
+	Currency   string
+	Debit      decimal.Decimal
+	Credit     decimal.Decimal
+	Rate       string // "" = latest official rate
+	CostCenter string // "" = the document's cost center (withCostCenter) on income / expense lines
+}
+
+type ccKey struct{}
+type preferKey struct{}
+
+// withCostCenter: journal entries posted with this context tag their income and expense lines with cc
+// (the station / generator / branch the document belongs to), unless a line names its own.
+func withCostCenter(ctx context.Context, cc string) context.Context {
+	if cc == "" || !isUUID(cc) {
+		return ctx
+	}
+	return context.WithValue(ctx, ccKey{}, cc)
+}
+
+func ctxCostCenter(ctx context.Context) string {
+	v, _ := ctx.Value(ccKey{}).(string)
+	return v
+}
+
+// withPreferredInvoice: a payment received with this context settles that invoice first (barcode collection),
+// then the other open invoices oldest first.
+func withPreferredInvoice(ctx context.Context, invoiceID string) context.Context {
+	if !isUUID(invoiceID) {
+		return ctx
+	}
+	return context.WithValue(ctx, preferKey{}, invoiceID)
+}
+
+func ctxPreferredInvoice(ctx context.Context) string {
+	v, _ := ctx.Value(preferKey{}).(string)
+	return v
 }
 
 // postJournal creates and posts a journal entry. Any base-currency difference
@@ -76,11 +108,14 @@ func postJournal(ctx context.Context, tx pgx.Tx, cid string, set *billingSetting
 		return "", err
 	}
 	n := 0
-	insert := func(account, desc, cur string, dr, cr decimal.Decimal, rate string) error {
+	defCC := ctxCostCenter(ctx)
+	insert := func(account, desc, cur string, dr, cr decimal.Decimal, rate, cc string) error {
 		n++
-		_, err := tx.Exec(ctx, `INSERT INTO journal_lines (entry_id, line_no, account_id, description, currency, debit, credit, rate)
-			VALUES ($1, $2, $3, $4, $5, $6::numeric, $7::numeric, $8::numeric)`,
-			id, n, account, desc, cur, dr.String(), cr.String(), rate)
+		_, err := tx.Exec(ctx, `INSERT INTO journal_lines (entry_id, line_no, account_id, description, currency, debit, credit, rate, cost_center_id)
+			VALUES ($1, $2, $3, $4, $5, $6::numeric, $7::numeric, $8::numeric,
+			  CASE WHEN $9::text <> '' THEN $9::uuid
+			       WHEN $10::text <> '' AND (SELECT a.type FROM accounts a WHERE a.id = $3) IN ('income', 'expense') THEN $10::uuid END)`,
+			id, n, account, desc, cur, dr.String(), cr.String(), rate, cc, defCC)
 		return err
 	}
 	for _, l := range lines {
@@ -91,7 +126,7 @@ func postJournal(ctx context.Context, tx pgx.Tx, cid string, set *billingSetting
 		if err != nil {
 			return "", err
 		}
-		if err := insert(l.Account, l.Desc, l.Currency, l.Debit, l.Credit, rate); err != nil {
+		if err := insert(l.Account, l.Desc, l.Currency, l.Debit, l.Credit, rate, l.CostCenter); err != nil {
 			return "", err
 		}
 	}
@@ -106,14 +141,14 @@ func postJournal(ctx context.Context, tx pgx.Tx, cid string, set *billingSetting
 		if set.FXGain == nil {
 			return "", &apiError{status: http.StatusUnprocessableEntity, code: "billing_not_setup", detail: "fx_gain"}
 		}
-		if err := insert(*set.FXGain, "FX / rounding", set.Base, decimal.Zero, diff, "1"); err != nil {
+		if err := insert(*set.FXGain, "FX / rounding", set.Base, decimal.Zero, diff, "1", ""); err != nil {
 			return "", err
 		}
 	case diff.IsNegative():
 		if set.FXLoss == nil {
 			return "", &apiError{status: http.StatusUnprocessableEntity, code: "billing_not_setup", detail: "fx_loss"}
 		}
-		if err := insert(*set.FXLoss, "FX / rounding", set.Base, diff.Neg(), decimal.Zero, "1"); err != nil {
+		if err := insert(*set.FXLoss, "FX / rounding", set.Base, diff.Neg(), decimal.Zero, "1", ""); err != nil {
 			return "", err
 		}
 	}
@@ -158,7 +193,7 @@ func unappliedCredits(ctx context.Context, tx pgx.Tx, customerID, currency strin
 func openDebits(ctx context.Context, tx pgx.Tx, customerID, currency string) ([]openDebit, error) {
 	rows, err := tx.Query(ctx, `SELECT id::text, issue_date::text, number, (total - paid)::text FROM invoices
 		WHERE customer_id = $1 AND currency = $2 AND status IN ('open', 'partial')
-		ORDER BY issue_date, kind, number`, customerID, currency)
+		ORDER BY (id::text = $3) DESC, issue_date, kind, number`, customerID, currency, ctxPreferredInvoice(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +336,7 @@ func arCreditLines(ctx context.Context, tx pgx.Tx, ar, base, customerID, name, c
 		                 WHERE l.entry_id = i.journal_entry_id AND l.account_id = $3 AND l.debit > 0 LIMIT 1), '')
 		FROM invoices i
 		WHERE i.customer_id = $1 AND i.currency = $2 AND i.status IN ('open', 'partial')
-		ORDER BY i.issue_date, i.kind, i.number`, customerID, currency, ar)
+		ORDER BY (i.id::text = $4) DESC, i.issue_date, i.kind, i.number`, customerID, currency, ar, ctxPreferredInvoice(ctx))
 	if err != nil {
 		return nil, err
 	}

@@ -452,6 +452,33 @@ var routePerms = map[string]string{
 	"POST /companies/{cid}/bank/lines/{id}/entry":           "bank.edit",
 	"POST /companies/{cid}/bank/lines/{id}/{action}":        "bank.edit",
 	"GET /companies/{cid}/bank/reconciliation":              "bank.view",
+
+	// professional accounting
+	"GET /companies/{cid}/accounting/settings":  "accounting.view",
+	"PUT /companies/{cid}/accounting/settings":  "accounting.manage",
+	"GET /companies/{cid}/cost-centers":         "accounting.view",
+	"POST /companies/{cid}/cost-centers":        "accounting.manage",
+	"PATCH /companies/{cid}/cost-centers/{id}":  "accounting.manage",
+	"PATCH /companies/{cid}/journal-lines/{id}": "accounting.edit",
+	"GET /companies/{cid}/reports/cost-centers": "reports.view",
+	"GET /companies/{cid}/budgets":              "accounting.view",
+	"PUT /companies/{cid}/budgets":              "accounting.manage",
+	"GET /companies/{cid}/reports/budget":       "reports.view",
+	"GET /companies/{cid}/fiscal-years":         "accounting.view",
+	"POST /companies/{cid}/fiscal-years/close":  "accounting.manage",
+	"POST /companies/{cid}/fiscal-years/reopen": "accounting.approve",
+	"POST /companies/{cid}/opening-balances":    "accounting.manage",
+	"GET /companies/{cid}/exchanges":            "collections.view",
+	"POST /companies/{cid}/exchanges":           "collections.edit",
+	"POST /companies/{cid}/exchanges/{id}/void": "collections.void",
+	"GET /companies/{cid}/cheques":              "collections.view",
+	"POST /companies/{cid}/cheques":             "collections.edit",
+	"GET /companies/{cid}/cheques/{id}":         "collections.view",
+	"POST /companies/{cid}/cheques/{id}/{op}":   "collections.edit",
+	"GET /companies/{cid}/reports/cash-flow":    "reports.view",
+	"GET /companies/{cid}/reports/compare":      "reports.view",
+	"GET /companies/{cid}/owner-summary":        "reports.view",
+	"GET /companies/{cid}/journal/{id}/source":  "accounting.view",
 }
 
 // permForPattern returns the permission of a mux pattern ("" when the route is not declared).

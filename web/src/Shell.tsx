@@ -12,6 +12,7 @@ import { openScreen, takeNewWindowRequest } from './nav';
 import type { PaymentMethod } from './billing';
 import TrialBanner from './components/TrialBanner';
 import './magic.css';
+import { PaneActive } from './paneActive';
 
 // Pages are loaded on demand (code splitting) so the first screen downloads only what it needs.
 const named = <T extends Record<string, unknown>>(p: Promise<T>, k: keyof T) =>
@@ -23,22 +24,30 @@ const Audit = lazy(() => import('./pages/Audit'));
 const Accounts = lazy(() => import('./pages/Accounts'));
 const Journal = lazy(() => import('./pages/Journal'));
 const Rates = lazy(() => import('./pages/Rates'));
-const TrialBalance = lazy(() => import('./pages/TrialBalance'));
 const Developers = lazy(() => import('./pages/Developers'));
 const Import = lazy(() => import('./pages/Import'));
 const MagicImport = lazy(() => import('./pages/MagicImport'));
-const Customers = lazy(() => import('./pages/billing/Customers'));
 const CustomerDetail = lazy(() => import('./pages/billing/CustomerDetail'));
 const Readings = lazy(() => import('./pages/billing/Readings'));
-const Invoices = lazy(() => import('./pages/billing/Invoices'));
-const BulkPrint = lazy(() => import('./pages/billing/BulkPrint'));
 const Payments = lazy(() => import('./pages/billing/Payments'));
 const BillingSetup = lazy(() => import('./pages/billing/Setup'));
 const Messages = lazy(() => import('./pages/billing/Messages'));
-const ProfitLoss = lazy(() => named(import('./pages/Reports'), 'ProfitLoss'));
-const BalanceSheet = lazy(() => named(import('./pages/Reports'), 'BalanceSheet'));
-const Aging = lazy(() => named(import('./pages/Reports'), 'Aging'));
-const Collections = lazy(() => named(import('./pages/Reports'), 'Collections'));
+const TrialBalanceGrid = lazy(() => named(import('./pages/acc/Statements'), 'TrialBalanceGrid'));
+const ProfitLossGrid = lazy(() => named(import('./pages/acc/Statements'), 'ProfitLossGrid'));
+const BalanceSheetGrid = lazy(() => named(import('./pages/acc/Statements'), 'BalanceSheetGrid'));
+const AgingGrid = lazy(() => named(import('./pages/acc/Statements'), 'AgingGrid'));
+const CollectionsGrid = lazy(() => named(import('./pages/acc/Statements'), 'CollectionsGrid'));
+const Cheques = lazy(() => import('./pages/acc/Cheques'));
+const Exchange = lazy(() => import('./pages/acc/Exchange'));
+const FiscalYears = lazy(() => import('./pages/acc/FiscalYears'));
+const CostCenters = lazy(() => import('./pages/acc/CostCenters'));
+const Budgets = lazy(() => import('./pages/acc/Budgets'));
+const OpeningBalances = lazy(() => import('./pages/acc/OpeningBalances'));
+const CashFlow = lazy(() => named(import('./pages/acc/Reports3'), 'CashFlow'));
+const Compare = lazy(() => named(import('./pages/acc/Reports3'), 'Compare'));
+const MonthlyBills = lazy(() => import('./pages/magic/MonthlyBills'));
+const SubsManage = lazy(() => import('./pages/magic/SubsManage'));
+const PrintBills = lazy(() => import('./pages/magic/PrintBills'));
 const Platform = lazy(() => import('./pages/Platform'));
 const CollectorApp = lazy(() => import('./pages/collector/CollectorApp'));
 const Suppliers = lazy(() => import('./pages/purchases/Suppliers'));
@@ -90,14 +99,16 @@ const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 /** Screens that open one window per record (the param is part of the window identity). */
 const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'voucher']);
 /** Screens that use the whole work area themselves (no padding, own scrolling). */
-const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash']);
+const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash', 'invoices', 'customers', 'print-bills', 'trial-balance', 'profit-loss',
+  'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances']);
 const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
   'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
   'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
   'stock', 'ap-aging', 'stock-valuation', 'stock-moves', 'expenses-report', 'network', 'tariffs', 'vat-report', 'generator-report',
   'print-bills', 'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec', 'crm', 'activities', 'quotes', 'orders',
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
-  'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps']);
+  'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
+  'cash-flow', 'compare', 'opening-balances']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -226,9 +237,6 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   if (me.role === 'collector' || page === 'collect') {
     return <Suspense fallback={pageFallback}><CollectorApp me={me} onLogout={me.role === 'collector' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
   }
-  if (page === 'print-bills') {
-    return <Suspense fallback={pageFallback}><BulkPrint initialPeriod={param} /></Suspense>;
-  }
 
   async function logout() {
     try { await api('/auth/logout', { method: 'POST' }); } finally { onLogout(); }
@@ -316,7 +324,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
             <Suspense fallback={pageFallback}>
               {blocked(w.page)
                 ? <Alert color="red" maw={640}>{t('errors.forbidden')}</Alert>
-                : <PageView me={me} onMe={onMe} page={w.page} param={w.param} active={w.id === active} apps={apps} />}
+                : <PaneActive.Provider value={w.id === active}><PageView me={me} onMe={onMe} page={w.page} param={w.param} active={w.id === active} apps={apps} /></PaneActive.Provider>}
             </Suspense>
           </section>
         ))}
@@ -345,7 +353,7 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     accounts: () => <Accounts me={me} />,
     journal: () => <Journal me={me} openId={param} />,
     rates: () => <Rates me={me} />,
-    'trial-balance': () => <TrialBalance />,
+    'trial-balance': () => <TrialBalanceGrid />,
     ledger: () => <MagicLedger accountId={param} />,
     companies: () => <Companies me={me} />,
     users: () => <Users me={me} />,
@@ -366,16 +374,25 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     'stock-valuation': () => <StockValuation />,
     'stock-moves': () => <StockMoves />,
     'expenses-report': () => <ExpensesReport />,
-    customers: () => <Customers me={me} />,
+    customers: () => <SubsManage me={me} />,
     customer: () => <CustomerDetail me={me} id={param} key={param} />,
     readings: () => <Readings me={me} />,
-    invoices: () => <Invoices me={me} />,
+    invoices: () => <MonthlyBills me={me} />,
     payments: () => <Payments me={me} />,
     'billing-setup': () => <BillingSetup me={me} />,
-    'profit-loss': () => <ProfitLoss />,
-    'balance-sheet': () => <BalanceSheet />,
-    aging: () => <Aging />,
-    collections: () => <Collections />,
+    'profit-loss': () => <ProfitLossGrid />,
+    'balance-sheet': () => <BalanceSheetGrid />,
+    aging: () => <AgingGrid />,
+    collections: () => <CollectionsGrid />,
+    'print-bills': () => <PrintBills initialPeriod={param} />,
+    cheques: () => <Cheques me={me} openId={param} />,
+    exchange: () => <Exchange me={me} />,
+    'fiscal-years': () => <FiscalYears me={me} />,
+    'cost-centers': () => <CostCenters me={me} initialMode={param} />,
+    budgets: () => <Budgets me={me} />,
+    'cash-flow': () => <CashFlow />,
+    compare: () => <Compare initial={param} />,
+    'opening-balances': () => <OpeningBalances me={me} />,
     cash: () => <Boxes me={me} />,
     network: () => <Network me={me} />,
     tariffs: () => <Tariffs me={me} />,

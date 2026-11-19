@@ -185,3 +185,33 @@ A call that needs approval answers `202 {"approval_required":true,"approval_id":
 only as `paid_amount` from a cash box is converted from that box's currency). On approval the stored call runs **as
 the requester** — their permissions and company access are checked again at that moment — and the audit log keeps
 the approver.
+
+## Professional accounting (cheques, exchange, years, cost centers, budgets)
+
+```sh
+# a customer cheque (pays their bills at once), then deposit, collect / bounce
+curl -s -X POST $API/companies/$CID/cheques -H "$H" -d '{"direction":"in","cheque_no":"123456","bank_name":"BLOM","receive_date":"2026-11-02","due_date":"2026-12-10","currency":"USD","amount":"120","customer_id":"<customer>"}'
+curl -s -X POST $API/companies/$CID/cheques/<id>/deposit -H "$H" -d '{"method_id":"<bank box>"}'
+curl -s -X POST $API/companies/$CID/cheques/<id>/collect -H "$H" -d '{}'          # or /bounce, /endorse {supplier_id}, /partial_cash {method_id, amount}, /undo
+# sell 100 USD for 9,000,000 LBP: both sides at the official rate, the difference is booked as exchange gain / loss
+curl -s -X POST $API/companies/$CID/exchanges -H "$H" -d '{"from_method_id":"<cash USD>","to_method_id":"<cash LBP>","from_amount":"100","to_amount":"9000000"}'
+# close / reopen a fiscal year (reopen needs accounting.approve)
+curl -s -X POST $API/companies/$CID/fiscal-years/close -H "$H" -d '{"year":2025}'
+# cost centers, budget, reports
+curl -s -X POST $API/companies/$CID/cost-centers -H "$H" -d '{"code":"N","name":"North station","kind":"station","station_id":"<station>"}'
+curl -s -X PUT  $API/companies/$CID/budgets -H "$H" -d '{"year":2026,"lines":[{"account_id":"<615>","month":11,"amount":"20"}]}'
+curl -s "$API/companies/$CID/reports/budget?year=2026" -H "$H"
+curl -s "$API/companies/$CID/reports/cost-centers?from=2026-01-01&to=2026-12-31" -H "$H"
+curl -s "$API/companies/$CID/reports/cash-flow?from=2026-01-01&to=2026-12-31" -H "$H"
+curl -s "$API/companies/$CID/reports/compare?kind=pl&p=2026-11-01:2026-11-30&p=2025-11-01:2025-11-30" -H "$H"
+curl -s "$API/companies/$CID/journal/<entry>/source" -H "$H"          # the document behind an entry (drill-down)
+curl -s "$API/companies/$CID/owner-summary" -H "$H"
+```
+
+- Journal lines carry an optional `cost_center_id` (manual entries accept it; documents tag income / expense lines from the
+  station or generator they belong to). `PATCH /companies/{cid}/journal-lines/{id} {"cost_center_id": ""}` re-tags a posted
+  line — the only change allowed on a posted entry, and it never touches an amount.
+- Profit & loss, budget, comparison and cost-center reports leave the year-closing entries out, so a closed year still
+  shows its real income and expenses; the balance sheet and trial balance include them.
+- A payment created by a cheque can only be undone from the cheque (`409 cheque_payment` on `/payments/{id}/void`).
+- `POST /payments` accepts `invoice_id` to settle that bill first (barcode collection).

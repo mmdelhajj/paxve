@@ -9,6 +9,7 @@ import { can, api, type Account, type Entry, type EntrySummary, type Me, type Ra
 import { useCompany } from '../company';
 import { accountLabel, formatAmount, formatDate, fromUnits, notifyError, notifySaved, toUnits, today } from '../util';
 import PageHeader, { Confirm } from '../components/PageHeader';
+import { SourceButton, ccLabel, useCostCenters } from './acc/common';
 
 export default function Journal({ me, openId }: { me: Me; openId?: string }) {
   const { t, i18n } = useTranslation();
@@ -99,12 +100,24 @@ function StatusBadge({ e }: { e: EntrySummary }) {
 function EntryView({ id, me, onClose, onChanged, onEdit, onOpen }: {
   id: string; me: Me; onClose: () => void; onChanged: () => void; onEdit: (e: Entry) => void; onOpen: (id: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { company, decimalsOf } = useCompany();
   const [e, setE] = useState<Entry | null>(null);
   const [confirm, setConfirm] = useState<'reverse' | 'discard' | null>(null);
   const [busy, setBusy] = useState(false);
   const canPost = can(me, 'accounting.edit');
+  const centers = useCostCenters().filter((c) => c.is_active);
+
+  async function retag(lineId: string, cc: string) {
+    if (!company || !e) return;
+    try {
+      await api(`/companies/${company.id}/journal-lines/${lineId}`, { method: 'PATCH', body: { cost_center_id: cc } });
+      setE({ ...e, lines: e.lines.map((x) => (x.id === lineId ? { ...x, cost_center_id: cc || null } : x)) });
+      notifySaved(t);
+    } catch (err) {
+      notifyError(t, err);
+    }
+  }
 
   useEffect(() => {
     if (!company) return;
@@ -172,6 +185,13 @@ function EntryView({ id, me, onClose, onChanged, onEdit, onOpen }: {
                       <Table.Td>
                         <Text size="sm"><span dir="ltr" style={{ fontFamily: 'monospace' }}>{l.account_code}</span> · {l.account_name}</Text>
                         {l.description && <Text size="xs" c="dimmed">{l.description}</Text>}
+                        {e.status === 'posted' && canPost && centers.length > 0 ? (
+                          <select className="mx-ccsel" aria-label={t('ax.cc.title')} value={l.cost_center_id ?? ''}
+                            onChange={(ev) => void retag(l.id, ev.currentTarget.value)}>
+                            <option value="">{t('ax.cc.none')}</option>
+                            {centers.map((c) => <option key={c.id} value={c.id}>{ccLabel(c, i18n.language)}</option>)}
+                          </select>
+                        ) : l.cost_center_name && <Text size="xs" c="teal.8">◆ {l.cost_center_name}</Text>}
                       </Table.Td>
                       <Table.Td>{l.currency}</Table.Td>
                       <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{l.debit !== '0.0000' ? formatAmount(l.debit, d) : ''}</Table.Td>
@@ -205,6 +225,7 @@ function EntryView({ id, me, onClose, onChanged, onEdit, onOpen }: {
             <Group gap="xs">
               {e.reversal_of && <Button variant="subtle" size="xs" onClick={() => onOpen(e.reversal_of!)}>← {t('journal.entry')}</Button>}
               {e.reversed_by && <Button variant="subtle" size="xs" onClick={() => onOpen(e.reversed_by!)}>{t('journal.reversal')} →</Button>}
+              {e.status === 'posted' && e.source !== 'manual' && <SourceButton entryId={e.id} />}
             </Group>
             <Group gap="xs">
               {e.status === 'draft' && can(me, 'accounting.create') && (

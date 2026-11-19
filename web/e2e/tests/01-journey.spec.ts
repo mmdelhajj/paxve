@@ -99,7 +99,8 @@ test.describe.serial('new business journey', () => {
 
   test('payment in USD + LBP with change, receipt', async () => {
     await page.goto('/#/customers');
-    await page.getByText('Ahmad QA').click();
+    // Magic-style grid: a click selects the row, a double-click (or Enter) opens the subscriber
+    await page.locator('.mx-pane:not([hidden])').getByText('Ahmad QA').first().dblclick();
     await page.getByRole('button', { name: 'Receive payment' }).click();
     const d = page.getByRole('dialog');
     await d.getByRole('button', { name: 'Add another currency' }).click();
@@ -124,7 +125,7 @@ test.describe.serial('new business journey', () => {
     const cid = state.companyId!;
     for (const r of ['profit-loss', 'balance-sheet', 'trial-balance', 'aging', 'collections']) {
       await page.goto(`/#/${r}`);
-      await expect(page.locator('main h2').first()).toBeVisible();
+      await expect(page.locator('.mx-pane:not([hidden]) .mx-box h3').first()).toBeVisible();
     }
     const tb = await apiCall<{ total_debit: string; total_credit: string }>(page.request, 'GET', `/companies/${cid}/reports/trial-balance`);
     expect(tb.total_debit).toBe(tb.total_credit);

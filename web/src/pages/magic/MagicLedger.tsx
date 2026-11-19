@@ -6,6 +6,7 @@ import { useCompany } from '../../company';
 import { accountLabel, formatAmount, formatDate, notifyError, today } from '../../util';
 import DataGrid, { type Col } from '../../components/DataGrid';
 import { openScreen } from '../../nav';
+import { Help } from '../acc/common';
 
 interface Row {
   entry_id: string; number: number; date: string; memo: string; description: string; currency: string;
@@ -14,18 +15,24 @@ interface Row {
 interface LedgerData { base_currency: string; opening: string; rows: Row[] }
 
 /** دفتر الأستاذ: one account's movements with the running balance. Pick the account at the top. */
-export default function MagicLedger({ accountId }: { accountId: string }) {
+export default function MagicLedger({ accountId: param }: { accountId: string }) {
   const { t } = useTranslation();
   const { company, decimalsOf } = useCompany();
+  // param: "<account id>" or "<account id>~<from>~<to>" (drill-down from a statement)
+  const [accountId, pFrom, pTo] = (param || '').split('~');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [acc, setAcc] = useState<string | null>(accountId || null);
-  const [from, setFrom] = useState(`${new Date().getFullYear()}-01-01`);
-  const [to, setTo] = useState(today());
+  const [from, setFrom] = useState(pFrom && pFrom !== '0001-01-01' ? pFrom : `${new Date().getFullYear()}-01-01`);
+  const [to, setTo] = useState(pTo || today());
   const [data, setData] = useState<LedgerData | null>(null);
   const [loading, setLoading] = useState(false);
   const cid = company?.id;
 
-  useEffect(() => { if (accountId) setAcc(accountId); }, [accountId]);
+  useEffect(() => {
+    if (accountId) setAcc(accountId);
+    if (pFrom) setFrom(pFrom === '0001-01-01' ? `${new Date().getFullYear()}-01-01` : pFrom);
+    if (pTo) setTo(pTo);
+  }, [accountId, pFrom, pTo]);
   useEffect(() => { if (cid) api<Account[]>(`/companies/${cid}/accounts`).then((a) => setAccounts(a.filter((x) => x.is_postable))).catch(() => {}); }, [cid]);
   useEffect(() => {
     if (!cid || !acc) { setData(null); return; }
@@ -62,6 +69,8 @@ export default function MagicLedger({ accountId }: { accountId: string }) {
         <label>{t('reports.from')} <input type="date" value={from} onChange={(e) => setFrom(e.currentTarget.value)} /></label>
         <label>{t('reports.to')} <input type="date" value={to} onChange={(e) => setTo(e.currentTarget.value)} /></label>
         <span>{t('reports.amountsIn', { cur: company.base_currency })}</span>
+        <span className="mx-sp" />
+        <Help topic="ledger" />
       </div>
       <div className="mx-body" style={{ gridTemplateColumns: '1fr' }}>
         <section className="mx-box">

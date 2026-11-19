@@ -108,7 +108,7 @@ export default function Invoices({ me }: { me: Me }) {
   );
 }
 
-function RunBilling({ defaultPeriod, onClose, onDone }: { defaultPeriod: string; onClose: () => void; onDone: (period: string) => void }) {
+export function RunBilling({ defaultPeriod, onClose, onDone }: { defaultPeriod: string; onClose: () => void; onDone: (period: string) => void }) {
   const { t } = useTranslation();
   const { company, decimalsOf } = useCompany();
   const [period, setPeriod] = useState(defaultPeriod);

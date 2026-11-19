@@ -141,6 +141,8 @@ export interface EntryLine {
   rate: string;
   base_debit: string;
   base_credit: string;
+  cost_center_id?: string | null;
+  cost_center_name?: string | null;
 }
 
 export interface Entry extends EntrySummary {

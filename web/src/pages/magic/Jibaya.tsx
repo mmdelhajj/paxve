@@ -385,7 +385,7 @@ function Scan({ me, active, date, methods }: { me: Me; active: boolean; date: st
         else {
           const bal = String(Number(inv.balance));
           await api<PaymentDetail>(`/companies/${cid}/payments`, {
-            method: 'POST', body: { customer_id: inv.customer_id, date, currency: inv.currency, amount: bal, tenders: [{ method_id: box.id, amount: bal }] },
+            method: 'POST', body: { customer_id: inv.customer_id, date, currency: inv.currency, amount: bal, invoice_id: inv.id, tenders: [{ method_id: box.id, amount: bal }] },
           });
           window.dispatchEvent(new Event('paxve:paid'));
           add(true, t('mx.s.ok', { no, name: inv.customer_name, amount: `${formatAmount(bal, decimalsOf(inv.currency))} ${inv.currency}`, period: inv.period ?? '' }));

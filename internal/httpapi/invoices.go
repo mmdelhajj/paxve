@@ -90,6 +90,9 @@ func issueInvoiceFor(ctx context.Context, tx pgx.Tx, cid string, set *billingSet
 	for _, acc := range taxOrder {
 		jl = append(jl, jline{Account: acc, Desc: "Tax · " + customerName, Currency: currency, Credit: taxByAccount[acc], Rate: rate})
 	}
+	if subscriptionID != nil && ctxCostCenter(ctx) == "" {
+		ctx = withCostCenter(ctx, subscriptionCostCenter(ctx, tx, *subscriptionID))
+	}
 	je, err := postJournal(ctx, tx, cid, set, issue, memo, fmt.Sprintf("INV-%d", number), "invoice", jl)
 	if err != nil {
 		return "", 0, err
