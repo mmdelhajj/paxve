@@ -19,7 +19,7 @@ type company struct {
 	LocalCurrency string    `json:"local_currency"`
 	IsActive      bool      `json:"is_active"`
 	CreatedAt     time.Time `json:"created_at"`
-	LockDate      *string   `json:"lock_date"` // books locked up to this date (inclusive)
+	LockDate      *string   `json:"lock_date"`     // books locked up to this date (inclusive)
 	Apps          []string  `json:"apps"`          // enabled apps (Odoo-style modules), see apps.go
 	BusinessType  string    `json:"business_type"` // generator | internet | satellite (tints the UI)
 }
