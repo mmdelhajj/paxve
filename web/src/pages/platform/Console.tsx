@@ -115,7 +115,7 @@ function Dash({ orgs, go }: { orgs: Org[]; go: (m: Mode, f?: { id: string; filte
     { key: 'state', title: t('pc.f.state'), get: (r) => t(`pc.st.${r.state}`), render: (r) => <StatePill s={r.state} />, width: 100 },
     { key: 'plan', title: t('pc.f.plan'), get: (r) => r.plan, width: 90 },
     { key: 'ends', title: t('pc.f.ends'), get: (r) => r.ends_on ?? '', render: (r) => (r.ends_on ? formatDate(r.ends_on) : '—'), width: 100 },
-    { key: 'left', title: t('pc.f.daysLeft'), get: (r) => daysLeft(r.ends_on) ?? '', num: true, width: 70, cls: (r) => ((daysLeft(r.ends_on) ?? 99) < 0 ? 'red' : '') },
+    { key: 'left', title: t('pc.f.daysLeft'), get: (r) => daysLeft(r.ends_on) ?? '', num: true, decimals: 0, width: 70, cls: (r) => ((daysLeft(r.ends_on) ?? 99) < 0 ? 'red' : '') },
     { key: 'phone', title: t('pc.f.phone'), get: (r) => r.contact_phone, width: 120 },
     { key: 'email', title: t('pc.f.email'), get: (r) => r.contact_email || r.admin_email || '', width: 180 },
   ];
@@ -191,11 +191,11 @@ function Orgs({ orgs, plans, reload, focus }: { orgs: Org[]; plans: Plan[]; relo
     { key: 'state', title: t('pc.f.state'), get: (r) => t(`pc.st.${r.state}`), render: (r) => <StatePill s={r.state} />, width: 96 },
     { key: 'plan', title: t('pc.f.plan'), get: (r) => planOf(r.plan), width: 90 },
     { key: 'ends', title: t('pc.f.ends'), get: (r) => r.ends_on ?? '', render: (r) => (r.ends_on ? formatDate(r.ends_on) : '∞'), width: 96 },
-    { key: 'left', title: t('pc.f.daysLeft'), get: (r) => daysLeft(r.ends_on) ?? '', num: true, width: 64, cls: (r) => ((daysLeft(r.ends_on) ?? 99) < 0 ? 'red' : '') },
+    { key: 'left', title: t('pc.f.daysLeft'), get: (r) => daysLeft(r.ends_on) ?? '', num: true, decimals: 0, width: 64, cls: (r) => ((daysLeft(r.ends_on) ?? 99) < 0 ? 'red' : '') },
     { key: 'price', title: t('pc.f.price'), get: (r) => Number(r.price ?? 0), render: (r) => money(r.price, r.currency), num: true, width: 90 },
     { key: 'cycle', title: t('pc.f.cycle'), get: (r) => t(`pc.cycle.${r.billing_cycle}`), width: 70 },
-    { key: 'subs', title: t('pc.f.subs'), get: (r) => Number(r.active_subscriptions), num: true, width: 70, total: 'sum' },
-    { key: 'users', title: t('pc.f.users'), get: (r) => Number(r.users), num: true, width: 60 },
+    { key: 'subs', title: t('pc.f.subs'), get: (r) => Number(r.active_subscriptions), num: true, decimals: 0, width: 70, total: 'sum' },
+    { key: 'users', title: t('pc.f.users'), get: (r) => Number(r.users), num: true, decimals: 0, width: 60 },
     { key: 'country', title: t('pc.f.country'), get: (r) => r.country ?? '', width: 60 },
     { key: 'biz', title: t('pc.f.biz'), get: (r) => (r.business_type ? t(`pc.biz.${r.business_type}`, { defaultValue: r.business_type }) : ''), width: 90 },
     { key: 'email', title: t('pc.f.email'), get: (r) => r.admin_email ?? '', width: 170 },
@@ -302,7 +302,7 @@ function OrgDetail({ org, plans, reload, request }: { org: Org; plans: Plan[]; r
               <span>{t('pc.f.plan')}</span><b>{planName(plans.find((p) => p.code === o.plan), i18n.language, o.plan)} · {t(`pc.cycle.${o.billing_cycle}`)}</b>
               <span>{t('pc.f.price')}</span><b dir="ltr">{money(o.price, o.currency)}</b>
               <span>{o.plan === 'trial' ? t('pc.f.trialEnds') : t('pc.f.paidUntil')}</span>
-              <b className={left !== null && left < 0 ? 'red' : ''}>{o.ends_on ? `${formatDate(o.ends_on)} (${t('pc.daysLeft', { count: left ?? 0 })})` : '∞'}</b>
+              <b className={left !== null && left < 0 ? 'red' : ''}>{o.ends_on ? `${formatDate(o.ends_on)} (${(left ?? 0) < 0 ? t('pc.daysAgo', { count: -(left ?? 0) }) : t('pc.daysLeft', { count: left ?? 0 })})` : '∞'}</b>
               <span>{t('pc.f.grace')}</span><b>{t('pc.days', { count: o.grace_days })}</b>
               <span>{t('pc.f.limits')}</span><b dir="ltr">{o.active_subscriptions}/{o.max_subscribers ?? '∞'} · {o.users}/{o.max_users ?? '∞'} · {o.companies}/{o.max_companies ?? '∞'}</b>
               <span>{t('pc.f.country')}</span><b>{o.country || '—'} · {o.business_type ? t(`pc.biz.${o.business_type}`, { defaultValue: o.business_type }) : ''}</b>
@@ -631,7 +631,7 @@ function Plans({ plans, reload }: { plans: Plan[]; reload: () => void }) {
     { key: 'subs', title: t('pc.f.maxSubs'), get: (r) => r.max_subscribers ?? '∞', width: 80 },
     { key: 'users', title: t('pc.f.maxUsers'), get: (r) => r.max_users ?? '∞', width: 70 },
     { key: 'comp', title: t('pc.f.maxCompanies'), get: (r) => r.max_companies ?? '∞', width: 70 },
-    { key: 'orgs', title: t('pc.k.orgs'), get: (r) => Number(r.organisations), num: true, width: 70 },
+    { key: 'orgs', title: t('pc.k.orgs'), get: (r) => Number(r.organisations), num: true, decimals: 0, width: 70 },
     { key: 'on', title: t('pc.f.status'), get: (r) => (r.is_active ? (r.is_public ? t('pc.planPublic') : t('pc.planHidden')) : t('pc.planOff')), width: 90 },
   ];
   return (

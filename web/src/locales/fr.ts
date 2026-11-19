@@ -1376,6 +1376,7 @@ const fr: Messages = {
     renewedOk: 'Renouvelé. Payé jusqu\'au {{date}}.', renewFromRequest: 'Renouveler depuis cette demande', expiringList: 'Bientôt terminées et terminées',
     expiringHint: 'essai ou formule se terminant dans 14 jours, en délai de grâce ou expirée', inAppOnly: 'bandeau seulement (messagerie non configurée)', lastLogin: 'dernière connexion',
     daysLeft_one: '1 jour restant', daysLeft_other: '{{count}} jours restants', days_one: '1 jour', days_other: '{{count}} jours',
+    daysAgo_one: 'terminée depuis 1 jour', daysAgo_other: 'terminée depuis {{count}} jours',
     t: { mySub: 'Mon abonnement Paxve', dash: 'Vue d\'ensemble', orgs: 'Organisations', requests: 'Demandes', payments: 'Paiements', plans: 'Formules' },
     m: { dash: 'Vue d\'ensemble', orgs: 'Organisations', requests: 'Demandes de renouvellement', payments: 'Paiements reçus', plans: 'Formules et prix' },
     help: {
@@ -1422,6 +1423,7 @@ const fr: Messages = {
       state: {
         trial: 'Essai gratuit jusqu\'au {{date}}. Choisissez une formule ci-dessous pour continuer ensuite.',
         active: 'Votre formule est active jusqu\'au {{date}}.',
+        activeOpen: 'Votre formule est active, sans date de fin.',
         grace: 'Votre formule a pris fin le {{date}}. Vous pouvez travailler jusqu\'au {{until}} ; renouvelez pour éviter la lecture seule.',
         expired: 'Votre formule a pris fin le {{date}}. Vos données sont conservées et consultables ; renouvelez pour travailler à nouveau.',
         blocked: 'Cette organisation est bloquée.',

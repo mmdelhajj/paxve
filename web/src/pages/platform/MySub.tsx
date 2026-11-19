@@ -65,7 +65,8 @@ export default function MySub({ me }: { me: Me }) {
       <h2>{t('pc.my.title')}</h2>
       <div className="mx-owner">
         <div className="mx-owner-head"><b>{pname}</b><StatePill s={s.state} /></div>
-        <div>{t(`pc.my.state.${s.state}`, { date: formatDate(s.ends_on ?? ''), until: formatDate(s.grace_ends ?? ''), count: Math.abs(s.days_left ?? 0) })}</div>
+        <div>{s.state === 'active' && !s.ends_on ? t('pc.my.state.activeOpen')
+          : t(`pc.my.state.${s.state}`, { date: s.ends_on ? formatDate(s.ends_on) : '∞', until: s.grace_ends ? formatDate(s.grace_ends) : '∞', count: Math.abs(s.days_left ?? 0) })}</div>
         <div className="mx-kv" style={{ marginTop: 6 }}>
           <span>{s.plan === 'trial' ? t('pc.f.trialEnds') : t('pc.f.paidUntil')}</span><b>{s.ends_on ? formatDate(s.ends_on) : '∞'}</b>
           {s.price !== null && s.plan !== 'trial' && <><span>{t('pc.f.price')}</span><b dir="ltr">{formatAmount(s.price, 2)} {s.currency} / {t(`pc.cycle.${s.billing_cycle}`)}</b></>}

@@ -3141,6 +3141,8 @@
    "monthly": "monatlich",
    "yearly": "jährlich"
   },
+  "daysAgo_one": "endete vor 1 Tag",
+  "daysAgo_other": "endete vor {{count}} Tagen",
   "daysLeft_one": "Noch 1 Tag übrig",
   "daysLeft_other": "{{count}} Tage übrig",
   "days_one": "1 Tag",
@@ -3284,6 +3286,7 @@
    "sent": "Anfrage gesendet. Wir werden es in Kürze bestätigen.",
    "state": {
     "active": "Ihr Plan ist bis zum {{date}} aktiv.",
+    "activeOpen": "Ihr Plan ist aktiv und hat kein Enddatum.",
     "blocked": "Diese Organisation ist blockiert.",
     "expired": "Ihr Plan endete am {{date}} . Ihre Daten sind sicher und Sie können sie ansehen und exportieren; erneuern, um wieder zu funktionieren.",
     "grace": "Ihr Plan endete am {{date}} . Sie können weiterarbeiten, bis {{until}} ; erneuern, um den schreibgeschützten Modus zu vermeiden.",

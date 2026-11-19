@@ -1374,6 +1374,7 @@ const en = {
     renewedOk: 'Renewed. Paid until {{date}}.', renewFromRequest: 'Renew from this request', expiringList: 'Ending soon and ended',
     expiringHint: 'trial or plan ending within 14 days, in grace, or expired', inAppOnly: 'banner only (no messaging set up)', lastLogin: 'last sign-in',
     daysLeft_one: '1 day left', daysLeft_other: '{{count}} days left', days_one: '1 day', days_other: '{{count}} days',
+    daysAgo_one: 'ended 1 day ago', daysAgo_other: 'ended {{count}} days ago',
     t: { mySub: 'My Paxve subscription', dash: 'Overview', orgs: 'Organisations', requests: 'Requests', payments: 'Payments', plans: 'Plans' },
     m: { dash: 'Overview', orgs: 'Organisations', requests: 'Renewal requests', payments: 'Payments received', plans: 'Plans & prices' },
     help: {
@@ -1420,6 +1421,7 @@ const en = {
       state: {
         trial: 'Free trial until {{date}}. Choose a plan below to continue after it.',
         active: 'Your plan is active until {{date}}.',
+        activeOpen: 'Your plan is active, with no end date.',
         grace: 'Your plan ended on {{date}}. You can keep working until {{until}}; renew to avoid read-only mode.',
         expired: 'Your plan ended on {{date}}. Your data is safe and you can look and export; renew to work again.',
         blocked: 'This organisation is blocked.',

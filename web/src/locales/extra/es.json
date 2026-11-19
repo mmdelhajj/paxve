@@ -3141,6 +3141,8 @@
    "monthly": "mensual",
    "yearly": "anual"
   },
+  "daysAgo_one": "terminó hace 1 día",
+  "daysAgo_other": "finalizó hace {{count}} días",
   "daysLeft_one": "1 día restante",
   "daysLeft_other": "Quedan {{count}} días",
   "days_one": "1 dia",
@@ -3284,6 +3286,7 @@
    "sent": "Solicitud enviada. Lo confirmaremos en breve.",
    "state": {
     "active": "Tu plan está activo hasta el {{date}} .",
+    "activeOpen": "Tu plan está activo, sin fecha de finalización.",
     "blocked": "Esta organización está bloqueada.",
     "expired": "Tu plan finalizó el {{date}} . Tus datos están seguros y puedes mirarlos y exportarlos; renovar para volver a trabajar.",
     "grace": "Tu plan finalizó el {{date}} . Puedes seguir trabajando hasta el {{until}} ; renovar para evitar el modo de solo lectura.",

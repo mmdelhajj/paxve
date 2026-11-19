@@ -3141,6 +3141,8 @@
    "monthly": "aylık",
    "yearly": "yıllık"
   },
+  "daysAgo_one": "1 gün önce sona erdi",
+  "daysAgo_other": "{{count}} gün önce sona erdi",
   "daysLeft_one": "1 gün kaldı",
   "daysLeft_other": "{{count}} gün kaldı",
   "days_one": "1 gün",
@@ -3284,6 +3286,7 @@
    "sent": "Talep gönderildi. Kısa süre içinde onaylayacağız.",
    "state": {
     "active": "Planınız {{date}} tarihine kadar aktif.",
+    "activeOpen": "Planınız etkin ve bitiş tarihi yok.",
     "blocked": "Bu kuruluş engellendi.",
     "expired": "Planınız {{date}} tarihinde sona erdi. Verileriniz güvendedir ve bakabilir ve dışa aktarabilirsiniz; tekrar çalışmak üzere yenileyin.",
     "grace": "Planınız {{date}} tarihinde sona erdi. {{until}} tarihine kadar çalışmaya devam edebilirsiniz; Salt okunur moddan kaçınmak için yenileyin.",
