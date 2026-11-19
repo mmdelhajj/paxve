@@ -973,7 +973,9 @@ const fr: Messages = {
     apps: {
       intro: "N'activez que ce dont cette société a besoin. Les menus suivent tout de suite.", business: "Type d'activité", soon: 'Bientôt', core: 'Inclus', always: 'Toujours actif', price: '+{{n}} $ / mois',
       notInPlan: "Hors formule", notInPlanOn: "Plus incluse dans votre formule : activée, mais ses écrans sont verrouillés. Changez de formule pour l'utiliser à nouveau.",
-      biz: { generator: 'Groupes / électricité', internet: 'Internet', satellite: 'Satellite', water: 'Eau', supermarket: 'Supermarché', clothing: 'Vêtements et chaussures' },
+      biz: { generator: 'Groupes / électricité', internet: 'Internet', satellite: 'Satellite', water: 'Eau', supermarket: 'Supermarché', clothing: 'Vêtements et chaussures',
+        electronics: 'Électricité / électronique / mobile', furniture: 'Meubles', wholesale: 'Gros et distribution', factory: 'Usine', restaurant: 'Restaurant / café', pharmacy: 'Pharmacie',
+        soon: 'Bientôt', packs: 'Packs métier', packHint: 'Choisir Supermarché ou Vêtements active les bonnes applications. Pour des données de démo, ouvrez « Packs métier ».' },
       gen: { name: 'Abonnements & facturation', desc: 'Abonnés, formules, compteurs, factures mensuelles, impression.' },
       acc: { name: 'Comptabilité générale', desc: 'Plan comptable, écritures, grand livre, balance, bilan, TVA.' },
       col: { name: 'Encaissement', desc: "Écran d'encaissement, code-barres, encaisseurs et remise de caisse." },

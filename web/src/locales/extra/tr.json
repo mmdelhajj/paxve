@@ -2445,11 +2445,20 @@
    "always": "Her zaman açık",
    "biz": {
     "clothing": "Giyim ve ayakkabı",
+    "electronics": "Elektrik / elektronik / mobil",
+    "factory": "Fabrika",
+    "furniture": "Mobilya",
     "generator": "Jeneratör / elektrik",
     "internet": "internet",
+    "packHint": "Süpermarket veya Giyim'i seçmek doğru uygulamaları açar. Demo verilerini eklemek için “İş paketleri”ni açın.",
+    "packs": "İş paketleri",
+    "pharmacy": "Eczane",
+    "restaurant": "Restoran / kafe",
     "satellite": "Uydu",
+    "soon": "Yakında gelecek",
     "supermarket": "Süpermarket",
-    "water": "su"
+    "water": "su",
+    "wholesale": "Toptan satış ve dağıtım"
    },
    "business": "İşletme türü",
    "col": {

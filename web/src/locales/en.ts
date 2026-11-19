@@ -971,7 +971,9 @@ const en = {
     apps: {
       intro: 'Switch on only what this company needs. Menus follow at once.', business: 'Business type', soon: 'Coming soon', core: 'Included', always: 'Always on', price: '+${{n}} / month',
       notInPlan: "Not in your plan", notInPlanOn: "No longer in your plan: switched on, but its screens are locked. Upgrade to use it again.",
-      biz: { generator: 'Generator / electricity', internet: 'Internet', satellite: 'Satellite', water: 'Water', supermarket: 'Supermarket', clothing: 'Clothing & shoes' },
+      biz: { generator: 'Generator / electricity', internet: 'Internet', satellite: 'Satellite', water: 'Water', supermarket: 'Supermarket', clothing: 'Clothing & shoes',
+        electronics: 'Electrical / electronics / mobile', furniture: 'Furniture', wholesale: 'Wholesale & distribution', factory: 'Factory', restaurant: 'Restaurant / café', pharmacy: 'Pharmacy',
+        soon: 'Coming soon', packs: 'Business packs', packHint: 'Choosing Supermarket or Clothing switches on the right apps. To add demo data open “Business packs”.' },
       gen: { name: 'Subscriptions & billing', desc: 'Subscribers, plans, meters, monthly bills, printing.' },
       acc: { name: 'General accounting', desc: 'Chart of accounts, double entry, ledger, trial balance, balance sheet, VAT.' },
       col: { name: 'Collection', desc: 'Collection screen, barcode, collectors and their cash hand-over.' },

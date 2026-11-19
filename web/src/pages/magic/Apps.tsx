@@ -21,6 +21,8 @@ const PRICE: Record<AppId | 'wat' | 'mfg', string> = {
   gen: 'core', acc: 'core', col: 'core', msg: '8', stk: '8', pur: '5', net: '10', sat: '10', pos: '15', hr: '8', crm: '8', svc: '5', wat: '', mfg: '',
 };
 
+const SOON = ['electronics', 'furniture', 'wholesale', 'factory', 'restaurant', 'pharmacy'];
+
 /** التطبيقات: switch modules on or off for this company (Odoo-style). Menus follow at once; the server refuses
  *  calls to switched-off apps. Core apps (subscriptions & billing, accounting, collections) stay on. */
 export default function Apps({ me }: { me: Me }) {
@@ -46,6 +48,22 @@ export default function Apps({ me }: { me: Me }) {
     }
   }
 
+  // supermarket / clothing are business packs: the server sets the right apps and defaults (demo data stays optional)
+  async function pickBusiness(b: string) {
+    if (b !== 'supermarket' && b !== 'clothing') { await save(apps, b); return; }
+    setBusy(true);
+    setMsg(null);
+    try {
+      await api(`/companies/${company!.id}/retail/packs/${b}`, { method: 'POST', body: { demo: false } });
+      reload();
+      setMsg({ ok: true, text: t('common.saved') });
+    } catch (e) {
+      setMsg({ ok: false, text: errorText(t, e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const color = (id: AppId) => RIBBON.find((r) => r.id === ICON_OF[id])?.color ?? '#57606f';
   const list: (AppId | 'wat')[] = [...ALL_APPS, 'wat'];
 
@@ -56,13 +74,20 @@ export default function Apps({ me }: { me: Me }) {
         <div style={{ padding: 10, display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{t('mx.apps.business')}
             <select value={company.business_type ?? 'generator'} disabled={!canEdit || busy}
-              onChange={(e) => void save(apps, e.currentTarget.value)}>
+              onChange={(e) => void pickBusiness(e.currentTarget.value)}>
               <option value="generator">{t('mx.apps.biz.generator')}</option>
               <option value="internet">{t('mx.apps.biz.internet')}</option>
               <option value="satellite">{t('mx.apps.biz.satellite')}</option>
               <option value="water">{t('mx.apps.biz.water')}</option>
+              <option value="supermarket">{t('mx.apps.biz.supermarket')}</option>
+              <option value="clothing">{t('mx.apps.biz.clothing')}</option>
+              <optgroup label={t('mx.apps.biz.soon')}>
+                {SOON.map((b) => <option key={b} value={b} disabled>{t(`mx.apps.biz.${b}`)} — {t('mx.apps.biz.soon')}</option>)}
+              </optgroup>
             </select>
           </label>
+          <button className="mx-btn" onClick={() => openScreen('retail', 'packs')}>{t('mx.apps.biz.packs')}</button>
+          <small style={{ opacity: 0.75 }}>{t('mx.apps.biz.packHint')}</small>
           {msg && <span className={`mx-flash ${msg.ok ? 'good' : 'bad'}`}>{msg.text}</span>}
         </div>
       </div>

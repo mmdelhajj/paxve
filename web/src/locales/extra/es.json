@@ -2445,11 +2445,20 @@
    "always": "Siempre encendido",
    "biz": {
     "clothing": "Ropa y zapatos",
+    "electronics": "Electricidad / electrónica / móvil",
+    "factory": "Fábrica",
+    "furniture": "Muebles",
     "generator": "Generador / electricidad",
     "internet": "Internet",
+    "packHint": "Al elegir Supermercado o Ropa se activan las aplicaciones adecuadas. Para agregar datos de demostración, abra \"Paquetes de negocios\".",
+    "packs": "Paquetes de negocios",
+    "pharmacy": "Farmacia",
+    "restaurant": "Restaurante/cafetería",
     "satellite": "Satélite",
+    "soon": "Muy pronto",
     "supermarket": "Supermercado",
-    "water": "Agua"
+    "water": "Agua",
+    "wholesale": "Venta al por mayor y distribución"
    },
    "business": "Tipo de negocio",
    "col": {
