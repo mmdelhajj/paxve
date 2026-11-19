@@ -41,6 +41,9 @@ export interface Company {
   lock_date: string | null;
   apps?: string[];                 // enabled apps (see ribbon.ts)
   business_type?: 'generator' | 'internet' | 'satellite';
+  // localization (country pack)
+  country?: string; l10n?: string; einvoice?: '' | 'zatca' | 'eta'; default_locale?: string; fiscal_year_start?: string;
+  tax_id_label?: string; invoice_title?: string; legal_mentions?: string;
 }
 
 export interface User {
@@ -89,6 +92,15 @@ export interface Currency {
   name: string;
   symbol: string;
   decimals: number;
+  name_ar?: string;
+  name_fr?: string;
+}
+
+/** a currency's name in the reader's language (English for languages without their own names) */
+export function currencyName(c: Currency, lang: string): string {
+  if (lang === 'ar' && c.name_ar) return c.name_ar;
+  if (lang === 'fr' && c.name_fr) return c.name_fr;
+  return c.name;
 }
 
 export interface Rate {
@@ -98,6 +110,7 @@ export interface Rate {
   kind: 'official' | 'buy' | 'sell';
   rate: string;
   updated_at: string;
+  source?: 'manual' | 'auto';
 }
 
 export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense';

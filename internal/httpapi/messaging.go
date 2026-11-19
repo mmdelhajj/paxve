@@ -331,7 +331,13 @@ func autoMessage(ctx context.Context, tx pgx.Tx, cid, event, customerID string, 
 	if err := seedTemplates(ctx, tx, cid); err != nil {
 		return err
 	}
-	r, err := newRenderer(ctx, tx, cid, "ar")
+	// the customer's own language, else the company's default
+	var lang string
+	if err := tx.QueryRow(ctx, `SELECT coalesce(c.locale, co.default_locale) FROM customers c JOIN companies co ON co.id = c.company_id
+		WHERE c.id = $1`, customerID).Scan(&lang); err != nil {
+		return err
+	}
+	r, err := newRenderer(ctx, tx, cid, lang)
 	if err != nil {
 		return err
 	}
@@ -342,7 +348,7 @@ func autoMessage(ctx context.Context, tx pgx.Tx, cid, event, customerID string, 
 	if normalizePhone(m.Phone, r.phoneCountry) == "" {
 		return nil
 	}
-	tpl, err := pickTemplate(ctx, tx, cid, event, "", "ar")
+	tpl, err := pickTemplate(ctx, tx, cid, event, "", lang)
 	if err != nil {
 		return nil // no template for this event: skip silently
 	}
@@ -495,7 +501,7 @@ type templateIn struct {
 	IsActive   *bool   `json:"is_active"`
 }
 
-var localeRe = regexp.MustCompile(`^[a-z]{2}$`)
+var localeRe = regexp.MustCompile(`^[a-z]{2,3}$`)
 
 func (s *Server) saveTemplate(w http.ResponseWriter, r *http.Request) {
 	var in templateIn

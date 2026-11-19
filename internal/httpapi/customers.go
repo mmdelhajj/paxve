@@ -22,7 +22,7 @@ const customerBalances = `
 	                HAVING sum(p.amount - coalesce((SELECT sum(pa.amount) FROM payment_allocations pa WHERE pa.payment_id = p.id), 0)) > 0) y), '[]'::json) AS credit`
 
 const customerCols = `c.id, c.code, c.name, c.phone, c.phone2, c.email, c.address, c.area_id, ar.name AS area_name,
-	c.notes, c.status, c.created_at,
+	c.notes, c.status, c.created_at, c.locale,
 	(SELECT count(*) FROM subscriptions s WHERE s.customer_id = c.id AND s.status = 'active') AS active_subscriptions,
 	` + customerBalances
 
@@ -63,6 +63,7 @@ type customerIn struct {
 	AreaID  *string `json:"area_id"`
 	Notes   *string `json:"notes"`
 	Status  *string `json:"status"`
+	Locale  *string `json:"locale"` // language of the customer's messages and portal ("" = company default)
 }
 
 func (in *customerIn) valid(create bool) bool {
@@ -71,7 +72,8 @@ func (in *customerIn) valid(create bool) bool {
 	}
 	return (in.Name == nil || strings.TrimSpace(*in.Name) != "") && optUUID(in.AreaID) &&
 		(in.Status == nil || *in.Status == "active" || *in.Status == "suspended" || *in.Status == "closed") &&
-		(in.Code == nil || len(strings.TrimSpace(*in.Code)) <= 30)
+		(in.Code == nil || len(strings.TrimSpace(*in.Code)) <= 30) &&
+		(in.Locale == nil || *in.Locale == "" || langRe.MatchString(*in.Locale))
 }
 
 func (s *Server) createCustomer(w http.ResponseWriter, r *http.Request) {
@@ -97,10 +99,10 @@ func (s *Server) createCustomer(w http.ResponseWriter, r *http.Request) {
 			code = strconv.FormatInt(n, 10)
 		}
 		var id string
-		err := tx.QueryRow(ctx, `INSERT INTO customers (company_id, code, name, phone, phone2, email, address, area_id, notes)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, nullif($8, '')::uuid, $9) RETURNING id::text`,
+		err := tx.QueryRow(ctx, `INSERT INTO customers (company_id, code, name, phone, phone2, email, address, area_id, notes, locale)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, nullif($8, '')::uuid, $9, nullif($10, '')) RETURNING id::text`,
 			cid, code, strings.TrimSpace(*in.Name), strings.TrimSpace(deref(in.Phone)), strings.TrimSpace(deref(in.Phone2)),
-			strings.TrimSpace(deref(in.Email)), strings.TrimSpace(deref(in.Address)), deref(in.AreaID), deref(in.Notes)).Scan(&id)
+			strings.TrimSpace(deref(in.Email)), strings.TrimSpace(deref(in.Address)), deref(in.AreaID), deref(in.Notes), deref(in.Locale)).Scan(&id)
 		if isUniqueViolation(err) {
 			return nil, &apiError{status: http.StatusConflict, code: "code_taken"}
 		}
@@ -126,9 +128,10 @@ func (s *Server) updateCustomer(w http.ResponseWriter, r *http.Request) {
 			phone = coalesce(trim($5), phone), phone2 = coalesce(trim($6), phone2), email = coalesce(trim($7), email),
 			address = coalesce(trim($8), address),
 			area_id = CASE WHEN $9::text IS NULL THEN area_id ELSE nullif($9, '')::uuid END,
-			notes = coalesce($10, notes), status = coalesce($11, status)
+			notes = coalesce($10, notes), status = coalesce($11, status),
+			locale = CASE WHEN $12::text IS NULL THEN locale ELSE nullif($12, '') END
 			WHERE id = $1 AND company_id = $2`,
-			id, cid, in.Code, in.Name, in.Phone, in.Phone2, in.Email, in.Address, in.AreaID, in.Notes, in.Status)
+			id, cid, in.Code, in.Name, in.Phone, in.Phone2, in.Email, in.Address, in.AreaID, in.Notes, in.Status, in.Locale)
 		if isUniqueViolation(err) {
 			return nil, &apiError{status: http.StatusConflict, code: "code_taken"}
 		}

@@ -4,6 +4,7 @@ export interface Customer {
   id: string; code: string; name: string; phone: string; phone2: string; email: string; address: string;
   area_id: string | null; area_name: string | null; notes: string; status: 'active' | 'suspended' | 'closed';
   created_at: string; active_subscriptions: number; due: Money[]; credit: Money[];
+  locale?: string | null; // language of the customer's messages and portal (null = company default)
 }
 
 export interface Plan {
@@ -33,6 +34,7 @@ export interface Invoice {
   period: string | null; issue_date: string; due_date: string; currency: string; total: string; paid: string; balance: string;
   status: 'open' | 'partial' | 'paid' | 'void'; journal_entry_id: string | null; notes: string; created_at: string;
   kind?: 'invoice' | 'refund';
+  cheque_id?: string | null; // a refund-kind debit created by a bounced / returned cheque
 }
 
 export interface InvoiceDetail {

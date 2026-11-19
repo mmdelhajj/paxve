@@ -12,6 +12,7 @@ import { accountLabel, formatAmount, formatDate, notifyError, notifySaved, today
 import PageHeader, { Confirm } from '../../components/PageHeader';
 import { billColor, type Bill, type BillDetail, type Item, type Supplier, type Warehouse } from './types';
 import { BillsTable } from './Suppliers';
+import { ccLabel, useCostCenters } from '../acc/common';
 
 interface Totals { currency: string; count: number; total: string; paid: string; balance: string }
 
@@ -201,7 +202,9 @@ let lk = 1;
 const blank = (): LineState => ({ key: lk++, item_id: null, account_id: null, warehouse_id: null, description: '', quantity: '1', unit_price: '', tax_rate_id: null });
 
 export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; onClose: () => void; onDone: (id: string) => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const centers = useCostCenters().filter((x) => x.is_active);
+  const [cc, setCc] = useState<string | null>(null);
   const { company, currencies, decimalsOf } = useCompany();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -243,7 +246,7 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
       const r = await api<BillDetail>(`/companies/${company.id}/bills`, {
         method: 'POST',
         body: {
-          supplier_id: supplierId, currency, bill_date: date, due_date: due < date ? date : due, supplier_ref: ref,
+          supplier_id: supplierId, currency, bill_date: date, due_date: due < date ? date : due, supplier_ref: ref, cost_center_id: cc ?? '',
           lines: lines.filter((l) => l.unit_price !== '' && (l.item_id || l.description)).map((l) => ({
             item_id: l.item_id ?? '', account_id: l.account_id ?? '', warehouse_id: l.warehouse_id ?? '',
             description: l.description, quantity: l.quantity, unit_price: l.unit_price, tax_rate_id: l.tax_rate_id ?? '',
@@ -269,6 +272,8 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
           <Select label={t('pur.currency')} searchable data={currencies.map((c) => c.code)} value={currency} onChange={setCurrency} allowDeselect={false} />
           <TextInput type="date" label={t('pur.billDate')} value={date} onChange={(e) => setDate(e.currentTarget.value)} />
           <TextInput type="date" label={t('invoices.due')} value={due} onChange={(e) => setDue(e.currentTarget.value)} />
+          {centers.length > 0 && <Select label={t('ax.cc.center')} clearable placeholder={t('ax.cc.none')} value={cc} onChange={setCc}
+            data={centers.map((x) => ({ value: x.id, label: ccLabel(x, i18n.language) }))} />}
         </Group>
         <Table.ScrollContainer minWidth={900}>
           <Table withTableBorder verticalSpacing={4}>

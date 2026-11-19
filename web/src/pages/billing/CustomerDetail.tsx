@@ -194,7 +194,7 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
                   <Table.Tbody>
                     {d.invoices.map((iv) => (
                       <Table.Tr key={iv.id} style={{ cursor: 'pointer' }} onClick={() => setViewInvoice(iv.id)}>
-                        <Table.Td ff="monospace">{iv.number}{iv.kind === 'refund' && <Badge ml={6} size="xs" color="orange" variant="light">{t('gap.refund')}</Badge>}</Table.Td>
+                        <Table.Td ff="monospace">{iv.number}{iv.kind === 'refund' && <Badge ml={6} size="xs" color="orange" variant="light">{iv.cheque_id ? t('stmt.kinds.cheque_return') : t('gap.refund')}</Badge>}</Table.Td>
                         <Table.Td>{formatDate(iv.issue_date)}</Table.Td>
                         <Table.Td>{iv.period ?? '—'}</Table.Td>
                         <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(iv.total, decimalsOf(iv.currency))} {iv.currency}</Table.Td>

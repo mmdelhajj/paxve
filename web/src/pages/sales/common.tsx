@@ -25,7 +25,7 @@ export function itemPrice(it: SaleItem | undefined, currency: string, base: stri
 
 /** Company document settings (logo, header, footer, tax id) used on printed documents. */
 export interface DocCompany {
-  company_name?: string; company_name_ar?: string; company_logo?: string; company_header?: string; company_footer?: string; company_tax_id?: string;
+  company_name?: string; company_name_ar?: string; company_logo?: string; company_header?: string; company_footer?: string; company_tax_id?: string; company_tax_label?: string;
 }
 
 /** Header of a printed document: logo + company name + header text on one side, title / number / dates on the other. */
@@ -39,7 +39,7 @@ export function DocHeader({ c, title, lines }: { c: DocCompany; title: string; l
         <div>
           <Text fw={700} size="lg">{rtl && c.company_name_ar ? c.company_name_ar : c.company_name}</Text>
           {c.company_header && <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>{c.company_header}</Text>}
-          {c.company_tax_id && <Text size="xs">{t('docs.taxId')}: <span dir="ltr">{c.company_tax_id}</span></Text>}
+          {c.company_tax_id && <Text size="xs">{c.company_tax_label || t('docs.taxId')}: <span dir="ltr">{c.company_tax_id}</span></Text>}
         </div>
       </Group>
       <div style={{ textAlign: 'end', flex: 'none' }}>

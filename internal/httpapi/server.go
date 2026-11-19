@@ -34,7 +34,8 @@ const (
 var validRoles = map[string]bool{RoleAdmin: true, RoleAccountant: true, RoleDataEntry: true, RoleReadOnly: true, RoleCollector: true, RoleCashier: true}
 
 // Languages the interface ships with. Adding one = adding a translation file in web/src/locales.
-var supportedLocales = map[string]bool{"en": true, "ar": true, "fr": true}
+var supportedLocales = map[string]bool{"en": true, "ar": true, "fr": true,
+	"tr": true, "es": true, "de": true, "fa": true, "ur": true, "ckb": true, "ru": true, "pt": true}
 
 //go:embed openapi.yaml
 var openapiSpec []byte
@@ -60,6 +61,8 @@ type Server struct {
 	// AllowPrivateRouters lets routers point to private/loopback addresses (tests, VPN setups).
 	// Off by default so tenants cannot use "test connection" to probe the server's internal network.
 	AllowPrivateRouters bool
+	// RateFeed overrides the published exchange-rate source (tests); nil = open.er-api.com.
+	RateFeed RateFeed
 }
 
 func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir string, platformAdmins []string) *Server {
@@ -154,6 +157,8 @@ func (s *Server) Handler() http.Handler {
 
 	// reference data
 	mux.Handle("GET "+v+"/currencies", s.field(s.listCurrencies))
+	mux.Handle("GET "+v+"/translations", s.field(s.listTranslations))
+	mux.Handle("PUT "+v+"/translations", s.auth(s.saveTranslation))
 
 	// organisation
 	mux.Handle("GET "+v+"/companies", s.field(s.listCompanies))
@@ -174,6 +179,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/companies/{cid}/rates", s.auth(s.listRates))
 	mux.Handle("GET "+v+"/companies/{cid}/rates/latest", s.field(s.latestRates))
 	mux.Handle("POST "+v+"/companies/{cid}/rates", s.auth(s.upsertRate))
+	mux.Handle("GET "+v+"/companies/{cid}/rates/settings", s.auth(s.rateSettings))
+	mux.Handle("PUT "+v+"/companies/{cid}/rates/settings", s.auth(s.saveRateSettings))
+	mux.Handle("POST "+v+"/companies/{cid}/rates/fetch", s.auth(s.fetchRatesNow))
 
 	// chart of accounts
 	mux.Handle("GET "+v+"/companies/{cid}/accounts", s.auth(s.listAccounts))

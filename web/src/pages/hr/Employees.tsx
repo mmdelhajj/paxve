@@ -9,11 +9,12 @@ import { useCompany } from '../../company';
 import { formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader from '../../components/PageHeader';
 import type { PaymentMethod } from '../../billing';
+import { ccLabel, useCostCenters } from '../acc/common';
 
 export interface Employee {
   id: string; code: string; name: string; phone: string; position: string; hire_date: string; status: 'active' | 'inactive';
   currency: string; salary: string; transport: string; nssf_enrolled: boolean; method_id: string | null; method_name: string | null;
-  notes: string; advances_open: string;
+  notes: string; advances_open: string; cost_center_id?: string | null;
 }
 interface Advance { id: string; advance_date: string; currency: string; amount: string; installment: string; recovered: string; remaining: string; method: string; notes: string }
 interface Slip { id: string; run_id: string; period: string; run_status: string; currency: string; base: string; net: string; paid: string }
@@ -83,14 +84,15 @@ export default function Employees({ me }: { me: Me }) {
 }
 
 function EmployeeForm({ emp, onClose, onSaved }: { emp: Employee | null; onClose: () => void; onSaved: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const centers = useCostCenters().filter((x) => x.is_active);
   const { company, currencies } = useCompany();
   const methods = useMethods();
   const [f, setF] = useState({
     name: emp?.name ?? '', phone: emp?.phone ?? '', position: emp?.position ?? '', hire_date: emp?.hire_date ?? today(),
     currency: emp?.currency ?? company?.base_currency ?? 'USD', salary: emp ? String(Number(emp.salary)) : '',
     transport: emp ? String(Number(emp.transport)) : '', nssf_enrolled: emp?.nssf_enrolled ?? true, method_id: emp?.method_id ?? '',
-    status: emp?.status ?? 'active', notes: emp?.notes ?? '',
+    status: emp?.status ?? 'active', notes: emp?.notes ?? '', cost_center_id: emp?.cost_center_id ?? '',
   });
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
@@ -130,6 +132,8 @@ function EmployeeForm({ emp, onClose, onSaved }: { emp: Employee | null; onClose
           </Group>
           <Select label={t('hr.method')} clearable data={methods.map((m) => ({ value: m.id, label: `${m.name} (${m.currency})` }))}
             value={f.method_id || null} onChange={(v) => set('method_id')(v ?? '')} />
+          {centers.length > 0 && <Select label={t('ax.cc.center')} clearable placeholder={t('ax.cc.none')} value={f.cost_center_id || null}
+            data={centers.map((x) => ({ value: x.id, label: ccLabel(x, i18n.language) }))} onChange={(v) => set('cost_center_id')(v ?? '')} />}
           <Checkbox label={t('hr.nssf')} checked={f.nssf_enrolled} onChange={(e) => set('nssf_enrolled')(e.currentTarget.checked)} />
           {emp && (
             <Select label={t('hr.status')} allowDeselect={false} value={f.status} onChange={(v) => v && set('status')(v)}

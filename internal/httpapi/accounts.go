@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -331,7 +332,77 @@ func applyBillingDefaults(ctx context.Context, tx pgx.Tx, cid string, tpl *chart
 			return err
 		}
 	}
+	if err := applyRoles(ctx, tx, cid, tpl, ids, lang); err != nil {
+		return err
+	}
+	if len(tpl.Taxes) > 0 {
+		return ensurePackTaxes(ctx, tx, cid, tpl, ids, lang)
+	}
 	return ensureDefaultTax(ctx, tx, cid, tpl.Key, ids)
+}
+
+// roleColumns: the company settings a country pack may point at an account of its chart.
+var roleColumns = map[string]string{
+	"salary_expense": "salary_expense_account_id", "nssf_expense": "nssf_expense_account_id",
+	"salary_payable": "salary_payable_account_id", "nssf_payable": "nssf_payable_account_id", "advances": "advances_account_id",
+	"depreciation_expense": "depreciation_expense_account_id", "accum_depreciation": "accum_depreciation_account_id",
+	"asset_gain": "asset_gain_account_id", "asset_loss": "asset_loss_account_id", "retained_earnings": "retained_earnings_account_id",
+	"cheque_in_hand": "cheque_in_hand_account_id", "cheque_collection": "cheque_collection_account_id",
+	"cheque_payable": "cheque_payable_account_id",
+}
+
+// applyRoles sets the pack's account roles (only where the company has none yet) and remembers the pack:
+// country, e-invoicing scheme, fiscal year start, tax-number label, invoice title and legal mentions.
+func applyRoles(ctx context.Context, tx pgx.Tx, cid string, tpl *charts.Template, ids map[string]string, lang string) error {
+	for role, code := range tpl.Roles {
+		col, ok := roleColumns[role]
+		if !ok || ids[code] == "" {
+			continue
+		}
+		if _, err := tx.Exec(ctx, fmt.Sprintf(`UPDATE companies SET %s = coalesce(%s, $2::uuid) WHERE id = $1`, col, col), cid, ids[code]); err != nil {
+			return err
+		}
+	}
+	pick := func(m map[string]string) string {
+		if v := m[lang]; v != "" {
+			return v
+		}
+		return m["en"]
+	}
+	fy := tpl.FiscalStart
+	if fy == "" {
+		fy = "01-01"
+	}
+	_, err := tx.Exec(ctx, `UPDATE companies SET l10n = $2, country = $3, einvoice = $4, fiscal_year_start = $5,
+		tax_id_label = $6, invoice_title = $7, legal_mentions = $8 WHERE id = $1`,
+		cid, tpl.Key, tpl.Country, tpl.EInvoice, fy, pick(tpl.TaxIDLabel), pick(tpl.InvoiceTitle), pick(tpl.Mentions))
+	return err
+}
+
+// ensurePackTaxes creates the pack's default tax rates (once: only when the company has none).
+func ensurePackTaxes(ctx context.Context, tx pgx.Tx, cid string, tpl *charts.Template, ids map[string]string, lang string) error {
+	var n int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM tax_rates WHERE company_id = $1`, cid).Scan(&n); err != nil || n > 0 {
+		return err
+	}
+	for _, t := range tpl.Taxes {
+		if ids[t.Sales] == "" {
+			continue
+		}
+		purchase := ids[t.Purchase]
+		if purchase == "" {
+			purchase = ids[t.Sales]
+		}
+		name := t.Names[lang]
+		if name == "" {
+			name = t.Names["en"]
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO tax_rates (company_id, name, rate, applies_to, account_id, purchase_account_id, is_default)
+			VALUES ($1, $2, $3::numeric, $4, $5, $6, $7)`, cid, name, t.Rate, t.AppliesTo, ids[t.Sales], purchase, t.Default); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func deref(p *string) string {

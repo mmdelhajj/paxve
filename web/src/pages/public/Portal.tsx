@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../../api';
 import { formatAmount, formatDate } from '../../util';
 import LangSwitch from '../../components/LangSwitch';
+import { applyLang } from '../../i18n';
 import Logo from '../../components/Logo';
 import { invoiceColor, type InvoiceDetail, type Money } from '../../billing';
 
@@ -22,7 +23,7 @@ interface PInvoice {
 interface PortalData {
   company: { name_en: string; name_ar: string; base_currency: string; local_currency: string; logo?: string; doc_header?: string; doc_footer?: string; tax_id?: string };
   quotes?: { id: string; number: number; order_number: number | null; status: string; quote_date: string; valid_until: string | null; currency: string; total: string; accepted_at: string | null }[];
-  customer: { name: string; code: string; area_name: string | null; due: Money[]; credit: Money[] };
+  customer: { name: string; code: string; area_name: string | null; due: Money[]; credit: Money[]; locale?: string | null };
   open_invoices: PInvoice[]; paid_invoices: PInvoice[];
   payments: { number: number; payment_date: string; currency: string; amount: string }[];
 }
@@ -37,7 +38,13 @@ export default function Portal({ token }: { token: string }) {
   const [quote, setQuote] = useState<string | null>(null);
   const [stmt, setStmt] = useState<[string, string] | null>(null);
 
-  const load = () => api<PortalData>(`/portal/${token}`).then(setD).catch(() => setD('missing'));
+  const load = () => api<PortalData>(`/portal/${token}`).then((x) => {
+    // first visit: the customer's own language (a choice made on this page is kept afterwards)
+    let chosen = false;
+    try { chosen = localStorage.getItem('paxve.portal.lang') === '1'; } catch { /* storage unavailable */ }
+    if (!chosen && x.customer.locale) applyLang(x.customer.locale);
+    setD(x);
+  }).catch(() => setD('missing'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); }, [token]);
   // deep links: #/p/<token>/quote/<id> · /invoice/<id> · /statement/<from>/<to>
@@ -81,7 +88,7 @@ export default function Portal({ token }: { token: string }) {
       <Paper radius={0} shadow="xs" px="md" py="xs">
         <Group justify="space-between" wrap="nowrap">
           <Text fw={700} truncate>{company}</Text>
-          <LangSwitch />
+          <LangSwitch onChange={() => { try { localStorage.setItem('paxve.portal.lang', '1'); } catch { /* storage unavailable */ } }} />
         </Group>
       </Paper>
       <Container size="sm" py="lg" px="md">

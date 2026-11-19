@@ -6,11 +6,10 @@ import '@fontsource/ibm-plex-sans-arabic/400.css';
 import '@fontsource/ibm-plex-sans-arabic/500.css';
 import '@fontsource/ibm-plex-sans-arabic/600.css';
 import './print.css';
-import i18n, { applyLang } from './i18n';
+import './i18n'; // applies the saved language
 import App from './App';
 import { installNativeHooks } from './native';
 
-applyLang(i18n.language);
 installNativeHooks();
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

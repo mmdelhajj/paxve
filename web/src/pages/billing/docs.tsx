@@ -12,6 +12,30 @@ import { Confirm } from '../../components/PageHeader';
 import { invoiceColor, type InvoiceDetail, type Money, type PaymentDetail, type PaymentMethod, type TaxRate } from '../../billing';
 import { WhatsAppButton } from './Messages';
 import { DocFooter, DocHeader, itemPrice, SendDocButton, type SaleItem } from '../sales/common';
+import { zatcaQR } from '../../zatca';
+
+interface InvoiceLegal {
+  company_name?: string; company_tax_id?: string; company_tax_label?: string; company_invoice_title?: string;
+  company_mentions?: string; company_einvoice?: string; tax_total?: string; created_at?: string; total: string; kind?: string;
+}
+
+/** what the law of the company's country asks on a printed invoice: legal mentions and, in Saudi Arabia, the ZATCA QR code */
+export function InvoiceLegal({ inv }: { inv: InvoiceLegal }) {
+  const [qr, setQr] = useState('');
+  useEffect(() => {
+    if (inv.company_einvoice !== 'zatca' || !inv.company_tax_id || inv.kind === 'refund') { setQr(''); return; }
+    const ts = new Date(inv.created_at ?? Date.now()).toISOString().replace(/\.\d{3}Z$/, 'Z');
+    zatcaQR(inv.company_name ?? '', inv.company_tax_id, ts, Number(inv.total).toFixed(2), Number(inv.tax_total ?? 0).toFixed(2))
+      .then(setQr).catch(() => setQr(''));
+  }, [inv]);
+  if (!qr && !inv.company_mentions) return null;
+  return (
+    <Group justify="space-between" align="flex-end" mt="sm" wrap="nowrap">
+      <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>{inv.company_mentions}</Text>
+      {qr && <img src={qr} alt="ZATCA QR" width={110} height={110} />}
+    </Group>
+  );
+}
 
 export function MoneyList({ items, kind = 'due' }: { items: Money[]; kind?: 'due' | 'credit' }) {
   const { decimalsOf } = useCompany();
@@ -90,11 +114,11 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
   const rtl = i18n.language === 'ar';
 
   return (
-    <Modal opened onClose={onClose} size="lg" title={inv ? `${inv.kind === 'refund' ? t('gap.refund') : t('invoices.invoice')} #${inv.number}` : t('invoices.invoice')}>
+    <Modal opened onClose={onClose} size="lg" title={inv ? `${inv.kind === 'refund' ? (inv.cheque_id ? t('stmt.kinds.cheque_return') : t('gap.refund')) : t('invoices.invoice')} #${inv.number}` : t('invoices.invoice')}>
       {!d || !inv ? <Center p="xl"><Loader size="sm" /></Center> : (
         <Stack>
           <div className="print-doc" dir={rtl ? 'rtl' : 'ltr'}>
-            <DocHeader c={inv} title={`${inv.kind === 'refund' ? t('gap.refund') : t('invoices.invoice')} #${inv.number}`} lines={[
+            <DocHeader c={inv} title={`${inv.kind === 'refund' ? (inv.cheque_id ? t('stmt.kinds.cheque_return') : t('gap.refund')) : ((inv as unknown as InvoiceLegal).company_invoice_title || t('invoices.invoice'))} #${inv.number}`} lines={[
               ...(inv.period ? [inv.period] : []),
               ...(inv.order_number ? [`${t('sales.order')} SO-${inv.order_number}`] : []),
               `${t('invoices.date')}: ${formatDate(inv.issue_date)}`,
@@ -136,6 +160,7 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
             </table>
             {inv.status === 'void' && <Text c="red" fw={700} mt="sm">{t('invoices.statuses.void')} {inv.notes}</Text>}
             <DocFooter c={inv} />
+            <InvoiceLegal inv={inv as unknown as InvoiceLegal} />
           </div>
 
           {d.payments.length > 0 && (
@@ -196,7 +221,7 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
           )}
           <Group justify="space-between" className="no-print">
             <Group gap="xs">
-              {canVoid && inv.status !== 'void' && (inv.paid === '0.0000' || inv.kind === 'refund') && !confirm
+              {canVoid && inv.status !== 'void' && !inv.cheque_id && (inv.paid === '0.0000' || inv.kind === 'refund') && !confirm
                 ? <Button variant="subtle" color="red" onClick={() => setConfirm(true)}>{t('invoices.void')}</Button> : null}
               {canVoid && inv.status !== 'void' && inv.kind !== 'refund' && !credit && !confirm
                 ? <Button variant="subtle" color="orange" onClick={openCredit}>{t('gap.creditNote')}</Button> : null}

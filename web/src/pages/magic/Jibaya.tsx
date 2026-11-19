@@ -270,7 +270,7 @@ function PayOne({ me, active, date, rates, rateTyped, methods, picked, setPicked
   ], [t, base, local, due]);
 
   const docCols: Col<DocRow>[] = useMemo(() => [
-    { key: 'kind', title: t('mx.d.kind'), get: (r) => (r.kind === 'invoice' ? (r.inv?.kind === 'refund' ? t('mx.d.refund') : t('mx.d.invoice')) : r.pay?.kind === 'credit_note' ? t('mx.d.creditNote') : t('mx.d.receipt')), width: 90 },
+    { key: 'kind', title: t('mx.d.kind'), get: (r) => (r.kind === 'invoice' ? (r.inv?.kind === 'refund' ? (r.inv?.cheque_id ? t('stmt.kinds.cheque_return') : t('mx.d.refund')) : t('mx.d.invoice')) : r.pay?.kind === 'credit_note' ? t('mx.d.creditNote') : t('mx.d.receipt')), width: 90 },
     { key: 'number', title: t('mx.d.number'), get: (r) => r.number, width: 80 },
     { key: 'date', title: t('mx.d.date'), get: (r) => r.date, render: (r) => formatDate(r.date), width: 100 },
     { key: 'period', title: t('mx.d.period'), get: (r) => r.period, width: 80 },

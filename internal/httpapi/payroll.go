@@ -144,7 +144,7 @@ func (s *Server) putBOSettings(w http.ResponseWriter, r *http.Request) {
 // ---------- employees ----------
 
 const employeeCols = `e.id, e.code, e.name, e.phone, e.position, e.hire_date, e.status, e.currency, e.salary::text AS salary,
-	e.transport::text AS transport, e.nssf_enrolled, e.method_id, m.name AS method_name, e.user_id, e.notes, e.created_at,
+	e.transport::text AS transport, e.nssf_enrolled, e.method_id, m.name AS method_name, e.user_id, e.notes, e.created_at, e.cost_center_id,
 	coalesce((SELECT sum(a.amount - a.recovered) FROM employee_advances a WHERE a.employee_id = e.id), 0)::text AS advances_open`
 
 const employeeFrom = ` FROM employees e LEFT JOIN payment_methods m ON m.id = e.method_id`
@@ -171,6 +171,7 @@ type employeeIn struct {
 	MethodID     *string `json:"method_id"`
 	UserID       *string `json:"user_id"`
 	Notes        *string `json:"notes"`
+	CostCenterID *string `json:"cost_center_id"`
 }
 
 func (in *employeeIn) valid(create bool) bool {
@@ -186,7 +187,7 @@ func (in *employeeIn) valid(create bool) bool {
 	}
 	return (in.Name == nil || strings.TrimSpace(*in.Name) != "") && (in.Currency == nil || currencyRe.MatchString(*in.Currency)) &&
 		(in.HireDate == nil || validDate(*in.HireDate)) && (in.Status == nil || *in.Status == "active" || *in.Status == "inactive") &&
-		okMoney(in.Salary) && okMoney(in.Transport) && optUUID(in.MethodID) && optUUID(in.UserID)
+		okMoney(in.Salary) && okMoney(in.Transport) && optUUID(in.MethodID) && optUUID(in.UserID) && optUUID(in.CostCenterID)
 }
 
 func (s *Server) saveEmployee(w http.ResponseWriter, r *http.Request) {
@@ -246,6 +247,12 @@ func (s *Server) saveEmployee(w http.ResponseWriter, r *http.Request) {
 			}
 			if tag.RowsAffected() == 0 {
 				return nil, notFound()
+			}
+		}
+		if in.CostCenterID != nil {
+			if _, err := tx.Exec(ctx, `UPDATE employees SET cost_center_id = nullif($3, '')::uuid WHERE id = $1 AND company_id = $2`,
+				id, cid, *in.CostCenterID); err != nil {
+				return nil, err
 			}
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+employeeCols+employeeFrom+` WHERE e.id = $1`, id)
@@ -644,16 +651,19 @@ func (s *Server) postPayrollRun(w http.ResponseWriter, r *http.Request) {
 		if date == "" {
 			date = periodEnd(period)
 		}
-		type tot struct{ cur, expense, er, nssf, recovery, net string }
-		rows, err := tx.Query(ctx, `SELECT currency::text, sum(base + transport + allowances - deductions)::text, sum(nssf_employer)::text,
-			sum(nssf_employee + nssf_employer)::text, sum(advance_recovery)::text, sum(net)::text
-			FROM payslips WHERE run_id = $1 GROUP BY currency ORDER BY currency`, id)
+		type tot struct{ cur, cc, expense, er, nssf, recovery, net string }
+		// one group per currency and cost center: salary costs carry the employee's cost center
+		rows, err := tx.Query(ctx, `SELECT p.currency::text, coalesce(e.cost_center_id::text, ''),
+			sum(p.base + p.transport + p.allowances - p.deductions)::text, sum(p.nssf_employer)::text,
+			sum(p.nssf_employee + p.nssf_employer)::text, sum(p.advance_recovery)::text, sum(p.net)::text
+			FROM payslips p JOIN employees e ON e.id = p.employee_id
+			WHERE p.run_id = $1 GROUP BY 1, 2 ORDER BY 1, 2`, id)
 		if err != nil {
 			return nil, err
 		}
 		tots, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (tot, error) {
 			var t tot
-			err := row.Scan(&t.cur, &t.expense, &t.er, &t.nssf, &t.recovery, &t.net)
+			err := row.Scan(&t.cur, &t.cc, &t.expense, &t.er, &t.nssf, &t.recovery, &t.net)
 			return t, err
 		})
 		if err != nil {
@@ -670,8 +680,8 @@ func (s *Server) postPayrollRun(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 			lines = append(lines,
-				jline{Account: *set.SalaryExp, Desc: "Salaries " + period, Currency: t.cur, Debit: d(t.expense), Rate: rate},
-				jline{Account: *set.NssfExp, Desc: "NSSF employer " + period, Currency: t.cur, Debit: d(t.er), Rate: rate},
+				jline{Account: *set.SalaryExp, Desc: "Salaries " + period, Currency: t.cur, Debit: d(t.expense), Rate: rate, CostCenter: t.cc},
+				jline{Account: *set.NssfExp, Desc: "NSSF employer " + period, Currency: t.cur, Debit: d(t.er), Rate: rate, CostCenter: t.cc},
 				jline{Account: *set.NssfPay, Desc: "NSSF " + period, Currency: t.cur, Credit: d(t.nssf), Rate: rate},
 				jline{Account: *set.Advances, Desc: "Advances recovered " + period, Currency: t.cur, Credit: d(t.recovery), Rate: rate},
 				jline{Account: *set.SalaryPay, Desc: "Net salaries " + period, Currency: t.cur, Credit: d(t.net), Rate: rate},

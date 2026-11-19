@@ -19,13 +19,15 @@ type currency struct {
 	Name     string `json:"name"`
 	Symbol   string `json:"symbol"`
 	Decimals int16  `json:"decimals"`
+	NameAr   string `json:"name_ar"`
+	NameFr   string `json:"name_fr"`
 }
 
 func (s *Server) listCurrencies(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var out []currency
 	err := db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT code::text, name, symbol, decimals FROM currencies ORDER BY code`)
+		rows, err := tx.Query(ctx, `SELECT code::text, name, symbol, decimals, name_ar, name_fr FROM currencies ORDER BY code`)
 		if err != nil {
 			return err
 		}
@@ -59,9 +61,10 @@ type rate struct {
 	Kind     string    `json:"kind"`
 	Rate     string    `json:"rate"`
 	Updated  time.Time `json:"updated_at"`
+	Source   string    `json:"source"` // manual | auto
 }
 
-const rateCols = `id::text, currency::text, rate_date::text, kind, trim_scale(rate)::text, updated_at`
+const rateCols = `id::text, currency::text, rate_date::text, kind, trim_scale(rate)::text, updated_at, source`
 
 func (s *Server) listRates(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -160,7 +163,7 @@ func (s *Server) upsertRate(w http.ResponseWriter, r *http.Request) {
 		rows, err := tx.Query(ctx, `
 			INSERT INTO exchange_rates (company_id, currency, rate_date, kind, rate)
 			VALUES ($1, $2, $3::date, $4, $5::numeric)
-			ON CONFLICT (tenant_id, company_id, currency, kind, rate_date) DO UPDATE SET rate = EXCLUDED.rate
+			ON CONFLICT (tenant_id, company_id, currency, kind, rate_date) DO UPDATE SET rate = EXCLUDED.rate, source = 'manual'
 			RETURNING `+rateCols, cid, in.Currency, in.Date, in.Kind, d.String())
 		if err != nil {
 			return err

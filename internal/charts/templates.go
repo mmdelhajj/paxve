@@ -14,6 +14,18 @@ type Template struct {
 	Names    map[string]string `json:"names"`
 	Accounts []Account         `json:"-"`
 	Count    int               `json:"count"`
+	// Country pack (localization): ISO country, default currency, fiscal year start (MM-DD), the label of the
+	// company tax number, the title printed on invoices, legal mentions, e-invoicing scheme, default taxes.
+	Country      string            `json:"country"`
+	Currency     string            `json:"currency"`
+	FiscalStart  string            `json:"fiscal_year_start"`
+	TaxIDLabel   map[string]string `json:"tax_id_label,omitempty"`
+	InvoiceTitle map[string]string `json:"invoice_title,omitempty"`
+	Mentions     map[string]string `json:"mentions,omitempty"`
+	EInvoice     string            `json:"einvoice,omitempty"`
+	Taxes        []Tax             `json:"taxes"`
+	// Roles: company setting (companies.<role>_account_id) → account code; keys starting with _ are internal.
+	Roles map[string]string `json:"-"`
 	// Billing defaults (account codes) set on the company when the template is loaded.
 	AR, FXGain, FXLoss, Revenue string   `json:"-"`
 	Methods                     []Method `json:"-"`
@@ -141,6 +153,8 @@ var generic = []Account{
 var All = []Template{
 	{
 		Key: "lebanon", Names: map[string]string{"en": "Lebanon (PCG)", "ar": "لبنان (الخطة المحاسبية العامة)", "fr": "Liban (PCG)"},
+		Country: "LB", Currency: "USD", FiscalStart: "01-01", TaxIDLabel: n3("VAT number", "الرقم الضريبي", "Numéro de TVA"),
+		Taxes:    []Tax{tax("11", "VAT 11%", "ضريبة القيمة المضافة 11%", "TVA 11%", "4427", "4426")},
 		Accounts: lebanon, AR: "411", FXGain: "766", FXLoss: "666", Revenue: "701",
 		AP: "401", Inventory: "31", COGS: "607", Fuel: "601", StockAdjust: "602", Expense: "602",
 		Methods: []Method{
@@ -152,6 +166,7 @@ var All = []Template{
 	},
 	{
 		Key: "generic", Names: map[string]string{"en": "International (simple)", "ar": "دولي (مبسط)", "fr": "International (simple)"},
+		Currency: "USD", FiscalStart: "01-01",
 		Accounts: generic, AR: "1300", FXGain: "4800", FXLoss: "6800", Revenue: "4200",
 		AP: "2100", Inventory: "1400", COGS: "5100", Fuel: "5100", StockAdjust: "6900", Expense: "6900",
 		Methods: []Method{
@@ -162,6 +177,7 @@ var All = []Template{
 }
 
 func init() {
+	All = append(All, countryPacks()...)
 	for i := range All {
 		All[i].Count = len(All[i].Accounts)
 	}

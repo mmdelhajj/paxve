@@ -317,8 +317,8 @@ func chequeDebit(ctx context.Context, tx pgx.Tx, cid string, set *billingSetting
 	}
 	var id string
 	if err := tx.QueryRow(ctx, `INSERT INTO invoices (company_id, number, customer_id, issue_date, due_date, currency, total, journal_entry_id,
-		notes, kind) VALUES ($1, $2, $3, $4::date, $4::date, $5, $6::numeric, $7, $8, 'refund') RETURNING id::text`,
-		cid, number, *c.CustomerID, date, c.Currency, c.Remaining.String(), je, desc).Scan(&id); err != nil {
+		notes, kind, cheque_id) VALUES ($1, $2, $3, $4::date, $4::date, $5, $6::numeric, $7, $8, 'refund', $9) RETURNING id::text`,
+		cid, number, *c.CustomerID, date, c.Currency, c.Remaining.String(), je, desc, c.ID).Scan(&id); err != nil {
 		return "", err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO invoice_lines (invoice_id, line_no, kind, description, quantity, unit_price, amount)

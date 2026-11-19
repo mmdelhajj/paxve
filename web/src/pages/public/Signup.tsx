@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import {
-  Alert, Anchor, Box, Button, Center, Group, Paper, PasswordInput, SegmentedControl, Select, SimpleGrid, Stack, Text, TextInput, Title,
+  Alert, Anchor, Box, Button, Center, Group, Paper, PasswordInput, Select, SimpleGrid, Stack, Text, TextInput, Title,
 } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import { api, type Me } from '../../api';
 import { errorText } from '../../util';
 import LangSwitch from '../../components/LangSwitch';
 import Logo from '../../components/Logo';
+import { PACKS, packName } from '../../l10n';
 
-const currencies = ['USD', 'LBP', 'EUR', 'GBP', 'SAR', 'AED', 'QAR', 'KWD', 'JOD', 'IQD', 'SYP', 'EGP', 'TRY', 'MAD', 'DZD', 'TND', 'CAD', 'AUD', 'CHF'];
+const currencies = ['USD', 'LBP', 'EUR', 'GBP', 'SAR', 'AED', 'QAR', 'KWD', 'BHD', 'OMR', 'JOD', 'IQD', 'SYP', 'EGP', 'TRY', 'MAD', 'DZD', 'TND', 'CAD', 'AUD', 'CHF'];
 
 export default function Signup({ onSignedUp }: { onSignedUp: (m: Me) => void }) {
   const { t, i18n } = useTranslation();
@@ -54,10 +55,13 @@ export default function Signup({ onSignedUp }: { onSignedUp: (m: Me) => void }) 
                   placeholder={f.organisation} onChange={(e) => set('company_name')(e.currentTarget.value)} />
                 <div>
                   <Text size="sm" fw={500} mb={4}>{t('signup.country')}</Text>
-                  <SegmentedControl fullWidth value={f.template} onChange={(v) => {
-                    set('template')(v);
-                    if (v === 'lebanon') setF((x) => ({ ...x, template: v, base_currency: 'USD', local_currency: 'LBP' }));
-                  }} data={[{ value: 'lebanon', label: t('signup.lebanon') }, { value: 'generic', label: t('signup.other') }]} />
+                  <Select searchable allowDeselect={false} value={f.template} aria-label={t('signup.country')}
+                    data={PACKS.map((p) => ({ value: p.key, label: packName(p, i18n.language, t('signup.other')) }))}
+                    onChange={(v) => {
+                      const p = PACKS.find((x) => x.key === v);
+                      if (p) setF((x) => ({ ...x, template: p.key, base_currency: p.base, local_currency: p.local }));
+                    }} />
+                  <Text size="xs" c="dimmed" mt={4}>{t('t2.packHint')}</Text>
                 </div>
                 <SimpleGrid cols={2}>
                   <Select label={t('companies.base')} searchable data={currencies} value={f.base_currency} allowDeselect={false}

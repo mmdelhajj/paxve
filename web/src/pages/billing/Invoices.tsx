@@ -88,7 +88,7 @@ export default function Invoices({ me }: { me: Me }) {
               <Table.Tbody>
                 {data.rows.map((iv) => (
                   <Table.Tr key={iv.id} style={{ cursor: 'pointer' }} onClick={() => setView(iv.id)}>
-                    <Table.Td ff="monospace">{iv.number}{iv.kind === 'refund' && <Badge ml={6} size="xs" color="orange" variant="light">{t('gap.refund')}</Badge>}</Table.Td>
+                    <Table.Td ff="monospace">{iv.number}{iv.kind === 'refund' && <Badge ml={6} size="xs" color="orange" variant="light">{iv.cheque_id ? t('stmt.kinds.cheque_return') : t('gap.refund')}</Badge>}</Table.Td>
                     <Table.Td><Text size="sm" fw={500}>{iv.customer_name}</Text><Text size="xs" c="dimmed">#{iv.customer_code}{iv.period ? ` · ${iv.period}` : ''}</Text></Table.Td>
                     <Table.Td>{formatDate(iv.issue_date)}</Table.Td>
                     <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(iv.total, decimalsOf(iv.currency))} {iv.currency}</Table.Td>

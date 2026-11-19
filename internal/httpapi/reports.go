@@ -55,6 +55,7 @@ func (s *Server) trialBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var base, totalDr, totalCr string
+	var pres *presentation
 	out := []tbRow{}
 	err := db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
 		var err error
@@ -81,16 +82,22 @@ func (s *Server) trialBalance(w http.ResponseWriter, r *http.Request) {
 			dr, cr = dr.Add(d), cr.Add(c)
 		}
 		totalDr, totalCr = dr.StringFixed(4), cr.StringFixed(4)
-		return nil
+		pres, err = presentationFor(ctx, tx, r, cid, base, to)
+		return err
 	})
 	if err != nil {
 		fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	res, err := pres.apply(map[string]any{
 		"base_currency": base, "from": from, "to": to, "rows": out,
 		"total_debit": totalDr, "total_credit": totalCr,
 	})
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
 }
 
 type ledgerRow struct {

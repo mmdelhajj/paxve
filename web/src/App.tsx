@@ -3,7 +3,7 @@ import { Center, DirectionProvider, Loader, MantineProvider, createTheme, useDir
 import { Notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
 import { api, UNAUTHORIZED_EVENT, type Me } from './api';
-import { applyLang, langInfo } from './i18n';
+import { applyLang, langInfo, setSignedIn } from './i18n';
 import { CompanyProvider } from './company';
 import Login from './pages/Login';
 import AppUpdate from './components/AppUpdate';
@@ -58,11 +58,12 @@ function Root() {
   useEffect(() => {
     api<Me>('/me')
       .then((m) => {
+        setSignedIn(true);
         applyLang(m.locale);
         setMe(m);
       })
       .catch(() => setMe(null));
-    const onUnauthorized = () => setMe(null);
+    const onUnauthorized = () => { setSignedIn(false); setMe(null); };
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, []);
@@ -73,6 +74,7 @@ function Root() {
   if (me === undefined) return fullPageLoader;
   if (me === null) {
     const signedIn = (m: Me) => {
+      setSignedIn(true, true);
       applyLang(m.locale);
       window.location.hash = '#/dashboard';
       setMe(m);

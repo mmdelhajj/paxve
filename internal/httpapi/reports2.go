@@ -45,8 +45,12 @@ func (s *Server) profitLoss(w http.ResponseWriter, r *http.Request) {
 		}
 		inc, _ := decimal.NewFromString(income)
 		exp, _ := decimal.NewFromString(expense)
-		return map[string]any{"base_currency": base, "from": from, "to": to, "rows": rows,
-			"total_income": income, "total_expense": expense, "net": inc.Sub(exp).StringFixed(4)}, nil
+		p, err := presentationFor(ctx, tx, r, cid, base, to)
+		if err != nil {
+			return nil, err
+		}
+		return p.apply(map[string]any{"base_currency": base, "from": from, "to": to, "rows": rows,
+			"total_income": income, "total_expense": expense, "net": inc.Sub(exp).StringFixed(4)})
 	})
 }
 
@@ -87,9 +91,13 @@ func (s *Server) balanceSheet(w http.ResponseWriter, r *http.Request) {
 		l, _ := decimal.NewFromString(liab)
 		eq, _ := decimal.NewFromString(equity)
 		res, _ := decimal.NewFromString(result)
-		return map[string]any{"base_currency": base, "to": to, "rows": rows, "total_assets": assets,
+		p, err := presentationFor(ctx, tx, r, cid, base, to)
+		if err != nil {
+			return nil, err
+		}
+		return p.apply(map[string]any{"base_currency": base, "to": to, "rows": rows, "total_assets": assets,
 			"total_liabilities": liab, "total_equity": equity, "current_result": result,
-			"total_liabilities_equity": l.Add(eq).Add(res).StringFixed(4)}, nil
+			"total_liabilities_equity": l.Add(eq).Add(res).StringFixed(4)})
 	})
 }
 

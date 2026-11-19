@@ -13,14 +13,15 @@ export function Help({ topic }: { topic: string }) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const rtl = i18n.dir() === 'rtl';
-  const body = String(t(`ax.help.${topic}.body`));
+  const base = topic.includes('.') ? topic : `ax.help.${topic}`; // "t2.help.x" or a topic of ax.help
+  const body = String(t(`${base}.body`));
   return (
     <>
       <button type="button" className="mx-help no-print" aria-label={t('ax.helpButton')} title={t('ax.helpButton')} onClick={() => setOpen(true)}>
         {rtl ? '؟' : '?'}
       </button>
       <Drawer opened={open} onClose={() => setOpen(false)} position={rtl ? 'left' : 'right'} size="md"
-        title={<b>{t(`ax.help.${topic}.title`)}</b>}>
+        title={<b>{t(`${base}.title`)}</b>}>
         {body.split('\n\n').map((p, i) => <Text key={i} size="sm" mb="sm" style={{ lineHeight: 1.75 }}>{p}</Text>)}
       </Drawer>
     </>

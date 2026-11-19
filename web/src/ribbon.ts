@@ -6,7 +6,7 @@ import {
   IconMessage, IconMoneybag, IconPackage, IconPackages, IconPrinter, IconReceipt, IconReceipt2, IconReceiptTax, IconRepeat,
   IconReportMoney, IconRouter, IconScale, IconShieldLock, IconShoppingCart, IconTargetArrow, IconTopologyStar3, IconTruck,
   IconUserCircle, IconUserDollar, IconUsers, IconUsersGroup, IconWorld, IconBarcode, IconWallet, IconCalendarStats,
-  IconFileDollar, IconCurrencyDollar, IconSitemap, IconCalendarCheck, IconDoorEnter, IconTimeline, IconArrowsLeftRight,
+  IconFileDollar, IconCurrencyDollar, IconSitemap, IconCalendarCheck, IconDoorEnter, IconTimeline, IconArrowsLeftRight, IconLanguage,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
@@ -155,6 +155,8 @@ export const RIBBON: RibbonTab[] = [
   {
     id: 'set', label: 'mx.rib.set', color: '#57606f', tiles: [
       { page: 'apps', label: 'mx.t.apps', icon: IconLayoutGrid, perm: 'settings.view' },
+      { page: 'localization', label: 't2.t.localization', icon: IconWorld, perm: 'settings.view' },
+      { page: 'translations', label: 't2.t.translations', icon: IconLanguage, perm: 'settings.view' },
       { page: 'companies', label: 'mx.t.companies', icon: IconBuilding, perm: 'settings.view' },
       { page: 'users', label: 'mx.t.users', icon: IconUsers, perm: 'users.view' },
       { page: 'approvals', label: 'mx.t.approvals', icon: IconChecklist, any: true },

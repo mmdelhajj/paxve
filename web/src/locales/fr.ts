@@ -443,7 +443,7 @@ const fr: Messages = {
   stmt: {
     title: 'Relevé de compte', nothing: 'Aucun mouvement.', document: 'Document', debit: 'Débit', credit: 'Crédit', balance: 'Solde',
     opening: 'Solde d’ouverture', totals: 'Totaux', closing: 'Solde dû', closingCredit: 'Solde (créditeur)',
-    kinds: { invoice: 'Facture', refund: 'Remboursement', payment: 'Paiement', credit_note: 'Avoir', opening_credit: "Avoir d'ouverture" },
+    kinds: { invoice: 'Facture', refund: 'Remboursement', cheque_return: 'Chèque impayé', payment: 'Paiement', credit_note: 'Avoir', opening_credit: "Avoir d'ouverture" },
     bulk: 'Relevés clients', printAll: 'Imprimer {{n}}', onlyBalance: 'Seulement les clients débiteurs', sendAll: 'Envoyer {{n}} relevés',
   },
   crm: {
@@ -655,6 +655,7 @@ const fr: Messages = {
     credit_exceeds_invoice: 'Le montant dépasse ce qui peut encore être crédité ({{detail}})',
     refund_exceeds_credit: 'Le remboursement dépasse le crédit du client ({{detail}})',
     refund_uses_credit: 'Ce crédit a été remboursé. Annulez d\'abord le remboursement.',
+    cheque_debit: 'Ce montant vient d\'un chèque impayé. Traitez-le depuis l\'écran Chèques.',
     billing_running: 'Une facturation pour ce mois est déjà en cours',
     export_failed: 'L\'export n\'a pas pu être créé',
     no_router: 'Liez d’abord cet abonnement à un routeur et un utilisateur',
@@ -993,6 +994,31 @@ const fr: Messages = {
       printBills: { title: 'Imprimer les factures', body: 'Choisissez le mois, la zone et l\'ordre (la tournée de l\'encaisseur : zone puis boîtier), décochez les factures inutiles, puis imprimez — trois par page A4, ou une par rouleau 80 mm pour imprimante thermique.\n\nChaque facture porte un QR code qui ouvre la page du client.' },
     },
   },
-};
+  t2: {
+    showIn: 'Afficher en', saved: 'Enregistré', custLang: 'Langue des messages et du portail', companyDefault: 'Langue par défaut de la société',
+    packHint: 'Installe le plan comptable, les taxes, les règles de facturation et la devise de ce pays. Tout reste modifiable.',
+    t: { localization: 'Pays et langue', translations: 'Traductions' },
+    rates: {
+      title: 'Cours quotidiens automatiques', on: 'Chaque jour', off: 'Désactivé', auto: 'auto',
+      explain: 'Une fois par jour, les cours publiés ({{source}}) sont enregistrés comme cours officiel des devises utilisées. Un cours saisi à la main n\'est jamais remplacé.',
+      manual: 'Toujours saisies à la main (ex. LBP)', fetchNow: 'Récupérer maintenant', last: 'Dernière récupération', nothing: 'Aucune devise mise à jour (saisie à la main ou non publiée).',
+    },
+    tr: {
+      title: 'Textes de l\'interface', key: 'Clé', shipped: 'Texte fourni', own: 'Votre formulation', saved: 'Enregistré — toute votre organisation le voit',
+      hint: 'Choisissez une ligne puis écrivez votre formulation', pick: 'Choisissez un texte', reset: 'Revenir au texte fourni', onlyOwn: 'Mes modifications seulement',
+      machine: 'Traduction automatique — à relire',
+    },
+    loc: {
+      title: 'Pays et langue', pack: 'Pack pays', country: 'Pays', currency: 'Devise', fiscal: 'Début de l\'exercice (MM-JJ)',
+      einvoice: 'Facturation électronique', zatca: 'QR code ZATCA (Arabie saoudite)', eta: 'Facture électronique égyptienne (ETA) — pas encore connectée', none: 'Aucune',
+      packHint: 'Le pack a été choisi à la création de la société. Une nouvelle société peut utiliser un autre pays.',
+      docs: 'Documents et messages', defaultLang: 'Langue par défaut des clients', taxLabel: 'Libellé de votre numéro fiscal',
+      invoiceTitle: 'Titre des factures', mentions: 'Mentions légales imprimées sur les factures',
+    },
+    help: {
+      translations: { title: 'Traductions', body: 'Chaque texte de l\'interface peut être reformulé pour votre organisation, dans toutes les langues.\n\nChoisissez la langue, trouvez le texte (tapez dans la ligne jaune), cliquez et écrivez votre formulation. Vos utilisateurs la voient au prochain chargement. Videz le texte pour revenir au texte fourni.\n\nLe turc, l\'espagnol, l\'allemand, le portugais, le russe, le persan, l\'ourdou et le kurde sont des traductions automatiques : corrigez ce qui sonne mal.' },
+      localization: { title: 'Pays et langue', body: 'Le pack pays fixe le plan comptable, les taxes par défaut, l\'exercice et ce que les factures doivent indiquer dans ce pays.\n\nLa langue par défaut sert aux messages WhatsApp / SMS et au portail client quand un client n\'a pas sa propre langue (à régler sur sa fiche).\n\nEn Arabie saoudite, les factures imprimées portent le QR code ZATCA (vendeur, numéro de TVA, heure, total, TVA) : saisissez votre numéro de TVA dans les réglages des documents.' },
+    },
+  },};
 
 export default fr;

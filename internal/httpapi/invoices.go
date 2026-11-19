@@ -14,7 +14,7 @@ import (
 
 const invoiceCols = `i.id, i.number, i.customer_id, c.code AS customer_code, c.name AS customer_name, i.subscription_id,
 	i.period, i.issue_date, i.due_date, i.currency, i.total::text AS total, i.paid::text AS paid,
-	(i.total - i.paid)::text AS balance, i.status, i.kind, i.journal_entry_id, i.void_entry_id, i.notes, i.created_at`
+	(i.total - i.paid)::text AS balance, i.status, i.kind, i.journal_entry_id, i.void_entry_id, i.notes, i.created_at, i.cheque_id`
 
 type invLine struct {
 	Kind        string
@@ -296,6 +296,9 @@ func loadInvoice(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 	inv, err := queryJSONOne(ctx, tx, `SELECT `+invoiceCols+`, c.phone AS customer_phone, c.address AS customer_address, c.email AS customer_email,
 		ar.name AS area_name, s.meter_no, co.name_en AS company_name, co.name_ar AS company_name_ar,
 		co.logo AS company_logo, co.doc_header AS company_header, co.doc_footer AS company_footer, co.tax_id AS company_tax_id,
+		co.tax_id_label AS company_tax_label, co.invoice_title AS company_invoice_title, co.legal_mentions AS company_mentions,
+		co.einvoice AS company_einvoice,
+		coalesce((SELECT sum(l.tax_amount) FROM invoice_lines l WHERE l.invoice_id = i.id), 0)::text AS tax_total,
 		i.sales_order_id, (SELECT so.order_number FROM sales_orders so WHERE so.id = i.sales_order_id) AS order_number,
 		i.local_currency, trim_scale(i.local_rate)::text AS local_rate, i.local_currency_total::text AS local_currency_total,
 		bx.code AS box_code
@@ -345,9 +348,10 @@ func (s *Server) voidInvoice(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		var number int64
 		var status, paid, kind, customer, currency string
-		var je *string
-		err := tx.QueryRow(ctx, `SELECT number, status, paid::text, journal_entry_id::text, kind, customer_id::text, currency::text FROM invoices
-			WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).Scan(&number, &status, &paid, &je, &kind, &customer, &currency)
+		var je, cheque *string
+		err := tx.QueryRow(ctx, `SELECT number, status, paid::text, journal_entry_id::text, kind, customer_id::text, currency::text,
+			cheque_id::text FROM invoices WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).
+			Scan(&number, &status, &paid, &je, &kind, &customer, &currency, &cheque)
 		if err == pgx.ErrNoRows {
 			return nil, notFound()
 		}
@@ -356,6 +360,10 @@ func (s *Server) voidInvoice(w http.ResponseWriter, r *http.Request) {
 		}
 		if status == "void" {
 			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+		}
+		if cheque != nil {
+			// a bounced / returned cheque debit belongs to the cheque's life: it is handled on the cheques screen
+			return nil, &apiError{status: http.StatusConflict, code: "cheque_debit"}
 		}
 		if kind == "refund" {
 			set, err := loadBillingSettings(ctx, tx, cid)

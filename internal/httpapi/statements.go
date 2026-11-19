@@ -19,7 +19,7 @@ import (
 
 type stmtLine struct {
 	Date    string `json:"date"`
-	Kind    string `json:"kind"` // invoice | refund | payment | credit_note
+	Kind    string `json:"kind"` // invoice | refund | cheque_return | payment | credit_note
 	Number  int64  `json:"number"`
 	Ref     string `json:"ref"`
 	Debit   string `json:"debit"`
@@ -42,7 +42,7 @@ type stmtCurrency struct {
 func customerStatement(ctx context.Context, tx pgx.Tx, customer, from, to, onlyCurrency string) ([]stmtCurrency, error) {
 	rows, err := tx.Query(ctx, `
 		WITH docs AS (
-		  SELECT i.issue_date AS d, i.kind, i.number, coalesce(i.period, '') AS ref, i.currency::text AS cur, i.total AS debit, 0::numeric AS credit,
+		  SELECT i.issue_date AS d, CASE WHEN i.cheque_id IS NOT NULL THEN 'cheque_return' ELSE i.kind END, i.number, coalesce(i.period, '') AS ref, i.currency::text AS cur, i.total AS debit, 0::numeric AS credit,
 		         i.id::text AS id, i.created_at AS ts
 		  FROM invoices i WHERE i.customer_id = $1 AND i.status <> 'void'
 		  UNION ALL

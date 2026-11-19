@@ -12,6 +12,7 @@ import PageHeader, { Confirm } from '../../components/PageHeader';
 import ExportMenu from '../../components/ExportMenu';
 import { currentPeriod } from '../../billing';
 import { useMethods } from '../hr/Employees';
+import { ccLabel, useCostCenters } from '../acc/common';
 
 interface Asset {
   id: string; code: string; name: string; category: string; purchase_date: string; currency: string; cost: string; cost_base: string;
@@ -119,13 +120,14 @@ export default function Assets({ me }: { me: Me }) {
 }
 
 function NewAsset({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const centers = useCostCenters().filter((x) => x.is_active);
   const { company, currencies } = useCompany();
   const accounts = useAccounts();
   const methods = useMethods();
   const [f, setF] = useState({
     name: '', category: '', purchase_date: today(), currency: company?.base_currency ?? 'USD', cost: '', salvage: '',
-    useful_life_months: 60 as number | string, asset_account_id: '', paid_from_method_id: '',
+    useful_life_months: 60 as number | string, asset_account_id: '', paid_from_method_id: '', cost_center_id: '',
   });
   const [busy, setBusy] = useState(false);
   const assetAccounts = accounts.filter((a) => a.type === 'asset');
@@ -167,6 +169,8 @@ function NewAsset({ onClose, onDone }: { onClose: () => void; onDone: () => void
           <Select label={t('fa.paidFrom')} clearable placeholder={t('fa.notPaid')} value={f.paid_from_method_id || null}
             data={methods.filter((m) => m.currency === f.currency).map((m) => ({ value: m.id, label: m.name }))}
             onChange={(v) => setF({ ...f, paid_from_method_id: v ?? '' })} />
+          {centers.length > 0 && <Select label={t('ax.cc.center')} clearable placeholder={t('ax.cc.none')} value={f.cost_center_id || null}
+            data={centers.map((x) => ({ value: x.id, label: ccLabel(x, i18n.language) }))} onChange={(v) => setF({ ...f, cost_center_id: v ?? '' })} />}
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
             <Button type="submit" loading={busy} disabled={!f.name || !Number(f.cost) || !f.asset_account_id}>{t('common.save')}</Button>

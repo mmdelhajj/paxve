@@ -9,6 +9,7 @@ import { accountLabel, errorText, formatAmount, formatDate, today } from '../../
 import { printPage } from '../../native';
 import { amountInWords } from '../../tafqit';
 import { pickBox } from './Jibaya';
+import { ccLabel, useCostCenters } from '../acc/common';
 
 type Kind = 'receipt' | 'expense' | 'payment';
 interface Party { id: string; name: string; code?: string }
@@ -17,7 +18,7 @@ interface Done { number: string; party: string; amount: string; currency: string
 /** إيصال قبض / مصاريف / دفع نقدي: Magic's paper-style cash voucher. Reads like the printed receipt:
  *  "وصلنا من السيد … مبلغ … (بالحروف) … وذلك عن …", then حفظ / طباعة. */
 export default function Voucher({ me, kind: kindParam }: { me: Me; kind: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { company, decimalsOf } = useCompany();
   const kind: Kind = kindParam === 'expense' || kindParam === 'payment' ? kindParam : 'receipt';
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
@@ -32,6 +33,8 @@ export default function Voucher({ me, kind: kindParam }: { me: Me; kind: string 
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [done, setDone] = useState<Done | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [cc, setCc] = useState<string | null>(null);
+  const centers = useCostCenters().filter((x) => x.is_active);
   const cid = company?.id;
 
   useEffect(() => {
@@ -84,7 +87,7 @@ export default function Voucher({ me, kind: kindParam }: { me: Me; kind: string 
         window.dispatchEvent(new Event('paxve:paid'));
       } else if (kind === 'expense') {
         const r = await api<Record<string, unknown>>(`/companies/${cid}/expenses`, {
-          method: 'POST', body: { date, account_id: party, method_id: box.id, amount, description: about || partyName },
+          method: 'POST', body: { date, account_id: party, method_id: box.id, amount, description: about || partyName, cost_center_id: cc ?? '' },
         });
         number = String((r as { number?: number }).number ?? (r as { expense?: { number?: number } }).expense?.number ?? '');
       } else {
@@ -135,6 +138,15 @@ export default function Voucher({ me, kind: kindParam }: { me: Me; kind: string 
           {methods.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.currency})</option>)}
         </select>
       </div>
+      {kind === 'expense' && centers.length > 0 && (
+        <div className="mx-line">
+          <span>{t('ax.cc.center')}</span>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <Select clearable data={centers.map((x) => ({ value: x.id, label: ccLabel(x, i18n.language) }))} value={cc} onChange={setCc}
+              placeholder={t('ax.cc.none')} aria-label={t('ax.cc.center')} />
+          </div>
+        </div>
+      )}
       <div className="mx-line"><span>{t('mx.v.words')}</span><span className="mx-words">{words}</span></div>
       <div className="mx-line">
         <span>{t('mx.v.about')}</span>

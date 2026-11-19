@@ -22,10 +22,19 @@ type company struct {
 	LockDate      *string   `json:"lock_date"`     // books locked up to this date (inclusive)
 	Apps          []string  `json:"apps"`          // enabled apps (Odoo-style modules), see apps.go
 	BusinessType  string    `json:"business_type"` // generator | internet | satellite (tints the UI)
+	// localization (country pack, see internal/charts/countries.go)
+	Country       string `json:"country"`
+	L10n          string `json:"l10n"`
+	EInvoice      string `json:"einvoice"` // "" | zatca | eta
+	DefaultLocale string `json:"default_locale"`
+	FiscalStart   string `json:"fiscal_year_start"`
+	TaxIDLabel    string `json:"tax_id_label"`
+	InvoiceTitle  string `json:"invoice_title"`
+	LegalMentions string `json:"legal_mentions"`
 }
 
 const companyCols = `id::text, name_en, name_ar, base_currency::text, local_currency::text, is_active, created_at, lock_date::text,
-	apps, business_type`
+	apps, business_type, country, l10n, einvoice, default_locale, fiscal_year_start, tax_id_label, invoice_title, legal_mentions`
 
 func (s *Server) listCompanies(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -106,9 +115,15 @@ func (s *Server) updateCompany(w http.ResponseWriter, r *http.Request) {
 		NameAr   *string `json:"name_ar"`
 		IsActive *bool   `json:"is_active"`
 		LockDate *string `json:"lock_date"` // "" removes the lock
+		// localization
+		DefaultLocale *string `json:"default_locale"`
+		TaxIDLabel    *string `json:"tax_id_label"`
+		InvoiceTitle  *string `json:"invoice_title"`
+		LegalMentions *string `json:"legal_mentions"`
 	}
 	if err := decode(w, r, &in); err != nil || (in.NameEn != nil && strings.TrimSpace(*in.NameEn) == "") ||
-		(in.LockDate != nil && *in.LockDate != "" && !validDate(*in.LockDate)) {
+		(in.LockDate != nil && *in.LockDate != "" && !validDate(*in.LockDate)) ||
+		(in.DefaultLocale != nil && !supportedLocales[*in.DefaultLocale]) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -119,9 +134,14 @@ func (s *Server) updateCompany(w http.ResponseWriter, r *http.Request) {
 			SET name_en = coalesce(trim($2), name_en),
 			    name_ar = coalesce(trim($3), name_ar),
 			    is_active = coalesce($4, is_active),
-			    lock_date = CASE WHEN $5::text IS NULL THEN lock_date ELSE nullif($5, '')::date END
+			    lock_date = CASE WHEN $5::text IS NULL THEN lock_date ELSE nullif($5, '')::date END,
+			    default_locale = coalesce($6, default_locale),
+			    tax_id_label = coalesce(trim($7), tax_id_label),
+			    invoice_title = coalesce(trim($8), invoice_title),
+			    legal_mentions = coalesce(trim($9), legal_mentions)
 			WHERE id = $1
-			RETURNING `+companyCols, id, in.NameEn, in.NameAr, in.IsActive, in.LockDate)
+			RETURNING `+companyCols, id, in.NameEn, in.NameAr, in.IsActive, in.LockDate,
+			in.DefaultLocale, in.TaxIDLabel, in.InvoiceTitle, in.LegalMentions)
 		if err != nil {
 			return err
 		}

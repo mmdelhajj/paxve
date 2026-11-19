@@ -143,12 +143,14 @@ const v1 = "/api/v1"
 // routePerms maps every protected route pattern (as registered on the mux) to its permission.
 var routePerms = map[string]string{
 	// profile, reference data, platform console (platformOnly checks the owner list itself)
-	"POST /auth/logout":                 permAny,
-	"GET /me":                           permAny,
-	"PATCH /me":                         permAny,
-	"GET /currencies":                   permAny,
-	"GET /companies":                    permAny,
-	"GET /companies/{cid}/rates/latest": permAny,
+	"POST /auth/logout":                            permAny,
+	"GET /me":                                      permAny,
+	"PATCH /me":                                    permAny,
+	"GET /currencies":                              permAny,
+	"GET /translations":                            permAny,
+	"PUT /translations":                            "settings.manage",
+	"GET /companies":                               permAny,
+	"GET /companies/{cid}/rates/latest":            permAny,
 	"GET /companies/{cid}/documents/settings":      permAny,
 	"GET /platform/tenants":                        permAny,
 	"PATCH /platform/tenants/{id}":                 permAny,
@@ -207,6 +209,9 @@ var routePerms = map[string]string{
 	// accounting
 	"GET /companies/{cid}/rates":                   "accounting.view",
 	"POST /companies/{cid}/rates":                  "accounting.manage",
+	"GET /companies/{cid}/rates/settings":          "accounting.view",
+	"PUT /companies/{cid}/rates/settings":          "accounting.manage",
+	"POST /companies/{cid}/rates/fetch":            "accounting.manage",
 	"GET /companies/{cid}/accounts":                "accounting.view",
 	"POST /companies/{cid}/accounts":               "accounting.manage",
 	"PATCH /companies/{cid}/accounts/{id}":         "accounting.manage",

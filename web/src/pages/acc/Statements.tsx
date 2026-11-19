@@ -17,6 +17,20 @@ function Strip({ children, topic }: { children: React.ReactNode; topic: string }
   return <div className="mx-strip">{children}<span className="mx-sp" /><Help topic={topic} /></div>;
 }
 
+/** presentation currency: statements are kept in the base currency and can be shown in any other one */
+function PresentIn({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation();
+  const { company, currencies } = useCompany();
+  if (!company) return null;
+  return (
+    <label>{t('t2.showIn')} <select value={value || company.base_currency} onChange={(e) => onChange(e.currentTarget.value === company.base_currency ? '' : e.currentTarget.value)}>
+      {currencies.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
+    </select></label>
+  );
+}
+
+const inCur = (pc: string) => (pc ? `&currency=${pc}` : '');
+
 function Summary({ items }: { items: { label: string; value: string; cls?: string }[] }) {
   return (
     <div className="mx-sum">
@@ -34,11 +48,12 @@ export function TrialBalanceGrid() {
   const { company, decimalsOf } = useCompany();
   const [from, setFrom] = useState(yearStart());
   const [to, setTo] = useState(today());
+  const [pc, setPc] = useState('');
   const cid = company?.id;
   const [data, , loading] = useLoad<{ rows: TBRow[]; total_debit: string; total_credit: string; base_currency: string }>(
-    cid ? `/companies/${cid}/reports/trial-balance?from=${from}&to=${to}` : null);
+    cid ? `/companies/${cid}/reports/trial-balance?from=${from}&to=${to}${inCur(pc)}` : null);
   if (!company) return null;
-  const dec = decimalsOf(company.base_currency);
+  const dec = decimalsOf(pc || company.base_currency);
   const cols: Col<TBRow>[] = [
     { key: 'code', title: t('accounts.code'), get: (r) => r.code, width: 90 },
     { key: 'name', title: t('accounts.name'), get: (r) => r.name, width: 300 },
@@ -54,7 +69,7 @@ export function TrialBalanceGrid() {
       <Strip topic="tb">
         <label>{t('reports.from')} <input type="date" value={from} onChange={(e) => setFrom(e.currentTarget.value)} /></label>
         <label>{t('reports.to')} <input type="date" value={to} onChange={(e) => setTo(e.currentTarget.value)} /></label>
-        <span>{t('reports.amountsIn', { cur: company.base_currency })}</span>
+        <PresentIn value={pc} onChange={setPc} />
         {data && <span className={`mx-pill ${balanced ? 'on' : 'off'}`}>{balanced ? t('ax.balanced') : t('ax.notBalanced')}</span>}
       </Strip>
       <div className="mx-body" style={{ gridTemplateColumns: '1fr' }}>
@@ -78,11 +93,13 @@ export function ProfitLossGrid() {
   const [from, setFrom] = useState(yearStart());
   const [to, setTo] = useState(today());
   const cid = company?.id;
+  const [pc, setPc] = useState('');
   const [data, , loading] = useLoad<{ rows: PLRow[]; total_income: string; total_expense: string; net: string }>(
-    cid ? `/companies/${cid}/reports/profit-loss?from=${from}&to=${to}` : null);
+    cid ? `/companies/${cid}/reports/profit-loss?from=${from}&to=${to}${inCur(pc)}` : null);
   const rows = useMemo(() => [...(data?.rows ?? [])].sort((a, b) => (a.type === b.type ? a.code.localeCompare(b.code) : a.type === 'income' ? -1 : 1)), [data]);
   if (!company) return null;
-  const dec = decimalsOf(company.base_currency);
+  const cur = pc || company.base_currency;
+  const dec = decimalsOf(cur);
   const nm = (r: PLRow) => r.name_i18n?.[i18n.language] || r.name;
   const cols: Col<PLRow>[] = [
     { key: 'type', title: t('accounts.type'), get: (r) => t(`accounts.types.${r.type}`), width: 110 },
@@ -97,12 +114,13 @@ export function ProfitLossGrid() {
       <Strip topic="pl">
         <label>{t('reports.from')} <input type="date" value={from} onChange={(e) => setFrom(e.currentTarget.value)} /></label>
         <label>{t('reports.to')} <input type="date" value={to} onChange={(e) => setTo(e.currentTarget.value)} /></label>
+        <PresentIn value={pc} onChange={setPc} />
         <button className="mx-btn sm" onClick={() => openScreen('compare', 'pl')}>{t('ax.compareBtn')}</button>
       </Strip>
       {data && <Summary items={[
         { label: t('ax.income'), value: formatAmount(data.total_income, dec) },
         { label: t('ax.expenses'), value: formatAmount(data.total_expense, dec) },
-        { label: net >= 0 ? t('ax.profit') : t('ax.loss'), value: `${formatAmount(Math.abs(net), dec)} ${company.base_currency}`, cls: net >= 0 ? 'ok' : 'red' },
+        { label: net >= 0 ? t('ax.profit') : t('ax.loss'), value: `${formatAmount(Math.abs(net), dec)} ${cur}`, cls: net >= 0 ? 'ok' : 'red' },
       ]} />}
       <div className="mx-body" style={{ gridTemplateColumns: '1fr' }}>
         <section className="mx-box">
@@ -121,15 +139,16 @@ export function BalanceSheetGrid() {
   const { t, i18n } = useTranslation();
   const { company, decimalsOf } = useCompany();
   const [to, setTo] = useState(today());
+  const [pc, setPc] = useState('');
   const cid = company?.id;
   const [data, , loading] = useLoad<{ rows: PLRow[]; total_assets: string; total_liabilities: string; total_equity: string;
-    current_result: string; total_liabilities_equity: string }>(cid ? `/companies/${cid}/reports/balance-sheet?to=${to}` : null);
+    current_result: string; total_liabilities_equity: string }>(cid ? `/companies/${cid}/reports/balance-sheet?to=${to}${inCur(pc)}` : null);
   const order: Record<string, number> = { asset: 0, liability: 1, equity: 2 };
   const rows = useMemo(() => [...(data?.rows ?? [])].sort((a, b) => (order[a.type] - order[b.type]) || a.code.localeCompare(b.code)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [data]);
   if (!company) return null;
-  const dec = decimalsOf(company.base_currency);
+  const dec = decimalsOf(pc || company.base_currency);
   const nm = (r: PLRow) => r.name_i18n?.[i18n.language] || r.name;
   const cols: Col<PLRow>[] = [
     { key: 'type', title: t('accounts.type'), get: (r) => t(`accounts.types.${r.type}`), width: 110 },
@@ -142,6 +161,7 @@ export function BalanceSheetGrid() {
     <div className="mx-col">
       <Strip topic="bs">
         <label>{t('ax.asOf')} <input type="date" value={to} onChange={(e) => setTo(e.currentTarget.value)} /></label>
+        <PresentIn value={pc} onChange={setPc} />
         <button className="mx-btn sm" onClick={() => openScreen('compare', 'bs')}>{t('ax.compareBtn')}</button>
         {data && <span className={`mx-pill ${ok ? 'on' : 'off'}`}>{ok ? t('ax.balanced') : t('ax.notBalanced')}</span>}
       </Strip>

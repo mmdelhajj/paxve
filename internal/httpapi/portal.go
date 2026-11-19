@@ -95,7 +95,8 @@ func (s *Server) portal(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		cust, err := queryJSONOne(ctx, tx, `SELECT c.name, c.code, ar.name AS area_name, `+customerBalances+`
+		cust, err := queryJSONOne(ctx, tx, `SELECT c.name, c.code, ar.name AS area_name,
+			coalesce(c.locale, (SELECT co.default_locale FROM companies co WHERE co.id = c.company_id)) AS locale, `+customerBalances+`
 			FROM customers c LEFT JOIN areas ar ON ar.id = c.area_id WHERE c.id = $1`, customer)
 		if err != nil {
 			return nil, err

@@ -441,7 +441,7 @@ const en = {
   stmt: {
     title: 'Account statement', nothing: 'No movements.', document: 'Document', debit: 'Debit', credit: 'Credit', balance: 'Balance',
     opening: 'Opening balance', totals: 'Totals', closing: 'Balance due', closingCredit: 'Balance (credit)',
-    kinds: { invoice: 'Invoice', refund: 'Refund', payment: 'Payment', credit_note: 'Credit note', opening_credit: "Opening credit" },
+    kinds: { invoice: 'Invoice', refund: 'Refund', cheque_return: 'Returned cheque', payment: 'Payment', credit_note: 'Credit note', opening_credit: "Opening credit" },
     bulk: 'Customer statements', printAll: 'Print {{n}}', onlyBalance: 'Only customers who owe money', sendAll: 'Send {{n}} statements',
   },
   crm: {
@@ -653,6 +653,7 @@ const en = {
     credit_exceeds_invoice: 'The amount is more than what can still be credited ({{detail}})',
     refund_exceeds_credit: 'The refund is more than the customer\'s credit ({{detail}})',
     refund_uses_credit: 'This credit was refunded. Void the refund first.',
+    cheque_debit: 'This amount comes from a returned cheque. Handle it from the Cheques screen.',
     billing_running: 'A billing run for this month is already in progress',
     export_failed: 'The export could not be created',
     no_router: 'Link this subscription to a router and a user name first',
@@ -991,7 +992,32 @@ const en = {
       printBills: { title: 'Print bills', body: 'Choose the month, the area and the order (the collector\'s route: area then box), untick bills you don\'t want, then print — three per A4 page, or one per 80 mm roll for thermal printers.\n\nEach bill carries a QR code that opens the customer\'s own page.' },
     },
   },
-};
+  t2: {
+    showIn: 'Show in', saved: 'Saved', custLang: 'Language of messages and portal', companyDefault: 'Company default',
+    packHint: 'Sets up the chart of accounts, taxes, invoice rules and currency of that country. Everything can be changed later.',
+    t: { localization: 'Country & language', translations: 'Translations' },
+    rates: {
+      title: 'Automatic daily rates', on: 'Fetch every day', off: 'Off', auto: 'auto',
+      explain: 'Once a day the published rates ({{source}}) are saved as the official rate for the currencies you use. A rate you type yourself is never replaced.',
+      manual: 'Always typed by hand (e.g. LBP)', fetchNow: 'Fetch now', last: 'Last fetched', nothing: 'No currency was updated (typed by hand or not published).',
+    },
+    tr: {
+      title: 'Interface texts', key: 'Key', shipped: 'Shipped text', own: 'Your wording', saved: 'Saved — everyone in your organisation now sees it',
+      hint: 'Pick a row, then write your own wording', pick: 'Choose a text', reset: 'Back to the shipped text', onlyOwn: 'Only my changes',
+      machine: 'Machine translation — please review',
+    },
+    loc: {
+      title: 'Country & language', pack: 'Country pack', country: 'Country', currency: 'Currency', fiscal: 'Fiscal year starts (MM-DD)',
+      einvoice: 'E-invoicing', zatca: 'ZATCA QR code (Saudi Arabia)', eta: 'Egyptian e-invoice (ETA) — not connected yet', none: 'None',
+      packHint: 'The pack was chosen when the company was created. A new company can use another country.',
+      docs: 'Documents and messages', defaultLang: 'Default language for customers', taxLabel: 'Label of your tax number',
+      invoiceTitle: 'Title of invoices', mentions: 'Legal mentions printed on invoices',
+    },
+    help: {
+      translations: { title: 'Translations', body: 'Every text of the interface can be reworded for your organisation, in every language.\n\nPick a language, find the text (type in the yellow row), click it and write your wording. Your users see it at their next page load. Empty the text to go back to the shipped one.\n\nTurkish, Spanish, German, Portuguese, Russian, Persian, Urdu and Kurdish are machine translations: correct what reads badly.' },
+      localization: { title: 'Country & language', body: 'The country pack sets the chart of accounts, the default taxes, the fiscal year and what invoices must show in that country.\n\nThe default language is used for WhatsApp / SMS messages and the customer portal when a customer has no language of their own (set it on the customer card).\n\nIn Saudi Arabia printed invoices carry the ZATCA QR code (seller, VAT number, time, total, VAT): fill in your VAT number in the document settings.' },
+    },
+  },};
 
 export default en;
 export type Messages = typeof en;

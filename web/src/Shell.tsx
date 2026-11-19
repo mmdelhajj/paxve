@@ -93,6 +93,8 @@ const DailyMovement = lazy(() => import('./pages/magic/DailyMovement'));
 const MagicLedger = lazy(() => import('./pages/magic/MagicLedger'));
 const Boxes = lazy(() => import('./pages/magic/Boxes'));
 const Apps = lazy(() => import('./pages/magic/Apps'));
+const Translations = lazy(() => import('./pages/t2/Translations'));
+const Localization = lazy(() => import('./pages/t2/Localization'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -100,7 +102,8 @@ const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'voucher']);
 /** Screens that use the whole work area themselves (no padding, own scrolling). */
 const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash', 'invoices', 'customers', 'print-bills', 'trial-balance', 'profit-loss',
-  'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances']);
+  'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances',
+  'localization', 'translations']);
 const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
   'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
   'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
@@ -108,7 +111,7 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'print-bills', 'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec', 'crm', 'activities', 'quotes', 'orders',
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
-  'cash-flow', 'compare', 'opening-balances']);
+  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -423,6 +426,8 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     subscribers: () => <Subscribers me={me} />,
     daily: () => <DailyMovement />,
     apps: () => <Apps me={me} />,
+    translations: () => <Translations me={me} />,
+    localization: () => <Localization me={me} />,
   };
   return <>{(views[page] ?? views.dashboard)()}</>;
 }

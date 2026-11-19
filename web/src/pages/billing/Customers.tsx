@@ -11,6 +11,7 @@ import { EmptyState, ListSkeleton, ShowMore } from '../../components/ListState';
 import StationSelect from '../../components/StationSelect';
 import type { Area, Customer } from '../../billing';
 import { MoneyList } from './docs';
+import { languages } from '../../i18n';
 
 export default function Customers({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
@@ -104,7 +105,7 @@ export function CustomerForm({ areas, customer, onClose, onSaved }: {
   const [f, setF] = useState({
     code: customer?.code ?? '', name: customer?.name ?? '', phone: customer?.phone ?? '', phone2: customer?.phone2 ?? '',
     email: customer?.email ?? '', address: customer?.address ?? '', area_id: customer?.area_id ?? '', notes: customer?.notes ?? '',
-    status: customer?.status ?? 'active',
+    status: customer?.status ?? 'active', locale: customer?.locale ?? '',
   });
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
@@ -146,6 +147,8 @@ export function CustomerForm({ areas, customer, onClose, onSaved }: {
           </Group>
           <TextInput label={t('customers.address')} value={f.address} onChange={(e) => set('address')(e.currentTarget.value)} />
           <TextInput label={t('customers.notes')} value={f.notes} onChange={(e) => set('notes')(e.currentTarget.value)} />
+          <Select label={t('t2.custLang')} clearable placeholder={t('t2.companyDefault')} value={f.locale || null} onChange={(v) => set('locale')(v ?? '')}
+            data={languages.map((l) => ({ value: l.code, label: l.label }))} />
           {customer && (
             <Select label={t('customers.status')} value={f.status} allowDeselect={false} onChange={(v) => v && set('status')(v)}
               data={['active', 'suspended', 'closed'].map((s) => ({ value: s, label: t(`customers.statuses.${s}`) }))} />
