@@ -1462,6 +1462,7 @@ const fr: Messages = {
     },
   },
   rt: {
+    portal: { points: '{{points}} points fidélité', gift: 'Carte cadeau {{code}} : {{balance}}' },
     rib: 'Commerce', saved: 'Enregistré', save: 'Enregistrer', name: 'Nom', nameAr: 'Nom (arabe)', code: 'Code', barcode: 'Code-barres', price: 'Prix', qty: 'Qté',
     amount: 'Montant', currency: 'Devise', customer: 'Client', date: 'Date', note: 'Note', status: 'Statut', active: 'Actif', from: 'Du', to: 'Au',
     searchItem: 'Chercher un article (nom, code ou code-barres)…',
@@ -1481,7 +1482,7 @@ const fr: Messages = {
       appliesTo: 'S\'applique à', valueType: 'Remise en', minAmount: 'Panier à partir de', buy: 'Achetez', get: 'Obtenez', getPct: 'Remise sur les offerts (%)',
       tiers: 'Paliers de quantité (qté:% , qté:%)', bundleItems: 'Articles du lot et quantités', brands: 'Marques (séparées par des virgules)', conditions: 'Conditions (dates, heures, coupon, caisses)',
       timeFrom: 'De l\'heure', timeTo: 'À l\'heure', coupon: 'Code coupon (vide = automatique)', maxUses: 'Utilisations max.', priority: 'Priorité',
-      stackable: 'Cumulable avec d\'autres promotions', dayNames: 'Dim,Lun,Mar,Mer,Jeu,Ven,Sam',
+      stackable: 'Cumulable avec d\'autres promotions', applyDoc: 'Appliquer les promotions', dayNames: 'Dim,Lun,Mar,Mer,Jeu,Ven,Sam',
       k: { discount: 'Remise', bxgy: 'X achetés, Y offerts', tiers: 'Paliers de quantité', bundle: 'Lot', basket: 'Remise panier' },
       a: { all: 'Tout', items: 'Certains articles', categories: 'Catégories', brands: 'Marques' },
       vt: { pct: '% de remise', amount: 'Montant (par unité)', price: 'Prix spécial' },

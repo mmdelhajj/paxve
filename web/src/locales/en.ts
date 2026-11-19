@@ -1460,6 +1460,7 @@ const en = {
     },
   },
   rt: {
+    portal: { points: '{{points}} loyalty points', gift: 'Gift card {{code}}: {{balance}}' },
     rib: 'Retail', saved: 'Saved', save: 'Save', name: 'Name', nameAr: 'Name (Arabic)', code: 'Code', barcode: 'Barcode', price: 'Price', qty: 'Qty',
     amount: 'Amount', currency: 'Currency', customer: 'Customer', date: 'Date', note: 'Note', status: 'Status', active: 'Active', from: 'From', to: 'To',
     searchItem: 'Search an item (name, code or barcode)…',
@@ -1479,7 +1480,7 @@ const en = {
       appliesTo: 'Applies to', valueType: 'Discount as', minAmount: 'Basket from', buy: 'Buy', get: 'Get', getPct: 'Off on the free ones (%)',
       tiers: 'Quantity tiers (qty:% , qty:%)', bundleItems: 'Bundle items and quantities', brands: 'Brands (separated by commas)', conditions: 'Conditions (dates, hours, coupon, tills)',
       timeFrom: 'From hour', timeTo: 'To hour', coupon: 'Coupon code (empty = automatic)', maxUses: 'Max uses', priority: 'Priority',
-      stackable: 'Can add up with other promotions', dayNames: 'Sun,Mon,Tue,Wed,Thu,Fri,Sat',
+      stackable: 'Can add up with other promotions', applyDoc: 'Apply promotions', dayNames: 'Sun,Mon,Tue,Wed,Thu,Fri,Sat',
       k: { discount: 'Discount', bxgy: 'Buy X get Y', tiers: 'Quantity tiers', bundle: 'Bundle', basket: 'Basket discount' },
       a: { all: 'Everything', items: 'Some items', categories: 'Categories', brands: 'Brands' },
       vt: { pct: '% off', amount: 'Amount off (per unit)', price: 'Special price' },

@@ -4,6 +4,7 @@ import {
   Stack, Table, Text, Textarea, TextInput,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
 import { IconCheck, IconFileInvoice, IconPencil, IconPlus, IconPrinter, IconSearch, IconTrash, IconTruckDelivery, IconX } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { can, api, type Me } from '../../api';
@@ -185,6 +186,25 @@ export function OrderEditor({ detail, customer, leadId, onClose, onDone }: {
     });
   }
 
+  // the active promotions, turned into a discount % on each line (same engine as the till)
+  async function applyPromos() {
+    if (!company) return;
+    const withItem = lines.filter((l) => l.item_id && Number(l.quantity) > 0 && Number(l.unit_price) > 0);
+    try {
+      const ev = await api<{ lines: string[]; total: string }>(`/companies/${company.id}/retail/promotions/evaluate`, { method: 'POST', body: {
+        currency, customer_id: customerId ?? '', lines: withItem.map((l) => ({ item_id: l.item_id, quantity: l.quantity, amount: String(lineAmt(l)) })) } });
+      const disc = new Map(withItem.map((l, i) => [l.key, Number(ev.lines[i] ?? 0)]));
+      setLines((ls) => ls.map((l) => {
+        const d = disc.get(l.key) ?? 0;
+        const gross = Number(l.quantity) * Number(l.unit_price);
+        if (!d || !gross) return l;
+        const pct = Math.min(100, ((gross - (lineAmt(l) - d)) / gross) * 100);
+        return { ...l, discount_pct: String(Math.round(pct * 10000) / 10000) };
+      }));
+      notifications.show({ color: Number(ev.total) > 0 ? 'pink' : 'gray', message: `${t('rt.pos.saved')}: ${formatAmount(ev.total, dec)} ${currency}` });
+    } catch (e) { notifyError(t, e); }
+  }
+
   async function save() {
     if (!company || !customerId) return;
     setBusy(true);
@@ -262,7 +282,10 @@ export function OrderEditor({ detail, customer, leadId, onClose, onDone }: {
           </Table>
         </Table.ScrollContainer>
         <Group justify="space-between" align="flex-start">
-          <Button variant="subtle" size="xs" leftSection={<IconPlus size={14} />} onClick={() => setLines((ls) => [...ls, blankLine()])}>{t('invoices.addLine')}</Button>
+          <Group gap="xs">
+            <Button variant="subtle" size="xs" leftSection={<IconPlus size={14} />} onClick={() => setLines((ls) => [...ls, blankLine()])}>{t('invoices.addLine')}</Button>
+            <Button variant="light" color="pink" size="xs" disabled={!lines.some((l) => l.item_id)} onClick={() => void applyPromos()}>{t('rt.p.applyDoc')}</Button>
+          </Group>
           <Stack gap={0} align="flex-end">
             <Text size="sm" dir="ltr">{t('sales.subtotal')}: {formatAmount(sub, dec)}</Text>
             {tax > 0 && <Text size="sm" dir="ltr">{t('net.tax')}: {formatAmount(tax, dec)}</Text>}

@@ -3948,6 +3948,7 @@
     "items": "Einige Artikel"
    },
    "appliesTo": "Gilt für",
+   "applyDoc": "Werbeaktionen anwenden",
    "brands": "Marken (durch Kommas getrennt)",
    "bundleItems": "Bündeln Sie Artikel und Mengen",
    "buy": "Kaufen",
@@ -4000,6 +4001,10 @@
    "hint": "Ein Business-Paket schaltet die richtigen Apps, das Treueprogramm und die Einzelhandelseinstellungen ein und kann Demodaten (Artikel, Werbeaktionen, eine Kasse) laden, um alles auszuprobieren.",
    "supermarket": "Supermarkt/Minimarkt",
    "supermarketDesc": "Etiketten für gewogene Waren und Waagen, Werbeaktionen, Treuepunkte, Geschenkkarten, Preisnachlässe bei baldigem Ablaufdatum, Schnellkasse."
+  },
+  "portal": {
+   "gift": "Geschenkkarte {{code}} : {{balance}}",
+   "points": "{{points}} Treuepunkte"
   },
   "pos": {
    "addToCart": "Zum Warenkorb hinzufügen",

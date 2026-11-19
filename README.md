@@ -114,6 +114,18 @@ manufacturing (bills of materials, production orders, scrap), water utilities, g
 and supplier price lists, subscription proration, rotating shifts, leave accrual history, clock-in selfie and
 geofence, ZKTeco fingerprint push (ADMS), invoices printed in the customer's language. See docs/GAP_ANALYSIS.md.
 
+## Retail core part 1 (shops, supermarkets, clothing)
+
+Ribbon tab **Retail**: sizes & colours (an item becomes a template; each combination is a normal item with its own
+barcode, price and stock; stock grid that creates a purchase order), promotions (discount, buy X get Y, quantity tiers,
+bundles, basket discount, coupons, dates / week days / hours / tills, best deal or stackable; booked net of the discount,
+live on the till and with "Apply promotions" on quotes / orders), loyalty points (tiers, card by barcode or phone, points
+as a cost and a liability, used at the till), gift cards and free vouchers (liability), scale barcodes (prefix 20–29 with
+weight or price, PLU, PLU export), shelf / barcode labels (A4, small, ZPL / TSPL), near-expiry markdowns, receive by
+scanning, retail report (category, hour, margin by item, promotions) and business packs (Supermarket, Clothing — also
+chosen at sign-up, with demo data). The till adds held baskets, quick items, F2/F4/F7/F8/F9, a customer display window
+(`#/pos-display`), the cash drawer kick and a denomination count at closing. See docs/VERTICALS.md.
+
 ## Platform console (the Paxve owner's back-office)
 
 Ribbon tab **Platform** (only for `PLATFORM_ADMINS`): overview (states, MRR / ARR, sign-ups, ending soon, churn, money

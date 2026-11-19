@@ -311,3 +311,40 @@ entries, deferrals, leave accruals, automatic rates, ISP rules and router action
 are skipped (`tenant_jobs_ok()`); queued work waits and goes out after a renewal or unblock. The state change is
 recorded with `jobs: paused / resumed`, and the daily run logs how much is held. The platform owner's own organisation
 is never skipped.
+
+## Retail core (variants, promotions, loyalty, gift cards, scales, labels, packs)
+
+All under `/api/v1/companies/{cid}`.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/items/templates` | templates with their variant count and stock |
+| PUT | `/items/{id}/variant-setup` | `{attributes: [{name, values}], attr_extras: {"Size=XL": "2"}}` (no stock on the item) |
+| POST | `/items/{id}/variants/generate` | `{barcodes?: bool}` creates the missing combinations (internal EAN-13 under the variant prefix) |
+| GET / PUT | `/items/{id}/variants` | variants with stock per warehouse / bulk `{variants: [{id, sale_price, barcode, is_active}]}` |
+| PUT | `/items/{id}/retail` | `{plu, sold_by_weight, brand, content_qty, content_unit}` |
+| GET / POST / PUT | `/retail/promotions[/{id}]` | kinds `discount`, `bxgy`, `tiers`, `bundle`, `basket`; scope, dates, days, hours, tills, coupon, stackable, priority, max_uses |
+| POST | `/retail/promotions/evaluate` | `{currency, register_id?, customer_id?, coupon?, lines: [{item_id, quantity, amount}]}` → discount per line, applied promotions |
+| GET / PUT | `/retail/loyalty` | program: `earn_per`, `point_value`, `min_redeem`, `expiry_months`, `tiers [{name, min_points, multiplier}]` |
+| GET | `/retail/loyalty/lookup?code=` | card number, customer code or phone → points, tier, value |
+| GET | `/retail/loyalty/members?q=` | members |
+| PUT | `/retail/loyalty/customers/{id}` | `{card: "auto" \| "<number>" \| ""}` |
+| POST | `/retail/loyalty/customers/{id}/adjust` | `{points: "+50" \| "-20", note}` (booked) |
+| GET | `/retail/loyalty/customers/{id}/moves` | points history |
+| GET / POST | `/retail/gift-cards` | list with outstanding totals / free voucher `{amount, currency, code?, customer_id?, expires_on?, note}` |
+| GET | `/retail/gift-cards/lookup?code=` | balance, status, expiry |
+| POST | `/retail/gift-cards/{id}/void` | releases the unused balance |
+| GET | `/retail/gift-cards/{id}/moves` | card history |
+| GET / PUT | `/retail/scale` | `{prefixes: [{prefix: "21", mode: "weight" \| "price", decimals}], variant_barcode_prefix}` |
+| GET | `/retail/scale/plu?currency=` | PLU items and a CSV for the scale software |
+| GET | `/retail/labels?ids=a,b&currency=` | price incl. VAT, promotion price, unit price per kg / L, barcode |
+| GET | `/retail/expiry?days=30` · POST `/retail/expiry/markdown` | near-expiry lots with a suggested % · `{item_id, pct, days}` creates a dated promotion |
+| GET | `/reports/retail?from&to&currency` | by category, by hour (till), margin by item, promotions given |
+| GET / POST | `/retail/packs` · `/retail/packs/{supermarket\|clothing}` | `{demo: bool}` apps, business type, loyalty defaults, demo data |
+| GET / POST / DELETE | `/pos/held[/{id}]` | held baskets per till (`?register_id=`) |
+| POST | `/pos/quick-item` | `{register_id, name, price, barcode?, category_id?}` a non-stock item made at the till |
+
+POS sale (`POST /pos/orders`) also takes `apply_promos`, `coupon`, `gift_sold [{code?, amount}]`, `gift_redeem [{code, amount}]`
+and `redeem_points`; the order returns `promos`, `loyalty {earned, redeemed, balance}` and `gift`. Session close takes
+`denominations {method_id: {"100": 3}}`. Gift card / points tenders (`payment-methods?all=1`, kinds `gift` and `loyalty`)
+are refused outside the till.

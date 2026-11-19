@@ -96,7 +96,10 @@ func (s *Server) portal(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		cust, err := queryJSONOne(ctx, tx, `SELECT c.name, c.code, ar.name AS area_name,
-			coalesce(c.locale, (SELECT co.default_locale FROM companies co WHERE co.id = c.company_id)) AS locale, `+customerBalances+`
+			coalesce(c.locale, (SELECT co.default_locale FROM companies co WHERE co.id = c.company_id)) AS locale,
+			CASE WHEN EXISTS (SELECT 1 FROM loyalty_programs lp WHERE lp.company_id = c.company_id AND lp.is_active) THEN c.loyalty_points::text END AS loyalty_points,
+			c.loyalty_card, (SELECT json_agg(json_build_object('code', g.code, 'balance', g.balance::text, 'currency', g.currency) ORDER BY g.created_at)
+			  FROM gift_cards g WHERE g.customer_id = c.id AND g.status = 'active') AS gift_cards, `+customerBalances+`
 			FROM customers c LEFT JOIN areas ar ON ar.id = c.area_id WHERE c.id = $1`, customer)
 		if err != nil {
 			return nil, err

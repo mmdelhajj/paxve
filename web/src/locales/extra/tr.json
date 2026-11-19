@@ -3948,6 +3948,7 @@
     "items": "Bazı öğeler"
    },
    "appliesTo": "Şunlar için geçerlidir:",
+   "applyDoc": "Promosyonları uygula",
    "brands": "Markalar (virgülle ayrılmış)",
    "bundleItems": "Paket öğeleri ve miktarları",
    "buy": "Satın almak",
@@ -4000,6 +4001,10 @@
    "hint": "Bir iş paketi, doğru uygulamaları, sadakat programını ve perakende varsayılanlarını açar ve her şeyi denemek için demo verilerini (ürünler, promosyonlar, kasa) yükleyebilir.",
    "supermarket": "Süpermarket / minimarket",
    "supermarketDesc": "Tartılan ürünler ve tartı etiketleri, promosyonlar, sadakat puanları, hediye kartları, son kullanma tarihi yaklaşmış indirimler, hızlı kasa."
+  },
+  "portal": {
+   "gift": "Hediye kartı {{code}} : {{balance}}",
+   "points": "{{points}} sadakat puanı"
   },
   "pos": {
    "addToCart": "Sepete ekle",

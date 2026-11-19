@@ -1462,6 +1462,7 @@ const ar: Messages = {
     },
   },
   rt: {
+    portal: { points: '{{points}} نقطة ولاء', gift: 'بطاقة هدية {{code}}: {{balance}}' },
     rib: 'التجزئة', saved: 'تم الحفظ', save: 'حفظ', name: 'الاسم', nameAr: 'الاسم (عربي)', code: 'الرمز', barcode: 'الباركود', price: 'السعر', qty: 'الكمية',
     amount: 'المبلغ', currency: 'العملة', customer: 'الزبون', date: 'التاريخ', note: 'ملاحظة', status: 'الحالة', active: 'فعّال', from: 'من', to: 'إلى',
     searchItem: 'ابحث عن صنف (الاسم أو الرمز أو الباركود)…',
@@ -1481,7 +1482,7 @@ const ar: Messages = {
       appliesTo: 'يطبّق على', valueType: 'الخصم', minAmount: 'السلة ابتداءً من', buy: 'اشترِ', get: 'واحصل على', getPct: 'الخصم على المجاني (%)',
       tiers: 'شرائح الكمية (كمية:% ، كمية:%)', bundleItems: 'أصناف الطقم وكمياتها', brands: 'الماركات (مفصولة بفواصل)', conditions: 'الشروط (التواريخ، الساعات، الكوبون، الصناديق)',
       timeFrom: 'من الساعة', timeTo: 'إلى الساعة', coupon: 'رمز الكوبون (فارغ = تلقائي)', maxUses: 'أقصى عدد استعمالات', priority: 'الأولوية',
-      stackable: 'يُجمع مع العروض الأخرى', dayNames: 'أحد,إثنين,ثلاثاء,أربعاء,خميس,جمعة,سبت',
+      stackable: 'يُجمع مع العروض الأخرى', applyDoc: 'تطبيق العروض', dayNames: 'أحد,إثنين,ثلاثاء,أربعاء,خميس,جمعة,سبت',
       k: { discount: 'خصم', bxgy: 'اشترِ واحصل', tiers: 'شرائح كمية', bundle: 'طقم بسعر', basket: 'خصم على السلة' },
       a: { all: 'كل شيء', items: 'أصناف معيّنة', categories: 'فئات', brands: 'ماركات' },
       vt: { pct: 'نسبة %', amount: 'مبلغ (للقطعة)', price: 'سعر خاص' },

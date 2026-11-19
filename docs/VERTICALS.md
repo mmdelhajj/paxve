@@ -32,18 +32,18 @@ and online selling.
 | Offline till | ✅ | queue + sync |
 | Barcode scan, fast item search | ✅ | |
 | Multiple barcodes per item / pack barcode | 🟡 | one per item plus one per unit; no free list of extra barcodes |
-| Weighed items, scale barcodes (prefix 20–29, embedded weight/price) | ❌ | most-requested supermarket feature |
+| Weighed items, scale barcodes (prefix 20–29, embedded weight/price) | ✅ | retail core 1: prefixes per company, PLU per item, sold by weight, PLU export |
 | Direct scale on the till (serial/USB) | ❌ | needs the Android app or a local bridge |
-| Promotions: buy X get Y, % off category, mix & match, happy hour, date range | ❌ | |
-| Loyalty points / member cards / coupons / gift cards | ❌ | |
-| Shelf labels and barcode label printing | ❌ | price-change labels batch |
-| Fast item creation from the till (unknown barcode) | ❌ | |
+| Promotions: buy X get Y, % off category, mix & match, happy hour, date range | ✅ | retail core 1: discount, buy X get Y, tiers, bundles, basket, coupons, hours, tills |
+| Loyalty points / member cards / coupons / gift cards | ✅ | retail core 1: points with tiers, card by barcode / phone, gift cards and vouchers |
+| Shelf labels and barcode label printing | ✅ | A4 shelf labels / small barcode labels, promotion and unit price, ZPL / TSPL files |
+| Fast item creation from the till (unknown barcode) | ✅ | quick item (office, or cashiers when the till allows it) |
 | Expiry tracking, FEFO, near-expiry report | ✅ | stock_lots |
-| Supplier returns (expired / damaged) | 🟡 | supplier debit note exists; no "return to supplier" stock document from the till/stock screen |
+| Supplier returns (expired / damaged) | 🟡 | supplier debit note (return with credit); near-expiry screen points to it; no dedicated return document |
 | Reorder suggestions from sales speed | ✅ | reorder rules + days-of-cover |
-| Cash drawer kick, customer pole display / second screen | 🟡 | printing works; no drawer kick command or customer display |
-| Hold / recall basket, split payment | 🟡 | multi-method payment exists; no parked baskets |
-| Daily sales by cashier, margin by category | 🟡 | session reports exist; no category margin report |
+| Cash drawer kick, customer pole display / second screen | ✅ | ESC/POS drawer kick through the receipt printer; customer display window (same browser) |
+| Hold / recall basket, split payment | ✅ | held baskets per till |
+| Daily sales by cashier, margin by category | ✅ | retail report: by category, by hour, margin by item, promotions |
 | Price check screen / mobile price checker | ❌ | |
 
 Build plan: scale barcodes + weighed items (M), promotions engine (M), loyalty/coupons/gift cards (M), shelf labels (S),
@@ -62,7 +62,7 @@ parked baskets + drawer kick + customer display (S), quick item create (S), extr
 | Installments / buy now pay later with schedule and reminders | ❌ | very common in Lebanon/Gulf |
 | Trade-in (used phone taken as part payment) | ❌ | |
 | Bundles (phone + case + charger) | ✅ | kits |
-| Variants (colour / storage) | ❌ | shared with clothing |
+| Variants (colour / storage) | ✅ | retail core 1 (templates and variants) |
 | Sales commission per salesperson | 🟡 | employee commission % in payroll; not computed from sales |
 | Price in USD with LBP at the rate of the day | ✅ | |
 
@@ -74,7 +74,7 @@ installments (M), trade-in (S), sales commission from invoices (S), supplier RMA
 | Feature | Status | Notes |
 |---|---|---|
 | Quote → order → delivery → invoice | ✅ | |
-| Variants (fabric, colour, size) | ❌ | |
+| Variants (fabric, colour, size) | ✅ | retail core 1 |
 | Custom dimensions / configurable product (price by size or options) | ❌ | |
 | Made-to-order: the sales order creates a purchase or manufacturing order | ❌ | PO and MO exist separately |
 | Customer deposit on the order, balance on delivery | 🟡 | payment on account exists; no deposit linked to the order and shown on it |
@@ -116,7 +116,7 @@ quality checks (M), subcontracting (M), variance + traceability reports (S).
 |---|---|---|
 | Pharmacy | lots, expiry, FEFO, POS, price lists | drug database / generic names, prescriptions, controlled-items log, insurance claims, shelf location (M–L) |
 | Restaurant / café | POS, kits (as recipes), stock | tables and floor plan, modifiers (no sugar, extra cheese), kitchen display / printer, split bill, recipes deducting ingredients, delivery/takeaway orders (L) |
-| Clothing / shoes | POS, barcode, price lists | **variants size × colour matrix** (key), season/collection, exchange without receipt, label printing (M) |
+| Clothing / shoes | POS, barcode, price lists, **variants size × colour (retail core 1)**, label printing, seasonal promotions, Clothing pack | season/collection field, exchange without receipt (S) |
 | Auto parts / garage | items, stock, service tickets | part numbers and cross-references (OEM ↔ alternative), vehicle compatibility, garage job card with parts + labour, vehicle history by plate (M–L) |
 | Wholesale / distribution | price lists, payment terms, dunning, multi-currency, collector offline app | customer credit limit with block, van sales (stock on the van, offline invoicing), route planning, sales rep targets/commission (M) |
 | Construction materials | units (ton, m³, bag), deliveries, price lists, cost centers | project/site per order, delivery by truck with weight ticket, retention on contractor invoices (M) |
@@ -171,3 +171,18 @@ accounts + demo data + ribbon tiles:
 Suggested order: retail core part 1 (variants, promotions, loyalty, scales/labels, POS hardware), then the Supermarket
 and Clothing packs. Then part 2 (installments, warranty/repairs, delivery board, credit limit) with the Electronics,
 Furniture and Wholesale packs. Then the online store, then factory (routings, MRP, quality), restaurant and pharmacy.
+
+## Status after retail core part 1 (2026-11-19)
+
+Built and live: variants (templates → one item per combination with barcode, price and stock; stock grid that creates a purchase
+order), promotions engine (discount, buy X get Y, quantity tiers, bundles, basket, coupons, dates / days / hours / tills, best deal or
+stackable, booked net of the discount), loyalty points (tiers, card by barcode or phone, earned points booked as a cost and a liability,
+redeemed at the till), gift cards and free vouchers (liability, balance and expiry checks), scale barcodes (prefixes, PLU, sold by
+weight, PLU export), shelf and barcode labels (A4, small, ZPL / TSPL), POS extras (held baskets, quick item, shortcuts, customer
+display, drawer kick, denomination count, variant picker), near-expiry markdowns, receive by scanning, retail report, and the
+Supermarket and Clothing packs (chosen at sign-up or from Retail → Business packs, with demo data). Office quotes / orders have an
+"Apply promotions" button (same engine; the discount becomes the line discount, carried to the invoice).
+
+Still open in this area: direct serial/USB scale on the till, a mobile price checker, several barcodes per item, points expiry
+(the setting is stored, expiry is not run yet), loyalty / gift card reversal on a till return (the refund does not take the points or
+the card balance back).

@@ -275,9 +275,12 @@ function Promotions({ me }: { me: Me }) {
   const [msg, run] = useRun(reload);
   const manage = can(me, 'pos.manage');
   const days = t('rt.p.dayNames').split(',');
+  const [allItems] = useLoad<ItemLite[]>(base && `${base}/items`, []);
+  const nameOf = useMemo(() => new Map(allItems.map((x) => [x.id, i18nName(x, i18n.language)])), [allItems, i18n.language]);
   function edit(p: Promo) {
     setF({
-      id: p.id, name: p.name, name_ar: p.name_i18n?.ar ?? '', kind: p.kind, applies_to: p.applies_to, item_ids: p.item_ids, item_names: Object.fromEntries(p.item_ids.map((x) => [x, x.slice(0, 8)])),
+      id: p.id, name: p.name, name_ar: p.name_i18n?.ar ?? '', kind: p.kind, applies_to: p.applies_to, item_ids: p.item_ids,
+      item_names: Object.fromEntries([...p.item_ids, ...p.bundle.map((b) => b.item_id)].map((x) => [x, nameOf.get(x) ?? x.slice(0, 8)])),
       category_ids: p.category_ids, brands: p.brands.join(', '), value_type: p.value_type, value: Number(p.value).toString(), buy_qty: Number(p.buy_qty).toString(),
       get_qty: Number(p.get_qty).toString(), tiers: p.tiers.map((x) => `${x.min_qty}:${x.pct}`).join(', '), bundle: p.bundle, min_amount: Number(p.min_amount).toString(),
       currency: p.currency ?? '', coupon_code: p.coupon_code, date_from: p.date_from ?? '', date_to: p.date_to ?? '', days: p.days, time_from: p.time_from ?? '', time_to: p.time_to ?? '',
@@ -303,7 +306,7 @@ function Promotions({ me }: { me: Me }) {
     { key: 'kind', title: t('rt.p.kind'), get: (r) => t(`rt.p.k.${r.kind}`), width: 130 },
     { key: 'val', title: t('rt.p.value'), get: (r) => (r.kind === 'bxgy' ? `${Number(r.buy_qty)}+${Number(r.get_qty)}` : r.value_type === 'pct' ? `${Number(r.value)}%` : `${amt(r.value)} ${r.currency ?? ''}`), width: 100 },
     { key: 'when', title: t('rt.p.when'), get: (r) => [r.date_from && formatDate(r.date_from), r.date_to && `→ ${formatDate(r.date_to)}`, r.time_from && `${r.time_from}-${r.time_to}`, r.coupon_code && `🎟 ${r.coupon_code}`].filter(Boolean).join(' ') },
-    { key: 'uses', title: t('rt.p.uses'), get: (r) => r.uses, num: true, width: 70 },
+    { key: 'uses', title: t('rt.p.uses'), get: (r) => r.uses, num: true, width: 70, decimals: 0 },
     { key: 'given', title: t('rt.p.given'), get: (r) => Number(r.discount_given), num: true, width: 90, decimals: 2 },
     { key: 'on', title: t('rt.active'), get: (r) => (r.is_active ? '✓' : '—'), width: 60 },
   ];

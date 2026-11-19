@@ -23,7 +23,8 @@ interface PInvoice {
 interface PortalData {
   company: { name_en: string; name_ar: string; base_currency: string; local_currency: string; logo?: string; doc_header?: string; doc_footer?: string; tax_id?: string };
   quotes?: { id: string; number: number; order_number: number | null; status: string; quote_date: string; valid_until: string | null; currency: string; total: string; accepted_at: string | null }[];
-  customer: { name: string; code: string; area_name: string | null; due: Money[]; credit: Money[]; locale?: string | null };
+  customer: { name: string; code: string; area_name: string | null; due: Money[]; credit: Money[]; locale?: string | null;
+    loyalty_points?: string | null; loyalty_card?: string; gift_cards?: { code: string; balance: string; currency: string }[] | null };
   open_invoices: PInvoice[]; paid_invoices: PInvoice[];
   payments: { number: number; payment_date: string; currency: string; amount: string }[];
 }
@@ -96,6 +97,8 @@ export default function Portal({ token }: { token: string }) {
           <div>
             <Title order={3}>{d.customer.name}</Title>
             <Text size="sm" c="dimmed">#{d.customer.code}{d.customer.area_name ? ` · ${d.customer.area_name}` : ''}</Text>
+            {d.customer.loyalty_points != null && <Text size="sm" fw={600} c="yellow.8">★ {t('rt.portal.points', { points: Number(d.customer.loyalty_points) })}{d.customer.loyalty_card ? ` · ${d.customer.loyalty_card}` : ''}</Text>}
+            {(d.customer.gift_cards ?? []).map((g) => <Text key={g.code} size="sm" c="grape">{t('rt.portal.gift', { code: g.code, balance: `${Number(g.balance)} ${g.currency}` })}</Text>)}
           </div>
           <Paper withBorder p="lg">
             <Text size="xs" c="dimmed" tt="uppercase" fw={600}>{t('portal.youOwe')}</Text>

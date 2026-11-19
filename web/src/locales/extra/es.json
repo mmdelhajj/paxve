@@ -3948,6 +3948,7 @@
     "items": "Algunos artículos"
    },
    "appliesTo": "Se aplica a",
+   "applyDoc": "Aplicar promociones",
    "brands": "Marcas (separadas por comas)",
    "bundleItems": "Agrupar artículos y cantidades",
    "buy": "Comprar",
@@ -4000,6 +4001,10 @@
    "hint": "Un paquete empresarial incluye las aplicaciones adecuadas, el programa de fidelización y los valores predeterminados del comercio minorista, y puede cargar datos de demostración (artículos, promociones, caja registradora) para probarlo todo.",
    "supermarket": "Supermercado / minimercado",
    "supermarketDesc": "Productos pesados ​​y etiquetas de báscula, promociones, puntos de fidelidad, tarjetas regalo, rebajas próximas a caducidad, caja rápida."
+  },
+  "portal": {
+   "gift": "Tarjeta regalo {{code}} : {{balance}}",
+   "points": "{{points}} puntos de fidelidad"
   },
   "pos": {
    "addToCart": "Añadir a la cesta",

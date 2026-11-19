@@ -3948,6 +3948,7 @@
     "items": "Alguns itens"
    },
    "appliesTo": "Aplica-se a",
+   "applyDoc": "Aplicar promoções",
    "brands": "Marcas (separadas por vírgulas)",
    "bundleItems": "Itens e quantidades do pacote",
    "buy": "Comprar",
@@ -4000,6 +4001,10 @@
    "hint": "Um pacote empresarial ativa os aplicativos certos, o programa de fidelidade e os padrões de varejo, e pode carregar dados de demonstração (itens, promoções, caixa registradora) para experimentar de tudo.",
    "supermarket": "Supermercado / minimercado",
    "supermarketDesc": "Mercadorias pesadas e etiquetas de balança, promoções, pontos de fidelidade, cartões-presente, descontos perto do vencimento, caixa rápida."
+  },
+  "portal": {
+   "gift": "Vale-presente {{code}} : {{balance}}",
+   "points": "{{points}} pontos de fidelidade"
   },
   "pos": {
    "addToCart": "Adicionar ao carrinho",
