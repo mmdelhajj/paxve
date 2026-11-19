@@ -155,12 +155,28 @@ func seedEverything(t *testing.T, o *org) {
 	step(201, "POST", "/maintenance/log", map[string]any{"plan_id": mt, "done_date": "2026-11-05", "hour_meter": "100"})
 
 	// Odoo audit stage: purchase order, deferral, attachment, dunning level
-	step(201, "POST", "/purchase-orders", map[string]any{"supplier_id": sup, "currency": "USD", "notes": secretB,
-		"lines": []any{map[string]any{"item_id": item, "quantity": "5", "unit_price": "1"}}})
+	po := id(step(201, "POST", "/purchase-orders", map[string]any{"supplier_id": sup, "currency": "USD", "notes": secretB,
+		"lines": []any{map[string]any{"item_id": item, "quantity": "5", "unit_price": "1"}}}), "order", "id")
 	step(201, "POST", "/deferrals", map[string]any{"kind": "revenue", "name": secretB + " yearly", "amount": "120", "months": 12,
 		"start_period": "2026-11", "target_account_id": o.accounts["701"], "deferral_account_id": o.accounts["487"]})
 	step(201, "POST", "/attachments", map[string]any{"type": "invoice", "id": invID, "filename": secretB + ".txt", "data": "aGVsbG8="})
 	step(200, "PUT", "/dunning", map[string]any{"enabled": false, "levels": []any{map[string]any{"level": 1, "name": secretB, "days_overdue": 3}}})
+
+	// finishing stage: goods receipt, supplier price, expense claim, custom field, BOM + manufacturing order, rotation,
+	// device, payment gateway, e-invoice settings
+	step(200, "POST", "/purchase-orders/"+po+"/confirm", map[string]any{})
+	step(201, "POST", "/purchase-orders/"+po+"/receive", map[string]any{"delivery_ref": secretB, "lines": []any{}})
+	step(201, "POST", "/supplier-prices", map[string]any{"supplier_id": sup, "item_id": item, "currency": "USD", "price": "0.9", "supplier_code": secretB})
+	step(201, "POST", "/hr/claims", map[string]any{"employee_id": emp, "description": secretB + " taxi", "currency": "USD", "amount": "12"})
+	step(201, "POST", "/custom-fields", map[string]any{"entity": "customers", "key": "meter_color", "label": secretB, "type": "text"})
+	comp := id(step(201, "POST", "/items", map[string]any{"code": "BCMP", "name": secretB + " part", "kind": "stock"}), "id")
+	bom := id(step(201, "POST", "/mfg/boms", map[string]any{"item_id": item, "name": secretB + " bom", "lines": []any{map[string]any{"item_id": comp, "quantity": "2"}}}), "bom", "id")
+	step(201, "POST", "/mfg/orders", map[string]any{"bom_id": bom, "quantity": "1", "notes": secretB})
+	sch := id(step(201, "POST", "/hr/schedules", map[string]any{"name": secretB + " shift", "start_time": "08:00", "end_time": "16:00"}), "id")
+	step(201, "POST", "/hr/rotations", map[string]any{"name": secretB + " rota", "pattern": []any{sch, "off"}})
+	step(201, "POST", "/hr/devices", map[string]any{"serial": "BDEV" + randHex(4), "name": secretB})
+	step(201, "POST", "/payment-gateways", map[string]any{"kind": "transfer", "name": secretB + " whish", "method_id": usd})
+	step(200, "PUT", "/einvoice/config", map[string]any{"kind": "zatca", "env": "sandbox", "config": map[string]any{"seller_name": secretB}})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -243,6 +259,9 @@ var idTable = map[string]string{
 	"documents": "employee_documents", "schedules": "work_schedules", "holidays": "public_holidays", "leave-types": "leave_types",
 	"leave": "leave_requests", "tickets": "tickets", "tasks": "maintenance_plans",
 	"purchase-orders": "purchase_orders", "deferrals": "deferral_schedules", "attachments": "attachments",
+	"goods-receipts": "goods_receipts", "supplier-prices": "supplier_prices", "claims": "expense_claims", "rotations": "shift_rotations",
+	"devices": "attendance_devices", "custom-fields": "custom_fields", "boms": "boms", "payment-gateways": "payment_gateways",
+	"payment-intents": "payment_intents", "attendance": "attendance",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -252,6 +271,7 @@ var paramValues = map[string][]string{
 	"kind":   {"fuel", "adjust"},
 	"action": {"confirm", "cancel", "send", "reopen", "unmatch", "ignore", "unignore"},
 	"op":     {"freeze", "unfreeze"},
+	"entity": {"customers", "suppliers", "items", "invoices", "employees"},
 }
 
 type sweepCall struct{ method, path, pattern string }
@@ -287,6 +307,9 @@ func sweepCalls(t *testing.T, cid string, ids map[string]string) []sweepCall {
 				tb := idTable[seg]
 				if seg == "orders" && strings.Contains(cur, "/pos/") {
 					tb = "pos_orders"
+				}
+				if seg == "orders" && strings.Contains(cur, "/mfg/") {
+					tb = "mfg_orders"
 				}
 				if name == "oid" {
 					tb = "outages"

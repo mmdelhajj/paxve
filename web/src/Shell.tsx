@@ -101,6 +101,14 @@ const PurchaseOrders = lazy(() => import('./pages/oa/Pro'));
 const Dunning = lazy(() => named(import('./pages/oa/Pro'), 'Dunning'));
 const FxRevaluation = lazy(() => named(import('./pages/oa/Pro'), 'FxRevaluation'));
 const Deferrals = lazy(() => named(import('./pages/oa/Pro'), 'Deferrals'));
+const SubsChange = lazy(() => named(import('./pages/fin/Finish'), 'SubsChange'));
+const SupplierPrices = lazy(() => named(import('./pages/fin/Finish'), 'SupplierPrices'));
+const Claims = lazy(() => named(import('./pages/fin/Finish'), 'Claims'));
+const CustomFields = lazy(() => named(import('./pages/fin/Finish'), 'CustomFields'));
+const Manufacturing = lazy(() => named(import('./pages/fin/Finish'), 'Manufacturing'));
+const HRExtra = lazy(() => named(import('./pages/fin/Finish'), 'HRExtra'));
+const OnlinePayments = lazy(() => named(import('./pages/fin/Finish'), 'OnlinePayments'));
+const EInvoice = lazy(() => named(import('./pages/fin/Finish'), 'EInvoice'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -109,7 +117,7 @@ const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'vouche
 /** Screens that use the whole work area themselves (no padding, own scrolling). */
 const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash', 'invoices', 'customers', 'print-bills', 'trial-balance', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances',
-  'localization', 'translations', 'stock-pro', 'hr', 'service', 'po', 'dunning', 'fx-reval', 'deferrals']);
+  'localization', 'translations', 'stock-pro', 'hr', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice']);
 const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
   'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
   'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
@@ -117,7 +125,7 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'print-bills', 'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec', 'crm', 'activities', 'quotes', 'orders',
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
-  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals']);
+  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -444,6 +452,14 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     dunning: () => <Dunning me={me} />,
     'fx-reval': () => <FxRevaluation me={me} />,
     deferrals: () => <Deferrals me={me} />,
+    'subs-change': () => <SubsChange me={me} />,
+    'supplier-prices': () => <SupplierPrices me={me} />,
+    claims: () => <Claims me={me} />,
+    'custom-fields': () => <CustomFields me={me} />,
+    mfg: () => <Manufacturing me={me} initial={param} key={param} />,
+    'hr-extra': () => <HRExtra me={me} initial={param} key={param} />,
+    'online-pay': () => <OnlinePayments me={me} />,
+    einvoice: () => <EInvoice me={me} />,
   };
   return <>{(views[page] ?? views.dashboard)()}</>;
 }

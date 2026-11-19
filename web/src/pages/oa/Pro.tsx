@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { api, can, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import DataGrid, { type Col } from '../../components/DataGrid';
@@ -54,9 +55,9 @@ interface PO {
 }
 interface POLine {
   id: string; line_no: number; item_id: string | null; item_code: string | null; unit: string | null; description: string; quantity: string;
-  unit_price: string; billed_qty: string; open_qty: string; unit_name: string | null; tax_name: string | null; warehouse_id: string | null; tax_rate_id: string | null; unit_id: string | null;
+  unit_price: string; billed_qty: string; open_qty: string; received_qty: string; to_receive: string; unit_name: string | null; tax_name: string | null; warehouse_id: string | null; tax_rate_id: string | null; unit_id: string | null;
 }
-interface PODetail { order: PO; lines: POLine[]; bills: { id: string; number: number; bill_date: string; total: string; status: string }[] }
+interface PODetail { order: PO; lines: POLine[]; bills: { id: string; number: number; bill_date: string; total: string; status: string }[]; receipts?: { id: string; number: number; receipt_date: string; delivery_ref: string; status: string; quantity: string }[] }
 interface Sup { id: string; code: string; name: string; currency: string | null; status: string }
 interface Itm { id: string; code: string; name: string; unit: string; kind: string; is_active: boolean }
 interface EditLine { item_id: string; description: string; quantity: string; unit_price: string; tax_rate_id: string }
@@ -76,6 +77,8 @@ export default function PurchaseOrders({ me }: { me: Me }) {
   const [edit, setEdit] = useState<{ id?: string; supplier_id: string; currency: string; order_date: string; expected_date: string; notes: string; lines: EditLine[] } | null>(null);
   const [billQty, setBillQty] = useState<Record<string, string>>({});
   const [billRef, setBillRef] = useState('');
+  const [recvQty, setRecvQty] = useState<Record<string, string>>({});
+  const [warn, setWarn] = useState<string[]>([]);
   const [msg, setMsg] = useState<Msg>(null);
   const [text, setText] = useState('');
   const canCreate = can(me, 'purchasing.create');
@@ -83,7 +86,7 @@ export default function PurchaseOrders({ me }: { me: Me }) {
   // keepText: the RFQ message just prepared by "Send" must stay on screen after the order reloads
   const open = useCallback((id: string, keepText = '') => {
     if (!base) return;
-    api<PODetail>(`${base}/purchase-orders/${id}`).then((d) => { setSel(d); setEdit(null); setText(keepText); setBillQty(Object.fromEntries(d.lines.map((l) => [l.id, l.open_qty]))); setBillRef(d.order.supplier_ref); })
+    api<PODetail>(`${base}/purchase-orders/${id}`).then((d) => { setSel(d); setEdit(null); setText(keepText); setBillQty(Object.fromEntries(d.lines.map((l) => [l.id, l.open_qty]))); setRecvQty(Object.fromEntries(d.lines.map((l) => [l.id, l.to_receive]))); setBillRef(d.order.supplier_ref); })
       .catch((e) => setMsg({ ok: false, text: errorText(t, e) }));
   }, [base, t]);
 
@@ -110,7 +113,16 @@ export default function PurchaseOrders({ me }: { me: Me }) {
   function bill() {
     if (!base || !sel) return;
     const lines = sel.lines.filter((l) => Number(billQty[l.id] || 0) > 0).map((l) => ({ po_line_id: l.id, quantity: billQty[l.id] }));
-    void run(api(`${base}/purchase-orders/${sel.order.id}/bill`, { method: 'POST', body: { bill_date: today(), supplier_ref: billRef, lines } }), () => open(sel.order.id));
+    void run(api<{ warnings?: { code: string; line: string }[] }>(`${base}/purchase-orders/${sel.order.id}/bill`, { method: 'POST', body: { bill_date: today(), supplier_ref: billRef, lines } }), (x) => {
+      setWarn((x.warnings ?? []).map((w) => t(`fin.match.${w.code}`, { line: w.line })));
+      open(sel.order.id);
+    });
+  }
+  function receive() {
+    if (!base || !sel) return;
+    const lines = sel.lines.filter((l) => Number(recvQty[l.id] || 0) > 0).map((l) => ({ po_line_id: l.id, quantity: recvQty[l.id] }));
+    setWarn([]);
+    void run(api(`${base}/purchase-orders/${sel.order.id}/receive`, { method: 'POST', body: { date: today(), delivery_ref: billRef, lines } }), () => open(sel.order.id));
   }
   function fromReorder() {
     if (!base) return;
@@ -192,22 +204,28 @@ export default function PurchaseOrders({ me }: { me: Me }) {
                 <h3 style={{ margin: 0 }}>{t(o.status === 'rfq' || o.status === 'sent' ? 'oa.po.rfqTitle' : 'oa.po.poTitle')} #{o.number}</h3>
                 <small>{o.supplier_name} · {formatDate(o.order_date)}{o.expected_date ? ` → ${formatDate(o.expected_date)}` : ''} · <b>{t(`oa.po.st.${o.status}`)}</b>{o.late ? ` · ${t('oa.po.late')}` : ''}</small>
                 <table className="mx-table" style={{ marginTop: 6 }}>
-                  <thead><tr><th>{t('oa.po.item')}</th><th className="num">{t('oa.po.qty')}</th><th className="num">{t('oa.po.price')}</th><th className="num">{t('oa.po.billedQty')}</th>
+                  <thead><tr><th>{t('oa.po.item')}</th><th className="num">{t('oa.po.qty')}</th><th className="num">{t('oa.po.price')}</th><th className="num">{t('fin.po.received')}</th><th className="num">{t('oa.po.billedQty')}</th>
+                    {(o.status === 'confirmed' || o.status === 'partial' || o.status === 'billed') && canCreate && <th className="num no-print">{t('fin.po.toReceive')}</th>}
                     {(o.status === 'confirmed' || o.status === 'partial') && canCreate && <th className="num no-print">{t('oa.po.toBill')}</th>}</tr></thead>
                   <tbody>{sel.lines.map((l) => (
                     <tr key={l.id}>
                       <td>{l.description}{l.tax_name ? <small> · {l.tax_name}</small> : null}</td>
                       <td className="num">{l.quantity} {l.unit_name ?? l.unit ?? ''}</td>
                       <td className="num">{formatAmount(l.unit_price, 4).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '')}</td>
+                      <td className="num">{l.received_qty}</td>
                       <td className="num">{l.billed_qty}</td>
+                      {(o.status === 'confirmed' || o.status === 'partial' || o.status === 'billed') && canCreate && <td className="num no-print">
+                        <input dir="ltr" style={{ width: 70 }} value={recvQty[l.id] ?? ''} onChange={(e) => setRecvQty({ ...recvQty, [l.id]: e.currentTarget.value.replace(/[^\d.]/g, '') })} /></td>}
                       {(o.status === 'confirmed' || o.status === 'partial') && canCreate && <td className="num no-print">
                         <input dir="ltr" style={{ width: 70 }} value={billQty[l.id] ?? ''} onChange={(e) => setBillQty({ ...billQty, [l.id]: e.currentTarget.value.replace(/[^\d.]/g, '') })} /></td>}
                     </tr>
                   ))}</tbody>
-                  <tfoot><tr><th colSpan={(o.status === 'confirmed' || o.status === 'partial') && canCreate ? 4 : 3}>{t('oa.po.total')}</th><th className="num">{formatAmount(o.total, dec)} {o.currency}</th></tr></tfoot>
+                  <tfoot><tr><th colSpan={(o.status === 'confirmed' || o.status === 'partial') && canCreate ? 6 : (o.status === 'billed' && canCreate ? 5 : 4)}>{t('oa.po.total')}</th><th className="num">{formatAmount(o.total, dec)} {o.currency}</th></tr></tfoot>
                 </table>
                 {o.notes && <p style={{ margin: '4px 0' }}>{o.notes}</p>}
               </div>
+              {warn.length > 0 && <div className="mx-flash bad">{t('fin.match.title')}: {warn.join(' · ')}</div>}
+              {(sel.receipts ?? []).length > 0 && <small>{t('fin.po.receipts')}: {(sel.receipts ?? []).map((g) => `#${g.number} (${formatDate(g.receipt_date)} · ${g.quantity}${g.status === 'cancelled' ? ` · ${t('oa.void')}` : ''})`).join(' · ')}</small>}
               {sel.bills.length > 0 && <small>{t('oa.po.billsMade')}: {sel.bills.map((b) => `#${b.number} (${formatAmount(b.total, dec)}${b.status === 'void' ? ` · ${t('oa.void')}` : ''})`).join(' · ')}</small>}
               {canCreate && (
                 <div className="mx-row no-print" style={{ gap: 6, flexWrap: 'wrap' }}>
@@ -217,6 +235,7 @@ export default function PurchaseOrders({ me }: { me: Me }) {
                     lines: sel.lines.map((l) => ({ item_id: l.item_id ?? '', description: l.item_id ? '' : l.description, quantity: l.quantity, unit_price: l.unit_price, tax_rate_id: l.tax_rate_id ?? '' })) })}>{t('oa.po.edit')}</button>}
                   {(o.status === 'confirmed' || o.status === 'partial') && <>
                     <input placeholder={t('oa.po.supplierRef')} value={billRef} onChange={(e) => setBillRef(e.currentTarget.value)} style={{ width: 140 }} />
+                    <button className="mx-btn" onClick={receive}>{t('fin.po.receive')}</button>
                     <button className="mx-btn" onClick={bill}>{t('oa.po.bill')}</button>
                   </>}
                   {(o.status === 'rfq' || o.status === 'sent' || o.status === 'confirmed') && <button className="mx-btn sm" onClick={() => { if (window.confirm(t('oa.po.cancelQ'))) action('cancel'); }}>{t('oa.po.cancel')}</button>}
@@ -432,7 +451,12 @@ export function FxRevaluation({ me }: { me: Me }) {
 
 // ======================= deferred revenue / prepaid expenses =======================
 
-interface Def { id: string; number: number; kind: string; name: string; source_type: string; amount: string; months: number; start_period: string; status: string; recognised: string; remaining: string; months_done: number; deferral_account_code: string; target_account_code: string; target_account_name: string }
+interface Def { id: string; number: number; kind: string; name: string; source_type: string; source_number: number | null; party: string; amount: string; months: number; start_period: string; status: string; recognised: string; remaining: string; months_done: number; deferral_account_code: string; target_account_code: string; target_account_name: string }
+/** a schedule made from a document is named from its parts, in the reader's language */
+function defName(t: TFunction, d: Def) {
+  if (d.source_type === 'manual' || !d.party) return d.name;
+  return t(`fin.defsrc.${d.source_type}`, { n: d.source_number ?? '', party: d.party });
+}
 interface DefList { rows: Def[]; settings: { base_currency: string; deferred_revenue_account_id: string | null; prepaid_expense_account_id: string | null } }
 interface DefDetail { schedule: Def; lines: { period: string; amount: string; entry_number: number }[]; plan: { n: number; period: string; amount: string }[] }
 
@@ -470,7 +494,7 @@ export function Deferrals({ me }: { me: Me }) {
   const cols: Col<Def>[] = [
     { key: 'n', title: '#', get: (r) => r.number, num: true, decimals: 0, width: 50 },
     { key: 'k', title: t('oa.def.kind'), get: (r) => t(`oa.def.k.${r.kind}`), width: 110 },
-    { key: 'nm', title: t('oa.def.name'), get: (r) => r.name, width: 200 },
+    { key: 'nm', title: t('oa.def.name'), get: (r) => defName(t, r), width: 200 },
     { key: 'a', title: t('oa.amount'), get: (r) => Number(r.amount), render: (r) => formatAmount(r.amount, 2), num: true, width: 100, total: 'sum' },
     { key: 'm', title: t('oa.def.months'), get: (r) => `${r.months_done}/${r.months}`, width: 70 },
     { key: 'r', title: t('oa.def.remaining'), get: (r) => Number(r.remaining), render: (r) => formatAmount(r.remaining, 2), num: true, width: 100, total: 'sum' },
@@ -489,7 +513,7 @@ export function Deferrals({ me }: { me: Me }) {
         <section className="mx-box">
           {sel ? (
             <div className="mx-pay" style={{ overflow: 'auto' }}>
-              <h3 style={{ margin: 0 }}>#{sel.schedule.number} · {sel.schedule.name}</h3>
+              <h3 style={{ margin: 0 }}>#{sel.schedule.number} · {defName(t, sel.schedule)}</h3>
               <small>{t(`oa.def.k.${sel.schedule.kind}`)} · {sel.schedule.deferral_account_code} → {sel.schedule.target_account_code} {sel.schedule.target_account_name}</small>
               <table className="mx-table"><thead><tr><th>#</th><th>{t('oa.def.month')}</th><th className="num">{t('oa.amount')}</th><th>{t('oa.def.posted')}</th></tr></thead>
                 <tbody>{sel.plan.map((p) => { const l = sel.lines.find((x) => x.period === p.period); return (

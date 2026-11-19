@@ -19,7 +19,7 @@ import (
 
 const deferralCols = `d.id, d.number, d.kind, d.name, d.source_type, d.source_id, d.deferral_account_id, da.code AS deferral_account_code,
 	da.name AS deferral_account_name, d.target_account_id, ta.code AS target_account_code, ta.name AS target_account_name,
-	d.amount_base::text AS amount, d.months, d.start_period, d.cost_center_id, d.status, d.setup_entry_id, d.notes, d.created_at,
+	d.amount_base::text AS amount, d.months, d.source_number, d.party, d.start_period, d.cost_center_id, d.status, d.setup_entry_id, d.notes, d.created_at,
 	coalesce((SELECT sum(l.amount) FROM deferral_lines l WHERE l.schedule_id = d.id), 0)::text AS recognised,
 	(d.amount_base - coalesce((SELECT sum(l.amount) FROM deferral_lines l WHERE l.schedule_id = d.id), 0))::text AS remaining,
 	(SELECT count(*) FROM deferral_lines l WHERE l.schedule_id = d.id) AS months_done,
@@ -151,9 +151,11 @@ func (s *Server) createDeferral(w http.ResponseWriter, r *http.Request) {
 		}
 		date := in.Date
 		name := strings.TrimSpace(in.Name)
+		party, srcNum := "", (*int64)(nil)
 		// defaults from the source document
 		if in.SourceType != "manual" {
 			var docAmt, docAcc, docDate, docName string
+			var docNum *int64
 			var q string
 			switch in.SourceType {
 			case "invoice":
@@ -161,7 +163,7 @@ func (s *Server) createDeferral(w http.ResponseWriter, r *http.Request) {
 					return nil, badRequest("bad_request")
 				}
 				q = `SELECT coalesce(sum(jl.base_credit - jl.base_debit), 0)::text, coalesce((SELECT il.revenue_account_id::text FROM invoice_lines il
-					WHERE il.invoice_id = i.id ORDER BY il.line_no LIMIT 1), ''), i.issue_date::text, 'Invoice #' || i.number || ' · ' || c.name
+					WHERE il.invoice_id = i.id ORDER BY il.line_no LIMIT 1), ''), i.issue_date::text, 'Invoice #' || i.number || ' · ' || c.name, i.number, c.name
 					FROM invoices i JOIN customers c ON c.id = i.customer_id
 					LEFT JOIN journal_lines jl ON jl.entry_id = i.journal_entry_id AND jl.account_id IN (SELECT il.revenue_account_id FROM invoice_lines il WHERE il.invoice_id = i.id)
 					WHERE i.id = $1 AND i.company_id = $2 AND i.status <> 'void' GROUP BY i.id, c.name`
@@ -170,7 +172,7 @@ func (s *Server) createDeferral(w http.ResponseWriter, r *http.Request) {
 					return nil, badRequest("bad_request")
 				}
 				q = `SELECT coalesce(sum(jl.base_debit - jl.base_credit), 0)::text, coalesce((SELECT bl.account_id::text FROM bill_lines bl
-					WHERE bl.bill_id = b.id ORDER BY bl.line_no LIMIT 1), ''), b.bill_date::text, 'Bill #' || b.number || ' · ' || su.name
+					WHERE bl.bill_id = b.id ORDER BY bl.line_no LIMIT 1), ''), b.bill_date::text, 'Bill #' || b.number || ' · ' || su.name, b.number, su.name
 					FROM bills b JOIN suppliers su ON su.id = b.supplier_id
 					LEFT JOIN journal_lines jl ON jl.entry_id = b.journal_entry_id AND jl.account_id IN (SELECT bl.account_id FROM bill_lines bl WHERE bl.bill_id = b.id)
 					WHERE b.id = $1 AND b.company_id = $2 AND b.status <> 'void' GROUP BY b.id, su.name`
@@ -178,11 +180,11 @@ func (s *Server) createDeferral(w http.ResponseWriter, r *http.Request) {
 				if in.Kind != "expense" {
 					return nil, badRequest("bad_request")
 				}
-				q = `SELECT coalesce(sum(jl.base_debit), 0)::text, x.account_id::text, x.expense_date::text, 'Expense · ' || x.description
+				q = `SELECT coalesce(sum(jl.base_debit), 0)::text, x.account_id::text, x.expense_date::text, 'Expense · ' || x.description, NULL::bigint, x.description
 					FROM expenses x LEFT JOIN journal_lines jl ON jl.entry_id = x.journal_entry_id AND jl.account_id = x.account_id
 					WHERE x.id = $1 AND x.company_id = $2 GROUP BY x.id`
 			}
-			err := tx.QueryRow(ctx, q, in.SourceID, cid).Scan(&docAmt, &docAcc, &docDate, &docName)
+			err := tx.QueryRow(ctx, q, in.SourceID, cid).Scan(&docAmt, &docAcc, &docDate, &docName, &docNum, &party)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, badRequest("invalid_source")
 			}
@@ -209,6 +211,7 @@ func (s *Server) createDeferral(w http.ResponseWriter, r *http.Request) {
 			if name == "" {
 				name = docName
 			}
+			srcNum = docNum
 		}
 		if date == "" {
 			date = today()
@@ -267,10 +270,10 @@ func (s *Server) createDeferral(w http.ResponseWriter, r *http.Request) {
 		}
 		var id string
 		if err := tx.QueryRow(ctx, `INSERT INTO deferral_schedules (company_id, number, kind, name, source_type, source_id, deferral_account_id,
-			target_account_id, amount_base, months, start_period, cost_center_id, setup_entry_id, notes)
-			VALUES ($1, $2, $3, $4, $5, nullif($6, '')::uuid, $7, $8, $9::numeric, $10, $11, nullif($12, '')::uuid, $13, $14) RETURNING id::text`,
+			target_account_id, amount_base, months, start_period, cost_center_id, setup_entry_id, notes, source_number, party)
+			VALUES ($1, $2, $3, $4, $5, nullif($6, '')::uuid, $7, $8, $9::numeric, $10, $11, nullif($12, '')::uuid, $13, $14, $15, $16) RETURNING id::text`,
 			cid, n, in.Kind, name, in.SourceType, in.SourceID, in.DeferralAccountID, in.TargetAccountID, amount.String(), in.Months, in.StartPeriod,
-			in.CostCenterID, je, strings.TrimSpace(in.Notes)).Scan(&id); err != nil {
+			in.CostCenterID, je, strings.TrimSpace(in.Notes), srcNum, party).Scan(&id); err != nil {
 			return nil, err
 		}
 		// months already passed are recognised right away (up to the current month)

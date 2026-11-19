@@ -6,6 +6,7 @@ import { useCompany } from '../../company';
 import { errorText, formatAmount, formatDate, today } from '../../util';
 import { printPage } from '../../native';
 import { PayslipSheet } from './HR';
+import { SelfClaims, photoToBase64 } from '../fin/Finish';
 
 interface Home {
   employee: { id: string; code: string; name: string; position: string; department: string; hire_date: string; photo: string; currency: string; currency2: string | null; manager_name: string | null; advances_open: string };
@@ -38,6 +39,7 @@ export default function SelfService() {
   const [req, setReq] = useState({ type_id: '', date_from: today(), date_to: today(), reason: '' });
   const [slip, setSlip] = useState<SlipDetail | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selfie, setSelfie] = useState<string>('');
   const load = useCallback(() => {
     if (!base) return;
     api<Home>(`${base}/self`).then((h) => { setHome(h); setErr(''); }).catch((e) => setErr(e instanceof ApiError && e.code === 'no_employee_file' ? 'no_file' : errorText(t, e)));
@@ -54,7 +56,10 @@ export default function SelfService() {
       if (!navigator.geolocation) { res(null); return; }
       navigator.geolocation.getCurrentPosition(res, () => res(null), { enableHighAccuracy: true, timeout: 8000 });
     });
-    await act(api(`${base}/self/clock`, { method: 'POST', body: pos ? { lat: pos.coords.latitude, lng: pos.coords.longitude } : {} }), t('hr2.self.clocked'));
+    const body: Record<string, unknown> = pos ? { lat: pos.coords.latitude, lng: pos.coords.longitude } : {};
+    if (selfie) body.photo = selfie;
+    await act(api(`${base}/self/clock`, { method: 'POST', body }), t('hr2.self.clocked'));
+    setSelfie('');
     setBusy(false);
   }
   if (err === 'no_file') return <div className="mx-pay"><p>{t('hr2.self.noFile')}</p></div>;
@@ -74,10 +79,12 @@ export default function SelfService() {
           <div>{t('hr2.in')}: <b dir="ltr">{hm(todayRow?.check_in ?? null)}</b> · {t('hr2.out')}: <b dir="ltr">{hm(todayRow?.check_out ?? null)}</b>
             {todayRow?.late_minutes ? <span className="red"> · {t('hr2.late')} {todayRow.late_minutes}′</span> : null}</div>
           <button className="mx-btn main" style={{ fontSize: 20, padding: '14px 0' }} disabled={busy} onClick={() => void clock()}>{clockLabel}</button>
+          <label className="mx-row" style={{ gap: 6 }}>{t('fin.clock.selfie')}<input type="file" accept="image/*" capture="user" onChange={(ev) => { const f = ev.currentTarget.files?.[0]; if (f) void photoToBase64(f).then(setSelfie); }} />{selfie ? ' OK' : ''}</label>
           <small>{t('hr2.self.locationHint')}</small>
           {msg && <div className={`mx-flash ${msg.ok ? 'good' : 'bad'}`}>{msg.text}</div>}
         </div>
       </section>
+      {base && <SelfClaims base={base} currency={e.currency} />}
       {team.length > 0 && (
         <section className="mx-box"><h3>{t('hr2.self.team')}</h3>
           <div className="mx-pay">{team.map((r) => (

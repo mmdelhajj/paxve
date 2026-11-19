@@ -413,7 +413,18 @@ func (s *Server) deleteHoliday(w http.ResponseWriter, r *http.Request) {
 
 // computeAttendance fills worked / late / overtime minutes from the employee's schedule.
 func computeAttendance(ctx context.Context, tx pgx.Tx, attID string) error {
-	_, err := tx.Exec(ctx, `UPDATE attendance a SET
+	var emp, day string
+	if err := tx.QueryRow(ctx, `SELECT employee_id::text, work_date::text FROM attendance WHERE id = $1`, attID).Scan(&emp, &day); err != nil {
+		return err
+	}
+	sched, off, err := scheduleFor(ctx, tx, emp, day)
+	if err != nil {
+		return err
+	}
+	if off {
+		sched = "" // a rostered day off: everything worked is overtime
+	}
+	_, err = tx.Exec(ctx, `UPDATE attendance a SET
 		worked_minutes = CASE WHEN a.check_in IS NOT NULL AND a.check_out IS NOT NULL
 		  THEN greatest(0, (extract(epoch FROM a.check_out - a.check_in) / 60)::int - coalesce(w.break_minutes, 0)) ELSE 0 END,
 		late_minutes = CASE WHEN a.check_in IS NOT NULL AND w.id IS NOT NULL
@@ -421,10 +432,9 @@ func computeAttendance(ctx context.Context, tx pgx.Tx, attID string) error {
 		  THEN (extract(epoch FROM (a.check_in AT TIME ZONE 'Asia/Beirut')::time - w.start_time) / 60)::int ELSE 0 END,
 		overtime_minutes = CASE WHEN a.check_in IS NOT NULL AND a.check_out IS NOT NULL
 		  THEN greatest(0, (extract(epoch FROM a.check_out - a.check_in) / 60)::int - coalesce(w.break_minutes, 0)
-		       - (extract(epoch FROM coalesce(w.end_time - w.start_time, interval '8 hours')) / 60)::int
-		       + CASE WHEN w.id IS NULL THEN 0 ELSE 0 END) ELSE 0 END
-		FROM employees e LEFT JOIN work_schedules w ON w.id = e.schedule_id
-		WHERE a.id = $1 AND e.id = a.employee_id`, attID)
+		       - CASE WHEN $3 THEN 0 ELSE (extract(epoch FROM coalesce(w.end_time - w.start_time, interval '8 hours')) / 60)::int END) ELSE 0 END
+		FROM employees e LEFT JOIN work_schedules w ON w.id = nullif($2, '')::uuid
+		WHERE a.id = $1 AND e.id = a.employee_id`, attID, sched, off)
 	return err
 }
 
@@ -815,9 +825,13 @@ func leaveBalances(ctx context.Context, tx pgx.Tx, cid, emp string, year int) (j
 		    - (CASE WHEN (SELECT hire_date FROM e) > (SELECT ys FROM yr) THEN extract(month FROM (SELECT hire_date FROM e))::int - 1 ELSE 0 END))) AS months_accrued
 		  FROM leave_types t WHERE t.company_id = $1 AND t.is_active)
 		SELECT t.id AS type_id, t.code, t.name_en, t.name_ar, t.name_fr, t.paid, t.accrual,
-		  CASE ent.accrual WHEN 'yearly' THEN round(t.days_per_year * ent.months_service / 12, 1)
-		                   WHEN 'monthly' THEN round(t.days_per_year * ent.months_accrued / 12, 1) END::text AS entitled,
-		  CASE WHEN t.accrual <> 'none' AND t.max_carry > 0 THEN least(t.max_carry, greatest(0, t.days_per_year - coalesce((SELECT sum(r.days) FROM leave_requests r
+		  CASE WHEN EXISTS (SELECT 1 FROM leave_accruals la WHERE la.employee_id = $2 AND la.type_id = t.id AND la.year = $3)
+		       THEN (SELECT sum(la.days) FROM leave_accruals la WHERE la.employee_id = $2 AND la.type_id = t.id AND la.year = $3 AND la.kind <> 'carry')
+		       ELSE CASE ent.accrual WHEN 'yearly' THEN round(t.days_per_year * ent.months_service / 12, 1)
+		                   WHEN 'monthly' THEN round(t.days_per_year * ent.months_accrued / 12, 1) END END::text AS entitled,
+		  CASE WHEN EXISTS (SELECT 1 FROM leave_accruals la WHERE la.employee_id = $2 AND la.type_id = t.id AND la.year = $3)
+		       THEN coalesce((SELECT sum(la.days) FROM leave_accruals la WHERE la.employee_id = $2 AND la.type_id = t.id AND la.year = $3 AND la.kind = 'carry'), 0)
+		  WHEN t.accrual <> 'none' AND t.max_carry > 0 THEN least(t.max_carry, greatest(0, t.days_per_year - coalesce((SELECT sum(r.days) FROM leave_requests r
 		      WHERE r.employee_id = $2 AND r.type_id = t.id AND r.status = 'approved' AND extract(year FROM r.date_from) = $3 - 1), 0))) ELSE 0 END::text AS carried,
 		  coalesce((SELECT sum(r.days) FROM leave_requests r WHERE r.employee_id = $2 AND r.type_id = t.id AND r.status = 'approved'
 		      AND extract(year FROM r.date_from) = $3), 0)::text AS taken,
@@ -1228,9 +1242,11 @@ func (s *Server) selfHome(w http.ResponseWriter, r *http.Request) {
 
 // POST /self/clock {lat, lng}: first call of the day = check in, next = check out.
 func (s *Server) selfClock(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
 	var in struct {
-		Lat *float64 `json:"lat"`
-		Lng *float64 `json:"lng"`
+		Lat   *float64 `json:"lat"`
+		Lng   *float64 `json:"lng"`
+		Photo string   `json:"photo"` // optional selfie (base64 JPEG/PNG, data URL allowed)
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -1239,10 +1255,18 @@ func (s *Server) selfClock(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
+	photo, mime, perr := decodePhoto(in.Photo)
+	if perr != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_photo")
+		return
+	}
 	cid, me := r.PathValue("cid"), principal(r).ID
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		emp, err := selfEmployee(ctx, tx, cid, me)
 		if err != nil {
+			return nil, err
+		}
+		if err := checkClockRules(ctx, tx, cid, in.Lat, in.Lng, len(photo) > 0); err != nil {
 			return nil, err
 		}
 		var id string
@@ -1266,6 +1290,12 @@ func (s *Server) selfClock(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := computeAttendance(ctx, tx, id); err != nil {
 			return nil, err
+		}
+		if len(photo) > 0 {
+			if _, err := tx.Exec(ctx, `INSERT INTO attendance_photos (company_id, attendance_id, kind, mime, data) VALUES ($1, $2, $3, $4, $5)
+				ON CONFLICT (attendance_id, kind) DO UPDATE SET data = excluded.data, mime = excluded.mime, created_at = now()`, cid, id, action, mime, photo); err != nil {
+				return nil, err
+			}
 		}
 		row, err := queryJSONOne(ctx, tx, `SELECT work_date, check_in, check_out, worked_minutes, late_minutes FROM attendance WHERE id = $1`, id)
 		if err != nil {

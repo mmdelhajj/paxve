@@ -12,6 +12,7 @@ import { billColor, type Bill, type Supplier, type SupplierPayment } from './typ
 import { BillView, NewBill } from './Bills';
 import { PaySupplier } from './SupplierPayments';
 import { saveTerms, TermsInput } from '../../components/PartnerTerms';
+import { CustomFieldsBox } from '../fin/Finish';
 
 export default function Suppliers({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
@@ -200,6 +201,7 @@ export function SupplierDetail({ me, id }: { me: Me; id: string }) {
       {modal === 'bill' && <NewBill supplier={s} onClose={() => setModal(null)} onDone={(bid) => { setModal(null); load(); setViewBill(bid); }} />}
       {modal === 'pay' && <PaySupplier supplier={s} onClose={() => setModal(null)} onDone={() => { setModal(null); load(); }} />}
       {viewBill && <BillView id={viewBill} canVoid={canManage} onClose={() => setViewBill(null)} onChanged={load} />}
+      <CustomFieldsBox entity="suppliers" id={id} readOnly={!canManage} />
     </Stack>
   );
 }

@@ -8,12 +8,13 @@ import {
   IconUserCircle, IconUserDollar, IconUsers, IconUsersGroup, IconWorld, IconBarcode, IconWallet, IconCalendarStats,
   IconFileDollar, IconCurrencyDollar, IconSitemap, IconCalendarCheck, IconDoorEnter, IconTimeline, IconArrowsLeftRight, IconLanguage,
   IconHeadset, IconTool, IconClipboardList, IconAlarm, IconScaleOutline, IconCalendarTime,
+  IconSwitchHorizontal, IconTags, IconReceiptRefund, IconForms, IconHammer, IconFingerprint, IconCreditCard, IconFileCertificate, IconCalendarRepeat,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
-export type AppId = 'gen' | 'acc' | 'col' | 'msg' | 'stk' | 'pur' | 'net' | 'sat' | 'pos' | 'hr' | 'crm' | 'svc';
+export type AppId = 'gen' | 'acc' | 'col' | 'msg' | 'stk' | 'pur' | 'net' | 'sat' | 'pos' | 'hr' | 'crm' | 'svc' | 'mfg';
 export const CORE_APPS: AppId[] = ['gen', 'acc', 'col'];
-export const ALL_APPS: AppId[] = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc'];
+export const ALL_APPS: AppId[] = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg'];
 
 export type Icon = typeof IconCash;
 
@@ -53,6 +54,7 @@ export const RIBBON: RibbonTab[] = [
   {
     id: 'subs', label: 'mx.rib.subs', color: '#3d8f5a', app: 'gen', tiles: [
       { page: 'customers', label: 'mx.t.manageSubs', icon: IconUserCircle, perm: 'customers.view' },
+      { page: 'subs-change', label: 'fin.t.subs', icon: IconSwitchHorizontal, perm: 'customers.view' },
       { page: 'network', label: 'mx.t.stations', icon: IconTopologyStar3, perm: 'network.view' },
       { page: 'billing-setup', label: 'mx.t.pricing', icon: IconFileDescription, perm: 'billing.view' },
       { page: 'tariffs', label: 'mx.t.tariffs', icon: IconBolt, perm: 'billing.view' },
@@ -75,6 +77,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'jibaya', param: 'scan', label: 'mx.t.barcode', icon: IconBarcode, perm: 'collections.create' },
       { page: 'jibaya', param: 'late', label: 'mx.t.late', icon: IconHourglass, perm: 'collections.view' },
       { page: 'dunning', label: 'oa.t.dunning', icon: IconAlarm, perm: 'billing.view' },
+      { page: 'online-pay', label: 'fin.t.pay', icon: IconCreditCard, perm: 'collections.view' },
       { page: 'collect', label: 'mx.t.collectorMode', icon: IconDeviceMobile, perm: 'collections.create' },
       { page: 'collections', label: 'mx.t.collectionsReport', icon: IconChartBar },
     ],
@@ -136,9 +139,17 @@ export const RIBBON: RibbonTab[] = [
     ],
   },
   {
+    id: 'mfg', label: 'fin.rib.mfg', color: '#6d4c41', app: 'mfg', tiles: [
+      { page: 'mfg', param: 'orders', label: 'fin.mfg.orders', icon: IconHammer, perm: 'stock.view' },
+      { page: 'mfg', param: 'boms', label: 'fin.mfg.boms', icon: IconListDetails, perm: 'stock.view' },
+      { page: 'mfg', param: 'scrap', label: 'fin.mfg.scrap', icon: IconPackage, perm: 'stock.manage' },
+    ],
+  },
+  {
     id: 'pur', label: 'mx.rib.pur', color: '#4b6584', app: 'pur', tiles: [
       { page: 'suppliers', label: 'mx.t.suppliers', icon: IconTruck, perm: 'suppliers.view' },
       { page: 'po', label: 'oa.t.po', icon: IconClipboardList, perm: 'purchasing.view' },
+      { page: 'supplier-prices', label: 'fin.t.sp', icon: IconTags, perm: 'purchasing.view' },
       { page: 'bills', label: 'mx.t.bills', icon: IconReceipt, perm: 'purchasing.view' },
       { page: 'supplier-payments', label: 'mx.t.supplierPayments', icon: IconCashBanknote, perm: 'purchasing.view' },
       { page: 'expenses', label: 'mx.t.expenses', icon: IconReceiptTax, perm: 'expenses.view' },
@@ -172,6 +183,10 @@ export const RIBBON: RibbonTab[] = [
       { page: 'hr', param: 'leave', label: 'hr2.m.leave', icon: IconHourglass, perm: 'payroll.view' },
       { page: 'hr', param: 'payroll', label: 'mx.t.payroll', icon: IconCoins, perm: 'payroll.view' },
       { page: 'hr', param: 'rules', label: 'hr2.m.rules', icon: IconChecklist, perm: 'payroll.view' },
+      { page: 'claims', label: 'fin.t.claims', icon: IconReceiptRefund, perm: 'payroll.view' },
+      { page: 'hr-extra', param: 'roster', label: 'fin.hr.roster', icon: IconCalendarRepeat, perm: 'payroll.view' },
+      { page: 'hr-extra', param: 'accruals', label: 'fin.hr.accruals', icon: IconHourglass, perm: 'payroll.view' },
+      { page: 'hr-extra', param: 'devices', label: 'fin.hr.devices', icon: IconFingerprint, perm: 'payroll.view' },
       { page: 'hr', param: 'reports', label: 'hr2.m.reports', icon: IconChartBar, perm: 'payroll.view' },
       { page: 'self', label: 'hr2.m.self', icon: IconId, any: true },
     ],
@@ -181,6 +196,9 @@ export const RIBBON: RibbonTab[] = [
       { page: 'apps', label: 'mx.t.apps', icon: IconLayoutGrid, perm: 'settings.view' },
       { page: 'localization', label: 't2.t.localization', icon: IconWorld, perm: 'settings.view' },
       { page: 'translations', label: 't2.t.translations', icon: IconLanguage, perm: 'settings.view' },
+      { page: 'custom-fields', label: 'fin.t.cf', icon: IconForms, perm: 'settings.view' },
+      { page: 'einvoice', label: 'fin.t.einv', icon: IconFileCertificate, perm: 'settings.view' },
+      { page: 'online-pay', label: 'fin.t.pay', icon: IconCreditCard, perm: 'settings.view' },
       { page: 'companies', label: 'mx.t.companies', icon: IconBuilding, perm: 'settings.view' },
       { page: 'users', label: 'mx.t.users', icon: IconUsers, perm: 'users.view' },
       { page: 'approvals', label: 'mx.t.approvals', icon: IconChecklist, any: true },
@@ -196,7 +214,7 @@ export const RIBBON: RibbonTab[] = [
 
 /** Pages that are only reached from inside another page (detail screens), with the app they need. */
 export const PAGE_APP: Record<string, AppId | undefined> = {
-  supplier: 'pur', item: 'stk', statement: undefined, customer: undefined,
+  supplier: 'pur', item: 'stk', statement: undefined, customer: undefined, 'hr-extra': 'hr', claims: 'hr', mfg: 'mfg', 'supplier-prices': 'pur',
 };
 
 /** The app a page belongs to (from the ribbon), so a page of a switched-off app shows a notice. */

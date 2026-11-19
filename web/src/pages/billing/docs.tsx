@@ -14,6 +14,8 @@ import { WhatsAppButton } from './Messages';
 import { DocFooter, DocHeader, itemPrice, SendDocButton, type SaleItem } from '../sales/common';
 import { zatcaQR } from '../../zatca';
 import Attachments from '../../components/Attachments';
+import { ensureBundle, langInfo, languages } from '../../i18n';
+import { CustomFieldsBox, EinvoiceButton } from '../fin/Finish';
 
 interface InvoiceLegal {
   company_name?: string; company_tax_id?: string; company_tax_label?: string; company_invoice_title?: string;
@@ -112,27 +114,30 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
 
   const inv = d?.invoice;
   const dec = inv ? decimalsOf(inv.currency) : 2;
-  const rtl = i18n.language === 'ar';
+  const [printLang, setPrintLang] = useState<string>('');
+  useEffect(() => { const l = (d?.invoice as unknown as { customer_locale?: string | null } | undefined)?.customer_locale; if (l && l !== i18n.language) void ensureBundle(l).then(() => setPrintLang(l)); }, [d, i18n.language]);
+  const pl = printLang || i18n.language;
+  const pt = i18n.getFixedT(pl);
 
   return (
     <Modal opened onClose={onClose} size="lg" title={inv ? `${inv.kind === 'refund' ? (inv.cheque_id ? t('stmt.kinds.cheque_return') : t('gap.refund')) : t('invoices.invoice')} #${inv.number}` : t('invoices.invoice')}>
       {!d || !inv ? <Center p="xl"><Loader size="sm" /></Center> : (
         <Stack>
-          <div className="print-doc" dir={rtl ? 'rtl' : 'ltr'}>
-            <DocHeader c={inv} title={`${inv.kind === 'refund' ? (inv.cheque_id ? t('stmt.kinds.cheque_return') : t('gap.refund')) : ((inv as unknown as InvoiceLegal).company_invoice_title || t('invoices.invoice'))} #${inv.number}`} lines={[
+          <div className="print-doc" dir={langInfo(pl).dir} lang={pl}>
+            <DocHeader c={inv} title={`${inv.kind === 'refund' ? (inv.cheque_id ? pt('stmt.kinds.cheque_return') : pt('gap.refund')) : ((inv as unknown as InvoiceLegal).company_invoice_title || pt('invoices.invoice'))} #${inv.number}`} lines={[
               ...(inv.period ? [inv.period] : []),
-              ...(inv.order_number ? [`${t('sales.order')} SO-${inv.order_number}`] : []),
-              `${t('invoices.date')}: ${formatDate(inv.issue_date)}`,
-              `${t('invoices.due')}: ${formatDate(inv.due_date)}`,
-              <Badge key="st" color={invoiceColor[inv.status]} variant="light" className="no-print">{t(`invoices.statuses.${inv.status}`)}</Badge>,
+              ...(inv.order_number ? [`${pt('sales.order')} SO-${inv.order_number}`] : []),
+              `${pt('invoices.date')}: ${formatDate(inv.issue_date)}`,
+              `${pt('invoices.due')}: ${formatDate(inv.due_date)}`,
+              <Badge key="st" color={invoiceColor[inv.status]} variant="light" className="no-print">{pt(`invoices.statuses.${inv.status}`)}</Badge>,
             ]} />
             <Divider my="sm" />
             <Text fw={600}>{inv.customer_name} <Text span c="dimmed" size="sm">({inv.customer_code})</Text></Text>
             <Text size="sm">{[inv.customer_phone, inv.area_name, inv.customer_address].filter(Boolean).join(' · ')}</Text>
-            {inv.meter_no && <Text size="sm">{t('invoices.meter')}: {inv.meter_no}</Text>}
+            {inv.meter_no && <Text size="sm">{pt('invoices.meter')}: {inv.meter_no}</Text>}
             <table style={{ marginTop: 12 }}>
               <thead>
-                <tr><th>{t('invoices.description')}</th><th className="num">{t('invoices.amount')}</th></tr>
+                <tr><th>{pt('invoices.description')}</th><th className="num">{pt('invoices.amount')}</th></tr>
               </thead>
               <tbody>
                 {d.lines.map((l) => (
@@ -150,18 +155,26 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
                 ))}
               </tbody>
               <tfoot>
-                <tr><th>{t('invoices.total')}</th><th className="num">{formatAmount(inv.total, dec)} {inv.currency}</th></tr>
+                <tr><th>{pt('invoices.total')}</th><th className="num">{formatAmount(inv.total, dec)} {inv.currency}</th></tr>
                 {inv.local_currency && inv.local_currency_total && (
-                  <tr><td>{t('net.localTotal', { cur: inv.local_currency, rate: Number(inv.local_rate ?? 0).toLocaleString('en-US'), date: formatDate(inv.issue_date) })}</td>
+                  <tr><td>{pt('net.localTotal', { cur: inv.local_currency, rate: Number(inv.local_rate ?? 0).toLocaleString('en-US'), date: formatDate(inv.issue_date) })}</td>
                     <td className="num" style={{ fontWeight: 700 }}>{formatAmount(inv.local_currency_total, decimalsOf(inv.local_currency))} {inv.local_currency}</td></tr>
                 )}
-                {inv.paid !== '0.0000' && <tr><td>{t('invoices.paid')}</td><td className="num">{formatAmount(inv.paid, dec)}</td></tr>}
-                {inv.status !== 'void' && <tr><th>{t('invoices.balance')}</th><th className="num">{formatAmount(inv.balance, dec)} {inv.currency}</th></tr>}
+                {inv.paid !== '0.0000' && <tr><td>{pt('invoices.paid')}</td><td className="num">{formatAmount(inv.paid, dec)}</td></tr>}
+                {inv.status !== 'void' && <tr><th>{pt('invoices.balance')}</th><th className="num">{formatAmount(inv.balance, dec)} {inv.currency}</th></tr>}
               </tfoot>
             </table>
-            {inv.status === 'void' && <Text c="red" fw={700} mt="sm">{t('invoices.statuses.void')} {inv.notes}</Text>}
+            {inv.status === 'void' && <Text c="red" fw={700} mt="sm">{pt('invoices.statuses.void')} {inv.notes}</Text>}
             <DocFooter c={inv} />
             <InvoiceLegal inv={inv as unknown as InvoiceLegal} />
+          </div>
+          <div className="mx-row no-print" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <label style={{ fontSize: 12 }}>{t('fin.printLang')} <select value={pl} onChange={(e) => { const v = e.currentTarget.value; void ensureBundle(v).then(() => setPrintLang(v)); }}>
+              {languages.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}</select></label>
+            <EinvoiceButton invoiceId={inv.id} />
+          </div>
+          <CustomFieldsBox entity="invoices" id={inv.id} readOnly={!canVoid} />
+          <div style={{ display: 'none' }}>
           </div>
 
           {d.payments.length > 0 && (

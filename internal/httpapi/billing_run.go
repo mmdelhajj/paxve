@@ -51,6 +51,7 @@ type billBatchResult struct {
 }
 
 const billingWhere = `s.company_id = $1 AND s.status = 'active' AND c.status = 'active' AND s.start_date <= $3::date
+	AND (s.end_date IS NULL OR s.end_date >= ($2 || '-01')::date)
 	AND ($4 = '' OR c.area_id = $4::uuid)
 	AND ($5 = '' OR s.box_id = $5::uuid)
 	AND ($6 = '' OR s.box_id IN (SELECT id FROM boxes WHERE station_id = $6::uuid))
@@ -69,11 +70,17 @@ func billBatch(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings,
 		ID, Customer, CustomerName, Plan, PlanName, Type, Currency, Revenue, UnitLabel string
 		Fee, Price, Initial                                                            string
 		Override, Current, Previous, TaxRateID                                         *string
+		Start                                                                          string
+		End                                                                            *string
+	}
+	var prorateOn bool
+	if err := tx.QueryRow(ctx, `SELECT prorate_billing FROM companies WHERE id = $1`, cid).Scan(&prorateOn); err != nil {
+		return nil, err
 	}
 	rows, err := tx.Query(ctx, `
 		SELECT s.id::text, s.customer_id::text, c.name, p.id::text, p.name, p.billing_type, p.currency::text,
 		       p.revenue_account_id::text, p.unit_label, p.base_fee::text, p.unit_price::text, s.initial_reading::text,
-		       s.fee_override::text, p.tax_rate_id::text,
+		       s.fee_override::text, p.tax_rate_id::text, s.start_date::text, s.end_date::text,
 		       (SELECT r.reading::text FROM meter_readings r WHERE r.subscription_id = s.id AND r.period = $2),
 		       (SELECT r.reading::text FROM meter_readings r WHERE r.subscription_id = s.id AND r.period < $2 ORDER BY r.period DESC LIMIT 1)
 		FROM subscriptions s
@@ -88,7 +95,7 @@ func billBatch(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings,
 	subs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (sub, error) {
 		var x sub
 		err := row.Scan(&x.ID, &x.Customer, &x.CustomerName, &x.Plan, &x.PlanName, &x.Type, &x.Currency, &x.Revenue,
-			&x.UnitLabel, &x.Fee, &x.Price, &x.Initial, &x.Override, &x.TaxRateID, &x.Current, &x.Previous)
+			&x.UnitLabel, &x.Fee, &x.Price, &x.Initial, &x.Override, &x.TaxRateID, &x.Start, &x.End, &x.Current, &x.Previous)
 		return x, err
 	})
 	if err != nil {
@@ -111,9 +118,18 @@ func billBatch(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings,
 		}
 		lines := []invLine{}
 		if fee.IsPositive() {
-			lines = append(lines, invLine{Kind: "fee", Description: x.PlanName + " · " + p.Period,
-				Quantity: decimal.NewFromInt(1), UnitPrice: fee, Amount: fee.Round(dec),
-				Meta: map[string]any{"plan": x.PlanName, "period": p.Period}})
+			// proration: a subscription that starts or ends inside the month pays only its days
+			days, inMonth := prorateDays(p.Period, x.Start, x.End)
+			if prorateOn && days < inMonth {
+				part := fee.Mul(decimal.NewFromInt(int64(days))).Div(decimal.NewFromInt(int64(inMonth)))
+				lines = append(lines, invLine{Kind: "fee", Description: fmt.Sprintf("%s · %s (%d/%d)", x.PlanName, p.Period, days, inMonth),
+					Quantity: decimal.NewFromInt(1), UnitPrice: part.Round(dec), Amount: part.Round(dec),
+					Meta: map[string]any{"plan": x.PlanName, "period": p.Period, "days": days, "days_in_month": inMonth, "full_fee": fee.String()}})
+			} else {
+				lines = append(lines, invLine{Kind: "fee", Description: x.PlanName + " · " + p.Period,
+					Quantity: decimal.NewFromInt(1), UnitPrice: fee, Amount: fee.Round(dec),
+					Meta: map[string]any{"plan": x.PlanName, "period": p.Period}})
+			}
 		}
 		if x.Type == "metered" {
 			if x.Current == nil {
@@ -167,8 +183,33 @@ func billBatch(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings,
 		}
 		res.created++
 		res.totals[x.Currency] = res.totals[x.Currency].Add(sum)
+		if x.End != nil && *x.End <= periodEnd(p.Period) { // last month billed: the subscription is over
+			if _, err := tx.Exec(ctx, `UPDATE subscriptions SET status = 'ended', updated_at = now() WHERE id = $1`, x.ID); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return res, nil
+}
+
+// prorateDays: days of period the subscription is active (start / end dates inside the month) and the days in the month.
+func prorateDays(period, start string, end *string) (int, int) {
+	first, _ := time.Parse(time.DateOnly, period+"-01")
+	last := first.AddDate(0, 1, -1)
+	inMonth := last.Day()
+	s, e := first, last
+	if st, err := time.Parse(time.DateOnly, start); err == nil && st.After(s) {
+		s = st
+	}
+	if end != nil {
+		if en, err := time.Parse(time.DateOnly, *end); err == nil && en.Before(e) {
+			e = en
+		}
+	}
+	if e.Before(s) {
+		return 0, inMonth
+	}
+	return int(e.Sub(s).Hours()/24) + 1, inMonth
 }
 
 func totalsJSON(t map[string]decimal.Decimal) map[string]string {

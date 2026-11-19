@@ -296,7 +296,7 @@ func loadInvoice(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 	if !isUUID(id) {
 		return nil, notFound()
 	}
-	inv, err := queryJSONOne(ctx, tx, `SELECT `+invoiceCols+`, c.phone AS customer_phone, c.address AS customer_address, c.email AS customer_email,
+	inv, err := queryJSONOne(ctx, tx, `SELECT `+invoiceCols+`, c.phone AS customer_phone, c.address AS customer_address, c.email AS customer_email, c.locale AS customer_locale,
 		ar.name AS area_name, s.meter_no, co.name_en AS company_name, co.name_ar AS company_name_ar,
 		co.logo AS company_logo, co.doc_header AS company_header, co.doc_footer AS company_footer, co.tax_id AS company_tax_id,
 		co.tax_id_label AS company_tax_label, co.invoice_title AS company_invoice_title, co.legal_mentions AS company_mentions,

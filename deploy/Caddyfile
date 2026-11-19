@@ -11,7 +11,7 @@ paxve.com, www.paxve.com {
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options nosniff
-		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
 		-Server
 	}
 
@@ -35,5 +35,20 @@ paxve.com, www.paxve.com {
 			header_up -CF-Connecting-IP
 			header_up -X-Forwarded-For
 		}
+	}
+}
+
+# Fingerprint machines (ZKTeco "ADMS" push) often speak plain HTTP and do not follow redirects: /iclock is served on
+# port 80 as well (by name or by the server's address); everything else still goes to HTTPS.
+http://paxve.com, http://www.paxve.com, http://199.47.240.230 {
+	handle /iclock/* {
+		reverse_proxy app:8080 {
+			header_up X-Client-IP {client_ip}
+			header_up -CF-Connecting-IP
+			header_up -X-Forwarded-For
+		}
+	}
+	handle {
+		redir https://paxve.com{uri} 308
 	}
 }

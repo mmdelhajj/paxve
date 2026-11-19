@@ -143,6 +143,7 @@ func buildSlip(ctx context.Context, tx pgx.Tx, cid, base, runID, period string, 
 	if worked < 0 {
 		worked = 0
 	}
+	params = phasedSocial(params, country, e.Nationality, e.Hire, to)
 	in := slipInput{Country: country, Params: params, Cur1: e.Cur1, Salary1: e.Salary1, Transport1: e.Transport, TransportDaily: e.TransportDaily,
 		Housing1: e.Housing, Married: e.Marital == "married", SpouseWork: e.SpouseWork, Children: e.Children, Nationality: e.Nationality,
 		SocialEnrolled: e.Enrolled, TaxExempt: e.TaxExempt, ActiveFactor: active, WorkedDays: decimal.NewFromInt(int64(worked)),
@@ -232,6 +233,11 @@ func buildSlip(ctx context.Context, tx pgx.Tx, cid, base, runID, period string, 
 	if in.Cur2 != "" {
 		cur2 = &in.Cur2
 	}
+	// approved expense claims to reimburse with this salary (in one of the salary currencies)
+	claimIDs, err := payrollClaims(ctx, tx, e.ID, slipID, e.Cur1, in.Cur2, &res)
+	if err != nil {
+		return err
+	}
 	recovery := res.recovery()
 	var manRec *string
 	if man.Recovery != nil {
@@ -267,6 +273,14 @@ func buildSlip(ctx context.Context, tx pgx.Tx, cid, base, runID, period string, 
 		if _, err := tx.Exec(ctx, `INSERT INTO payslip_lines (company_id, payslip_id, seq, code, label, kind, role, currency, amount, basis)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::numeric, $10)`, cid, slipID, i+1, l.Code, l.Label, l.Kind, l.Role, l.Currency,
 			l.Amount.String(), l.Basis); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(ctx, `UPDATE expense_claims SET payslip_id = NULL WHERE payslip_id = $1 AND NOT (id::text = ANY($2::text[]))`, slipID, claimIDs); err != nil {
+		return err
+	}
+	if len(claimIDs) > 0 {
+		if _, err := tx.Exec(ctx, `UPDATE expense_claims SET payslip_id = $1 WHERE id::text = ANY($2::text[])`, slipID, claimIDs); err != nil {
 			return err
 		}
 	}
@@ -554,6 +568,7 @@ func taxPayableAccount(ctx context.Context, tx pgx.Tx, cid string) (string, erro
 type payGroup struct {
 	cur, cc                                     string
 	salary, socialExp, socialPay, tax, adv, net decimal.Decimal
+	claims                                      decimal.Decimal // expense claims reimbursed with the salary
 }
 
 func payrollGroups(ctx context.Context, tx pgx.Tx, runID string) ([]*payGroup, error) {
@@ -604,6 +619,8 @@ func payrollGroups(ctx context.Context, tx pgx.Tx, runID string) ([]*payGroup, e
 		}
 		g, a := get(cur, cc), d(amt)
 		switch {
+		case kind == "earning" && role == "reimbursement":
+			g.claims = g.claims.Add(a)
 		case kind == "earning" && role == "allowance_social":
 			g.socialPay = g.socialPay.Sub(a) // paid for the social fund: reduces what is owed to it
 		case kind == "earning":
@@ -669,6 +686,13 @@ func payrollLines(ctx context.Context, tx pgx.Tx, cid string, set *boSettings, g
 				}
 			}
 			add(taxAcc, "Salary tax "+period, g.tax, false, "")
+		}
+		if g.claims.IsPositive() {
+			acc, err := claimsPayableAccount(ctx, tx, cid)
+			if err != nil {
+				return nil, err
+			}
+			add(acc, "Expense claims reimbursed "+period, g.claims, true, "")
 		}
 		add(*set.Advances, "Advances recovered "+period, g.adv, false, "")
 		add(*set.SalaryPay, "Net salaries "+period, g.net, false, "")

@@ -46,7 +46,7 @@ export default function Apps({ me }: { me: Me }) {
   }
 
   const color = (id: AppId) => RIBBON.find((r) => r.id === ICON_OF[id])?.color ?? '#57606f';
-  const list: (AppId | 'wat' | 'mfg')[] = [...ALL_APPS, 'wat', 'mfg'];
+  const list: (AppId | 'wat')[] = [...ALL_APPS, 'wat'];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 1200 }}>
@@ -59,6 +59,7 @@ export default function Apps({ me }: { me: Me }) {
               <option value="generator">{t('mx.apps.biz.generator')}</option>
               <option value="internet">{t('mx.apps.biz.internet')}</option>
               <option value="satellite">{t('mx.apps.biz.satellite')}</option>
+              <option value="water">{t('mx.apps.biz.water')}</option>
             </select>
           </label>
           {msg && <span className={`mx-flash ${msg.ok ? 'good' : 'bad'}`}>{msg.text}</span>}
@@ -66,9 +67,10 @@ export default function Apps({ me }: { me: Me }) {
       </div>
       <div className="mx-apps">
         {list.map((id) => {
-          const soon = id === 'wat' || id === 'mfg';
+          const soon = false;
           const core = (CORE_APPS as string[]).includes(id);
-          const on = soon ? false : core || apps.has(id);
+          // water is a business type (metered m³ billing on the same engine), not a separate app
+          const on = id === 'wat' ? company.business_type === 'water' : core || apps.has(id);
           return (
             <article key={id} className="mx-appc">
               <header>
@@ -82,6 +84,7 @@ export default function Apps({ me }: { me: Me }) {
                 {core ? <span className="mx-pill on">{t('mx.apps.always')}</span> : (
                 <Switch aria-label={t(`mx.apps.${id}.name`)} checked={on} disabled={soon || !canEdit || busy}
                   onChange={(e) => {
+                    if (id === 'wat') { void save(apps, e.currentTarget.checked ? 'water' : 'generator'); return; }
                     const next = new Set(apps);
                     if (e.currentTarget.checked) next.add(id); else next.delete(id);
                     void save(next);

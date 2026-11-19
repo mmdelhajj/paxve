@@ -62,6 +62,9 @@ func (in *poIn) valid() bool {
 		}
 		q, ok1 := money(l.Quantity)
 		p, ok2 := money(l.UnitPrice)
+		if strings.TrimSpace(l.UnitPrice) == "" && l.ItemID != "" {
+			ok2, p = true, decimal.Zero // filled from the supplier's price list
+		}
 		if !ok1 || !ok2 || !q.IsPositive() || p.IsNegative() || (l.ItemID == "" && strings.TrimSpace(l.Description) == "") {
 			return false
 		}
@@ -79,9 +82,20 @@ func writePOLines(ctx context.Context, tx pgx.Tx, cid, id, currency string, line
 		return err
 	}
 	total := decimal.Zero
+	var supplier, orderDate string
+	if err := tx.QueryRow(ctx, `SELECT supplier_id::text, order_date::text FROM purchase_orders WHERE id = $1`, id).Scan(&supplier, &orderDate); err != nil {
+		return err
+	}
 	for i, l := range lines {
 		q, _ := money(l.Quantity)
 		p, _ := money(l.UnitPrice)
+		if strings.TrimSpace(l.UnitPrice) == "" && l.ItemID != "" {
+			sp, _, err := supplierPrice(ctx, tx, cid, supplier, l.ItemID, currency, orderDate, q)
+			if err != nil {
+				return err
+			}
+			p = sp
+		}
 		desc := strings.TrimSpace(l.Description)
 		if l.ItemID != "" {
 			it, err := loadItem(ctx, tx, cid, l.ItemID)
@@ -136,7 +150,8 @@ func loadPO(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 	lines, err := queryJSON(ctx, tx, `SELECT l.id, l.line_no, l.item_id, it.code AS item_code, it.unit, it.kind AS item_kind, l.warehouse_id,
 		l.account_id, l.unit_id, u.name AS unit_name, l.description, trim_scale(l.quantity)::text AS quantity, trim_scale(l.unit_price)::text AS unit_price,
 		l.tax_rate_id, (SELECT t.name FROM tax_rates t WHERE t.id = l.tax_rate_id) AS tax_name,
-		trim_scale(l.billed_qty)::text AS billed_qty, trim_scale(greatest(l.quantity - l.billed_qty, 0))::text AS open_qty
+		trim_scale(l.billed_qty)::text AS billed_qty, trim_scale(greatest(l.quantity - l.billed_qty, 0))::text AS open_qty,
+		trim_scale(l.received_qty)::text AS received_qty, trim_scale(greatest(l.quantity - l.received_qty, 0))::text AS to_receive
 		FROM purchase_order_lines l LEFT JOIN items it ON it.id = l.item_id LEFT JOIN item_units u ON u.id = l.unit_id
 		WHERE l.order_id = $1 ORDER BY l.line_no`, id)
 	if err != nil {
@@ -146,7 +161,13 @@ func loadPO(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]json.RawMessage{"order": po, "lines": lines, "bills": bills}, nil
+	receipts, err := queryJSON(ctx, tx, `SELECT g.id, g.number, g.receipt_date, g.delivery_ref, g.status,
+		(SELECT trim_scale(sum(gl.quantity))::text FROM goods_receipt_lines gl WHERE gl.receipt_id = g.id) AS quantity
+		FROM goods_receipts g WHERE g.order_id = $1 ORDER BY g.number`, id)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]json.RawMessage{"order": po, "lines": lines, "bills": bills, "receipts": receipts}, nil
 }
 
 // GET /companies/{cid}/purchase-orders?status=open|all|<status>&supplier_id=
@@ -366,21 +387,31 @@ func (s *Server) billPO(w http.ResponseWriter, r *http.Request) {
 		}
 		type pol struct {
 			id, item, wh, acc, unit, desc, tax string
-			qty, billed, price                 decimal.Decimal
+			qty, billed, price, received       decimal.Decimal
 		}
+		var matchMode, tolS string
+		var anyReceipt bool
+		if err := tx.QueryRow(ctx, `SELECT three_way_match, match_price_tolerance::text,
+			EXISTS (SELECT 1 FROM goods_receipts g WHERE g.order_id = $2 AND g.status = 'done') FROM companies WHERE id = $1`, cid, id).
+			Scan(&matchMode, &tolS, &anyReceipt); err != nil {
+			return nil, err
+		}
+		tol, _ := decimal.NewFromString(tolS)
+		warnings := []map[string]string{}
 		rows, err := tx.Query(ctx, `SELECT id::text, coalesce(item_id::text, ''), coalesce(warehouse_id::text, ''), coalesce(account_id::text, ''),
-			coalesce(unit_id::text, ''), description, coalesce(tax_rate_id::text, ''), quantity::text, billed_qty::text, unit_price::text
+			coalesce(unit_id::text, ''), description, coalesce(tax_rate_id::text, ''), quantity::text, billed_qty::text, unit_price::text, received_qty::text
 			FROM purchase_order_lines WHERE order_id = $1 ORDER BY line_no FOR UPDATE`, id)
 		if err != nil {
 			return nil, err
 		}
 		pls, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (pol, error) {
 			var p pol
-			var q, b, pr string
-			err := row.Scan(&p.id, &p.item, &p.wh, &p.acc, &p.unit, &p.desc, &p.tax, &q, &b, &pr)
+			var q, b, pr, rc string
+			err := row.Scan(&p.id, &p.item, &p.wh, &p.acc, &p.unit, &p.desc, &p.tax, &q, &b, &pr, &rc)
 			p.qty, _ = decimal.NewFromString(q)
 			p.billed, _ = decimal.NewFromString(b)
 			p.price, _ = decimal.NewFromString(pr)
+			p.received, _ = decimal.NewFromString(rc)
 			return p, err
 		})
 		if err != nil {
@@ -401,6 +432,22 @@ func (s *Server) billPO(w http.ResponseWriter, r *http.Request) {
 			}
 			if qty.GreaterThan(p.qty.Sub(p.billed)) {
 				return &apiError{status: http.StatusUnprocessableEntity, code: "over_billing", detail: p.desc}
+			}
+			// 3-way match: what is billed should have been received, at the ordered price
+			if matchMode != "off" {
+				if (anyReceipt || matchMode == "block") && qty.GreaterThan(p.received.Sub(p.billed)) {
+					if matchMode == "block" {
+						return &apiError{status: http.StatusUnprocessableEntity, code: "not_received", detail: p.desc}
+					}
+					warnings = append(warnings, map[string]string{"code": "not_received", "line": p.desc,
+						"billed": qty.String(), "received": decimal.Max(p.received.Sub(p.billed), decimal.Zero).String()})
+				}
+				if p.price.IsPositive() && price.Sub(p.price).Abs().Mul(pct100).Div(p.price).GreaterThan(tol) {
+					if matchMode == "block" {
+						return &apiError{status: http.StatusUnprocessableEntity, code: "price_mismatch", detail: p.desc}
+					}
+					warnings = append(warnings, map[string]string{"code": "price_mismatch", "line": p.desc, "ordered": p.price.String(), "billed": price.String()})
+				}
 			}
 			if wh == "" {
 				wh = p.wh
@@ -458,7 +505,7 @@ func (s *Server) billPO(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"bill": b, "po": po}, nil
+		return map[string]any{"bill": b, "po": po, "warnings": warnings}, nil
 	})
 }
 

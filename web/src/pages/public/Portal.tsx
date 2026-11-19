@@ -9,7 +9,7 @@ import { DocFooter, DocHeader, orderColor } from '../sales/common';
 import { StatementDoc, type StmtCurrency } from '../sales/Statements';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api';
-import { formatAmount, formatDate } from '../../util';
+import { errorText, formatAmount, formatDate } from '../../util';
 import LangSwitch from '../../components/LangSwitch';
 import { applyLang } from '../../i18n';
 import Logo from '../../components/Logo';
@@ -207,6 +207,7 @@ function PortalInvoice({ token, id, onClose }: { token: string; id: string; onCl
               </tfoot>
             </table>
           </div>
+          {inv.status !== 'paid' && <PayOnline token={token} invoiceId={id} currency={inv.currency} />}
           <Group justify="flex-end" className="no-print">
             <Button variant="default" onClick={onClose}>{t('common.close')}</Button>
             <Button leftSection={<IconPrinter size={16} />} onClick={() => void printPage()}>{t('invoices.print')}</Button>
@@ -214,6 +215,48 @@ function PortalInvoice({ token, id, onClose }: { token: string; id: string; onCl
         </Stack>
       )}
     </Modal>
+  );
+}
+
+interface PayOption { id: string; kind: string; name: string; instructions: string; test_mode: boolean; currency: string; account_name: string | null; account_number: string | null; phone: string | null }
+
+/** Pay this invoice online: card / bank page (redirect), or a Whish / OMT / bank transfer reference checked by the company. */
+function PayOnline({ token, invoiceId, currency }: { token: string; invoiceId: string; currency: string }) {
+  const { t } = useTranslation();
+  const [opts, setOpts] = useState<PayOption[]>([]);
+  const [ref, setRef] = useState('');
+  const [phone, setPhone] = useState('');
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => { api<PayOption[]>(`/portal/${token}/pay-options`).then((o) => setOpts(o.filter((x) => x.currency === currency))).catch(() => setOpts([])); }, [token, currency]);
+  if (!opts.length) return null;
+  async function pay(o: PayOption) {
+    try {
+      const r = await api<{ status: string; redirect_url?: string }>(`/portal/${token}/invoices/${invoiceId}/pay`, { method: 'POST', body: { gateway_id: o.id, reference: ref, phone } });
+      if (r.redirect_url) { window.location.href = r.redirect_url; return; }
+      setMsg({ ok: true, text: t('fin.pay.sentForReview') });
+    } catch (e) { setMsg({ ok: false, text: errorText(t, e) }); }
+  }
+  return (
+    <Stack gap={6} className="no-print">
+      <Text fw={600}>{t('fin.pay.online')}</Text>
+      {opts.map((o) => (
+        <Stack key={o.id} gap={4} style={{ border: '1px solid #ddd', borderRadius: 6, padding: 8 }}>
+          <Text size="sm" fw={600}>{o.name}{o.test_mode ? ` (${t('fin.pay.test')})` : ''}</Text>
+          {o.instructions && <Text size="sm">{o.instructions}</Text>}
+          {o.kind === 'transfer' ? (
+            <>
+              {(o.phone || o.account_number) && <Text size="sm" dir="ltr">{[o.account_name, o.account_number, o.phone].filter(Boolean).join(' · ')}</Text>}
+              <Group gap={6}>
+                <TextInput size="xs" placeholder={t('fin.pay.ref')} value={ref} onChange={(e) => setRef(e.currentTarget.value)} />
+                <TextInput size="xs" placeholder={t('fin.pay.phone')} value={phone} onChange={(e) => setPhone(e.currentTarget.value)} />
+                <Button size="xs" disabled={!ref.trim()} onClick={() => void pay(o)}>{t('fin.pay.sendRef')}</Button>
+              </Group>
+            </>
+          ) : <Button size="xs" onClick={() => void pay(o)}>{t('fin.pay.payNow')}</Button>}
+        </Stack>
+      ))}
+      {msg && <Text size="sm" c={msg.ok ? 'green' : 'red'}>{msg.text}</Text>}
+    </Stack>
   );
 }
 

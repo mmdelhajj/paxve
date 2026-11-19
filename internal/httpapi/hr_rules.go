@@ -61,6 +61,10 @@ var payrollDefaults = map[string][]ruleParam{
 		{"social_er_rate_foreign", "2", "2000-01-01"},
 		{"social_ceiling", "45000", "2000-01-01"},
 		{"social_includes_housing", "1", "2000-01-01"},
+		// new GOSI law (Royal Decree M/273): Saudis who first join after 3 July 2024 pay annuities that rise by 0.5
+		// point a year (employee and employer each) every July, from 9% to 11% in July 2028
+		{"social_phased_from", "2024-07-03", "2000-01-01"},
+		{"social_phased_steps", "2025-07-01:0.5,2026-07-01:1,2027-07-01:1.5,2028-07-01:2", "2000-01-01"},
 		{"overtime_rate", "1.5", "2000-01-01"},
 		{"month_days", "30", "2000-01-01"},
 		{"month_hours", "208", "2000-01-01"},
@@ -106,7 +110,7 @@ var genericDefaults = []ruleParam{
 var payrollParamKeys = []string{"legal_currency", "social_label", "social_nationals", "social_ee_rate", "social_er_rate", "social_er_rate_foreign",
 	"social_ceiling", "social_includes_housing", "family_er_rate", "family_ceiling", "eos_er_rate", "family_allow_spouse", "family_allow_child",
 	"family_allow_max_children", "tax_brackets", "tax_ded_self", "tax_ded_spouse", "tax_ded_child", "tax_ded_max_children", "tax_rounding",
-	"min_wage", "transport_per_day", "overtime_rate", "month_days", "month_hours", "gratuity"}
+	"min_wage", "transport_per_day", "overtime_rate", "month_days", "month_hours", "gratuity", "social_phased_from", "social_phased_steps"}
 
 type payrollParams map[string]string
 

@@ -1,3 +1,4 @@
+import { CustomFieldsBox } from '../fin/Finish';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActionIcon, Anchor, Badge, Button, Center, FileButton, Group, Image, Loader, Modal, Paper, Select, SimpleGrid, Stack, Switch, Table, Text, Textarea, TextInput, Title,
@@ -299,6 +300,7 @@ export function ItemDetail({ me, id }: { me: Me; id: string }) {
         )}
       </Paper>
       {edit && <ItemForm item={it} onClose={() => setEdit(false)} onSaved={() => { setEdit(false); load(); }} />}
+      <CustomFieldsBox entity="items" id={it.id} />
     </Stack>
   );
 }

@@ -51,7 +51,8 @@ i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 });
 
-async function ensureBundle(code: string) {
+/** load a language's texts (for printing a document in another language than the screen) */
+export async function ensureBundle(code: string) {
   if (loaded.has(code)) return;
   const load = extra[`./locales/extra/${code}.json`];
   if (!load) return;
