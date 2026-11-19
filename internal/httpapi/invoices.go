@@ -180,10 +180,7 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 	if in.IssueDate == "" {
 		in.IssueDate = today()
 	}
-	if in.DueDate == "" {
-		in.DueDate = in.IssueDate
-	}
-	if !validDate(in.IssueDate) || !validDate(in.DueDate) || in.DueDate < in.IssueDate || !currencyRe.MatchString(in.Currency) ||
+	if !validDate(in.IssueDate) || (in.DueDate != "" && (!validDate(in.DueDate) || in.DueDate < in.IssueDate)) || !currencyRe.MatchString(in.Currency) ||
 		len(in.Lines) == 0 || len(in.Lines) > 100 || (in.RevenueAccountID != "" && !isUUID(in.RevenueAccountID)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
@@ -197,6 +194,12 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 		name, err := lockCustomer(ctx, tx, cid, in.CustomerID)
 		if err != nil {
 			return nil, err
+		}
+		if in.DueDate == "" { // payment terms: the customer's, else the company's default (0 = due on the invoice date)
+			if err := tx.QueryRow(ctx, `SELECT ($1::date + coalesce((SELECT due_days FROM customers WHERE id = $2),
+				(SELECT default_due_days FROM companies WHERE id = $3), 0))::text`, in.IssueDate, in.CustomerID, cid).Scan(&in.DueDate); err != nil {
+				return nil, err
+			}
 		}
 		rev := in.RevenueAccountID
 		if rev == "" && set.Revenue != nil {

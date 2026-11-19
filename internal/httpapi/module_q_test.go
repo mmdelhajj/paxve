@@ -153,6 +153,14 @@ func seedEverything(t *testing.T, o *org) {
 	step(201, "POST", "/tickets", map[string]any{"customer_id": cust, "subject": secretB + " outage", "category": "outage"})
 	mt := id(step(201, "POST", "/maintenance/tasks", map[string]any{"generator_id": gen, "task": secretB + " oil", "every_hours": "250"}), "id")
 	step(201, "POST", "/maintenance/log", map[string]any{"plan_id": mt, "done_date": "2026-11-05", "hour_meter": "100"})
+
+	// Odoo audit stage: purchase order, deferral, attachment, dunning level
+	step(201, "POST", "/purchase-orders", map[string]any{"supplier_id": sup, "currency": "USD", "notes": secretB,
+		"lines": []any{map[string]any{"item_id": item, "quantity": "5", "unit_price": "1"}}})
+	step(201, "POST", "/deferrals", map[string]any{"kind": "revenue", "name": secretB + " yearly", "amount": "120", "months": 12,
+		"start_period": "2026-11", "target_account_id": o.accounts["701"], "deferral_account_id": o.accounts["487"]})
+	step(201, "POST", "/attachments", map[string]any{"type": "invoice", "id": invID, "filename": secretB + ".txt", "data": "aGVsbG8="})
+	step(200, "PUT", "/dunning", map[string]any{"enabled": false, "levels": []any{map[string]any{"level": 1, "name": secretB, "days_overdue": 3}}})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -234,6 +242,7 @@ var idTable = map[string]string{
 	"lots": "stock_lots", "counts": "stock_counts", "price-lists": "price_lists",
 	"documents": "employee_documents", "schedules": "work_schedules", "holidays": "public_holidays", "leave-types": "leave_types",
 	"leave": "leave_requests", "tickets": "tickets", "tasks": "maintenance_plans",
+	"purchase-orders": "purchase_orders", "deferrals": "deferral_schedules", "attachments": "attachments",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)

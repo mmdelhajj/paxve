@@ -7,7 +7,7 @@ import {
   IconReportMoney, IconRouter, IconScale, IconShieldLock, IconShoppingCart, IconTargetArrow, IconTopologyStar3, IconTruck,
   IconUserCircle, IconUserDollar, IconUsers, IconUsersGroup, IconWorld, IconBarcode, IconWallet, IconCalendarStats,
   IconFileDollar, IconCurrencyDollar, IconSitemap, IconCalendarCheck, IconDoorEnter, IconTimeline, IconArrowsLeftRight, IconLanguage,
-  IconHeadset, IconTool,
+  IconHeadset, IconTool, IconClipboardList, IconAlarm, IconScaleOutline, IconCalendarTime,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
@@ -74,6 +74,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'jibaya', param: 'col', label: 'mx.t.settle', icon: IconMoneybag, perm: 'collections.view' },
       { page: 'jibaya', param: 'scan', label: 'mx.t.barcode', icon: IconBarcode, perm: 'collections.create' },
       { page: 'jibaya', param: 'late', label: 'mx.t.late', icon: IconHourglass, perm: 'collections.view' },
+      { page: 'dunning', label: 'oa.t.dunning', icon: IconAlarm, perm: 'billing.view' },
       { page: 'collect', label: 'mx.t.collectorMode', icon: IconDeviceMobile, perm: 'collections.create' },
       { page: 'collections', label: 'mx.t.collectionsReport', icon: IconChartBar },
     ],
@@ -99,6 +100,8 @@ export const RIBBON: RibbonTab[] = [
       { page: 'recurring', label: 'mx.t.recurring', icon: IconRepeat, perm: 'accounting.view' },
       { page: 'bank-rec', label: 'mx.t.bank', icon: IconBuildingBank, perm: 'bank.edit' },
       { page: 'assets', label: 'mx.t.assets', icon: IconBuildingFactory2, perm: 'assets.view' },
+      { page: 'fx-reval', label: 'oa.t.fx', icon: IconScaleOutline, perm: 'accounting.view' },
+      { page: 'deferrals', label: 'oa.t.def', icon: IconCalendarTime, perm: 'accounting.view' },
       { page: 'vat-report', label: 'mx.t.vat', icon: IconReceipt2 },
       { page: 'consolidated', label: 'mx.t.consolidated', icon: IconBuildingSkyscraper },
     ],
@@ -135,6 +138,7 @@ export const RIBBON: RibbonTab[] = [
   {
     id: 'pur', label: 'mx.rib.pur', color: '#4b6584', app: 'pur', tiles: [
       { page: 'suppliers', label: 'mx.t.suppliers', icon: IconTruck, perm: 'suppliers.view' },
+      { page: 'po', label: 'oa.t.po', icon: IconClipboardList, perm: 'purchasing.view' },
       { page: 'bills', label: 'mx.t.bills', icon: IconReceipt, perm: 'purchasing.view' },
       { page: 'supplier-payments', label: 'mx.t.supplierPayments', icon: IconCashBanknote, perm: 'purchasing.view' },
       { page: 'expenses', label: 'mx.t.expenses', icon: IconReceiptTax, perm: 'expenses.view' },

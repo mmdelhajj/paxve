@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -570,6 +571,17 @@ func (s *Server) saveItem(w http.ResponseWriter, r *http.Request) {
 			if kind == "stock" && inv == "" {
 				return nil, notSetup("inventory")
 			}
+			rev := deref(in.RevenueAccountID)
+			if rev == "" && (kind == "stock" || kind == "consumable") { // goods sold go to "sales of goods", not the subscriptions revenue
+				var g *string
+				if err := tx.QueryRow(ctx, `SELECT goods_revenue_account_id::text FROM companies WHERE id = $1`, cid).Scan(&g); err != nil {
+					return nil, err
+				}
+				if g != nil {
+					rev = *g
+				}
+			}
+			in.RevenueAccountID = &rev
 			code := strings.TrimSpace(deref(in.Code))
 			if code == "" {
 				var n int64
@@ -747,35 +759,53 @@ type billLineIn struct {
 	TaxRateID   string   `json:"tax_rate_id"`
 	UnitID      string   `json:"unit_id"` // a purchase unit of the item (barrel = 200 L): quantity and price are per that unit
 	Lots        []lotQty `json:"lots"`    // lot / serial numbers received (tracked items)
+	poLineID    string   // set when the bill is created from a purchase order line
 }
 
-func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		SupplierID  string       `json:"supplier_id"`
-		SupplierRef string       `json:"supplier_ref"`
-		BillDate    string       `json:"bill_date"`
-		DueDate     string       `json:"due_date"`
-		Currency    string       `json:"currency"`
-		Notes       string       `json:"notes"`
-		Lines       []billLineIn `json:"lines"`
-		CostCenter  string       `json:"cost_center_id"`
-	}
-	if !decodeBody(w, r, &in) {
-		return
-	}
+type billInput struct {
+	SupplierID  string       `json:"supplier_id"`
+	SupplierRef string       `json:"supplier_ref"`
+	BillDate    string       `json:"bill_date"`
+	DueDate     string       `json:"due_date"`
+	Currency    string       `json:"currency"`
+	Notes       string       `json:"notes"`
+	Lines       []billLineIn `json:"lines"`
+	CostCenter  string       `json:"cost_center_id"`
+	// AllowDuplicate: book it even though this supplier already has a bill with the same reference
+	AllowDuplicate bool `json:"allow_duplicate"`
+	poID           string
+}
+
+func (in *billInput) normalize() bool {
 	if in.BillDate == "" {
 		in.BillDate = today()
 	}
-	if in.DueDate == "" {
-		in.DueDate = in.BillDate
+	return validDate(in.BillDate) && (in.DueDate == "" || (validDate(in.DueDate) && in.DueDate >= in.BillDate)) && currencyRe.MatchString(in.Currency) &&
+		len(in.Lines) > 0 && len(in.Lines) <= 200
+}
+
+func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
+	var in billInput
+	if !decodeBody(w, r, &in) {
+		return
 	}
-	if !validDate(in.BillDate) || !validDate(in.DueDate) || in.DueDate < in.BillDate || !currencyRe.MatchString(in.Currency) ||
-		len(in.Lines) == 0 || len(in.Lines) > 200 {
+	if !in.normalize() {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		id, err := createBillTx(ctx, tx, cid, in)
+		if err != nil {
+			return nil, err
+		}
+		return loadBill(ctx, tx, cid, id)
+	})
+}
+
+// createBillTx books a supplier bill (Dr stock / expense + tax, Cr payables), receives stock and returns the bill id.
+func createBillTx(ctx context.Context, tx pgx.Tx, cid string, in billInput) (string, error) {
+	id, err := func() (any, error) {
 		ctx = withCostCenter(ctx, in.CostCenter)
 		set, err := loadBillingSettings(ctx, tx, cid)
 		if err != nil {
@@ -791,6 +821,22 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 		name, err := lockSupplier(ctx, tx, cid, in.SupplierID)
 		if err != nil {
 			return nil, err
+		}
+		if in.DueDate == "" { // payment terms: the supplier's, else the company's default
+			if err := tx.QueryRow(ctx, `SELECT ($1::date + coalesce((SELECT due_days FROM suppliers WHERE id = $2),
+				(SELECT default_due_days FROM companies WHERE id = $3), 0))::text`, in.BillDate, in.SupplierID, cid).Scan(&in.DueDate); err != nil {
+				return nil, err
+			}
+		}
+		if ref := strings.TrimSpace(in.SupplierRef); ref != "" && !in.AllowDuplicate { // the same supplier invoice entered twice
+			var dup *int64
+			if err := tx.QueryRow(ctx, `SELECT number FROM bills WHERE company_id = $1 AND supplier_id = $2 AND lower(supplier_ref) = lower($3)
+				AND status <> 'void' LIMIT 1`, cid, in.SupplierID, ref).Scan(&dup); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return nil, err
+			}
+			if dup != nil {
+				return nil, &apiError{status: http.StatusConflict, code: "duplicate_supplier_ref", detail: fmt.Sprintf("%d", *dup)}
+			}
 		}
 		dec, err := currencyDecimals(ctx, tx, in.Currency)
 		if err != nil {
@@ -811,6 +857,7 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 			tax           *taxInfo
 			taxAmount     decimal.Decimal
 			lots          []lotQty
+			poLine        string
 		}
 		lines := []line{}
 		total := decimal.Zero
@@ -820,7 +867,7 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 			if !ok1 || !ok2 || !qty.IsPositive() {
 				return nil, badRequest("invalid_amount")
 			}
-			ln := line{qty: qty, price: price, desc: strings.TrimSpace(l.Description)}
+			ln := line{qty: qty, price: price, desc: strings.TrimSpace(l.Description), poLine: l.poLineID}
 			if l.ItemID != "" {
 				it, err := loadItem(ctx, tx, cid, l.ItemID)
 				if err != nil {
@@ -900,9 +947,9 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 		}
 		var id string
 		if err := tx.QueryRow(ctx, `INSERT INTO bills (company_id, number, supplier_id, supplier_ref, bill_date, due_date, currency, total,
-			journal_entry_id, notes) VALUES ($1, $2, $3, $4, $5::date, $6::date, $7, $8::numeric, $9, $10) RETURNING id::text`,
+			journal_entry_id, notes, purchase_order_id) VALUES ($1, $2, $3, $4, $5::date, $6::date, $7, $8::numeric, $9, $10, nullif($11, '')::uuid) RETURNING id::text`,
 			cid, number, in.SupplierID, strings.TrimSpace(in.SupplierRef), in.BillDate, in.DueDate, in.Currency, total.String(), je,
-			strings.TrimSpace(in.Notes)).Scan(&id); err != nil {
+			strings.TrimSpace(in.Notes), in.poID).Scan(&id); err != nil {
 			return nil, err
 		}
 		for i, l := range lines {
@@ -918,8 +965,8 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 				taxID = &l.tax.ID
 			}
 			if _, err := tx.Exec(ctx, `INSERT INTO bill_lines (bill_id, line_no, item_id, warehouse_id, account_id, description, quantity, unit_price, amount,
-				tax_rate_id, tax_amount) VALUES ($1, $2, $3, $4, $5, $6, $7::numeric, $8::numeric, $9::numeric, $10, $11::numeric)`,
-				id, i+1, itemID, wh, l.account, l.desc, l.qty.String(), l.price.String(), l.amount.String(), taxID, l.taxAmount.String()); err != nil {
+				tax_rate_id, tax_amount, po_line_id) VALUES ($1, $2, $3, $4, $5, $6, $7::numeric, $8::numeric, $9::numeric, $10, $11::numeric, nullif($12, '')::uuid)`,
+				id, i+1, itemID, wh, l.account, l.desc, l.qty.String(), l.price.String(), l.amount.String(), taxID, l.taxAmount.String(), l.poLine); err != nil {
 				return nil, err
 			}
 			if l.item != nil && l.item.Kind == "stock" {
@@ -931,8 +978,12 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 		if err := autoAllocateSupplier(ctx, tx, cid, in.SupplierID, in.Currency); err != nil {
 			return nil, err
 		}
-		return loadBill(ctx, tx, cid, id)
-	})
+		return id, nil
+	}()
+	if err != nil {
+		return "", err
+	}
+	return id.(string), nil
 }
 
 func loadBill(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
@@ -1029,6 +1080,15 @@ func (s *Server) voidBill(w http.ResponseWriter, r *http.Request) {
 		if p, _ := decimal.NewFromString(paid); !p.IsZero() {
 			return nil, &apiError{status: http.StatusConflict, code: "bill_has_payments"}
 		}
+		if je != nil { // a freight / customs bill made by a landed cost: its cost is already inside the stock value
+			var lc bool
+			if err := tx.QueryRow(ctx, `SELECT source = 'landed_cost' FROM journal_entries WHERE id = $1`, *je).Scan(&lc); err != nil {
+				return nil, err
+			}
+			if lc {
+				return nil, &apiError{status: http.StatusConflict, code: "landed_cost_bill"}
+			}
+		}
 		var rev *string
 		if je != nil {
 			var rid string
@@ -1044,6 +1104,15 @@ func (s *Server) voidBill(w http.ResponseWriter, r *http.Request) {
 		if _, err := tx.Exec(ctx, `UPDATE bills SET status = 'void', void_entry_id = $2,
 			notes = CASE WHEN $3 = '' THEN notes ELSE trim(notes || ' ' || $3) END WHERE id = $1`, id, rev, strings.TrimSpace(in.Reason)); err != nil {
 			return nil, err
+		}
+		var po *string
+		if err := tx.QueryRow(ctx, `SELECT purchase_order_id::text FROM bills WHERE id = $1`, id).Scan(&po); err != nil {
+			return nil, err
+		}
+		if po != nil {
+			if err := refreshPOBilled(ctx, tx, *po); err != nil {
+				return nil, err
+			}
 		}
 		return loadBill(ctx, tx, cid, id)
 	})

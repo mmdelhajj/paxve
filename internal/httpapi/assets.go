@@ -16,7 +16,7 @@ import (
 const assetCols = `a.id, a.code, a.name, a.category, a.purchase_date, a.currency, a.cost::text AS cost, a.cost_base::text AS cost_base,
 	a.salvage_base::text AS salvage_base, a.useful_life_months, a.start_period, a.asset_account_id, aa.code AS asset_account_code,
 	a.accum_account_id, a.expense_account_id, a.status, a.disposal_date, a.disposal_proceeds_base::text AS disposal_proceeds_base,
-	a.notes, a.created_at, a.cost_center_id,
+	a.notes, a.created_at, a.cost_center_id, a.method, trim_scale(a.declining_factor)::text AS declining_factor,
 	coalesce((SELECT sum(d.amount) FROM depreciation_lines d WHERE d.asset_id = a.id), 0)::text AS accumulated,
 	(a.cost_base - coalesce((SELECT sum(d.amount) FROM depreciation_lines d WHERE d.asset_id = a.id), 0))::text AS net_book_value,
 	round((a.cost_base - a.salvage_base) / a.useful_life_months, 2)::text AS monthly,
@@ -76,7 +76,20 @@ type assetIn struct {
 	ExpenseAccountID *string `json:"expense_account_id"`
 	PaidFromMethodID *string `json:"paid_from_method_id"` // create only: record the purchase (Dr asset / Cr box)
 	Notes            *string `json:"notes"`
-	CostCenterID     *string `json:"cost_center_id"` // depreciation expense is tagged with it
+	CostCenterID     *string `json:"cost_center_id"`   // depreciation expense is tagged with it
+	Method           *string `json:"method"`           // straight_line (default) | declining
+	DecliningFactor  *string `json:"declining_factor"` // declining balance: 2 = double declining
+}
+
+func (in *assetIn) validMethod() bool {
+	if in.Method != nil && *in.Method != "" && *in.Method != "straight_line" && *in.Method != "declining" {
+		return false
+	}
+	if in.DecliningFactor != nil && *in.DecliningFactor != "" {
+		f, ok := money(*in.DecliningFactor)
+		return ok && f.IsPositive() && f.LessThanOrEqual(decimal.NewFromInt(5))
+	}
+	return true
 }
 
 // createAsset registers an asset; optionally books its purchase from a cash box / bank.
@@ -98,7 +111,7 @@ func (s *Server) createAsset(w http.ResponseWriter, r *http.Request) {
 		in.Currency == nil || !currencyRe.MatchString(*in.Currency) || !okCost || !cost.IsPositive() ||
 		in.UsefulLifeMonths == nil || *in.UsefulLifeMonths < 1 || *in.UsefulLifeMonths > 1200 ||
 		in.AssetAccountID == nil || !isUUID(*in.AssetAccountID) || !optUUID(in.AccumAccountID) || !optUUID(in.ExpenseAccountID) ||
-		!optUUID(in.PaidFromMethodID) || !optUUID(in.CostCenterID) || (in.StartPeriod != nil && *in.StartPeriod != "" && !validPeriod(*in.StartPeriod)) {
+		!optUUID(in.PaidFromMethodID) || !optUUID(in.CostCenterID) || !in.validMethod() || (in.StartPeriod != nil && *in.StartPeriod != "" && !validPeriod(*in.StartPeriod)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -184,6 +197,12 @@ func (s *Server) createAsset(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 		}
+		if m := deref(in.Method); m != "" {
+			if _, err := tx.Exec(ctx, `UPDATE assets SET method = $2, declining_factor = coalesce(nullif($3, '')::numeric, declining_factor) WHERE id = $1`,
+				id, m, deref(in.DecliningFactor)); err != nil {
+				return nil, err
+			}
+		}
 		return queryJSONOne(ctx, tx, `SELECT `+assetCols+assetFrom+` WHERE a.id = $1`, id)
 	})
 }
@@ -195,7 +214,7 @@ func (s *Server) updateAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cid, id := r.PathValue("cid"), r.PathValue("id")
-	if !isUUID(id) || (in.Name != nil && strings.TrimSpace(*in.Name) == "") || !optUUID(in.CostCenterID) ||
+	if !isUUID(id) || (in.Name != nil && strings.TrimSpace(*in.Name) == "") || !optUUID(in.CostCenterID) || !in.validMethod() ||
 		(in.UsefulLifeMonths != nil && (*in.UsefulLifeMonths < 1 || *in.UsefulLifeMonths > 1200)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
@@ -212,9 +231,10 @@ func (s *Server) updateAsset(w http.ResponseWriter, r *http.Request) {
 		tag, err := tx.Exec(ctx, `UPDATE assets SET name = coalesce(trim($3), name), category = coalesce(trim($4), category),
 			notes = coalesce($5, notes), useful_life_months = coalesce($6, useful_life_months),
 			salvage_base = coalesce($7::numeric, salvage_base),
-			cost_center_id = CASE WHEN $8::text IS NULL THEN cost_center_id ELSE nullif($8, '')::uuid END
+			cost_center_id = CASE WHEN $8::text IS NULL THEN cost_center_id ELSE nullif($8, '')::uuid END,
+			method = coalesce(nullif($9, ''), method), declining_factor = coalesce(nullif($10, '')::numeric, declining_factor)
 			WHERE id = $1 AND company_id = $2`,
-			id, cid, in.Name, in.Category, in.Notes, in.UsefulLifeMonths, salvage, in.CostCenterID)
+			id, cid, in.Name, in.Category, in.Notes, in.UsefulLifeMonths, salvage, in.CostCenterID, deref(in.Method), deref(in.DecliningFactor))
 		if err != nil {
 			return nil, err
 		}
@@ -254,9 +274,14 @@ func depreciate(ctx context.Context, tx pgx.Tx, cid, period string) (map[string]
 	}
 	rows, err := tx.Query(ctx, `
 		SELECT a.id::text, a.name, a.accum_account_id::text, a.expense_account_id::text, coalesce(a.cost_center_id::text, ''),
-		       least(round((a.cost_base - a.salvage_base) / a.useful_life_months, 2),
-		             a.cost_base - a.salvage_base - coalesce((SELECT sum(d.amount) FROM depreciation_lines d WHERE d.asset_id = a.id), 0))::text
+		       (CASE WHEN a.method = 'declining' THEN
+		          -- declining balance: net book value × factor / life, switching to straight line on what is left when that is more
+		          least(greatest(round((a.cost_base - x.acc) * a.declining_factor / a.useful_life_months, 2),
+		                         round((a.cost_base - a.salvage_base - x.acc) / greatest(a.useful_life_months - x.done, 1), 2)),
+		                a.cost_base - a.salvage_base - x.acc)
+		        ELSE least(round((a.cost_base - a.salvage_base) / a.useful_life_months, 2), a.cost_base - a.salvage_base - x.acc) END)::text
 		FROM assets a
+		CROSS JOIN LATERAL (SELECT coalesce(sum(d.amount), 0) AS acc, count(*) AS done FROM depreciation_lines d WHERE d.asset_id = a.id) x
 		WHERE a.company_id = $1 AND a.status = 'active' AND a.start_period <= $2
 		  AND NOT EXISTS (SELECT 1 FROM depreciation_lines d WHERE d.asset_id = a.id AND d.period = $2)
 		ORDER BY a.code

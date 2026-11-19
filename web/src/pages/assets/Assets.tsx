@@ -127,7 +127,7 @@ function NewAsset({ onClose, onDone }: { onClose: () => void; onDone: () => void
   const methods = useMethods();
   const [f, setF] = useState({
     name: '', category: '', purchase_date: today(), currency: company?.base_currency ?? 'USD', cost: '', salvage: '',
-    useful_life_months: 60 as number | string, asset_account_id: '', paid_from_method_id: '', cost_center_id: '',
+    useful_life_months: 60 as number | string, asset_account_id: '', paid_from_method_id: '', cost_center_id: '', method: 'straight_line', declining_factor: '2',
   });
   const [busy, setBusy] = useState(false);
   const assetAccounts = accounts.filter((a) => a.type === 'asset');
@@ -162,6 +162,9 @@ function NewAsset({ onClose, onDone }: { onClose: () => void; onDone: () => void
           </Group>
           <Group grow>
             <NumberInput label={t('fa.life')} min={1} max={1200} value={f.useful_life_months} onChange={(v) => setF({ ...f, useful_life_months: v })} />
+            <Select label={t('oa.fa.method')} allowDeselect={false} value={f.method} onChange={(v) => setF({ ...f, method: v ?? 'straight_line' })}
+              data={[{ value: 'straight_line', label: t('oa.fa.straight') }, { value: 'declining', label: t('oa.fa.declining') }]} description={f.method === 'declining' ? t('oa.fa.decliningHint') : undefined} />
+            {f.method === 'declining' && <TextInput label={t('oa.fa.factor')} dir="ltr" value={f.declining_factor} onChange={(e) => setF({ ...f, declining_factor: e.currentTarget.value.replace(/[^\d.]/g, '') })} />}
             <TextInput label={`${t('fa.salvage')} (${company?.base_currency})`} dir="ltr" value={f.salvage} onChange={(e) => setF({ ...f, salvage: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
           </Group>
           <Select label={t('fa.assetAccount')} required searchable data={assetAccounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}

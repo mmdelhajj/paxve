@@ -6,7 +6,8 @@ import {
 import { useDebouncedValue } from '@mantine/hooks';
 import { IconPlus, IconPrinter, IconSearch, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { can, api, type Account, type Me } from '../../api';
+import { can, api, ApiError, type Account, type Me } from '../../api';
+import Attachments from '../../components/Attachments';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader, { Confirm } from '../../components/PageHeader';
@@ -160,6 +161,7 @@ export function BillView({ id, canVoid, onClose, onChanged }: { id: string; canV
               {d.payments.map((p, i) => <Text size="sm" key={i}>#{p.payment_number} · {formatDate(p.payment_date)} · <span dir="ltr">{formatAmount(p.amount, dec)}</span></Text>)}
             </Paper>
           )}
+          <Attachments type="bill" id={b.id} />
           {confirm && <Confirm text={t('pur.voidBillConfirm')} yesLabel={t('pur.voidBill')} noLabel={t('common.cancel')} busy={busy} onYes={doVoid} onNo={() => setConfirm(false)} />}
           {debit && (
             <Paper withBorder p="sm" className="no-print">
@@ -223,7 +225,7 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
   const [supplierId, setSupplierId] = useState<string | null>(supplier?.id ?? null);
   const [currency, setCurrency] = useState<string | null>(supplier?.currency ?? company?.base_currency ?? 'USD');
   const [date, setDate] = useState(today());
-  const [due, setDue] = useState(today());
+  const [due, setDue] = useState(''); // empty = the supplier's payment terms
   const [ref, setRef] = useState('');
   const [lines, setLines] = useState<LineState[]>([blank()]);
   const [busy, setBusy] = useState(false);
@@ -254,14 +256,15 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
   }, 0);
   const upd = (key: number, p: Partial<LineState>) => setLines((ls) => ls.map((x) => (x.key === key ? { ...x, ...p } : x)));
 
-  async function submit() {
+  async function submit(allowDuplicate = false): Promise<void> {
     if (!company) return;
     setBusy(true);
     try {
       const r = await api<BillDetail>(`/companies/${company.id}/bills`, {
         method: 'POST',
         body: {
-          supplier_id: supplierId, currency, bill_date: date, due_date: due < date ? date : due, supplier_ref: ref, cost_center_id: cc ?? '',
+          supplier_id: supplierId, currency, bill_date: date, due_date: due && due >= date ? due : '', supplier_ref: ref, cost_center_id: cc ?? '',
+          allow_duplicate: allowDuplicate,
           lines: lines.filter((l) => l.unit_price !== '' && (l.item_id || l.description)).map((l) => ({
             item_id: l.item_id ?? '', account_id: l.account_id ?? '', warehouse_id: l.warehouse_id ?? '',
             description: l.description, quantity: l.quantity, unit_price: l.unit_price, tax_rate_id: l.tax_rate_id ?? '',
@@ -273,6 +276,11 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
       notifySaved(t);
       onDone(r.bill.id);
     } catch (e) {
+      // the same supplier invoice number was already entered: ask before booking it twice
+      if (e instanceof ApiError && e.code === 'duplicate_supplier_ref' && window.confirm(t('oa.dupRef', { n: e.detail ?? '' }))) {
+        setBusy(false);
+        return submit(true);
+      }
       notifyError(t, e);
     } finally {
       setBusy(false);
@@ -288,7 +296,7 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
           <TextInput label={t('pur.supplierRef')} value={ref} onChange={(e) => setRef(e.currentTarget.value)} />
           <Select label={t('pur.currency')} searchable data={currencies.map((c) => c.code)} value={currency} onChange={setCurrency} allowDeselect={false} />
           <TextInput type="date" label={t('pur.billDate')} value={date} onChange={(e) => setDate(e.currentTarget.value)} />
-          <TextInput type="date" label={t('invoices.due')} value={due} onChange={(e) => setDue(e.currentTarget.value)} />
+          <TextInput type="date" label={t('invoices.due')} placeholder={t('oa.terms.auto')} description={due ? undefined : t('oa.terms.auto')} value={due} onChange={(e) => setDue(e.currentTarget.value)} />
           {centers.length > 0 && <Select label={t('ax.cc.center')} clearable placeholder={t('ax.cc.none')} value={cc} onChange={setCc}
             data={centers.map((x) => ({ value: x.id, label: ccLabel(x, i18n.language) }))} />}
         </Group>
@@ -361,7 +369,7 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
         </Group>
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button loading={busy} disabled={!supplierId || total <= 0} onClick={submit}>{t('common.save')}</Button>
+          <Button loading={busy} disabled={!supplierId || total <= 0} onClick={() => void submit()}>{t('common.save')}</Button>
         </Group>
       </Stack>
     </Modal>

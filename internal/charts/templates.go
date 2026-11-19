@@ -31,6 +31,8 @@ type Template struct {
 	Methods                     []Method `json:"-"`
 	// Purchasing / stock defaults (account codes).
 	AP, Inventory, COGS, Fuel, StockAdjust, Expense string `json:"-"`
+	// sales of goods (items), deferred revenue, prepaid expenses, late-payment fees ("" = the owner picks them)
+	GoodsRevenue, DeferredRevenue, Prepaid, LateFee string `json:"-"`
 }
 
 // Method is a default way of receiving money. Currency "" means the company base currency.
@@ -79,6 +81,8 @@ var lebanon = []Account{
 	a("444", "4", "liability", true, "Income tax payable", "ضريبة الدخل المستحقة", "Impôt sur le revenu dû"),
 	a("455", "4", "liability", true, "Partners current accounts", "حسابات الشركاء الجارية", "Comptes courants d'associés"),
 	a("467", "4", "asset", true, "Collectors (cash to receive)", "الجباة (نقد قيد الاستلام)", "Encaisseurs (espèces à recevoir)"),
+	a("486", "4", "asset", true, "Prepaid expenses", "أعباء مدفوعة مسبقاً", "Charges constatées d'avance"),
+	a("487", "4", "liability", true, "Deferred revenue (paid in advance)", "إيرادات مقبوضة مسبقاً", "Produits constatés d'avance"),
 
 	a("5", "", "asset", false, "Financial accounts", "الحسابات المالية", "Comptes financiers"),
 	a("512", "5", "asset", true, "Banks", "المصارف", "Banques"),
@@ -128,6 +132,7 @@ var generic = []Account{
 	a("2200", "2000", "liability", true, "Taxes payable", "الضرائب المستحقة", "Taxes à payer"),
 	a("2300", "2000", "liability", true, "Salaries payable", "الرواتب المستحقة", "Salaires à payer"),
 	a("2400", "2000", "liability", true, "Customer deposits", "تأمينات الزبائن", "Dépôts clients"),
+	a("2500", "2000", "liability", true, "Deferred revenue", "إيرادات مقبوضة مسبقاً", "Produits constatés d'avance"),
 	a("2700", "2000", "liability", true, "Loans", "القروض", "Emprunts"),
 	a("3000", "", "equity", false, "Equity", "حقوق الملكية", "Capitaux propres"),
 	a("3100", "3000", "equity", true, "Owner's capital", "رأس المال", "Capital"),
@@ -157,6 +162,7 @@ var All = []Template{
 		Taxes:    []Tax{tax("11", "VAT 11%", "ضريبة القيمة المضافة 11%", "TVA 11%", "4427", "4426")},
 		Accounts: lebanon, AR: "411", FXGain: "766", FXLoss: "666", Revenue: "701",
 		AP: "401", Inventory: "31", COGS: "607", Fuel: "601", StockAdjust: "602", Expense: "602",
+		GoodsRevenue: "707", DeferredRevenue: "487", Prepaid: "486", LateFee: "77",
 		Methods: []Method{
 			m("cash", "USD", "531", "Cash USD", "صندوق دولار", "Caisse USD"),
 			m("cash", "LBP", "532", "Cash LBP", "صندوق ليرة", "Caisse LBP"),
@@ -169,6 +175,7 @@ var All = []Template{
 		Currency: "USD", FiscalStart: "01-01",
 		Accounts: generic, AR: "1300", FXGain: "4800", FXLoss: "6800", Revenue: "4200",
 		AP: "2100", Inventory: "1400", COGS: "5100", Fuel: "5100", StockAdjust: "6900", Expense: "6900",
+		GoodsRevenue: "4100", DeferredRevenue: "2500", Prepaid: "1500", LateFee: "4900",
 		Methods: []Method{
 			m("cash", "", "1100", "Cash", "الصندوق", "Caisse"),
 			m("bank", "", "1200", "Bank", "المصرف", "Banque"),

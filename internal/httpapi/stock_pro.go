@@ -687,7 +687,9 @@ func (s *Server) replenishment(w http.ResponseWriter, r *http.Request) {
 			    AND source IN ('fuel', 'sale', 'delivery', 'pos', 'adjust', 'count') GROUP BY 1, 2)
 			SELECT i.id AS item_id, i.code, i.name, i.unit, w.id AS warehouse_id, w.name AS warehouse_name,
 			  coalesce(s.quantity, 0)::text AS quantity, trim_scale(r.min_qty)::text AS min_qty, trim_scale(r.max_qty)::text AS max_qty,
-			  CASE WHEN r.id IS NOT NULL AND coalesce(s.quantity, 0) <= r.min_qty THEN trim_scale(r.max_qty - coalesce(s.quantity, 0))::text END AS to_order,
+			  CASE WHEN r.id IS NOT NULL AND coalesce(s.quantity, 0) <= r.min_qty
+			       THEN trim_scale(greatest(r.max_qty - coalesce(s.quantity, 0) - coalesce(po.on_order, 0), 0))::text END AS to_order,
+			  trim_scale(coalesce(po.on_order, 0))::text AS on_order,
 			  round(coalesce(u.used, 0) / 30.0, 4)::text AS daily_use,
 			  CASE WHEN coalesce(u.used, 0) > 0 THEN floor(coalesce(s.quantity, 0) / (u.used / 30.0))::int END AS days_left,
 			  sp.name AS supplier_name, r.supplier_id
@@ -697,6 +699,9 @@ func (s *Server) replenishment(w http.ResponseWriter, r *http.Request) {
 			LEFT JOIN reorder_rules r ON r.item_id = i.id AND r.warehouse_id = w.id
 			LEFT JOIN usage u ON u.item_id = i.id AND u.warehouse_id = w.id
 			LEFT JOIN suppliers sp ON sp.id = r.supplier_id
+			LEFT JOIN LATERAL (SELECT sum((l.quantity - l.billed_qty) * coalesce(un.factor, 1)) AS on_order
+			  FROM purchase_order_lines l JOIN purchase_orders o ON o.id = l.order_id LEFT JOIN item_units un ON un.id = l.unit_id
+			  WHERE l.item_id = i.id AND coalesce(l.warehouse_id, w.id) = w.id AND o.status IN ('rfq', 'sent', 'confirmed', 'partial')) po ON true
 			WHERE i.company_id = $1 AND w.company_id = $1 AND i.kind = 'stock' AND i.is_active
 			  AND (r.id IS NOT NULL OR u.used > 0)
 			ORDER BY (r.id IS NOT NULL AND coalesce(s.quantity, 0) <= r.min_qty) DESC, days_left NULLS LAST, i.name`, cid)
@@ -967,6 +972,8 @@ func (s *Server) createLandedCost(w http.ResponseWriter, r *http.Request) {
 		Description string `json:"description"`
 		MethodID    string `json:"method_id"`
 		AccountID   string `json:"account_id"`
+		SupplierID  string `json:"supplier_id"` // the freight / customs agent: booked as that supplier's bill (shows in their balance and aging)
+		SupplierRef string `json:"supplier_ref"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -979,7 +986,7 @@ func (s *Server) createLandedCost(w http.ResponseWriter, r *http.Request) {
 	}
 	amount, ok := money(in.Amount)
 	if !ok || !amount.IsPositive() || !validDate(in.Date) || !currencyRe.MatchString(in.Currency) ||
-		(in.Method != "value" && in.Method != "quantity") || (in.MethodID == "") == (in.AccountID == "") {
+		(in.Method != "value" && in.Method != "quantity") || countSet(in.MethodID, in.AccountID, in.SupplierID) != 1 || (in.SupplierID != "" && !isUUID(in.SupplierID)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -1019,6 +1026,14 @@ func (s *Server) createLandedCost(w http.ResponseWriter, r *http.Request) {
 				return nil, badRequest("currency_mismatch")
 			}
 			credit, creditCur = pm.Account, pm.Currency
+		} else if in.SupplierID != "" {
+			if ps.AP == nil {
+				return nil, notSetup("ap")
+			}
+			if _, err := lockSupplier(ctx, tx, cid, in.SupplierID); err != nil {
+				return nil, err
+			}
+			credit = *ps.AP
 		} else if err := requirePostable(ctx, tx, cid, credit); err != nil {
 			return nil, err
 		}
@@ -1120,6 +1135,30 @@ func (s *Server) createLandedCost(w http.ResponseWriter, r *http.Request) {
 		je, err := postJournal(ctx, tx, cid, set, in.Date, memo, fmt.Sprintf("LC-%d", n), "landed_cost", jl)
 		if err != nil {
 			return nil, err
+		}
+		if in.SupplierID != "" { // the agent's bill: same entry, so payables and the supplier's balance agree
+			var bn int64
+			if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'bill')`, cid).Scan(&bn); err != nil {
+				return nil, err
+			}
+			var due string
+			if err := tx.QueryRow(ctx, `SELECT ($1::date + coalesce((SELECT due_days FROM suppliers WHERE id = $2),
+				(SELECT default_due_days FROM companies WHERE id = $3), 0))::text`, in.Date, in.SupplierID, cid).Scan(&due); err != nil {
+				return nil, err
+			}
+			var lcBill string
+			if err := tx.QueryRow(ctx, `INSERT INTO bills (company_id, number, supplier_id, supplier_ref, bill_date, due_date, currency, total, journal_entry_id, notes)
+				VALUES ($1, $2, $3, $4, $5::date, $6::date, $7, $8::numeric, $9, $10) RETURNING id::text`,
+				cid, bn, in.SupplierID, strings.TrimSpace(in.SupplierRef), in.Date, due, in.Currency, amount.String(), je, memo).Scan(&lcBill); err != nil {
+				return nil, err
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO bill_lines (bill_id, line_no, account_id, description, quantity, unit_price, amount)
+				VALUES ($1, 1, $2, $3, 1, $4::numeric, $4::numeric)`, lcBill, jl[0].Account, memo, amount.String()); err != nil {
+				return nil, err
+			}
+			if err := autoAllocateSupplier(ctx, tx, cid, in.SupplierID, in.Currency); err != nil {
+				return nil, err
+			}
 		}
 		for _, b := range bumps {
 			q, _, err := lockStock(ctx, tx, b.item, b.wh)
@@ -1345,4 +1384,15 @@ func (s *Server) itemPrice(w http.ResponseWriter, r *http.Request) {
 		}
 		return map[string]any{"price": price, "currency": currency, "source": source, "quantity": qty.String(), "at": time.Now().UTC()}, nil
 	})
+}
+
+// countSet: how many of the values are not empty.
+func countSet(v ...string) int {
+	n := 0
+	for _, s := range v {
+		if s != "" {
+			n++
+		}
+	}
+	return n
 }

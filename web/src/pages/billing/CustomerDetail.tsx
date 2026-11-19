@@ -15,6 +15,7 @@ import PortalShare from '../../components/PortalShare';
 import { OrderEditor, OrderView, type Order } from '../sales/Sales';
 import { orderColor } from '../sales/common';
 import { Activities } from '../crm/Crm';
+import Attachments from '../../components/Attachments';
 
 interface Detail { customer: Customer; subscriptions: Subscription[]; invoices: Invoice[]; payments: Payment[] }
 
@@ -253,6 +254,7 @@ export default function CustomerDetail({ me, id }: { me: Me; id: string }) {
       {viewPayment && <PaymentView id={viewPayment} canVoid={canManage} onClose={() => setViewPayment(null)} onChanged={load} />}
       {modal === 'quote' && <OrderEditor customer={{ id: c.id, name: c.name, code: c.code }} onClose={() => setModal(null)} onDone={(oid) => { setModal(null); load(); setViewOrder(oid); }} />}
       {viewOrder && <OrderView id={viewOrder} me={me} onClose={() => setViewOrder(null)} onChanged={load} />}
+      <Attachments type="customer" id={c.id} readOnly={!can(me, 'customers.edit')} />
     </Stack>
   );
 }

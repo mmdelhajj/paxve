@@ -307,6 +307,15 @@ func applyBillingDefaults(ctx context.Context, tx pgx.Tx, cid string, tpl *chart
 		WHERE id = $1`, cid, ids[tpl.AP], ids[tpl.Inventory], ids[tpl.COGS], ids[tpl.Fuel], ids[tpl.StockAdjust], ids[tpl.Expense]); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE companies SET
+		  goods_revenue_account_id = coalesce(goods_revenue_account_id, nullif($2, '')::uuid),
+		  deferred_revenue_account_id = coalesce(deferred_revenue_account_id, nullif($3, '')::uuid),
+		  prepaid_expense_account_id = coalesce(prepaid_expense_account_id, nullif($4, '')::uuid),
+		  late_fee_account_id = coalesce(late_fee_account_id, nullif($5, '')::uuid)
+		WHERE id = $1`, cid, ids[tpl.GoodsRevenue], ids[tpl.DeferredRevenue], ids[tpl.Prepaid], ids[tpl.LateFee]); err != nil {
+		return err
+	}
 	var base string
 	if err := tx.QueryRow(ctx, `SELECT base_currency::text FROM companies WHERE id = $1`, cid).Scan(&base); err != nil {
 		return err

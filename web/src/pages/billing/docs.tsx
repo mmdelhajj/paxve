@@ -13,6 +13,7 @@ import { invoiceColor, type InvoiceDetail, type Money, type PaymentDetail, type 
 import { WhatsAppButton } from './Messages';
 import { DocFooter, DocHeader, itemPrice, SendDocButton, type SaleItem } from '../sales/common';
 import { zatcaQR } from '../../zatca';
+import Attachments from '../../components/Attachments';
 
 interface InvoiceLegal {
   company_name?: string; company_tax_id?: string; company_tax_label?: string; company_invoice_title?: string;
@@ -219,6 +220,7 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
               </Stack>
             </Paper>
           )}
+          <Attachments type="invoice" id={inv.id} />
           <Group justify="space-between" className="no-print">
             <Group gap="xs">
               {canVoid && inv.status !== 'void' && !inv.cheque_id && (inv.paid === '0.0000' || inv.kind === 'refund') && !confirm
