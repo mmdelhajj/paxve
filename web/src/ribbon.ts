@@ -169,7 +169,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'hr', param: 'payroll', label: 'mx.t.payroll', icon: IconCoins, perm: 'payroll.view' },
       { page: 'hr', param: 'rules', label: 'hr2.m.rules', icon: IconChecklist, perm: 'payroll.view' },
       { page: 'hr', param: 'reports', label: 'hr2.m.reports', icon: IconChartBar, perm: 'payroll.view' },
-      { page: 'self', label: 'hr2.m.self', icon: IconId },
+      { page: 'self', label: 'hr2.m.self', icon: IconId, any: true },
     ],
   },
   {

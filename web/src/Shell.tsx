@@ -213,6 +213,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   const tabs = RIBBON.filter((tab) => (!tab.app || apps.has(tab.app)) && tab.tiles.some(allowed));
   // a screen the user may not use (by permission) shows a notice instead of failing calls; the server checks again
   const blocked = (p: string) => {
+    if (p === 'dashboard' && (me.permissions ?? []).length === 0) return false; // employees: their own page
     const ts = RIBBON.flatMap((tab) => tab.tiles).filter((x) => x.page === p);
     return ts.length > 0 && !ts.some((x) => (x.platform ? me.is_platform_admin : x.any || can(me, x.perm ?? 'reports.view')));
   };
