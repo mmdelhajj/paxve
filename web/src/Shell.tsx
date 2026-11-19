@@ -305,7 +305,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
 
       <nav className="mx-ribbon" role="tablist" aria-label={t('mx.menus')}>
         {tabs.map((tab) => (
-          <button key={tab.id} className="mx-rtab" role="tab" aria-selected={visibleTab === tab.id}
+          <button key={tab.id} className="mx-rtab" role="tab" aria-selected={visibleTab === tab.id} style={{ '--c': tab.color } as React.CSSProperties}
             onClick={() => setOpenTab(openTab === tab.id && !pinned ? null : tab.id)}>{t(tab.label)}</button>
         ))}
         <button className="mx-pin" onClick={() => {
@@ -320,7 +320,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
           {shownTab.tiles.filter(allowed).map((tile) => (
             <button key={tile.page + (tile.param ?? '') + tile.label} className="mx-tile"
               onClick={() => { if (!pinned) setOpenTab(null); openScreen(tile.page, tile.param ?? ''); }}>
-              <span className="mx-ico" style={{ background: `linear-gradient(${shownTab.color}cc, ${shownTab.color})` }}><tile.icon size={22} stroke={1.7} /></span>
+              <span className="mx-ico" style={{ '--c': shownTab.color } as React.CSSProperties}><tile.icon size={21} stroke={1.6} /></span>
               <span>{t(tile.label)}</span>
             </button>
           ))}

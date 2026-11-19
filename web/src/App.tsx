@@ -28,7 +28,8 @@ const theme = createTheme({
   primaryColor: 'blue',
   fontFamily: font,
   headings: { fontFamily: font },
-  defaultRadius: 'sm',
+  primaryShade: 7,
+  defaultRadius: 'md',
 });
 
 function DirectionSync() {

@@ -40,7 +40,7 @@ export interface DataGridProps<T> {
   className?: string;
 }
 
-const ROW_H = 27; // 26px cell + 1px border
+const ROW_H = 29; // 28px cell + 1px border (keep in step with .mx-grid td height in magic.css)
 
 function cmp(a: unknown, b: unknown, num: boolean): number {
   if (num) return (Number(a) || 0) - (Number(b) || 0);
@@ -248,7 +248,7 @@ export default function DataGrid<T>(p: DataGridProps<T>) {
               const key = p.rowKey(r);
               const sel = p.selected != null ? p.selected === key : idx === hl;
               return (
-                <tr key={key} className={`${sel ? 'sel' : ''} ${p.rowClass?.(r) ?? ''}`} data-key={key}
+                <tr key={key} className={`${sel ? 'sel' : ''} ${idx % 2 ? 'alt' : ''} ${p.rowClass?.(r) ?? ''}`} data-key={key}
                   onClick={() => { setHl(idx); p.onSelect?.(r); }}
                   onDoubleClick={() => p.onActivate?.(r)}
                   onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setHl(idx); setCtx({ x: e.clientX, y: e.clientY, row: r, col: colAt(e.target as HTMLElement, p.cols) }); }}>
