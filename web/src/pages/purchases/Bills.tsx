@@ -197,9 +197,19 @@ export function BillView({ id, canVoid, onClose, onChanged }: { id: string; canV
   );
 }
 
-interface LineState { key: number; item_id: string | null; account_id: string | null; warehouse_id: string | null; description: string; quantity: string; unit_price: string; tax_rate_id: string | null }
+interface LineState { key: number; item_id: string | null; account_id: string | null; warehouse_id: string | null; description: string; quantity: string; unit_price: string; tax_rate_id: string | null; unit_id: string | null; lots: string }
+interface ItemExtras { item: { tracking: string; unit: string }; units: { id: string; name: string; factor: string }[] }
+/** "LOT1:10:2027-05-01; LOT2:5" (lots) or "SN1, SN2" (serials, quantity 1 each) → API lots. */
+export function parseLots(text: string, tracking: string): { lot_no: string; quantity: string; expiry: string }[] {
+  const parts = text.split(tracking === 'serial' ? /[,;\n]/ : /[;\n]/).map((s) => s.trim()).filter(Boolean);
+  return parts.map((p) => {
+    if (tracking === 'serial') return { lot_no: p, quantity: '1', expiry: '' };
+    const [lot, qty, exp] = p.split(':').map((s) => s.trim());
+    return { lot_no: lot, quantity: qty ?? '', expiry: exp ?? '' };
+  });
+}
 let lk = 1;
-const blank = (): LineState => ({ key: lk++, item_id: null, account_id: null, warehouse_id: null, description: '', quantity: '1', unit_price: '', tax_rate_id: null });
+const blank = (): LineState => ({ key: lk++, item_id: null, account_id: null, warehouse_id: null, description: '', quantity: '1', unit_price: '', tax_rate_id: null, unit_id: null, lots: '' });
 
 export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; onClose: () => void; onDone: (id: string) => void }) {
   const { t, i18n } = useTranslation();
@@ -231,6 +241,11 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
   }, [company, supplier]);
 
   const itemById = new Map(items.map((i) => [i.id, i]));
+  const [extras, setExtras] = useState<Record<string, ItemExtras>>({});
+  const loadExtras = (id: string | null) => {
+    if (!id || !company || extras[id] || itemById.get(id)?.kind !== 'stock') return;
+    api<ItemExtras>(`/companies/${company.id}/items/${id}/extras`).then((x) => setExtras((m) => ({ ...m, [id]: x }))).catch(() => {});
+  };
   const dec = decimalsOf(currency ?? 'USD');
   const taxRate = (id: string | null) => Number(taxes.find((x) => x.id === id)?.rate ?? 0);
   const total = lines.reduce((s, l) => {
@@ -250,6 +265,8 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
           lines: lines.filter((l) => l.unit_price !== '' && (l.item_id || l.description)).map((l) => ({
             item_id: l.item_id ?? '', account_id: l.account_id ?? '', warehouse_id: l.warehouse_id ?? '',
             description: l.description, quantity: l.quantity, unit_price: l.unit_price, tax_rate_id: l.tax_rate_id ?? '',
+            unit_id: l.unit_id ?? '', ...(l.item_id && extras[l.item_id] && extras[l.item_id].item.tracking !== 'none' && l.lots.trim()
+              ? { lots: parseLots(l.lots, extras[l.item_id].item.tracking) } : {}),
           })),
         },
       });
@@ -290,7 +307,7 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
                     <Table.Td>
                       <Select size="xs" searchable clearable placeholder={t('pur.freeLine')} value={l.item_id}
                         data={items.map((i) => ({ value: i.id, label: `${i.code} · ${i.name} (${i.unit})` }))}
-                        onChange={(v) => upd(l.key, { item_id: v, description: v ? itemById.get(v)?.name ?? '' : l.description })} comboboxProps={{ withinPortal: true }} />
+                        onChange={(v) => { upd(l.key, { item_id: v, unit_id: null, lots: '', description: v ? itemById.get(v)?.name ?? '' : l.description }); loadExtras(v); }} comboboxProps={{ withinPortal: true }} />
                     </Table.Td>
                     <Table.Td>
                       <Stack gap={2}>
@@ -313,8 +330,22 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
                           data={warehouses.map((w) => ({ value: w.id, label: w.name }))} onChange={(v) => upd(l.key, { warehouse_id: v })} comboboxProps={{ withinPortal: true }} />
                       )}
                     </Table.Td>
-                    <Table.Td><TextInput size="xs" dir="ltr" value={l.quantity} rightSection={<Text size="xs" c="dimmed">{it?.unit}</Text>}
-                      onChange={(e) => upd(l.key, { quantity: e.currentTarget.value.replace(/[^\d.]/g, '') })} /></Table.Td>
+                    <Table.Td>
+                      <Stack gap={2}>
+                        <TextInput size="xs" dir="ltr" value={l.quantity} rightSection={!(l.item_id && extras[l.item_id]?.units.length) ? <Text size="xs" c="dimmed">{it?.unit}</Text> : undefined}
+                          onChange={(e) => upd(l.key, { quantity: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
+                        {l.item_id && (extras[l.item_id]?.units.length ?? 0) > 0 && (
+                          <Select size="xs" value={l.unit_id ?? ''} allowDeselect={false} comboboxProps={{ withinPortal: true }}
+                            data={[{ value: '', label: it?.unit ?? '' }, ...extras[l.item_id].units.map((u) => ({ value: u.id, label: `${u.name} (${u.factor} ${it?.unit ?? ''})` }))]}
+                            onChange={(v) => upd(l.key, { unit_id: v || null })} />
+                        )}
+                        {l.item_id && extras[l.item_id] && extras[l.item_id].item.tracking !== 'none' && (
+                          <TextInput size="xs" dir="ltr" value={l.lots} onChange={(e) => upd(l.key, { lots: e.currentTarget.value })}
+                            placeholder={extras[l.item_id].item.tracking === 'serial' ? 'SN001, SN002' : 'LOT-A:10:2027-05-01; LOT-B:5'}
+                            title={t(extras[l.item_id].item.tracking === 'serial' ? 'hr2.serialsHint' : 'hr2.lotsHint')} />
+                        )}
+                      </Stack>
+                    </Table.Td>
                     <Table.Td><TextInput size="xs" dir="ltr" value={l.unit_price} onChange={(e) => upd(l.key, { unit_price: e.currentTarget.value.replace(/[^\d.]/g, '') })} /></Table.Td>
                     <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(Number(l.quantity || 0) * Number(l.unit_price || 0), dec)}</Table.Td>
                     <Table.Td><ActionIcon variant="subtle" color="gray" disabled={lines.length === 1} onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}><IconTrash size={14} /></ActionIcon></Table.Td>

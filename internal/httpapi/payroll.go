@@ -363,11 +363,19 @@ func (s *Server) createAdvance(w http.ResponseWriter, r *http.Request) {
 
 const runCols = `r.id, r.period, r.status, r.posting_date, r.journal_entry_id, r.void_entry_id,
 	trim_scale(r.nssf_employee_rate)::text AS nssf_employee_rate, trim_scale(r.nssf_employer_rate)::text AS nssf_employer_rate,
-	r.created_at, (SELECT count(*) FROM payslips p WHERE p.run_id = r.id) AS employees,
+	r.created_at, r.approved_at, (SELECT full_name FROM users u WHERE u.id = r.approved_by) AS approved_by_name,
+	(SELECT count(*) FROM payslips p WHERE p.run_id = r.id) AS employees,
 	coalesce((SELECT json_agg(json_build_object('currency', x.currency, 'gross', x.gross::text, 'net', x.net::text, 'paid', x.paid::text,
-	  'nssf', x.nssf::text) ORDER BY x.currency)
-	  FROM (SELECT p.currency, sum(p.base + p.transport + p.allowances) AS gross, sum(p.net) AS net, sum(p.paid) AS paid,
-	        sum(p.nssf_employee + p.nssf_employer) AS nssf FROM payslips p WHERE p.run_id = r.id GROUP BY p.currency) x), '[]'::json) AS totals`
+	  'nssf', x.nssf::text, 'tax', x.tax::text) ORDER BY x.currency)
+	  FROM (SELECT y.currency, sum(y.gross) AS gross, sum(y.net) AS net, sum(y.paid) AS paid, sum(y.nssf) AS nssf, sum(y.tax) AS tax FROM (
+	          SELECT p.currency, p.base + p.transport + p.allowances AS gross, p.net, p.paid, p.nssf_employee + p.nssf_employer AS nssf, 0 AS tax
+	            FROM payslips p WHERE p.run_id = r.id AND NOT p.detailed
+	          UNION ALL SELECT p.currency, p.base + p.transport + p.allowances, p.net, p.paid, 0, 0 FROM payslips p WHERE p.run_id = r.id AND p.detailed
+	          UNION ALL SELECT p.currency2, p.base2 + p.allowances2, p.net2, p.paid2, 0, 0 FROM payslips p
+	            WHERE p.run_id = r.id AND p.detailed AND p.currency2 IS NOT NULL AND p.currency2 <> p.currency
+	          UNION ALL SELECT l.currency, 0, 0, 0, CASE WHEN l.role = 'social' THEN l.amount ELSE 0 END, CASE WHEN l.role = 'tax' THEN l.amount ELSE 0 END
+	            FROM payslip_lines l JOIN payslips p ON p.id = l.payslip_id WHERE p.run_id = r.id AND l.role IN ('social', 'tax')
+	        ) y GROUP BY y.currency) x), '[]'::json) AS totals`
 
 func (s *Server) listPayrollRuns(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
@@ -387,7 +395,13 @@ func loadRun(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 	slips, err := queryJSON(ctx, tx, `SELECT p.id, p.employee_id, e.code, e.name, e.position, e.nssf_enrolled, p.currency,
 		p.base::text AS base, p.transport::text AS transport, p.allowances::text AS allowances, p.deductions::text AS deductions,
 		p.nssf_employee::text AS nssf_employee, p.nssf_employer::text AS nssf_employer, p.advance_recovery::text AS advance_recovery,
-		p.net::text AS net, p.paid::text AS paid, p.notes,
+		p.net::text AS net, p.paid::text AS paid, p.notes, p.detailed, p.currency2, p.base2::text AS base2, p.allowances2::text AS allowances2,
+		p.deductions2::text AS deductions2, p.net2::text AS net2, p.paid2::text AS paid2, p.worked_days::text AS worked_days,
+		p.absent_days::text AS absent_days, p.unpaid_days::text AS unpaid_days, p.overtime_hours::text AS overtime_hours,
+		p.manual_allow::text AS manual_allow, p.manual_ded::text AS manual_ded, p.manual_recovery::text AS manual_recovery,
+		coalesce((SELECT sum(l.amount) FROM payslip_lines l WHERE l.payslip_id = p.id AND l.role = 'tax'), 0)::text AS income_tax,
+		coalesce((SELECT json_agg(json_build_object('code', l.code, 'label', l.label, 'kind', l.kind, 'role', l.role, 'currency', l.currency,
+		  'amount', l.amount::text, 'basis', l.basis) ORDER BY l.seq) FROM payslip_lines l WHERE l.payslip_id = p.id), '[]'::json) AS lines,
 		coalesce((SELECT sum(a.amount - a.recovered) FROM employee_advances a WHERE a.employee_id = p.employee_id AND a.currency = p.currency), 0)::text AS advances_open
 		FROM payslips p JOIN employees e ON e.id = p.employee_id WHERE p.run_id = $1 ORDER BY e.name`, id)
 	if err != nil {
@@ -464,47 +478,9 @@ func (s *Server) createPayrollRun(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		type emp struct {
-			ID, Currency, Salary, Transport, Open, Inst string
-			Enrolled                                    bool
-		}
-		rows, err := tx.Query(ctx, `SELECT e.id::text, e.currency::text, e.salary::text, e.transport::text, e.nssf_enrolled,
-			coalesce((SELECT sum(a.amount - a.recovered) FROM employee_advances a WHERE a.employee_id = e.id AND a.currency = e.currency), 0)::text,
-			coalesce((SELECT sum(least(a.installment, a.amount - a.recovered)) FROM employee_advances a
-			          WHERE a.employee_id = e.id AND a.currency = e.currency AND a.recovered < a.amount), 0)::text
-			FROM employees e WHERE e.company_id = $1 AND e.status = 'active' AND e.hire_date <= $2::date ORDER BY e.name`,
-			cid, periodEnd(in.Period))
-		if err != nil {
+		// detailed payslips from the employee file, attendance, leave and the country rules (payroll2.go)
+		if err := buildRun(ctx, tx, cid, id, in.Period); err != nil {
 			return nil, err
-		}
-		emps, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (emp, error) {
-			var e emp
-			err := row.Scan(&e.ID, &e.Currency, &e.Salary, &e.Transport, &e.Enrolled, &e.Open, &e.Inst)
-			return e, err
-		})
-		if err != nil {
-			return nil, err
-		}
-		for _, e := range emps {
-			dec, err := currencyDecimals(ctx, tx, e.Currency)
-			if err != nil {
-				return nil, err
-			}
-			c := slipCalc{}
-			c.base, _ = decimal.NewFromString(e.Salary)
-			c.transport, _ = decimal.NewFromString(e.Transport)
-			open, _ := decimal.NewFromString(e.Open)
-			inst, _ := decimal.NewFromString(e.Inst)
-			c, err = calcSlip(c, e.Enrolled, set.EmpRate, set.ErRate, dec, &inst, open)
-			if err != nil {
-				return nil, err
-			}
-			if _, err := tx.Exec(ctx, `INSERT INTO payslips (run_id, employee_id, currency, base, transport, nssf_employee, nssf_employer,
-				advance_recovery, net) VALUES ($1, $2, $3, $4::numeric, $5::numeric, $6::numeric, $7::numeric, $8::numeric, $9::numeric)`,
-				id, e.ID, e.Currency, c.base.String(), c.transport.String(), c.nssfEmp.String(), c.nssfEr.String(), c.recovery.String(),
-				c.net.String()); err != nil {
-				return nil, err
-			}
 		}
 		return loadRun(ctx, tx, cid, id)
 	})
@@ -529,6 +505,18 @@ func (s *Server) updatePayslip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		var detailed bool
+		var period string
+		if err := tx.QueryRow(ctx, `SELECT p.detailed, r.period FROM payslips p JOIN payroll_runs r ON r.id = p.run_id
+			WHERE p.id = $1 AND p.run_id = $2 AND r.company_id = $3`, slipID, runID, cid).Scan(&detailed, &period); err != nil {
+			if err == pgx.ErrNoRows {
+				return nil, notFound()
+			}
+			return nil, err
+		}
+		if detailed { // module U payslip: manual extra allowance / deduction / advance recovery, then recompute
+			return updateDetailedSlip(ctx, tx, cid, runID, slipID, period, in.Allowances, in.Deductions, in.AdvanceRecovery, in.Notes)
+		}
 		var status, cur, empID, empRate, erRate string
 		var enrolled bool
 		var vals [5]string
@@ -644,48 +632,25 @@ func (s *Server) postPayrollRun(w http.ResponseWriter, r *http.Request) {
 			}
 			return nil, err
 		}
-		if status != "draft" {
+		if status != "draft" && status != "approved" {
 			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
 		}
 		date := in.Date
 		if date == "" {
 			date = periodEnd(period)
 		}
-		type tot struct{ cur, cc, expense, er, nssf, recovery, net string }
 		// one group per currency and cost center: salary costs carry the employee's cost center
-		rows, err := tx.Query(ctx, `SELECT p.currency::text, coalesce(e.cost_center_id::text, ''),
-			sum(p.base + p.transport + p.allowances - p.deductions)::text, sum(p.nssf_employer)::text,
-			sum(p.nssf_employee + p.nssf_employer)::text, sum(p.advance_recovery)::text, sum(p.net)::text
-			FROM payslips p JOIN employees e ON e.id = p.employee_id
-			WHERE p.run_id = $1 GROUP BY 1, 2 ORDER BY 1, 2`, id)
+		groups, err := payrollGroups(ctx, tx, id)
 		if err != nil {
 			return nil, err
 		}
-		tots, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (tot, error) {
-			var t tot
-			err := row.Scan(&t.cur, &t.cc, &t.expense, &t.er, &t.nssf, &t.recovery, &t.net)
-			return t, err
-		})
-		if err != nil {
-			return nil, err
-		}
-		if len(tots) == 0 {
+		if len(groups) == 0 {
 			return nil, badRequest("payroll_empty")
 		}
 		d := func(s string) decimal.Decimal { v, _ := decimal.NewFromString(s); return v }
-		lines := []jline{}
-		for _, t := range tots {
-			rate, err := resolveRate(ctx, tx, cid, set.Base, t.cur, date, "")
-			if err != nil {
-				return nil, err
-			}
-			lines = append(lines,
-				jline{Account: *set.SalaryExp, Desc: "Salaries " + period, Currency: t.cur, Debit: d(t.expense), Rate: rate, CostCenter: t.cc},
-				jline{Account: *set.NssfExp, Desc: "NSSF employer " + period, Currency: t.cur, Debit: d(t.er), Rate: rate, CostCenter: t.cc},
-				jline{Account: *set.NssfPay, Desc: "NSSF " + period, Currency: t.cur, Credit: d(t.nssf), Rate: rate},
-				jline{Account: *set.Advances, Desc: "Advances recovered " + period, Currency: t.cur, Credit: d(t.recovery), Rate: rate},
-				jline{Account: *set.SalaryPay, Desc: "Net salaries " + period, Currency: t.cur, Credit: d(t.net), Rate: rate},
-			)
+		lines, err := payrollLines(ctx, tx, cid, set, groups, period, date)
+		if err != nil {
+			return nil, err
 		}
 		je, err := postJournal(ctx, tx, cid, set.billingSettings, date, "Payroll "+period, "PAYROLL-"+period, "payroll", lines)
 		if err != nil {
@@ -710,7 +675,8 @@ func (s *Server) postPayrollRun(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 		}
-		if _, err := tx.Exec(ctx, `UPDATE payroll_runs SET status = 'posted', journal_entry_id = $2, posting_date = $3::date, posted_by = app_user()
+		if _, err := tx.Exec(ctx, `UPDATE payroll_runs SET status = 'posted', journal_entry_id = $2, posting_date = $3::date, posted_by = app_user(),
+			approved_by = coalesce(approved_by, app_user()), approved_at = coalesce(approved_at, now())
 			WHERE id = $1`, id, je, date); err != nil {
 			return nil, err
 		}
@@ -822,8 +788,10 @@ func (s *Server) payPayrollRun(w http.ResponseWriter, r *http.Request) {
 		}
 		var totalS string
 		var count int
-		if err := tx.QueryRow(ctx, `SELECT coalesce(sum(net - paid), 0)::text, count(*) FROM payslips
-			WHERE run_id = $1 AND currency = $2 AND paid < net AND (coalesce(cardinality($3::uuid[]), 0) = 0 OR id = ANY($3::uuid[]))`,
+		if err := tx.QueryRow(ctx, `SELECT coalesce(sum(CASE WHEN currency = $2 THEN net - paid ELSE 0 END)
+			  + sum(CASE WHEN currency2 = $2 AND currency2 <> currency THEN net2 - paid2 ELSE 0 END), 0)::text,
+			count(*) FILTER (WHERE (currency = $2 AND paid < net) OR (currency2 = $2 AND currency2 <> currency AND paid2 < net2))::int FROM payslips
+			WHERE run_id = $1 AND (coalesce(cardinality($3::uuid[]), 0) = 0 OR id = ANY($3::uuid[]))`,
 			id, m.Currency, in.PayslipIDs).Scan(&totalS, &count); err != nil {
 			return nil, err
 		}
@@ -844,6 +812,10 @@ func (s *Server) payPayrollRun(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE payslips SET paid = net WHERE run_id = $1 AND currency = $2 AND paid < net
+			AND (coalesce(cardinality($3::uuid[]), 0) = 0 OR id = ANY($3::uuid[]))`, id, m.Currency, in.PayslipIDs); err != nil {
+			return nil, err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE payslips SET paid2 = net2 WHERE run_id = $1 AND currency2 = $2 AND currency2 <> currency AND paid2 < net2
 			AND (coalesce(cardinality($3::uuid[]), 0) = 0 OR id = ANY($3::uuid[]))`, id, m.Currency, in.PayslipIDs); err != nil {
 			return nil, err
 		}

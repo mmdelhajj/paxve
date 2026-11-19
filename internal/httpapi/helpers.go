@@ -107,3 +107,12 @@ func currencyDecimals(ctx context.Context, tx pgx.Tx, code string) (int32, error
 }
 
 func today() string { return time.Now().Format(time.DateOnly) }
+
+// runRaw executes fn in a tenant transaction, then lets write send a non-JSON response (files).
+func (s *Server) runRaw(w http.ResponseWriter, r *http.Request, fn func(ctx context.Context, tx pgx.Tx) error, write func()) {
+	if err := db.InTenant(r.Context(), s.Pool, scope(r), func(tx pgx.Tx) error { return fn(r.Context(), tx) }); err != nil {
+		fail(w, r, err)
+		return
+	}
+	write()
+}

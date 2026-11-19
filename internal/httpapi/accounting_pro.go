@@ -474,18 +474,26 @@ func (s *Server) listFiscalYears(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
+		mm, dd, err := fiscalStart(ctx, tx, cid)
+		if err != nil {
+			return nil, err
+		}
+		// fiscal year N starts on MM-DD of calendar year N (01-01: the calendar year)
 		years, err := queryJSON(ctx, tx, `
-			WITH ys AS (
-				SELECT generate_series(coalesce((SELECT extract(year FROM min(entry_date))::int FROM journal_entries WHERE company_id = $1 AND status = 'posted'),
-				                                extract(year FROM current_date)::int), extract(year FROM current_date)::int) AS year)
-			SELECT ys.year, coalesce(f.status, 'open') AS status, f.closing_entry_id, f.closed_at, cu.full_name AS closed_by,
+			WITH fy AS (SELECT make_interval(months => $2::int - 1, days => $3::int - 1) AS shift),
+			ys AS (
+				SELECT generate_series(coalesce((SELECT extract(year FROM min(entry_date) - (SELECT shift FROM fy))::int FROM journal_entries WHERE company_id = $1 AND status = 'posted'),
+				                                extract(year FROM current_date - (SELECT shift FROM fy))::int),
+				                       extract(year FROM current_date - (SELECT shift FROM fy))::int) AS year),
+			yr AS (SELECT year, make_date(year, $2::int, $3::int) AS s, (make_date(year, $2::int, $3::int) + interval '1 year' - interval '1 day')::date AS e FROM ys)
+			SELECT yr.year, yr.s AS start_date, yr.e AS end_date, coalesce(f.status, 'open') AS status, f.closing_entry_id, f.closed_at, cu.full_name AS closed_by,
 			       f.reopened_at, f.result::text AS closed_result,
-			       (SELECT coalesce(sum(l.base_credit - l.base_debit), 0)::text FROM pl_totals($1, make_date(ys.year, 1, 1), make_date(ys.year, 12, 31)) l
+			       (SELECT coalesce(sum(l.base_credit - l.base_debit), 0)::text FROM pl_totals($1, yr.s, yr.e) l
 			          JOIN accounts a ON a.id = l.account_id WHERE a.type IN ('income', 'expense')) AS result,
 			       (SELECT count(*) FROM journal_entries d WHERE d.company_id = $1 AND d.status = 'draft'
-			          AND d.entry_date BETWEEN make_date(ys.year, 1, 1) AND make_date(ys.year, 12, 31)) AS drafts
-			FROM ys LEFT JOIN fiscal_years f ON f.company_id = $1 AND f.year = ys.year LEFT JOIN users cu ON cu.id = f.closed_by
-			ORDER BY ys.year DESC`, cid)
+			          AND d.entry_date BETWEEN yr.s AND yr.e) AS drafts
+			FROM yr LEFT JOIN fiscal_years f ON f.company_id = $1 AND f.year = yr.year LEFT JOIN users cu ON cu.id = f.closed_by
+			ORDER BY yr.year DESC`, cid, mm, dd)
 		if err != nil {
 			return nil, err
 		}
@@ -511,8 +519,11 @@ func (s *Server) closeFiscalYear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cid := r.PathValue("cid")
-	start, end := fmt.Sprintf("%d-01-01", in.Year), fmt.Sprintf("%d-12-31", in.Year)
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		start, end, err := fiscalRange(ctx, tx, cid, in.Year)
+		if err != nil {
+			return nil, err
+		}
 		set, err := loadBillingSettings(ctx, tx, cid)
 		if err != nil {
 			return nil, err
@@ -654,11 +665,14 @@ func (s *Server) reopenFiscalYear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cid := r.PathValue("cid")
-	end := fmt.Sprintf("%d-12-31", in.Year)
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		start, end, err := fiscalRange(ctx, tx, cid, in.Year)
+		if err != nil {
+			return nil, err
+		}
 		var status string
 		var je, prevLock *string
-		err := tx.QueryRow(ctx, `SELECT status, closing_entry_id::text, previous_lock::text FROM fiscal_years
+		err = tx.QueryRow(ctx, `SELECT status, closing_entry_id::text, previous_lock::text FROM fiscal_years
 			WHERE company_id = $1 AND year = $2 FOR UPDATE`, cid, in.Year).Scan(&status, &je, &prevLock)
 		if err == pgx.ErrNoRows || (err == nil && status != "closed") {
 			return nil, &apiError{status: http.StatusConflict, code: "year_not_closed"}
@@ -676,7 +690,7 @@ func (s *Server) reopenFiscalYear(w http.ResponseWriter, r *http.Request) {
 		}
 		// unlock: back to the lock before the closing, but never inside the reopened year
 		if _, err := tx.Exec(ctx, `UPDATE companies SET lock_date = CASE WHEN $3::date IS NULL THEN NULL ELSE least($3::date, $2::date - 1) END
-			WHERE id = $1`, cid, fmt.Sprintf("%d-01-01", in.Year), prevLock); err != nil {
+			WHERE id = $1`, cid, start, prevLock); err != nil {
 			return nil, err
 		}
 		if je != nil {
@@ -935,4 +949,30 @@ func (s *Server) voidExchange(w http.ResponseWriter, r *http.Request) {
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+exchangeCols+exchangeFrom+` WHERE x.id = $1`, id)
 	})
+}
+
+// fiscalStart: the company's fiscal year start (month, day); default 1 January.
+func fiscalStart(ctx context.Context, tx pgx.Tx, cid string) (int, int, error) {
+	var fs string
+	if err := tx.QueryRow(ctx, `SELECT fiscal_year_start FROM companies WHERE id = $1`, cid).Scan(&fs); err != nil {
+		if err == pgx.ErrNoRows {
+			return 0, 0, notFound()
+		}
+		return 0, 0, err
+	}
+	t, err := time.Parse("01-02", fs)
+	if err != nil || (t.Month() == 2 && t.Day() > 28) {
+		return 1, 1, nil
+	}
+	return int(t.Month()), t.Day(), nil
+}
+
+// fiscalRange: first and last day of fiscal year y (the fiscal year that starts in calendar year y).
+func fiscalRange(ctx context.Context, tx pgx.Tx, cid string, y int) (string, string, error) {
+	mm, dd, err := fiscalStart(ctx, tx, cid)
+	if err != nil {
+		return "", "", err
+	}
+	s := time.Date(y, time.Month(mm), dd, 0, 0, 0, 0, time.UTC)
+	return s.Format("2006-01-02"), s.AddDate(1, 0, -1).Format("2006-01-02"), nil
 }

@@ -228,3 +228,20 @@ curl -s "$API/companies/$CID/owner-summary" -H "$H"
   `PUT /stock/counts/{id}/lines`, `POST /stock/counts/{id}/post|cancel`, `GET|POST /bills/{id}/landed-costs`,
   `GET|POST /price-lists`, `PATCH /price-lists/{id}`, `GET|PUT /price-lists/{id}/items`, `PUT /customers/{id}/price-list`.
 - Bill lines accept `unit_id` (quantity and price per that unit) and `lots: [{lot_no, expiry, quantity}]`.
+## Module U: HR & payroll endpoints
+
+All under `/api/v1/companies/{cid}` (permission in brackets).
+
+| Route | |
+|---|---|
+| `GET/PUT /employees/{id}/file` (payroll.view / edit) | HR file: personal data, contract, second salary part, components, documents list, leave balances, recent attendance |
+| `POST /employees/{id}/documents` · `GET/DELETE …/documents/{did}` | base64 upload (≤ 5 MB), download, delete |
+| `GET /employees/{id}/end-of-service?date=&reason=` | gratuity by the country rule |
+| `GET/POST /hr/schedules`, `PUT /hr/schedules/{id}`, `GET/POST /hr/holidays`, `DELETE /hr/holidays/{id}` | schedules and public holidays |
+| `GET /hr/attendance?date=` · `PUT /hr/attendance` · `POST /hr/attendance/import {csv, dry_run}` | day sheet, manual correction, fingerprint CSV import |
+| `GET/POST /hr/leave-types`, `PUT /hr/leave-types/{id}`, `GET/POST /hr/leave`, `POST /hr/leave/{id}/decide {decision, note}`, `POST /hr/leave/{id}/cancel`, `GET /hr/leave/balances?year=` | leave |
+| `GET/POST /hr/payroll-params` (payroll.view / approve) | rules in force on a date, dated overrides, WPS employer id |
+| `POST /payroll/{id}/recalculate`, `/approve`, `/unapprove` | draft workflow |
+| `GET /payroll/{id}/payslips/{pid}` · `GET /payroll/{id}/wps` | payslip with lines, UAE SIF file |
+| `GET /reports/hr/{register,social,tax,cost,attendance,leave}?period=&group=` | HR reports |
+| `GET /self`, `POST /self/clock`, `POST /self/leave`, `POST /self/leave/{id}/cancel`, `GET /self/payslips/{pid}`, `GET /self/team-leave` (any signed-in user linked to an employee) | self-service |

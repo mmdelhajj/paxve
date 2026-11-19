@@ -469,6 +469,7 @@ func countryPacks() []Template {
 		acc, r := ifrsChart("VAT", "National Insurance", "التأمين الوطني", "Assurance nationale")
 		t := pack("gb", "GB", "GBP", n3("United Kingdom", "المملكة المتحدة", "Royaume-Uni"), acc, r, ifrsMethods)
 		t.TaxIDLabel = n3("VAT registration number", "رقم التسجيل في ضريبة القيمة المضافة", "Numéro de TVA")
+		t.FiscalStart = "04-01" // UK companies most often run April–March (any start can be set per company)
 		t.Taxes = []Tax{tax("20", "VAT 20%", "ضريبة القيمة المضافة 20%", "TVA 20%", "2120", "1150")}
 		out = append(out, t)
 	}

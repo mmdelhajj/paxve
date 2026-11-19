@@ -199,6 +199,7 @@ func creditInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSetti
 		tax       decimal.Decimal
 		item, wh  *string
 		stockItem bool
+		kit       bool
 	}
 	credLines := []credLine{}
 	amount, taxTotal := decimal.Zero, decimal.Zero
@@ -302,7 +303,8 @@ func creditInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSetti
 			amount = amount.Add(amt).Add(tax)
 			taxTotal = taxTotal.Add(tax)
 			credLines = append(credLines, credLine{lineID: x.id, qty: q, amt: amt, tax: tax, item: x.item, wh: x.wh,
-				stockItem: x.itemKind != nil && *x.itemKind == "stock" && x.wh != nil})
+				stockItem: x.itemKind != nil && *x.itemKind == "stock" && x.wh != nil,
+				kit:       x.itemKind != nil && *x.itemKind == "kit" && x.wh != nil})
 		}
 		if !amount.IsPositive() || amount.GreaterThan(left) {
 			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "credit_exceeds_invoice", detail: left.String() + " " + currency}
@@ -371,6 +373,16 @@ func creditInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSetti
 			if c.stockItem {
 				k := *c.item + "|" + *c.wh
 				back[k] = back[k].Add(c.qty)
+			}
+			if c.kit { // a kit line gives back its components
+				parts, err := expandKits(ctx, tx, cid, []saleLine{{ItemID: *c.item, WarehouseID: *c.wh, Qty: c.qty}})
+				if err != nil {
+					return nil, err
+				}
+				for _, p := range parts {
+					k := p.ItemID + "|" + p.WarehouseID
+					back[k] = back[k].Add(p.Qty)
+				}
 			}
 		}
 		if err := returnSaleStock(ctx, tx, cid, set, invID, res.id, number, invNumber, date, false, decimal.Zero, back); err != nil {

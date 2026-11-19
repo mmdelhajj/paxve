@@ -66,8 +66,8 @@ const Network = lazy(() => import('./pages/network/Network'));
 const Tariffs = lazy(() => import('./pages/network/Tariffs'));
 const VatReport = lazy(() => named(import('./pages/network/NetReports'), 'VatReport'));
 const GeneratorReport = lazy(() => named(import('./pages/network/NetReports'), 'GeneratorReport'));
-const Employees = lazy(() => import('./pages/hr/Employees'));
-const Payroll = lazy(() => import('./pages/hr/Payroll'));
+const HR = lazy(() => import('./pages/hr2/HR'));
+const SelfService = lazy(() => import('./pages/hr2/SelfService'));
 const Assets = lazy(() => import('./pages/assets/Assets'));
 const AssetRegister = lazy(() => named(import('./pages/assets/Assets'), 'AssetRegister'));
 const Recurring = lazy(() => import('./pages/accounting/Recurring'));
@@ -104,7 +104,7 @@ const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'vouche
 /** Screens that use the whole work area themselves (no padding, own scrolling). */
 const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash', 'invoices', 'customers', 'print-bills', 'trial-balance', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances',
-  'localization', 'translations', 'stock-pro']);
+  'localization', 'translations', 'stock-pro', 'hr']);
 const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
   'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
   'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
@@ -112,7 +112,7 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'print-bills', 'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec', 'crm', 'activities', 'quotes', 'orders',
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
-  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro']);
+  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -353,7 +353,8 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     );
   }
   const views: Record<string, () => ReactNode> = {
-    dashboard: () => <Dashboard me={me} />,
+    // a user with no office permissions (an employee) lands on their self-service page
+    dashboard: () => ((me.permissions ?? []).length === 0 ? <SelfService /> : <Dashboard me={me} />),
     accounts: () => <Accounts me={me} />,
     journal: () => <Journal me={me} openId={param} />,
     rates: () => <Rates me={me} />,
@@ -402,8 +403,10 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     tariffs: () => <Tariffs me={me} />,
     'vat-report': () => <VatReport />,
     'generator-report': () => <GeneratorReport />,
-    employees: () => <Employees me={me} />,
-    payroll: () => <Payroll me={me} />,
+    employees: () => <HR me={me} initial="people" />,
+    payroll: () => <HR me={me} initial="payroll" />,
+    hr: () => <HR me={me} initial={param} key={param} />,
+    self: () => <SelfService />,
     assets: () => <Assets me={me} />,
     'asset-register': () => <AssetRegister />,
     recurring: () => <Recurring me={me} />,

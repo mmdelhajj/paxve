@@ -154,8 +154,13 @@ export const RIBBON: RibbonTab[] = [
   },
   {
     id: 'hr', label: 'mx.rib.hr', color: '#a55eea', app: 'hr', tiles: [
-      { page: 'employees', label: 'mx.t.employees', icon: IconId, perm: 'payroll.view' },
-      { page: 'payroll', label: 'mx.t.payroll', icon: IconCoins, perm: 'payroll.view' },
+      { page: 'hr', param: 'people', label: 'mx.t.employees', icon: IconId, perm: 'payroll.view' },
+      { page: 'hr', param: 'attendance', label: 'hr2.m.attendance', icon: IconChecklist, perm: 'payroll.view' },
+      { page: 'hr', param: 'leave', label: 'hr2.m.leave', icon: IconHourglass, perm: 'payroll.view' },
+      { page: 'hr', param: 'payroll', label: 'mx.t.payroll', icon: IconCoins, perm: 'payroll.view' },
+      { page: 'hr', param: 'rules', label: 'hr2.m.rules', icon: IconChecklist, perm: 'payroll.view' },
+      { page: 'hr', param: 'reports', label: 'hr2.m.reports', icon: IconChartBar, perm: 'payroll.view' },
+      { page: 'self', label: 'hr2.m.self', icon: IconId },
     ],
   },
   {

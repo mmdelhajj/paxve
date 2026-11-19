@@ -1148,6 +1148,14 @@ func (s *Server) createLandedCost(w http.ResponseWriter, r *http.Request) {
 			cid, n, billID, in.Date, in.Currency, amount.String(), base.String(), in.Method, strings.TrimSpace(in.Description), je).Scan(&id); err != nil {
 			return nil, err
 		}
+		// value-only movement so the stock-movements report shows the cost increase
+		for _, b := range bumps {
+			if _, err := tx.Exec(ctx, `INSERT INTO stock_moves (company_id, item_id, warehouse_id, move_date, quantity, unit_cost, value, source, source_id,
+				journal_entry_id, notes) VALUES ($1, $2, $3, $4::date, 0, 0, $5::numeric, 'landed_cost', $6, $7, $8)`,
+				cid, b.item, b.wh, in.Date, b.v.String(), id, je, memo); err != nil {
+				return nil, err
+			}
+		}
 		return queryJSONOne(ctx, tx, `SELECT id, number, bill_id, cost_date, currency, amount::text, amount_base::text, method, description,
 			journal_entry_id FROM landed_costs WHERE id = $1`, id)
 	})

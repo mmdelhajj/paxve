@@ -16,6 +16,7 @@ import (
 func TestCostCenterOnPayrollAndDepreciation(t *testing.T) {
 	needDB(t)
 	o := signup(t, "lebanon")
+	o.rate(t, "LBP", "2026-01-01", "89500") // Lebanese payroll rules work in LBP (salary tax)
 	cc := str(o.c.ok("POST", o.p("/cost-centers"), map[string]any{"code": "ST1", "name": "Station 1", "kind": "station"}, 201).body["id"])
 	emp := o.c.ok("POST", o.p("/employees"), map[string]any{"name": "Ali", "currency": "USD", "salary": "500", "nssf_enrolled": false,
 		"hire_date": "2026-01-01", "cost_center_id": cc}, 201).body

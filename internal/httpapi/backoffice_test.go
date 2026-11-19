@@ -38,9 +38,9 @@ func TestPayrollPostAndPay(t *testing.T) {
 		}
 	}
 	eqDec(t, "nssf employee", slipUSD["nssf_employee"], "30")
-	eqDec(t, "nssf employer", slipUSD["nssf_employer"], "215")
+	eqDec(t, "nssf employer", slipUSD["nssf_employer"], "183.77") // 8 % + 6 % (family, ceiling 28M LBP) + 8.5 % end of service
 	eqDec(t, "advance recovery", slipUSD["advance_recovery"], "100")
-	eqDec(t, "net", slipUSD["net"], "970")
+	eqDec(t, "net", slipUSD["net"], "953.46") // 1000 + 100 transport − 30 NSSF − 16.54 salary tax − 100 advance
 
 	// a second run for the same month is refused; editing recomputes the net
 	if r := o.c.do("POST", o.p("/payroll"), map[string]any{"period": "2026-11"}); r.status != 409 {
@@ -49,7 +49,7 @@ func TestPayrollPostAndPay(t *testing.T) {
 	ed := o.c.ok("PATCH", o.p("/payroll/"+runID+"/payslips/"+str(slipUSD["id"])), map[string]any{"allowances": "50"}, 200)
 	for _, s := range ed.body["payslips"].([]any) {
 		if str(obj(s)["currency"]) == "USD" {
-			eqDec(t, "net after allowance", obj(s)["net"], "1020")
+			eqDec(t, "net after allowance", obj(s)["net"], "1001.46")
 		}
 	}
 

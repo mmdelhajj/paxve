@@ -892,6 +892,19 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil, err
 			}
+			// a named customer's price list (best quantity break in the till's currency) wins over the catalog price
+			var plPrice string
+			if !walkIn {
+				if err := tx.QueryRow(ctx, `SELECT x.price::text FROM customers c JOIN price_lists p ON p.id = c.price_list_id AND p.is_active
+					JOIN price_list_items x ON x.list_id = p.id AND x.item_id = $2
+					WHERE c.id = $1 AND p.currency = $3 AND x.min_qty <= $4::numeric ORDER BY x.min_qty DESC LIMIT 1`,
+					customer, l.ItemID, g.Currency, q.String()).Scan(&plPrice); err != nil && err != pgx.ErrNoRows {
+					return nil, err
+				}
+			}
+			if plPrice != "" {
+				listPrice = &plPrice
+			}
 			price, err := itemPriceIn(rc, listPrice, salePrice, saleCur, g.Currency)
 			if err != nil {
 				return nil, err
@@ -933,7 +946,7 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			itemID := l.ItemID
 			il := invLine{Kind: "other", Description: desc, Quantity: q, UnitPrice: price, Amount: amt, Tax: tax,
 				TaxAmount: taxOn(amt, tax, dec), Revenue: lineRev, ItemID: &itemID}
-			if kind == "stock" {
+			if kind == "stock" || kind == "kit" { // a kit takes its components out of stock
 				wh := g.Warehouse
 				il.WarehouseID = &wh
 				sales = append(sales, saleLine{ItemID: l.ItemID, WarehouseID: wh, Qty: q})
