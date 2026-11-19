@@ -5,6 +5,7 @@ export interface Customer {
   area_id: string | null; area_name: string | null; notes: string; status: 'active' | 'suspended' | 'closed';
   created_at: string; active_subscriptions: number; due: Money[]; credit: Money[];
   locale?: string | null; // language of the customer's messages and portal (null = company default)
+  due_days?: number | null; // own payment terms (null = company default)
 }
 
 export interface Plan {

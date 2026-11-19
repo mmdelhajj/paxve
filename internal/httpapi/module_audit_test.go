@@ -198,6 +198,7 @@ func TestAttachmentsDecliningAndPurchaseChecks(t *testing.T) {
 		t.Fatalf("supplier bills incl. landed cost: %d", n)
 	}
 	eqDec(t, "401 = supplier balance", tbBalance(t, o, "401"), "-130")
+	eqDec(t, "supplier own terms shown", obj(sp.body["supplier"])["due_days"], "30")
 
 	// attachments
 	data := base64.StdEncoding.EncodeToString([]byte("%PDF-1.4 scanned bill"))

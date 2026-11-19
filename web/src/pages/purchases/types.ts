@@ -3,6 +3,7 @@ import type { Money } from '../../billing';
 export interface Supplier {
   id: string; code: string; name: string; phone: string; email: string; address: string; tax_id: string;
   currency: string | null; notes: string; status: 'active' | 'inactive'; created_at: string; due: Money[]; credit: Money[];
+  due_days?: number | null; // own payment terms (null = company default)
 }
 
 export interface Item {

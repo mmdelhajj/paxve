@@ -11,6 +11,7 @@ import { MoneyList } from '../billing/docs';
 import { billColor, type Bill, type Supplier, type SupplierPayment } from './types';
 import { BillView, NewBill } from './Bills';
 import { PaySupplier } from './SupplierPayments';
+import { saveTerms, TermsInput } from '../../components/PartnerTerms';
 
 export default function Suppliers({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
@@ -70,6 +71,7 @@ function SupplierForm({ supplier, onClose, onSaved }: { supplier?: Supplier; onC
     address: supplier?.address ?? '', tax_id: supplier?.tax_id ?? '', currency: supplier?.currency ?? company?.base_currency ?? '',
     notes: supplier?.notes ?? '', status: supplier?.status ?? 'active',
   });
+  const [terms, setTerms] = useState(supplier?.due_days == null ? '' : String(supplier.due_days));
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
 
@@ -81,6 +83,7 @@ function SupplierForm({ supplier, onClose, onSaved }: { supplier?: Supplier; onC
       const s = supplier
         ? await api<Supplier>(`/companies/${company.id}/suppliers/${supplier.id}`, { method: 'PATCH', body: f })
         : await api<Supplier>(`/companies/${company.id}/suppliers`, { method: 'POST', body: { ...f, status: undefined } });
+      await saveTerms(company.id, 'supplier_id', s.id, supplier?.due_days, terms);
       notifySaved(t);
       onSaved(s);
     } catch (err) {
@@ -108,6 +111,7 @@ function SupplierForm({ supplier, onClose, onSaved }: { supplier?: Supplier; onC
           </Group>
           <TextInput label={t('customers.address')} value={f.address} onChange={(e) => set('address')(e.currentTarget.value)} />
           <TextInput label={t('customers.notes')} value={f.notes} onChange={(e) => set('notes')(e.currentTarget.value)} />
+          <TermsInput value={terms} onChange={setTerms} />
           {supplier && (
             <Select label={t('common.status')} value={f.status} allowDeselect={false} onChange={(v) => v && set('status')(v)}
               data={[{ value: 'active', label: t('common.active') }, { value: 'inactive', label: t('common.inactive') }]} />

@@ -80,9 +80,10 @@ export default function PurchaseOrders({ me }: { me: Me }) {
   const [text, setText] = useState('');
   const canCreate = can(me, 'purchasing.create');
 
-  const open = useCallback((id: string) => {
+  // keepText: the RFQ message just prepared by "Send" must stay on screen after the order reloads
+  const open = useCallback((id: string, keepText = '') => {
     if (!base) return;
-    api<PODetail>(`${base}/purchase-orders/${id}`).then((d) => { setSel(d); setEdit(null); setText(''); setBillQty(Object.fromEntries(d.lines.map((l) => [l.id, l.open_qty]))); setBillRef(d.order.supplier_ref); })
+    api<PODetail>(`${base}/purchase-orders/${id}`).then((d) => { setSel(d); setEdit(null); setText(keepText); setBillQty(Object.fromEntries(d.lines.map((l) => [l.id, l.open_qty]))); setBillRef(d.order.supplier_ref); })
       .catch((e) => setMsg({ ok: false, text: errorText(t, e) }));
   }, [base, t]);
 
@@ -103,8 +104,7 @@ export default function PurchaseOrders({ me }: { me: Me }) {
   function action(a: string) {
     if (!base || !sel) return;
     void run(api<PODetail | { po: PODetail; message: string }>(`${base}/purchase-orders/${sel.order.id}/${a}`, { method: 'POST', body: {} }), (x) => {
-      open(sel.order.id);
-      if ('message' in x) setText(x.message);
+      open(sel.order.id, 'message' in x ? x.message : '');
     });
   }
   function bill() {
@@ -121,7 +121,7 @@ export default function PurchaseOrders({ me }: { me: Me }) {
   }
 
   const cols: Col<PO>[] = [
-    { key: 'n', title: '#', get: (r) => r.number, num: true, width: 60 },
+    { key: 'n', title: '#', get: (r) => r.number, num: true, decimals: 0, width: 60 },
     { key: 'd', title: t('oa.po.date'), get: (r) => r.order_date, render: (r) => formatDate(r.order_date), width: 90 },
     { key: 's', title: t('oa.po.supplier'), get: (r) => r.supplier_name, width: 180 },
     { key: 'st', title: t('oa.po.status'), get: (r) => t(`oa.po.st.${r.status}`), width: 100, cls: (r) => (r.late ? 'red' : '') },
@@ -204,7 +204,7 @@ export default function PurchaseOrders({ me }: { me: Me }) {
                         <input dir="ltr" style={{ width: 70 }} value={billQty[l.id] ?? ''} onChange={(e) => setBillQty({ ...billQty, [l.id]: e.currentTarget.value.replace(/[^\d.]/g, '') })} /></td>}
                     </tr>
                   ))}</tbody>
-                  <tfoot><tr><th colSpan={3}>{t('oa.po.total')}</th><th className="num">{formatAmount(o.total, dec)} {o.currency}</th></tr></tfoot>
+                  <tfoot><tr><th colSpan={(o.status === 'confirmed' || o.status === 'partial') && canCreate ? 4 : 3}>{t('oa.po.total')}</th><th className="num">{formatAmount(o.total, dec)} {o.currency}</th></tr></tfoot>
                 </table>
                 {o.notes && <p style={{ margin: '4px 0' }}>{o.notes}</p>}
               </div>
@@ -273,7 +273,10 @@ export function Dunning({ me }: { me: Me }) {
     if (!base) return;
     api<DunData>(`${base}/dunning`).then((x) => {
       setD(x); setEnabled(x.settings.enabled); setFeeAcc(x.settings.late_fee_account_id ?? '');
-      setLevels(x.levels.length ? x.levels : DEFAULT_LEVELS.map((l) => ({ ...l, name: t(`oa.dun.default${l.level}`) })));
+      // amounts come as 5.0000 from the server: show them as typed (5)
+      const trim = (v: string) => (v.includes('.') ? v.replace(/0+$/, '').replace(/\.$/, '') : v);
+      setLevels(x.levels.length ? x.levels.map((l) => ({ ...l, fee_amount: trim(l.fee_amount ?? '0'), min_balance: trim(l.min_balance ?? '0') }))
+        : DEFAULT_LEVELS.map((l) => ({ ...l, name: t(`oa.dun.default${l.level}`) })));
     }).catch(() => setD(null));
     api<{ rows: DueRow[] }>(`${base}/dunning/preview`).then((x) => setPreview(x.rows)).catch(() => setPreview([]));
     api<{ default_due_days: number }>(`${base}/payment-terms`).then((x) => setTerms(String(x.default_due_days))).catch(() => {});
@@ -292,19 +295,19 @@ export function Dunning({ me }: { me: Me }) {
 
   const pcols: Col<DueRow>[] = [
     { key: 'c', title: t('oa.dun.customer'), get: (r) => r.customer_name, width: 160 },
-    { key: 'n', title: t('oa.dun.invoice'), get: (r) => r.number, num: true, width: 70 },
-    { key: 'd', title: t('oa.dun.days'), get: (r) => r.days_overdue, num: true, width: 70 },
+    { key: 'n', title: t('oa.dun.invoice'), get: (r) => r.number, num: true, decimals: 0, width: 70 },
+    { key: 'd', title: t('oa.dun.days'), get: (r) => r.days_overdue, num: true, decimals: 0, width: 70 },
     { key: 'b', title: t('oa.dun.balance'), get: (r) => Number(r.balance), render: (r) => `${formatAmount(r.balance, decimalsOf(r.currency))} ${r.currency}`, num: true, width: 120 },
     { key: 'l', title: t('oa.dun.level'), get: (r) => `${r.level} · ${r.level_name}`, width: 140 },
-    { key: 'f', title: t('oa.dun.fee'), get: (r) => Number(r.fee), render: (r) => (Number(r.fee) > 0 ? `${r.fee} ${r.fee_currency}` : '—'), num: true, width: 90 },
+    { key: 'f', title: t('oa.dun.fee'), get: (r) => Number(r.fee), render: (r) => (Number(r.fee) > 0 ? `${formatAmount(r.fee, decimalsOf(r.fee_currency))} ${r.fee_currency}` : '—'), num: true, width: 90 },
     { key: 'x', title: t('oa.dun.actions'), get: (r) => [r.send_message ? t('oa.dun.msg') : '', r.cut_service ? t('oa.dun.cut') : ''].filter(Boolean).join(' + '), width: 140, cls: (r) => (r.cut_service ? 'red' : '') },
   ];
   const ecols: Col<EvRow>[] = [
     { key: 'd', title: t('oa.dun.when'), get: (r) => r.created_at, render: (r) => formatDate(r.created_at.slice(0, 10)), width: 90 },
     { key: 'c', title: t('oa.dun.customer'), get: (r) => `${r.customer_code} ${r.customer_name}`, width: 170 },
-    { key: 'n', title: t('oa.dun.invoice'), get: (r) => r.invoice_number, num: true, width: 70 },
+    { key: 'n', title: t('oa.dun.invoice'), get: (r) => r.invoice_number, num: true, decimals: 0, width: 70 },
     { key: 'l', title: t('oa.dun.level'), get: (r) => `${r.level} · ${r.level_name ?? ''}`, width: 130 },
-    { key: 'f', title: t('oa.dun.fee'), get: (r) => (r.fee_total ? `#${r.fee_invoice_number} · ${r.fee_total} ${r.fee_currency}` : '—'), width: 140 },
+    { key: 'f', title: t('oa.dun.fee'), get: (r) => (r.fee_total ? `#${r.fee_invoice_number} · ${formatAmount(r.fee_total, decimalsOf(r.fee_currency ?? ''))} ${r.fee_currency}` : '—'), width: 140 },
     { key: 'm', title: t('oa.dun.msg'), get: (r) => (r.message_queued ? '✓' : ''), width: 60 },
     { key: 'x', title: t('oa.dun.cut'), get: (r) => (r.service_cut ? '✓' : ''), width: 60, cls: (r) => (r.service_cut ? 'red' : '') },
   ];
@@ -317,7 +320,7 @@ export function Dunning({ me }: { me: Me }) {
       <div className="mx-body" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(320px, 560px)' }}>
         <section className="mx-box">
           <h3>{t('oa.dun.preview', { n: preview.length })}</h3>
-          <DataGrid rows={preview} cols={pcols} rowKey={(r) => r.invoice_id + r.level} title={t('oa.dun.title')} empty={t('oa.dun.nothing')} />
+          <DataGrid rows={preview} cols={pcols} rowKey={(r) => r.invoice_id + r.level} title={t('oa.dun.title')} empty={d && d.levels.length === 0 ? t('oa.dun.saveFirst') : t('oa.dun.nothing')} />
           {canManage && <div className="mx-row" style={{ padding: 6, gap: 6 }}>
             <button className="mx-btn" disabled={preview.length === 0} onClick={() => { if (window.confirm(t('oa.dun.runQ', { n: preview.length }))) void run(api<{ applied: number; fee_invoices: number; messages: number; services_cut: number }>(`${base}/dunning/run`, { method: 'POST', body: {} }), (x) => t('oa.dun.done', { a: x.applied, f: x.fee_invoices, m: x.messages, c: x.services_cut })); }}>{t('oa.dun.runNow')}</button>
           </div>}
@@ -375,6 +378,7 @@ interface RevPast { id: string; period: string; entry_number: number; reversal_n
 export function FxRevaluation({ me }: { me: Me }) {
   const { t } = useTranslation();
   const base = useBase();
+  const { decimalsOf } = useCompany();
   const [period, setPeriod] = useState(lastMonth());
   const [pv, setPv] = useState<RevPreview | null>(null);
   const [past, reloadPast] = useList<RevPast>(base && `${base}/fx-revaluation`);
@@ -385,14 +389,15 @@ export function FxRevaluation({ me }: { me: Me }) {
     api<RevPreview>(`${base}/fx-revaluation/preview?period=${period}`).then(setPv).catch((e) => { setPv(null); setMsg({ ok: false, text: errorText(t, e) }); });
   }, [base, period, t]);
   useEffect(load, [load]);
+  const bd = decimalsOf(pv?.base_currency ?? 'USD');
   const cols: Col<RevRow>[] = [
     { key: 'a', title: t('oa.fx.account'), get: (r) => `${r.account_code} ${r.account_name}`, width: 200 },
     { key: 'c', title: t('oa.currency'), get: (r) => r.currency, width: 60 },
-    { key: 'b', title: t('oa.fx.balance'), get: (r) => Number(r.balance), render: (r) => formatAmount(r.balance, 2), num: true, width: 130 },
-    { key: 'k', title: t('oa.fx.booked'), get: (r) => Number(r.booked_base), render: (r) => formatAmount(r.booked_base, 2), num: true, width: 100, total: 'sum' },
-    { key: 'r', title: t('oa.fx.rate'), get: (r) => r.rate, width: 90 },
-    { key: 'v', title: t('oa.fx.revalued'), get: (r) => Number(r.revalued_base), render: (r) => formatAmount(r.revalued_base, 2), num: true, width: 100, total: 'sum' },
-    { key: 'd', title: t('oa.fx.diff'), get: (r) => Number(r.difference), render: (r) => formatAmount(r.difference, 2), num: true, width: 90, total: 'sum', cls: (r) => (Number(r.difference) < 0 ? 'red' : 'ok') },
+    { key: 'b', title: t('oa.fx.balance'), get: (r) => Number(r.balance), render: (r) => formatAmount(r.balance, decimalsOf(r.currency)), num: true, width: 130 },
+    { key: 'k', title: t('oa.fx.booked'), get: (r) => Number(r.booked_base), render: (r) => formatAmount(r.booked_base, bd), num: true, width: 100, total: 'sum' },
+    { key: 'r', title: t('oa.fx.rate'), get: (r) => Number(r.rate), render: (r) => (r.rate.includes('.') ? r.rate.replace(/0+$/, '').replace(/\.$/, '') : r.rate), num: true, width: 100 },
+    { key: 'v', title: t('oa.fx.revalued'), get: (r) => Number(r.revalued_base), render: (r) => formatAmount(r.revalued_base, bd), num: true, width: 100, total: 'sum' },
+    { key: 'd', title: t('oa.fx.diff'), get: (r) => Number(r.difference), render: (r) => formatAmount(r.difference, bd), num: true, width: 90, total: 'sum', cls: (r) => (Number(r.difference) < 0 ? 'red' : 'ok') },
   ];
   return (
     <div className="mx-col">
@@ -406,9 +411,9 @@ export function FxRevaluation({ me }: { me: Me }) {
         <section className="mx-box">
           <div className="mx-pay">
             {pv && <>
-              <div>{t('oa.fx.gain')}: <b className="ok">{formatAmount(pv.total_gain, 2)} {pv.base_currency}</b></div>
-              <div>{t('oa.fx.loss')}: <b className="red">{formatAmount(pv.total_loss, 2)} {pv.base_currency}</b></div>
-              <div>{t('oa.fx.net')}: <b>{formatAmount(pv.net, 2)} {pv.base_currency}</b></div>
+              <div>{t('oa.fx.gain')}: <b className="ok">{formatAmount(pv.total_gain, bd)} {pv.base_currency}</b></div>
+              <div>{t('oa.fx.loss')}: <b className="red">{formatAmount(pv.total_loss, bd)} {pv.base_currency}</b></div>
+              <div>{t('oa.fx.net')}: <b>{formatAmount(pv.net, bd)} {pv.base_currency}</b></div>
               <small>{t('oa.fx.explain')}</small>
               {pv.posted ? <div className="mx-flash good">{t('oa.fx.alreadyDone')}</div>
                 : canRun && <button className="mx-btn" disabled={pv.rows.length === 0} onClick={() => { if (window.confirm(t('oa.fx.runQ', { p: period }))) api(`${base}/fx-revaluation`, { method: 'POST', body: { period } }).then(() => { setMsg({ ok: true, text: t('oa.fx.done') }); load(); reloadPast(); }).catch((e) => setMsg({ ok: false, text: errorText(t, e) })); }}>{t('oa.fx.run')}</button>}
@@ -416,7 +421,7 @@ export function FxRevaluation({ me }: { me: Me }) {
             <Flash m={msg} />
             <h3 style={{ margin: '8px 0 0' }}>{t('oa.fx.past')}</h3>
             {past.length === 0 ? <small>—</small> : past.map((p) => (
-              <div key={p.id} className="mx-note"><b>{p.period}</b> · {t('oa.fx.entry')} #{p.entry_number}{p.reversal_number ? ` / #${p.reversal_number}` : ''} · +{formatAmount(p.total_gain, 2)} −{formatAmount(p.total_loss, 2)}</div>
+              <div key={p.id} className="mx-note"><b>{p.period}</b> · {t('oa.fx.entry')} #{p.entry_number}{p.reversal_number ? ` / #${p.reversal_number}` : ''} · +{formatAmount(p.total_gain, bd)} −{formatAmount(p.total_loss, bd)}</div>
             ))}
           </div>
         </section>
@@ -463,7 +468,7 @@ export function Deferrals({ me }: { me: Me }) {
     } catch (e) { setMsg({ ok: false, text: errorText(t, e) }); }
   }
   const cols: Col<Def>[] = [
-    { key: 'n', title: '#', get: (r) => r.number, num: true, width: 50 },
+    { key: 'n', title: '#', get: (r) => r.number, num: true, decimals: 0, width: 50 },
     { key: 'k', title: t('oa.def.kind'), get: (r) => t(`oa.def.k.${r.kind}`), width: 110 },
     { key: 'nm', title: t('oa.def.name'), get: (r) => r.name, width: 200 },
     { key: 'a', title: t('oa.amount'), get: (r) => Number(r.amount), render: (r) => formatAmount(r.amount, 2), num: true, width: 100, total: 'sum' },

@@ -88,7 +88,7 @@ export default function Attachments({ type, id, readOnly }: { type: string; id: 
       {rows.length === 0 ? <small style={{ opacity: 0.7 }}>{t('oa.att.none')}</small> : rows.map((a) => (
         <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, flexWrap: 'wrap' }}>
           <span style={{ flex: 1, minWidth: 120, overflowWrap: 'anywhere' }}>{a.filename}</span>
-          <small style={{ opacity: 0.7 }}>{Math.max(1, Math.round(a.size / 1024))} KB · {formatDateTime(a.created_at)}{a.created_by_name ? ` · ${a.created_by_name}` : ''}</small>
+          <small style={{ opacity: 0.7 }}><bdi dir="ltr">{Math.max(1, Math.round(a.size / 1024))} KB</bdi> · <bdi>{formatDateTime(a.created_at)}</bdi>{a.created_by_name ? <> · <bdi>{a.created_by_name}</bdi></> : null}</small>
           {viewable(a.mime) && <button type="button" className="mx-btn sm" title={t('oa.att.view')} aria-label={t('oa.att.view')} onClick={() => void view(a)}><IconEye size={14} /></button>}
           <button type="button" className="mx-btn sm" title={t('oa.att.download')} aria-label={t('oa.att.download')} onClick={() => void download(a)}><IconDownload size={14} /></button>
           {!readOnly && <button type="button" className="mx-btn sm" title={t('oa.att.remove')} aria-label={t('oa.att.remove')} onClick={() => void remove(a)}><IconTrash size={14} /></button>}

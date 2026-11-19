@@ -12,6 +12,7 @@ import StationSelect from '../../components/StationSelect';
 import type { Area, Customer } from '../../billing';
 import { MoneyList } from './docs';
 import { languages } from '../../i18n';
+import { saveTerms, TermsInput } from '../../components/PartnerTerms';
 
 export default function Customers({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
@@ -107,6 +108,7 @@ export function CustomerForm({ areas, customer, onClose, onSaved }: {
     email: customer?.email ?? '', address: customer?.address ?? '', area_id: customer?.area_id ?? '', notes: customer?.notes ?? '',
     status: customer?.status ?? 'active', locale: customer?.locale ?? '',
   });
+  const [terms, setTerms] = useState(customer?.due_days == null ? '' : String(customer.due_days));
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
 
@@ -119,6 +121,7 @@ export function CustomerForm({ areas, customer, onClose, onSaved }: {
       const c = customer
         ? await api<Customer>(`/companies/${company.id}/customers/${customer.id}`, { method: 'PATCH', body })
         : await api<Customer>(`/companies/${company.id}/customers`, { method: 'POST', body });
+      await saveTerms(company.id, 'customer_id', c.id, customer?.due_days, terms);
       notifySaved(t);
       onSaved(c);
     } catch (err) {
@@ -149,6 +152,7 @@ export function CustomerForm({ areas, customer, onClose, onSaved }: {
           <TextInput label={t('customers.notes')} value={f.notes} onChange={(e) => set('notes')(e.currentTarget.value)} />
           <Select label={t('t2.custLang')} clearable placeholder={t('t2.companyDefault')} value={f.locale || null} onChange={(v) => set('locale')(v ?? '')}
             data={languages.map((l) => ({ value: l.code, label: l.label }))} />
+          <TermsInput value={terms} onChange={setTerms} />
           {customer && (
             <Select label={t('customers.status')} value={f.status} allowDeselect={false} onChange={(v) => v && set('status')(v)}
               data={['active', 'suspended', 'closed'].map((s) => ({ value: s, label: t(`customers.statuses.${s}`) }))} />

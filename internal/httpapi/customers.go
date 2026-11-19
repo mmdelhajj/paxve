@@ -22,7 +22,7 @@ const customerBalances = `
 	                HAVING sum(p.amount - coalesce((SELECT sum(pa.amount) FROM payment_allocations pa WHERE pa.payment_id = p.id), 0)) > 0) y), '[]'::json) AS credit`
 
 const customerCols = `c.id, c.code, c.name, c.phone, c.phone2, c.email, c.address, c.area_id, ar.name AS area_name,
-	c.notes, c.status, c.created_at, c.locale,
+	c.notes, c.status, c.created_at, c.locale, c.due_days,
 	(SELECT count(*) FROM subscriptions s WHERE s.customer_id = c.id AND s.status = 'active') AS active_subscriptions,
 	` + customerBalances
 

@@ -243,7 +243,7 @@ const supplierBalances = `
 	                FROM supplier_payments p WHERE p.supplier_id = su.id AND p.status = 'posted' GROUP BY p.currency
 	                HAVING sum(p.amount - coalesce((SELECT sum(a.amount) FROM supplier_allocations a WHERE a.payment_id = p.id), 0)) > 0) y), '[]'::json) AS credit`
 
-const supplierCols = `su.id, su.code, su.name, su.phone, su.email, su.address, su.tax_id, su.currency, su.notes, su.status, su.created_at, ` + supplierBalances
+const supplierCols = `su.id, su.code, su.name, su.phone, su.email, su.address, su.tax_id, su.currency, su.notes, su.status, su.created_at, su.due_days, ` + supplierBalances
 
 func (s *Server) listSuppliers(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))

@@ -18,6 +18,7 @@ interface Asset {
   id: string; code: string; name: string; category: string; purchase_date: string; currency: string; cost: string; cost_base: string;
   salvage_base: string; useful_life_months: number; start_period: string; asset_account_code: string; status: 'active' | 'disposed';
   disposal_date: string | null; accumulated: string; net_book_value: string; monthly: string; last_period: string | null; months_done: number;
+  method?: 'straight_line' | 'declining'; declining_factor?: string;
 }
 
 function useAccounts() {
@@ -97,7 +98,8 @@ export default function Assets({ me }: { me: Me }) {
               <Table.Tbody>
                 {d.rows.map((a) => (
                   <Table.Tr key={a.id} style={{ opacity: a.status === 'disposed' ? 0.5 : 1 }}>
-                    <Table.Td><Text size="sm" fw={500}>{a.name}</Text><Text size="xs" c="dimmed">{a.code}{a.category ? ` · ${a.category}` : ''} · {a.asset_account_code}</Text></Table.Td>
+                    <Table.Td><Text size="sm" fw={500}>{a.name}</Text><Text size="xs" c="dimmed">{a.code}{a.category ? ` · ${a.category}` : ''} · {a.asset_account_code}</Text>
+                      {a.method === 'declining' && <Badge size="xs" variant="light" color="grape">{t('oa.fa.decliningShort', { f: a.declining_factor ?? '2' })}</Badge>}</Table.Td>
                     <Table.Td>{formatDate(a.purchase_date)}<Text size="xs" c="dimmed">{a.months_done}/{a.useful_life_months} {t('fa.months')}</Text></Table.Td>
                     <Table.Td ff="monospace" dir="ltr" style={{ textAlign: 'end' }}>{formatAmount(a.cost_base, dec)}
                       {a.currency !== base && <Text size="xs" c="dimmed">{formatAmount(a.cost, decimalsOf(a.currency))} {a.currency}</Text>}</Table.Td>
