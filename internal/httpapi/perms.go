@@ -29,6 +29,7 @@ var moduleActions = []struct {
 	{"collections", []string{"view", "create", "edit", "void", "approve"}},
 	{"sales", []string{"view", "create", "void", "approve"}},
 	{"crm", []string{"view", "create", "edit", "manage"}},
+	{"service", []string{"view", "create", "edit", "manage"}},
 	{"pos", []string{"view", "create", "void", "manage", "approve"}},
 	{"suppliers", []string{"view", "create", "edit"}},
 	{"purchasing", []string{"view", "create", "void", "manage", "approve"}},
@@ -67,17 +68,17 @@ var (
 	// read access to the office modules (every office role, read-only included)
 	officeView = []string{"accounting.view", "customers.view", "billing.view", "collections.view", "sales.view",
 		"crm.view", "suppliers.view", "purchasing.view", "expenses.view", "stock.view", "assets.view", "bank.view",
-		"network.view", "messaging.view", "reports.view", "reports.export", "settings.view"}
+		"network.view", "messaging.view", "reports.view", "reports.export", "settings.view", "service.view"}
 	// day-to-day data entry
 	entryPerms = []string{"accounting.create", "customers.create", "customers.edit", "collections.create",
 		"sales.create", "crm.create", "crm.edit", "pos.view", "pos.create", "pos.void", "suppliers.create",
-		"suppliers.edit", "expenses.create", "stock.create", "network.create", "messaging.create"}
+		"suppliers.edit", "expenses.create", "stock.create", "network.create", "messaging.create", "service.create", "service.edit"}
 	// accountant: money, posting, voids, configuration of the modules
 	writePerms = []string{"accounting.edit", "accounting.void", "accounting.manage", "billing.create", "billing.void",
 		"billing.manage", "collections.edit", "collections.void", "sales.void", "crm.manage", "pos.manage",
 		"purchasing.create", "purchasing.void", "purchasing.manage", "expenses.void", "stock.void", "stock.manage",
 		"assets.create", "assets.edit", "assets.void", "payroll.view", "payroll.create", "payroll.edit", "payroll.void",
-		"bank.create", "bank.edit", "network.manage", "messaging.manage", "import.create", "audit.view"}
+		"bank.create", "bank.edit", "network.manage", "messaging.manage", "import.create", "audit.view", "service.manage"}
 )
 
 var presets = func() map[string][]string {
@@ -547,6 +548,19 @@ var routePerms = map[string]string{
 	"GET /companies/{cid}/reports/compare":      "reports.view",
 	"GET /companies/{cid}/owner-summary":        "reports.view",
 	"GET /companies/{cid}/journal/{id}/source":  "accounting.view",
+
+	// service desk and generator maintenance
+	"GET /companies/{cid}/tickets":                     "service.view",
+	"POST /companies/{cid}/tickets":                    "service.create",
+	"GET /companies/{cid}/tickets/summary":             "service.view",
+	"GET /companies/{cid}/tickets/{id}":                "service.view",
+	"PATCH /companies/{cid}/tickets/{id}":              "service.edit",
+	"POST /companies/{cid}/tickets/{id}/notes":         "service.create",
+	"GET /companies/{cid}/maintenance":                 "service.view",
+	"POST /companies/{cid}/maintenance/tasks":          "service.manage",
+	"PATCH /companies/{cid}/maintenance/tasks/{id}":    "service.manage",
+	"GET /companies/{cid}/maintenance/log":             "service.view",
+	"POST /companies/{cid}/maintenance/log":            "service.create",
 }
 
 // permForPattern returns the permission of a mux pattern ("" when the route is not declared).

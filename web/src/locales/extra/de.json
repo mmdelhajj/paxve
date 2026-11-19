@@ -2043,6 +2043,10 @@
     "desc": "Lager, durchschnittliche Kosten, Dieselverbrauch pro Generator.",
     "name": "Materialien und Treibstoff"
    },
+   "svc": {
+    "desc": "Kundenwünsche, Störungen und Reklamationen als nummerierte Tickets; Generatoröl-/Filterpläne nach Betriebsstunden.",
+    "name": "Servicedesk und Wartung"
+   },
    "wat": {
     "desc": "Abonnements für gemessenes Wasser.",
     "name": "Wasser"
@@ -2203,7 +2207,8 @@
    "rep": "Berichte",
    "set": "Programmeinstellungen",
    "stk": "Materialien und Lager",
-   "subs": "Abonnements"
+   "subs": "Abonnements",
+   "svc": "Service & Wartung"
   },
   "rows": "{{n}} Zeilen",
   "s": {
@@ -2476,6 +2481,7 @@
    "purchasing": "Einkäufe",
    "reports": "Berichte",
    "sales": "Verkäufe",
+   "service": "Servicedesk und Wartung",
    "settings": "Firmeneinstellungen",
    "stock": "Lagerbestand & Artikel",
    "suppliers": "Lieferanten",
@@ -3126,6 +3132,132 @@
   "sendAll": "Senden Sie {{n}} Anweisungen",
   "title": "Kontoauszug",
   "totals": "Summen"
+ },
+ "svc": {
+  "add": "Hinzufügen",
+  "addNote": "Fügen Sie eine Notiz hinzu und drücken Sie die Eingabetaste",
+  "age": "Alter",
+  "assigned": "Zugewiesen an",
+  "cat": {
+   "billing": "Rechnungsfrage",
+   "complaint": "Beschwerde",
+   "disconnect": "Anfrage zum Trennen der Verbindung",
+   "meter": "Problem mit dem Messgerät",
+   "move": "Bewegen / ändern",
+   "new_connection": "Neue Verbindung",
+   "no_internet": "Kein Internet",
+   "no_signal": "Kein TV-Signal",
+   "other": "Andere",
+   "outage": "Stromausfall",
+   "slow": "Langsames Internet"
+  },
+  "category": "Typ",
+  "ch": {
+   "field": "Auf dem Feld",
+   "office": "Im Büro",
+   "other": "Andere",
+   "phone": "Telefonanruf",
+   "portal": "Kundenportal",
+   "whatsapp": "WhatsApp"
+  },
+  "channel": "Erhalten von",
+  "close": "Schließen wie erledigt",
+  "cost": "Kosten",
+  "costHint": "Die Kosten werden hier für die Historie aufbewahrt. Um es in den Konten zu verbuchen, geben Sie einen Spesenbeleg ein.",
+  "customer": "Kunde",
+  "dLeft": "{{n}} d",
+  "date": "Datum",
+  "days": "{{n}} d",
+  "description": "Einzelheiten",
+  "due": "Frist",
+  "dueAtH": "fällig um {{n}} Uhr",
+  "dueOn": "fällig am {{d}}",
+  "every": "Jeder",
+  "everyD": "{{n}} Tage",
+  "everyDays": "Alle … Tage",
+  "everyH": "{{n}} h",
+  "everyHours": "Alle … Betriebsstunden",
+  "f": {
+   "all": "Alle",
+   "open": "Offen (nicht geschlossen)"
+  },
+  "findCustomer": "Geben Sie mehr als 2 Buchstaben des Namens, Codes oder der Telefonnummer ein",
+  "generator": "Generator",
+  "hLeft": "{{n}} h",
+  "help": {
+   "maintenance": "Fügen Sie eine Aufgabe pro Generator hinzu: zum Beispiel Ölwechsel alle 250 Betriebsstunden, Luftfilter alle 90 Tage. Geben Sie den Stundenzähler in das Generatorprotokoll ein. Die Liste wird orange, wenn eine Aufgabe naht, und rot, wenn sie fällig ist. Klicken Sie nach der Arbeit auf „Als erledigt markieren“.",
+   "tickets": "Schreiben Sie hier jeden Anruf, WhatsApp -Nachricht oder jeden Besuch über einen Schnitt, eine Störung, ein Messgerät oder eine Rechnung. Jede Anfrage erhält eine Nummer. Weisen Sie es zu, fügen Sie Notizen hinzu und schließen Sie es, wenn Sie fertig sind. Verspätete und dringende Anfragen werden oben angezeigt."
+  },
+  "history": "Geschichte",
+  "hours": "{{n}} h",
+  "hoursNow": "Stundenzähler",
+  "lastDate": "Datum der letzten Ausführung",
+  "lastDone": "Zuletzt erledigt",
+  "lastHours": "Stundenzähler beim letzten Mal",
+  "left": "Links",
+  "log": "Arbeit erledigt",
+  "m": {
+   "maintenance": "Wartung des Generators",
+   "tickets": "Serviceanfragen"
+  },
+  "markDone": "Als erledigt markieren",
+  "ms": {
+   "due": "Jetzt fällig",
+   "off": "Angehalten",
+   "ok": "OK",
+   "soon": "Bald"
+  },
+  "newPlan": "Neue Wartungsaufgabe",
+  "newTicket": "Neue Anfrage",
+  "notes": "Notizen",
+  "openCustomer": "Offener Kunde",
+  "opened": "Geöffnet",
+  "pause": "Pausieren Sie diesen Plan",
+  "phone": "Telefon",
+  "pick": "Wählen Sie ein Ticket aus der Liste.",
+  "plans": "Wartungsplan",
+  "print": "Drucken",
+  "prio": {
+   "high": "Hoch",
+   "low": "Niedrig",
+   "normal": "Normal",
+   "urgent": "Dringend"
+  },
+  "priority": "Priorität",
+  "resolution": "Was wurde getan?",
+  "resume": "Setzen Sie diesen Plan fort",
+  "save": "Speichern",
+  "saved": "Gespeichert",
+  "search": "Suche: Betreff, Kunde, Telefonnummer, Nummer",
+  "st": {
+   "cancelled": "Abgesagt",
+   "done": "Erledigt",
+   "in_progress": "Im Gange",
+   "new": "Neu",
+   "waiting": "Warten"
+  },
+  "state": "Zustand",
+  "status": "Status",
+  "statusChange": "Status: {{from}} → {{to}}",
+  "subject": "Thema",
+  "sum": {
+   "month": "30 Tage: {{opened}} geöffnet, {{closed}} geschlossen, {{h}} h durchschnittlich",
+   "open": "{{n}} geöffnet",
+   "overdue": "{{n}} zu spät",
+   "urgent": "{{n}} dringend"
+  },
+  "task": "Aufgabe",
+  "tasks": {
+   "airFilter": "Luftfilter",
+   "battery": "Batteriecheck",
+   "belts": "Riemenkontrolle",
+   "coolant": "Kühlmittelkontrolle",
+   "fuelFilter": "Kraftstofffilter",
+   "oil": "Ölwechsel",
+   "oilFilter": "Ölfilter",
+   "overhaul": "Überholung"
+  },
+  "title": "Service & Wartung"
  },
  "t2": {
   "companyDefault": "Firmenausfall",

@@ -148,6 +148,11 @@ func seedEverything(t *testing.T, o *org) {
 		"to_amount": "900000", "counterparty": secretB})
 	step(201, "POST", "/cheques", map[string]any{"direction": "in", "cheque_no": "B1", "bank_name": secretB, "receive_date": "2026-11-05",
 		"due_date": "2026-12-05", "currency": "USD", "amount": "5", "customer_id": cust})
+
+	// final stage: service desk ticket and generator maintenance task
+	step(201, "POST", "/tickets", map[string]any{"customer_id": cust, "subject": secretB + " outage", "category": "outage"})
+	mt := id(step(201, "POST", "/maintenance/tasks", map[string]any{"generator_id": gen, "task": secretB + " oil", "every_hours": "250"}), "id")
+	step(201, "POST", "/maintenance/log", map[string]any{"plan_id": mt, "done_date": "2026-11-05", "hour_meter": "100"})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -228,7 +233,7 @@ var idTable = map[string]string{
 	"cost-centers": "cost_centers", "journal-lines": "journal_lines", "exchanges": "currency_exchanges", "cheques": "cheques",
 	"lots": "stock_lots", "counts": "stock_counts", "price-lists": "price_lists",
 	"documents": "employee_documents", "schedules": "work_schedules", "holidays": "public_holidays", "leave-types": "leave_types",
-	"leave": "leave_requests",
+	"leave": "leave_requests", "tickets": "tickets", "tasks": "maintenance_plans",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -364,6 +369,8 @@ func sweepBody(c sweepCall, ids map[string]string) any {
 		return map[string]any{"title": "x"}
 	case "/crm/activities/{id}":
 		return map[string]any{"done": true}
+	case "/tickets/{id}/notes":
+		return map[string]any{"body": "x"}
 	}
 	return map[string]any{} // PATCH routes: every field is optional
 }

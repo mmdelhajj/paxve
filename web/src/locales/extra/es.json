@@ -2043,6 +2043,10 @@
     "desc": "Bodegas, costo promedio, uso de diesel por generador.",
     "name": "Materiales y combustible"
    },
+   "svc": {
+    "desc": "Solicitudes, averías y quejas de los clientes en forma de billetes numerados; Horarios de aceite/filtro del generador por horas de funcionamiento.",
+    "name": "Mesa de servicio y mantenimiento"
+   },
    "wat": {
     "desc": "Suscripciones de agua medida.",
     "name": "Agua"
@@ -2203,7 +2207,8 @@
    "rep": "Informes",
    "set": "Configuración del programa",
    "stk": "Materiales y almacenes",
-   "subs": "Suscripciones"
+   "subs": "Suscripciones",
+   "svc": "Servicio y mantenimiento"
   },
   "rows": "{{n}} filas",
   "s": {
@@ -2476,6 +2481,7 @@
    "purchasing": "Compras",
    "reports": "Informes",
    "sales": "Ventas",
+   "service": "Mesa de servicio y mantenimiento",
    "settings": "Configuración de la empresa",
    "stock": "Existencias y artículos",
    "suppliers": "Proveedores",
@@ -3126,6 +3132,132 @@
   "sendAll": "Enviar {{n}} extractos",
   "title": "Estado de cuenta",
   "totals": "Totales"
+ },
+ "svc": {
+  "add": "Agregar",
+  "addNote": "Agregue una nota y presione Entrar",
+  "age": "Edad",
+  "assigned": "Asignado a",
+  "cat": {
+   "billing": "pregunta de factura",
+   "complaint": "Queja",
+   "disconnect": "Solicitud de desconexión",
+   "meter": "problema del medidor",
+   "move": "Mover/cambiar",
+   "new_connection": "Nueva conexión",
+   "no_internet": "sin internet",
+   "no_signal": "Sin señal de televisión",
+   "other": "Otro",
+   "outage": "Corte de corriente",
+   "slow": "Internet lento"
+  },
+  "category": "Tipo",
+  "ch": {
+   "field": "en el campo",
+   "office": "en la oficina",
+   "other": "Otro",
+   "phone": "Llamada telefónica",
+   "portal": "Portal del cliente",
+   "whatsapp": "WhatsApp"
+  },
+  "channel": "Recibido por",
+  "close": "Cerrar como hecho",
+  "cost": "Costo",
+  "costHint": "El costo se guarda aquí para la historia. Para contabilizarlo en las cuentas introduzca un comprobante de gastos.",
+  "customer": "Cliente",
+  "dLeft": "{{n}} d",
+  "date": "Fecha",
+  "days": "{{n}} d",
+  "description": "Detalles",
+  "due": "Fecha límite",
+  "dueAtH": "vence a las {{n}} h",
+  "dueOn": "vence el {{d}}",
+  "every": "Cada",
+  "everyD": "{{n}} días",
+  "everyDays": "Cada... dias",
+  "everyH": "{{n}} hora",
+  "everyHours": "Cada... horas de funcionamiento",
+  "f": {
+   "all": "Todo",
+   "open": "Abierto (no cerrado)"
+  },
+  "findCustomer": "Escriba más de 2 letras del nombre, código o teléfono",
+  "generator": "Generador",
+  "hLeft": "{{n}} hora",
+  "help": {
+   "maintenance": "Agregue una tarea por generador: por ejemplo, cambio de aceite cada 250 horas de funcionamiento, filtro de aire cada 90 días. Escriba el contador de horas en el registro del generador; la lista se vuelve naranja cuando una tarea está cerca y roja cuando vence. Presione \"Marcar como hecho\" después del trabajo.",
+   "tickets": "Escribe aquí cada llamada, mensaje WhatsApp o visita sobre un corte, una avería, un contador o una factura. Cada solicitud recibe un número. Asígnalo, agrega notas y ciérralo cuando hayas terminado. Las solicitudes tardías y urgentes se muestran en la parte superior."
+  },
+  "history": "Historia",
+  "hours": "{{n}} hora",
+  "hoursNow": "Contador de horas",
+  "lastDate": "Fecha de la última realización",
+  "lastDone": "Último hecho",
+  "lastHours": "Contador de horas cuando se hizo por última vez",
+  "left": "Izquierda",
+  "log": "trabajo hecho",
+  "m": {
+   "maintenance": "Mantenimiento del generador",
+   "tickets": "Solicitudes de servicio"
+  },
+  "markDone": "Marcar como hecho",
+  "ms": {
+   "due": "Vencimiento ahora",
+   "off": "En pausa",
+   "ok": "DE ACUERDO",
+   "soon": "Pronto"
+  },
+  "newPlan": "Nueva tarea de mantenimiento",
+  "newTicket": "Nueva solicitud",
+  "notes": "Notas",
+  "openCustomer": "Cliente abierto",
+  "opened": "Abierto",
+  "pause": "Pausar este plan",
+  "phone": "Teléfono",
+  "pick": "Elija un boleto de la lista.",
+  "plans": "plan de mantenimiento",
+  "print": "Imprimir",
+  "prio": {
+   "high": "Alto",
+   "low": "Bajo",
+   "normal": "Normal",
+   "urgent": "Urgente"
+  },
+  "priority": "Prioridad",
+  "resolution": "que se hizo",
+  "resume": "Reanudar este plan",
+  "save": "Ahorrar",
+  "saved": "Guardado",
+  "search": "Buscar: asunto, cliente, teléfono, número",
+  "st": {
+   "cancelled": "Cancelado",
+   "done": "Hecho",
+   "in_progress": "En curso",
+   "new": "Nuevo",
+   "waiting": "Espera"
+  },
+  "state": "Estado",
+  "status": "Estado",
+  "statusChange": "Estado: {{from}} → {{to}}",
+  "subject": "Sujeto",
+  "sum": {
+   "month": "30 días: {{opened}} abierto, {{closed}} cerrado, {{h}} h promedio",
+   "open": "{{n}} abierto",
+   "overdue": "{{n}} tarde",
+   "urgent": "{{n}} urgente"
+  },
+  "task": "Tarea",
+  "tasks": {
+   "airFilter": "filtro de aire",
+   "battery": "Comprobación de batería",
+   "belts": "Comprobación de cinturones",
+   "coolant": "Control de refrigerante",
+   "fuelFilter": "Filtro de combustible",
+   "oil": "cambio de aceite",
+   "oilFilter": "Filtro de aceite",
+   "overhaul": "Revisión"
+  },
+  "title": "Servicio y mantenimiento"
  },
  "t2": {
   "companyDefault": "Incumplimiento de la empresa",

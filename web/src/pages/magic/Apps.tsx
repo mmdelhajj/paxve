@@ -6,18 +6,18 @@ import { useCompany } from '../../company';
 import { errorText } from '../../util';
 import {
   IconBook2, IconBuildingFactory2, IconCash, IconCashRegister, IconDroplet, IconId, IconMessage, IconPackage, IconReceipt,
-  IconRouter, IconSatellite, IconTargetArrow, IconUsersGroup,
+  IconRouter, IconSatellite, IconTargetArrow, IconUsersGroup, IconHeadset,
 } from '@tabler/icons-react';
 import { ALL_APPS, CORE_APPS, RIBBON, type AppId, type Icon } from '../../ribbon';
 
 const GLYPH: Record<AppId | 'wat' | 'mfg', Icon> = {
   gen: IconUsersGroup, acc: IconBook2, col: IconCash, msg: IconMessage, stk: IconPackage, pur: IconReceipt, net: IconRouter,
-  sat: IconSatellite, pos: IconCashRegister, hr: IconId, crm: IconTargetArrow, wat: IconDroplet, mfg: IconBuildingFactory2,
+  sat: IconSatellite, pos: IconCashRegister, hr: IconId, crm: IconTargetArrow, svc: IconHeadset, wat: IconDroplet, mfg: IconBuildingFactory2,
 };
 
 const ICON_OF: Partial<Record<AppId, string>> = { gen: 'subs', acc: 'acc', col: 'col', net: 'net', stk: 'stk', pur: 'pur', crm: 'crm', pos: 'pos', hr: 'hr' };
 const PRICE: Record<AppId | 'wat' | 'mfg', string> = {
-  gen: 'core', acc: 'core', col: 'core', msg: '8', stk: '8', pur: '5', net: '10', sat: '10', pos: '15', hr: '8', crm: '8', wat: '', mfg: '',
+  gen: 'core', acc: 'core', col: 'core', msg: '8', stk: '8', pur: '5', net: '10', sat: '10', pos: '15', hr: '8', crm: '8', svc: '5', wat: '', mfg: '',
 };
 
 /** التطبيقات: switch modules on or off for this company (Odoo-style). Menus follow at once; the server refuses

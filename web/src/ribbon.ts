@@ -7,12 +7,13 @@ import {
   IconReportMoney, IconRouter, IconScale, IconShieldLock, IconShoppingCart, IconTargetArrow, IconTopologyStar3, IconTruck,
   IconUserCircle, IconUserDollar, IconUsers, IconUsersGroup, IconWorld, IconBarcode, IconWallet, IconCalendarStats,
   IconFileDollar, IconCurrencyDollar, IconSitemap, IconCalendarCheck, IconDoorEnter, IconTimeline, IconArrowsLeftRight, IconLanguage,
+  IconHeadset, IconTool,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
-export type AppId = 'gen' | 'acc' | 'col' | 'msg' | 'stk' | 'pur' | 'net' | 'sat' | 'pos' | 'hr' | 'crm';
+export type AppId = 'gen' | 'acc' | 'col' | 'msg' | 'stk' | 'pur' | 'net' | 'sat' | 'pos' | 'hr' | 'crm' | 'svc';
 export const CORE_APPS: AppId[] = ['gen', 'acc', 'col'];
-export const ALL_APPS: AppId[] = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm'];
+export const ALL_APPS: AppId[] = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc'];
 
 export type Icon = typeof IconCash;
 
@@ -58,6 +59,8 @@ export const RIBBON: RibbonTab[] = [
       { page: 'readings', label: 'mx.t.readingsSheet', icon: IconGauge, perm: 'collections.view' },
       { page: 'statements', label: 'mx.t.statements', icon: IconFileText, perm: 'customers.view' },
       { page: 'messages', label: 'mx.t.messages', icon: IconMessage, perm: 'messaging.view', app: 'msg' },
+      { page: 'service', label: 'svc.m.tickets', icon: IconHeadset, perm: 'service.view', app: 'svc' },
+      { page: 'service', param: 'maintenance', label: 'svc.m.maintenance', icon: IconTool, perm: 'service.view', app: 'svc' },
     ],
   },
   {
@@ -150,6 +153,12 @@ export const RIBBON: RibbonTab[] = [
       { page: 'pos', label: 'mx.t.posOpen', icon: IconCashRegister, perm: 'pos.create' },
       { page: 'pos-sessions', label: 'mx.t.posSessions', icon: IconReceipt2 },
       { page: 'pos-setup', label: 'mx.t.posSetup', icon: IconLayoutGrid, perm: 'pos.manage' },
+    ],
+  },
+  {
+    id: 'svc', label: 'mx.rib.svc', color: '#d35400', app: 'svc', tiles: [
+      { page: 'service', label: 'svc.m.tickets', icon: IconHeadset, perm: 'service.view' },
+      { page: 'service', param: 'maintenance', label: 'svc.m.maintenance', icon: IconTool, perm: 'service.view' },
     ],
   },
   {

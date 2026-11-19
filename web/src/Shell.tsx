@@ -96,6 +96,7 @@ const Apps = lazy(() => import('./pages/magic/Apps'));
 const Translations = lazy(() => import('./pages/t2/Translations'));
 const Localization = lazy(() => import('./pages/t2/Localization'));
 const StockPro = lazy(() => import('./pages/t2/StockPro'));
+const Service = lazy(() => import('./pages/svc/Service'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -104,7 +105,7 @@ const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'vouche
 /** Screens that use the whole work area themselves (no padding, own scrolling). */
 const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash', 'invoices', 'customers', 'print-bills', 'trial-balance', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances',
-  'localization', 'translations', 'stock-pro', 'hr']);
+  'localization', 'translations', 'stock-pro', 'hr', 'service']);
 const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
   'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
   'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
@@ -112,7 +113,7 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'print-bills', 'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec', 'crm', 'activities', 'quotes', 'orders',
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
-  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self']);
+  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -433,6 +434,7 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     translations: () => <Translations me={me} />,
     localization: () => <Localization me={me} />,
     'stock-pro': () => <StockPro me={me} initial={param} key={param} />,
+    service: () => <Service me={me} initial={param} key={param} />,
   };
   return <>{(views[page] ?? views.dashboard)()}</>;
 }

@@ -213,3 +213,8 @@
   .mx-col { height: auto; }
   .mx-form .mx-fld { grid-template-columns: 1fr; }
 }
+
+/* service desk */
+.mx-grid td.orange { color: #b35c00; font-weight: 700; }
+.mx-list { border: 1px solid var(--mx-line, #ccd); border-radius: 3px; max-height: 180px; overflow: auto; padding: 2px 4px; }
+

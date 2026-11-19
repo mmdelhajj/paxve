@@ -2043,6 +2043,10 @@
     "desc": "Depolar, ortalama maliyet, jeneratör başına dizel kullanımı.",
     "name": "Malzemeler ve yakıt"
    },
+   "svc": {
+    "desc": "Müşteri istek, hata ve şikayetlerini numaralı bilet olarak; çalışma saatlerine göre jeneratör yağı / filtre programları.",
+    "name": "Servis masası ve bakım"
+   },
    "wat": {
     "desc": "Ölçülü su abonelikleri.",
     "name": "su"
@@ -2203,7 +2207,8 @@
    "rep": "Raporlar",
    "set": "Program ayarları",
    "stk": "Malzemeler ve depolar",
-   "subs": "Abonelikler"
+   "subs": "Abonelikler",
+   "svc": "Servis ve bakım"
   },
   "rows": "{{n}} satır",
   "s": {
@@ -2476,6 +2481,7 @@
    "purchasing": "Satın almalar",
    "reports": "Raporlar",
    "sales": "Satış",
+   "service": "Servis masası ve bakım",
    "settings": "Şirket ayarları",
    "stock": "Stok ve ürünler",
    "suppliers": "Tedarikçiler",
@@ -3126,6 +3132,132 @@
   "sendAll": "{{n}} ifadeyi gönder",
   "title": "Hesap ekstresi",
   "totals": "Toplamlar"
+ },
+ "svc": {
+  "add": "Eklemek",
+  "addNote": "Bir not ekleyin ve Enter'a basın",
+  "age": "Yaş",
+  "assigned": "Atandı",
+  "cat": {
+   "billing": "Fatura sorusu",
+   "complaint": "Şikayet",
+   "disconnect": "Bağlantıyı kesme isteği",
+   "meter": "Sayaç sorunu",
+   "move": "Taşı / değiştir",
+   "new_connection": "Yeni bağlantı",
+   "no_internet": "İnternet yok",
+   "no_signal": "TV sinyali yok",
+   "other": "Diğer",
+   "outage": "Elektrik kesintisi",
+   "slow": "Yavaş internet"
+  },
+  "category": "Tip",
+  "ch": {
+   "field": "sahada",
+   "office": "ofiste",
+   "other": "Diğer",
+   "phone": "Telefon görüşmesi",
+   "portal": "Müşteri portalı",
+   "whatsapp": "WhatsApp"
+  },
+  "channel": "Tarafından alındı",
+  "close": "Bittiği gibi kapat",
+  "cost": "Maliyet",
+  "costHint": "Maliyet, tarih için burada tutulur. Hesaplara kaydetmek için bir gider makbuzu girin.",
+  "customer": "Müşteri",
+  "dLeft": "{{n}} d",
+  "date": "Tarih",
+  "days": "{{n}} d",
+  "description": "Detaylar",
+  "due": "Son teslim tarihi",
+  "dueAtH": "{{n}} saat itibarıyla teslim edilecek",
+  "dueOn": "{{d}} tarihinde vadesi gelecek",
+  "every": "Her",
+  "everyD": "{{n}} gün",
+  "everyDays": "Her … günde",
+  "everyH": "{{n}} saat",
+  "everyHours": "Her... çalışma saatinde",
+  "f": {
+   "all": "Tüm",
+   "open": "Açık (kapalı değil)"
+  },
+  "findCustomer": "Adın, kodun veya telefonun 2+ harfini yazın",
+  "generator": "Jeneratör",
+  "hLeft": "{{n}} saat",
+  "help": {
+   "maintenance": "Jeneratör başına bir görev ekleyin: örneğin her 250 çalışma saatinde bir yağ değişimi, her 90 günde bir hava filtresi. Saat sayacını jeneratör günlüğüne yazın; Bir görev yaklaştığında liste turuncuya, zamanı geldiğinde ise kırmızıya döner. İşten sonra \"Tamamlandı olarak işaretle\"ye basın.",
+   "tickets": "Bir kesinti, arıza, sayaç veya fatura ile ilgili her aramanızı, WhatsApp mesajınızı veya ziyaretinizi buraya yazın. Her isteğe bir numara verilir. Atayın, not ekleyin ve işiniz bittiğinde kapatın. Geç ve acil talepler en üstte gösterilir."
+  },
+  "history": "Tarih",
+  "hours": "{{n}} saat",
+  "hoursNow": "Saat ölçer",
+  "lastDate": "Son yapılma tarihi",
+  "lastDone": "Son yapılan",
+  "lastHours": "En son tamamlandığında saat ölçer",
+  "left": "Sol",
+  "log": "Yapılan iş",
+  "m": {
+   "maintenance": "Jeneratör bakımı",
+   "tickets": "Hizmet talepleri"
+  },
+  "markDone": "Tamamlandı olarak işaretle",
+  "ms": {
+   "due": "Vadesi şimdi",
+   "off": "Duraklatıldı",
+   "ok": "TAMAM",
+   "soon": "Yakında"
+  },
+  "newPlan": "Yeni bakım görevi",
+  "newTicket": "Yeni istek",
+  "notes": "Notlar",
+  "openCustomer": "Müşteriyi aç",
+  "opened": "Açıldı",
+  "pause": "Bu planı duraklat",
+  "phone": "Telefon",
+  "pick": "Listeden bir bilet seçin.",
+  "plans": "Bakım planı",
+  "print": "Yazdır",
+  "prio": {
+   "high": "Yüksek",
+   "low": "Düşük",
+   "normal": "Normal",
+   "urgent": "Acil"
+  },
+  "priority": "Öncelik",
+  "resolution": "Ne yapıldı",
+  "resume": "Bu planı devam ettir",
+  "save": "Kaydetmek",
+  "saved": "Kaydedildi",
+  "search": "Arama: konu, müşteri, telefon, numara",
+  "st": {
+   "cancelled": "İptal edildi",
+   "done": "Tamamlamak",
+   "in_progress": "Devam etmekte",
+   "new": "Yeni",
+   "waiting": "Beklemek"
+  },
+  "state": "Durum",
+  "status": "Durum",
+  "statusChange": "Durum: {{from}} → {{to}}",
+  "subject": "Ders",
+  "sum": {
+   "month": "30 gün: {{opened}} açıldı, {{closed}} kapatıldı, ortalama {{h}} saat",
+   "open": "{{n}} açık",
+   "overdue": "{{n}} geç",
+   "urgent": "{{n}} acil"
+  },
+  "task": "Görev",
+  "tasks": {
+   "airFilter": "Hava filtresi",
+   "battery": "Pil kontrolü",
+   "belts": "Kemer kontrolü",
+   "coolant": "Soğutma sıvısı kontrolü",
+   "fuelFilter": "Yakıt filtresi",
+   "oil": "Yağ değişimi",
+   "oilFilter": "Yağ filtresi",
+   "overhaul": "Revizyon"
+  },
+  "title": "Servis ve bakım"
  },
  "t2": {
   "companyDefault": "Şirket temerrüdü",
