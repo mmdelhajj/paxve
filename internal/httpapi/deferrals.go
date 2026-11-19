@@ -434,7 +434,7 @@ func (s *Server) cancelDeferral(w http.ResponseWriter, r *http.Request) {
 // RunDeferrals recognises the months up to the previous month for every company with active schedules (daily worker).
 func (s *Server) RunDeferrals(ctx context.Context) error {
 	rows, err := s.OwnerPool.Query(ctx, `SELECT DISTINCT d.company_id::text, d.tenant_id::text FROM deferral_schedules d
-		JOIN companies c ON c.id = d.company_id WHERE d.status = 'active' AND c.is_active`)
+		JOIN companies c ON c.id = d.company_id WHERE d.status = 'active' AND c.is_active AND tenant_jobs_ok(d.tenant_id)`)
 	if err != nil {
 		return err
 	}

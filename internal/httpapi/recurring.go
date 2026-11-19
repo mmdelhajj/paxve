@@ -308,7 +308,7 @@ func (s *Server) StartRecurringWorker(ctx context.Context) {
 func (s *Server) RunDueRecurring(ctx context.Context) (int, error) {
 	type due struct{ id, tenant, company, user string }
 	rows, err := s.OwnerPool.Query(ctx, `SELECT id::text, tenant_id::text, company_id::text, coalesce(created_by::text, '')
-		FROM recurring_templates WHERE is_active AND next_date <= current_date AND last_error = '' ORDER BY next_date LIMIT 500`)
+		FROM recurring_templates WHERE is_active AND next_date <= current_date AND last_error = '' AND tenant_jobs_ok(tenant_id) ORDER BY next_date LIMIT 500`)
 	if err != nil {
 		return 0, err
 	}

@@ -3,7 +3,7 @@ import { Alert, Button, Center, Group, Loader, Menu, Modal, PasswordInput, Stack
 import { useDisclosure } from '@mantine/hooks';
 import { IconChevronDown, IconKey, IconLogout, IconShieldLock } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { api, can, type Me, type Rate } from './api';
+import { api, can, planHas, type Me, type Rate } from './api';
 import { useCompany } from './company';
 import { applyLang, languages } from './i18n';
 import { formatAmount, notifyError, notifySaved, today } from './util';
@@ -167,7 +167,8 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   const activeRef = useRef(active);
   activeRef.current = active;
 
-  const apps = useMemo(() => new Set(company?.apps ?? ALL_APPS), [company]);
+  // apps the company switched on, minus those its Paxve plan does not include (their screens show an upgrade hint)
+  const apps = useMemo(() => new Set((company?.apps ?? ALL_APPS).filter((a) => planHas(me, a))), [company, me]);
   const biz = company?.business_type ?? 'generator';
 
   // hash → window: a new window when asked for, the existing window of that screen, or the current window
@@ -360,6 +361,14 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
 function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: Me) => void; page: string; param: string; active: boolean; apps: Set<string> }) {
   const { t } = useTranslation();
   const app = appOfPage(page);
+  if (app && !planHas(me, app)) {
+    return (
+      <Alert color="yellow" maw={640} title={t('mx.notInPlanTitle')}>
+        {t('mx.notInPlan', { app: t(`mx.apps.${app}.name`) })}{' '}
+        <Button size="xs" variant="light" onClick={() => openScreen('my-sub')}>{t('mx.upgrade')}</Button>
+      </Alert>
+    );
+  }
   if (app && !apps.has(app)) {
     return (
       <Alert color="yellow" maw={640} title={t('mx.appOffTitle')}>

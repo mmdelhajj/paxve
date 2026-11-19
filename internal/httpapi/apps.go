@@ -114,22 +114,31 @@ func (s *Server) companyApps(ctx context.Context, tenantID, cid string) ([]strin
 	return apps, true
 }
 
-// appAllowed: false when the route belongs to an app the company switched off.
-func (s *Server) appAllowed(r *http.Request, p *Principal) bool {
+// planAllows: the organisation's Paxve plan includes the app (core apps always; nil plan list = every app).
+func planAllows(p *Principal, app string) bool {
+	return p.PlanApps == nil || slices.Contains(coreApps, app) || slices.Contains(p.PlanApps, app)
+}
+
+// appBlocked: "app_not_in_plan" when the route belongs to an app the organisation's plan does not include,
+// "app_disabled" when the company switched the app off, "" when the route may run.
+func (s *Server) appBlocked(r *http.Request, p *Principal) string {
 	cid := r.PathValue("cid")
 	if cid == "" || !isUUID(cid) {
-		return true
+		return ""
 	}
 	method, path, _ := strings.Cut(r.Pattern, " ")
 	app := appForRoute(method, strings.TrimPrefix(path, v1))
 	if app == "" {
-		return true
+		return ""
+	}
+	if !planAllows(p, app) {
+		return "app_not_in_plan"
 	}
 	apps, ok := s.companyApps(r.Context(), p.TenantID, cid)
-	if !ok {
-		return true // unknown company: the handler answers 404 as before
+	if !ok || slices.Contains(apps, app) {
+		return "" // an unknown company answers 404 in the handler, as before
 	}
-	return slices.Contains(apps, app)
+	return "app_disabled"
 }
 
 // PUT /companies/{cid}/apps {apps: [...], business_type}
@@ -156,6 +165,14 @@ func (s *Server) updateApps(w http.ResponseWriter, r *http.Request) {
 		}
 		if !slices.Contains(set, a) {
 			set = append(set, a)
+		}
+	}
+	// an app outside the plan cannot be switched on (one that is already on, e.g. after a plan change, may stay)
+	cur, _ := s.companyApps(ctx, principal(r).TenantID, cid)
+	for _, a := range set {
+		if !planAllows(principal(r), a) && !slices.Contains(cur, a) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "app_not_in_plan", "detail": a})
+			return
 		}
 	}
 	if in.BusinessType != nil && *in.BusinessType != "generator" && *in.BusinessType != "internet" && *in.BusinessType != "satellite" && *in.BusinessType != "water" {

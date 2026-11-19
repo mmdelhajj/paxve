@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Switch } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
-import { api, can, type Company, type Me } from '../../api';
+import { api, can, planHas, type Company, type Me } from '../../api';
+import { openScreen } from '../../nav';
 import { useCompany } from '../../company';
 import { errorText } from '../../util';
 import {
@@ -71,6 +72,8 @@ export default function Apps({ me }: { me: Me }) {
           const core = (CORE_APPS as string[]).includes(id);
           // water is a business type (metered m³ billing on the same engine), not a separate app
           const on = id === 'wat' ? company.business_type === 'water' : core || apps.has(id);
+          // the Paxve plan decides which apps can be switched on (water is a business type, always allowed)
+          const inPlan = id === 'wat' || planHas(me, id);
           return (
             <article key={id} className="mx-appc">
               <header>
@@ -79,10 +82,15 @@ export default function Apps({ me }: { me: Me }) {
                 <div><b>{t(`mx.apps.${id}.name`)}</b>{soon && <span className="mx-pill warn" style={{ marginInlineStart: 6 }}>{t('mx.apps.soon')}</span>}</div>
               </header>
               <p>{t(`mx.apps.${id}.desc`)}</p>
+              {!inPlan && on && <p className="mx-note" style={{ margin: 0 }}>{t('mx.apps.notInPlanOn')}</p>}
               <div className="mx-arow">
                 <span className="mx-price">{core ? t('mx.apps.core') : PRICE[id] ? t('mx.apps.price', { n: PRICE[id] }) : ''}</span>
+                {!core && !inPlan && (
+                  <button className="mx-pill warn" style={{ border: 0, cursor: 'pointer' }} title={t('mx.upgrade')} onClick={() => openScreen('my-sub')}>
+                    {t('mx.apps.notInPlan')}</button>
+                )}
                 {core ? <span className="mx-pill on">{t('mx.apps.always')}</span> : (
-                <Switch aria-label={t(`mx.apps.${id}.name`)} checked={on} disabled={soon || !canEdit || busy}
+                <Switch aria-label={t(`mx.apps.${id}.name`)} checked={on} disabled={soon || !canEdit || busy || (!inPlan && !on)}
                   onChange={(e) => {
                     if (id === 'wat') { void save(apps, e.currentTarget.checked ? 'water' : 'generator'); return; }
                     const next = new Set(apps);

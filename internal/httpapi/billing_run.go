@@ -430,7 +430,7 @@ func (s *Server) ResumeBillingJobs(ctx context.Context) {
 		return
 	}
 	rows, err := s.OwnerPool.Query(ctx, `SELECT id::text, tenant_id::text, company_id::text, coalesce(created_by::text, '')
-		FROM billing_jobs WHERE status = 'running'`)
+		FROM billing_jobs WHERE status = 'running' AND tenant_jobs_ok(tenant_id)`)
 	if err != nil {
 		slog.Error("resume billing jobs", "err", err)
 		return

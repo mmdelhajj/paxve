@@ -284,12 +284,13 @@ Only for the addresses in `PLATFORM_ADMINS` (browser session, never an API key);
 |---|---|
 | GET /platform/summary | counts per state (trial, active, grace, expired, blocked), MRR / ARR, sign-ups this month, ending in 7 days, lost in 30 days, open requests, money received per month |
 | GET /platform/tenants · GET /platform/tenants/{id} | every organisation with state, plan, ends_on, price, usage, country, last activity; the detail adds users (last sign-in), companies, usage, payments, events, requests |
-| PATCH /platform/tenants/{id} | name, plan (brings its limits), trial_ends_at, paid_until, billing_cycle, price_override / price_currency, grace_days, max_subscribers / max_users / max_companies (0 = unlimited), contact_phone / contact_email, notes, is_active |
+| PATCH /platform/tenants/{id} | name, plan (brings its limits), trial_ends_at, paid_until, billing_cycle, price_override / price_currency, grace_days, max_subscribers / max_users / max_companies (0 = unlimited), contact_phone / contact_email, notes, is_active, grandfathered_apps ([] removes the kept apps) |
 | POST /platform/tenants/{id}/renew | {period: month\|year\|custom, until?, plan?, amount?, currency?, method: cash\|whish\|omt\|bank\|card\|other, reference?, note?, request_id?} records a payment, extends paid_until from the current end (or today), lifts a block, closes the request |
 | POST /platform/tenants/{id}/block {reason} · /unblock · /extend-trial {days\|until} · /reset-password {user_id?} | block ends open sessions and sign-in answers 403 org_blocked with the reason; reset returns a one-time password |
 | POST /platform/tenants/{id}/support · POST /platform/support/end | read-only support view as the organisation's admin (2 hours at most, every write answers 403 support_read_only, audited) |
 | PATCH /platform/tenants/{id}/users/{uid} {is_active} | switch one user on / off |
-| GET /platform/payments?from&to · GET/POST /platform/plans · PATCH /platform/plans/{code} {…, apply_limits} | payments received; editable plans, prices and limits |
+| GET /platform/payments?from&to · GET/POST /platform/plans · PATCH /platform/plans/{code} {…, apps, apply_limits} | payments received; editable plans, prices, limits and apps ([] = every app); narrowing a plan's apps keeps the apps each organisation already uses (grandfathered_apps) |
+| GET /platform/setup | the messaging providers of the owner's own company (they send the renewal reminders; `log` only writes them to the server log) and PAXVE_SALES_PHONE / PAXVE_SALES_EMAIL |
 | GET /platform/requests?status= · POST /platform/requests/{id}/done\|reject {answer} | renewal / upgrade requests sent by organisations |
 | POST /platform/lifecycle/run | run the daily worker now (state changes, reminders 7 / 3 / 1 days before and on expiry) |
 
@@ -298,3 +299,15 @@ Organisation side: `GET /subscription` (plan, state, end date, usage against lim
 (settings.manage). `GET /me` carries `sub_state`, `paid_until`, `grace_ends` and `support`. While the state is **expired** every
 write answers **402 subscription_expired** (sign-out, profile, security and the renewal request still work); **blocked**
 organisations cannot sign in.
+
+**Plan apps (migration 00037).** `GET /me` carries `plan_apps` (null = every app): the plan's apps plus the organisation's
+kept (grandfathered) apps; the core apps (gen, acc, col) are always allowed. A route of an app outside the plan answers
+**403 app_not_in_plan**, and `PUT /companies/{cid}/apps` refuses to switch one on (403 app_not_in_plan, `detail` = the app;
+an app that is already on may stay in the list). Moving an organisation to a smaller plan does not keep apps; only
+narrowing a plan's list does.
+
+**Background jobs.** Expired and blocked organisations run nothing on their own: billing jobs, dunning, recurring
+entries, deferrals, leave accruals, automatic rates, ISP rules and router actions, queued messages and webhook deliveries
+are skipped (`tenant_jobs_ok()`); queued work waits and goes out after a renewal or unblock. The state change is
+recorded with `jobs: paused / resumed`, and the daily run logs how much is held. The platform owner's own organisation
+is never skipped.

@@ -849,7 +849,7 @@ func (s *Server) RunLeaveAccruals(ctx context.Context) error {
 		return nil
 	}
 	rows, err := s.OwnerPool.Query(ctx, `SELECT DISTINCT e.company_id::text, e.tenant_id::text FROM employees e JOIN companies c ON c.id = e.company_id
-		WHERE c.is_active AND 'hr' = ANY(c.apps) AND EXISTS (SELECT 1 FROM leave_accruals a WHERE a.company_id = e.company_id)`)
+		WHERE c.is_active AND 'hr' = ANY(c.apps) AND tenant_jobs_ok(e.tenant_id) AND EXISTS (SELECT 1 FROM leave_accruals a WHERE a.company_id = e.company_id)`)
 	if err != nil {
 		return err
 	}

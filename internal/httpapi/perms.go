@@ -156,6 +156,7 @@ var routePerms = map[string]string{
 	"GET /platform/tenants":                        permAny,
 	"PATCH /platform/tenants/{id}":                 permAny,
 	"GET /platform/summary":                        permAny,
+	"GET /platform/setup":                          permAny,
 	"GET /platform/tenants/{id}":                   permAny,
 	"POST /platform/tenants/{id}/{op}":             permAny,
 	"PATCH /platform/tenants/{id}/users/{uid}":     permAny,

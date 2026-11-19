@@ -31,6 +31,11 @@ export interface Org {
   max_subscribers: number | null; max_users: number | null; max_companies: number | null; is_active: boolean; blocked_at: string | null; blocked_reason: string;
   notes: string; contact_phone: string; contact_email: string; created_at: string; users: number; companies: number; active_subscriptions: number;
   admin_email: string | null; last_activity_at: string | null; country: string | null; business_type: string | null; open_requests: number;
+  grandfathered_apps: string[]; plan_apps: string[] | null;
+}
+interface Setup {
+  owner_company: string | null; sales_phone: string; sales_email: string;
+  providers: { id: string; kind: string; name: string; is_default: boolean; is_active: boolean; company: string }[];
 }
 interface Plan {
   code: string; name_en: string; name_ar: string; name_fr: string; price_monthly: string; price_yearly: string; currency: string;
@@ -123,7 +128,7 @@ function Dash({ orgs, go }: { orgs: Org[]; go: (m: Mode, f?: { id: string; filte
     ? <button className={`mx-kpi ${cls}`} onClick={onClick}><span>{label}</span><b dir="ltr">{v}</b></button>
     : <div className={`mx-kpi ${cls}`}><span>{label}</span><b dir="ltr">{v}</b></div>);
   return (
-    <div className="mx-body" style={{ gridTemplateColumns: 'minmax(0, 1fr)', gridTemplateRows: 'auto minmax(0, 1fr)', overflow: 'auto' }}>
+    <div className="mx-body" style={{ gridTemplateColumns: 'minmax(0, 1fr)', gridTemplateRows: 'auto auto minmax(0, 1fr)', overflow: 'auto' }}>
       <section className="mx-box">
         <h3>{t('pc.m.dash')}</h3>
         {s ? (
@@ -156,12 +161,48 @@ function Dash({ orgs, go }: { orgs: Org[]; go: (m: Mode, f?: { id: string; filte
           </>
         ) : <p style={{ padding: 10 }}>…</p>}
       </section>
+      <SetupBox />
       <section className="mx-box" style={{ minHeight: 240 }}>
         <h3>{t('pc.expiringList')} <small>{t('pc.expiringHint')}</small></h3>
         <DataGrid rows={expiring} cols={cols} rowKey={(r) => r.id} title={t('pc.expiringList')} onActivate={(r) => go('orgs', { id: r.id })}
           onSelect={(r) => go('orgs', { id: r.id })} empty={t('pc.none')} />
       </section>
     </div>
+  );
+}
+
+/** What the platform itself relies on: the owner company's messaging (renewal reminders) and the payment contact. */
+function SetupBox() {
+  const { t } = useTranslation();
+  const [s] = useLoad<Setup | null>('/platform/setup', null);
+  if (!s) return null;
+  const active = s.providers.filter((p) => p.is_active);
+  const real = active.filter((p) => p.kind !== 'log');
+  const used = real.find((p) => p.is_default) ?? real[0];
+  return (
+    <section className="mx-box">
+      <h3>{t('pc.setup.title')}</h3>
+      <div style={{ padding: '4px 10px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <b>{t('pc.setup.messaging', { company: s.owner_company ?? '—' })}</b>
+        {s.providers.length > 0 && (
+          <table className="mx-mini" style={{ maxWidth: 520 }}><tbody>
+            {s.providers.map((p) => (
+              <tr key={p.id} className={p.is_active ? '' : 'muted'}>
+                <td>{p.name}</td><td dir="ltr">{p.kind}</td>
+                <td>{p.is_default ? t('pc.setup.def') : ''}{!p.is_active ? ` ${t('pc.setup.off')}` : ''}</td>
+              </tr>
+            ))}
+          </tbody></table>
+        )}
+        {active.length === 0 ? <div className="mx-flash bad">{t('pc.setup.none')}</div>
+          : real.length === 0 ? <div className="mx-flash bad">{t('pc.setup.logOnly')}</div>
+            : <div className="mx-flash good">{t('pc.setup.ok', { name: used?.name ?? '' })}</div>}
+        <b>{t('pc.setup.sales')}</b>
+        {s.sales_phone || s.sales_email
+          ? <span dir="ltr">{[s.sales_phone, s.sales_email].filter(Boolean).join(' · ')}</span>
+          : <div className="mx-flash bad">{t('pc.setup.salesMissing')}</div>}
+      </div>
+    </section>
   );
 }
 
@@ -305,6 +346,13 @@ function OrgDetail({ org, plans, reload, request }: { org: Org; plans: Plan[]; r
               <b className={left !== null && left < 0 ? 'red' : ''}>{o.ends_on ? `${formatDate(o.ends_on)} (${(left ?? 0) < 0 ? t('pc.daysAgo', { count: -(left ?? 0) }) : t('pc.daysLeft', { count: left ?? 0 })})` : '∞'}</b>
               <span>{t('pc.f.grace')}</span><b>{t('pc.days', { count: o.grace_days })}</b>
               <span>{t('pc.f.limits')}</span><b dir="ltr">{o.active_subscriptions}/{o.max_subscribers ?? '∞'} · {o.users}/{o.max_users ?? '∞'} · {o.companies}/{o.max_companies ?? '∞'}</b>
+              <span>{t('pc.gf.apps')}</span><b>{o.plan_apps ? o.plan_apps.map((a) => t(`mx.apps.${a}.name`, { defaultValue: a })).join(', ') || '—' : t('pc.allApps')}</b>
+              {(o.grandfathered_apps ?? []).length > 0 && <>
+                <span>{t('pc.gf.kept')}</span>
+                <b>{o.grandfathered_apps.map((a) => t(`mx.apps.${a}.name`, { defaultValue: a })).join(', ')}{' '}
+                  <button className="mx-btn sm" onClick={() => void act(api(`/platform/tenants/${o.id}`, { method: 'PATCH', body: { grandfathered_apps: [] } }))}>
+                    {t('pc.gf.remove')}</button><br /><small style={{ fontWeight: 400 }}>{t('pc.gf.hint')}</small></b>
+              </>}
               <span>{t('pc.f.country')}</span><b>{o.country || '—'} · {o.business_type ? t(`pc.biz.${o.business_type}`, { defaultValue: o.business_type }) : ''}</b>
               <span>{t('pc.f.email')}</span><b dir="ltr">{o.contact_email || o.admin_email}</b>
               <span>{t('pc.f.phone')}</span><b dir="ltr">{o.contact_phone || '—'}</b>
@@ -312,6 +360,7 @@ function OrgDetail({ org, plans, reload, request }: { org: Org; plans: Plan[]; r
               <span>{t('pc.f.lastActivity')}</span><b>{o.last_activity_at ? formatDateTime(o.last_activity_at) : '—'}</b>
               {!o.is_active && <><span>{t('pc.f.blocked')}</span><b className="red">{o.blocked_at ? formatDateTime(o.blocked_at) : ''} {o.blocked_reason}</b></>}
             </div>
+            {(o.state === 'expired' || o.state === 'blocked') && <div className="mx-note">{t('pc.jobs.hint')}</div>}
             {d && (
               <div className="mx-kv">
                 <span>{t('pc.u.customers')}</span><b>{d.usage.customers}</b>
@@ -387,8 +436,11 @@ function eventText(t: TFunction, action: string, d: Record<string, unknown>) {
   const s = (k: string) => String(d?.[k] ?? '');
   switch (action) {
     case 'renew': return `${s('plan')} · ${s('from')} → ${s('to')} · ${s('amount')} ${s('currency')} · ${t(`pc.method.${s('method')}`, { defaultValue: s('method') })}`;
-    case 'block': return s('reason');
-    case 'state': return `${t(`pc.st.${s('from')}`, { defaultValue: s('from') })} → ${t(`pc.st.${s('to')}`, { defaultValue: s('to') })}`;
+    case 'block': return d?.jobs ? `${s('reason')} · ${t(`pc.jobs.${s('jobs')}`)}` : s('reason');
+    case 'unblock': return d?.jobs ? t(`pc.jobs.${s('jobs')}`) : '';
+    case 'plan_update': return Number(d?.grandfathered) > 0 ? `${s('code')} · ${t('pc.gf.count', { n: Number(d.grandfathered) })}` : s('code');
+    case 'state': return `${t(`pc.st.${s('from')}`, { defaultValue: s('from') })} → ${t(`pc.st.${s('to')}`, { defaultValue: s('to') })}`
+      + (d?.jobs ? ` · ${t(`pc.jobs.${s('jobs')}`)}` : '');
     case 'extend_trial': return s('until');
     case 'reminder': return `${t(`pc.rem.${s('kind')}`, { defaultValue: s('kind') })} · ${s('for')} · ${s('channels') || t('pc.inAppOnly')}`;
     case 'support_start': case 'reset_password': case 'user_enable': case 'user_disable': return s('as') || s('email');
@@ -700,6 +752,7 @@ function PlanForm({ plan, onSaved, onError }: { plan: Plan | null; onSaved: (cod
           ))}
         </div>
         <small>{t('pc.appsHint')}</small>
+        {plan && <><br /><small>{t('pc.gf.planHint')}</small></>}
       </div>
       <label className="mx-check"><input type="checkbox" checked={f.is_public} onChange={(e) => setF({ ...f, is_public: e.currentTarget.checked })} /> {t('pc.f.public')}</label>
       <label className="mx-check"><input type="checkbox" checked={f.is_active} disabled={plan?.code === 'trial'} onChange={(e) => setF({ ...f, is_active: e.currentTarget.checked })} /> {t('pc.f.active')}</label>

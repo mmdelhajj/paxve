@@ -15,6 +15,8 @@ export interface Me {
   sub_state?: 'trial' | 'active' | 'grace' | 'expired' | 'blocked';
   paid_until?: string | null;
   grace_ends?: string | null;
+  /** apps the Paxve plan allows besides the core apps (null = every app; kept apps included) */
+  plan_apps?: string[] | null;
   /** a platform owner is looking at this organisation (read-only support view) */
   support?: { by: string; by_name: string; since: string } | null;
   role_id: string | null;
@@ -29,6 +31,11 @@ export interface Me {
 /** The signed-in user holds this permission ("module.action"). The server checks it again on every call. */
 export function can(me: Pick<Me, 'permissions'> | null | undefined, perm: string): boolean {
   return !!me && me.permissions.includes(perm);
+}
+
+/** The organisation's Paxve plan includes the app (core apps always; no list = every app). */
+export function planHas(me: Pick<Me, 'plan_apps'> | null | undefined, app: string): boolean {
+  return !me?.plan_apps || ['gen', 'acc', 'col'].includes(app) || me.plan_apps.includes(app);
 }
 
 /** Any of the permissions. */

@@ -978,7 +978,8 @@
   "wrong_status": "Bu işlem bu giriş için mümkün değil",
   "year_closed": "Bu yıl zaten kapalı.",
   "year_not_closed": "Bu yıl kapanmadı.",
-  "zero_invoice": "Tutar sıfır"
+  "zero_invoice": "Tutar sıfır",
+  "app_not_in_plan": "Bu uygulama Paxve planınıza dahil değil. Ayarlar → Paxve aboneliğim bölümünden planınızı yükseltin."
  },
  "fa": {
   "accounts": "Varsayılan hesaplar",
@@ -2484,7 +2485,9 @@
    "wat": {
     "desc": "Ölçülü su abonelikleri.",
     "name": "su"
-   }
+   },
+   "notInPlan": "Planınızda yok",
+   "notInPlanOn": "Artık planınızda değil: açık ama ekranları kilitli. Yeniden kullanmak için planınızı yükseltin."
   },
   "box": "Para kutusu",
   "bx": {
@@ -2747,7 +2750,10 @@
    "receiverSign": "Alıcı imzası",
    "saved": "Kaydedildi — kupon {{n}}",
    "words": "Kelimelerle"
-  }
+  },
+  "notInPlanTitle": "Planınıza dahil değil",
+  "notInPlan": "\"{{app}}\" uygulaması Paxve planınıza dahil değil.",
+  "upgrade": "Planı yükselt"
  },
  "nav": {
   "accounting": "Muhasebe",
@@ -3367,6 +3373,31 @@
    "invoices": "Bu ayki faturalar",
    "payments": "Bu ayki ödemeler",
    "storage": "Ekler"
+  },
+  "allApps": "Tüm uygulamalar",
+  "gf": {
+   "apps": "Plandaki uygulamalar",
+   "kept": "Korunan uygulamalar",
+   "remove": "Korunan uygulamaları kaldır",
+   "hint": "Planın uygulama listesi daraltıldığında kullanılıyorlardı, bu yüzden kuruluş bunları korur. Planı olduğu gibi uygulamak için kaldırın.",
+   "count": "{{n}} kuruluş kullandığı uygulamaları korur",
+   "planHint": "İşaretini kaldırdığınız bir uygulamayı zaten kullanan kuruluşlar onu korur (özetlerinde korunan uygulama olarak görünür)."
+  },
+  "jobs": {
+   "paused": "otomatik işler durduruldu",
+   "resumed": "otomatik işler yeniden başladı",
+   "hint": "Süresi dolmuş veya engellenmişken bu kuruluş için hiçbir şey kendiliğinden çalışmaz (faturalama, hatırlatmalar, yinelenen kayıtlar, mesajlar, internet kesme/açma, webhook'lar). Bekleyen işler yenileme veya engel kaldırıldıktan sonra gönderilir."
+  },
+  "setup": {
+   "title": "Platform ayarları",
+   "messaging": "Yenileme hatırlatmalarını gönderen mesajlaşma ({{company}})",
+   "none": "Mesajlaşma kurulmamış: hatırlatmalar yalnızca Paxve içinde bir şerit olarak görünür. Şirketinizde → Mesajlar bölümünden WhatsApp, SMS veya e-posta ekleyin.",
+   "logOnly": "Mesajlaşma \"günlük\" olarak ayarlı: hatırlatmalar gönderilmez, yalnızca sunucu günlüğüne yazılır. Şirketinizde → Mesajlar bölümünden WhatsApp, SMS veya e-posta ekleyin.",
+   "ok": "Hatırlatmalar {{name}} üzerinden gönderilir.",
+   "def": "varsayılan",
+   "off": "kapalı",
+   "sales": "Kuruluşların ödeme yeri",
+   "salesMissing": "Ayarlanmamış: kuruluşlara nereye ödeme yapacakları söylenmiyor ve yenileme talepleri telefonunuza gelmiyor. Sunucudaki .env dosyasında PAXVE_SALES_PHONE ve PAXVE_SALES_EMAIL değerlerini ayarlayıp Paxve'yi yeniden başlatın."
   }
  },
  "perm": {

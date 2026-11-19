@@ -661,6 +661,7 @@ const fr: Messages = {
     same_currency: 'Les deux caisses ont la même devise : utilisez un virement entre caisses.', year_closed: 'Cet exercice est déjà clôturé.', year_not_closed: 'Cet exercice n\'est pas clôturé.',
     later_year_closed: 'Rouvrez d\'abord les exercices clôturés suivants.', drafts_pending: 'Validez ou supprimez d\'abord les brouillons de cet exercice ({{detail}}).',
     app_disabled: 'Cette application est désactivée pour cette société (Paramètres → Applications).',
+    app_not_in_plan: "Cette application n'est pas incluse dans votre formule Paxve. Changez de formule depuis Paramètres → Mon abonnement Paxve.",
     mfa_setup_required: "Activez d'abord la connexion en deux étapes (Ma sécurité).",
     mfa_expired: 'Trop lent — reconnectez-vous.',
     invalid_code: "Code incorrect. Vérifiez l'heure de votre téléphone et réessayez.",
@@ -889,6 +890,7 @@ const fr: Messages = {
     copyCell: 'Copier la cellule', copyRow: 'Copier la ligne', copyAll: 'Copier toutes les lignes', open: 'Ouvrir', clearFilters: 'Effacer les filtres',
     menus: 'Menus', openScreens: 'Écrans ouverts', pin: 'Garder les icônes', unpin: 'Masquer les icônes', noScreens: 'Aucun écran ouvert. Choisissez-en un dans les menus.',
     appOffTitle: 'Cette application est désactivée', appOff: "L'application « {{app}} » est désactivée pour cette société.",
+    notInPlanTitle: "Non inclus dans votre formule", notInPlan: "L'application « {{app}} » n'est pas incluse dans votre formule Paxve.", upgrade: "Changer de formule",
     user: 'Utilisateur', box: 'Caisse', rate: 'Taux', today: "Encaissé aujourd'hui", keyF2: 'chercher un abonné', keyF9: 'enregistrer / imprimer', keyEsc: 'annuler', refresh: 'Actualiser',
     page: { customer: 'Client', supplier: 'Fournisseur', item: 'Article', statement: 'Relevé', journal: 'Écritures', ledger: 'Grand livre' },
     rib: {
@@ -950,6 +952,7 @@ const fr: Messages = {
     bx: { owner: 'Utilisateur', company: 'Société', kind: 'Type', by: 'Par' },
     apps: {
       intro: "N'activez que ce dont cette société a besoin. Les menus suivent tout de suite.", business: "Type d'activité", soon: 'Bientôt', core: 'Inclus', always: 'Toujours actif', price: '+{{n}} $ / mois',
+      notInPlan: "Hors formule", notInPlanOn: "Plus incluse dans votre formule : activée, mais ses écrans sont verrouillés. Changez de formule pour l'utiliser à nouveau.",
       biz: { generator: 'Groupes / électricité', internet: 'Internet', satellite: 'Satellite', water: 'Eau' },
       gen: { name: 'Abonnements & facturation', desc: 'Abonnés, formules, compteurs, factures mensuelles, impression.' },
       acc: { name: 'Comptabilité générale', desc: 'Plan comptable, écritures, grand livre, balance, bilan, TVA.' },
@@ -1387,6 +1390,9 @@ const fr: Messages = {
       plans: { title: 'Formules et prix', body: 'Prix par mois et par an, et limites de chaque formule (abonnements actifs, utilisateurs, sociétés ; vide = illimité). Une limite modifiée s\'applique aux nouvelles organisations et aux renouvellements ; cochez « appliquer aussi » pour mettre à jour les organisations déjà sur la formule.' },
     },
     sum: { orgs: '{{n}} organisations', requests: '{{n}} demandes ouvertes' },
+    allApps: "Toutes les applications", gf: { apps: "Applications de la formule", kept: "Applications conservées", remove: "Retirer les applications conservées", hint: "Elles étaient utilisées quand la liste des applications de la formule a été réduite : l'organisation les garde. Retirez-les pour appliquer la formule telle quelle.", count: "{{n}} organisations gardent des applications déjà utilisées", planHint: "Les organisations qui utilisent déjà une application que vous décochez la gardent (affichée comme application conservée dans leur résumé)." },
+    jobs: { paused: "tâches automatiques suspendues", resumed: "tâches automatiques reprises", hint: "Tant qu'elle est expirée ou bloquée, rien ne tourne tout seul pour cette organisation (facturation, relances, écritures récurrentes, messages, coupure/rétablissement internet, webhooks). Le travail en attente part après un renouvellement ou un déblocage." },
+    setup: { title: "Configuration de la plateforme", messaging: "Messagerie qui envoie les rappels de renouvellement ({{company}})", none: "Aucune messagerie configurée : les rappels n'apparaissent que comme bandeau dans Paxve. Ajoutez WhatsApp, SMS ou e-mail dans votre société → Messages.", logOnly: "La messagerie est réglée sur « journal » : les rappels sont seulement écrits dans le journal du serveur, pas envoyés. Ajoutez WhatsApp, SMS ou e-mail dans votre société → Messages.", ok: "Les rappels partent via {{name}}.", def: "par défaut", off: "désactivé", sales: "Où les organisations paient", salesMissing: "Non défini : les organisations ne savent pas où payer et les demandes de renouvellement n'arrivent pas sur votre téléphone. Renseignez PAXVE_SALES_PHONE et PAXVE_SALES_EMAIL dans le .env du serveur puis redémarrez Paxve." },
     st: { trial: 'Essai', active: 'Active', grace: 'Délai de grâce', expired: 'Expirée', blocked: 'Bloquée' },
     k: { orgs: 'Organisations', mrr: 'Revenu mensuel', arr: 'Revenu annuel', signups: 'Nouvelles ce mois', expiring: 'Fin dans 7 jours', churn: 'Perdues en 30 jours',
       requests: 'Demandes ouvertes', revenue: 'Encaissé par mois', payments: '{{n}} paiements' },

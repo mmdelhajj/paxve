@@ -218,7 +218,7 @@ func (s *Server) StartRatesWorker(ctx context.Context) {
 // RunAutoRates updates every opted-in company whose rates were not fetched today.
 func (s *Server) RunAutoRates(ctx context.Context) (int, error) {
 	rows, err := s.OwnerPool.Query(ctx, `SELECT id::text, tenant_id::text FROM companies
-		WHERE auto_rates AND is_active AND (auto_rates_at IS NULL OR auto_rates_at::date < current_date)`)
+		WHERE auto_rates AND is_active AND tenant_jobs_ok(tenant_id) AND (auto_rates_at IS NULL OR auto_rates_at::date < current_date)`)
 	if err != nil {
 		return 0, err
 	}

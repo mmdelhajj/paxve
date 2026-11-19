@@ -978,7 +978,8 @@
   "wrong_status": "Esta acción no es posible para esta entrada.",
   "year_closed": "Este año ya está cerrado.",
   "year_not_closed": "Este año no está cerrado.",
-  "zero_invoice": "la cantidad es cero"
+  "zero_invoice": "la cantidad es cero",
+  "app_not_in_plan": "Esta aplicación no está incluida en su plan de Paxve. Mejore su plan en Ajustes → Mi suscripción a Paxve."
  },
  "fa": {
   "accounts": "Cuentas predeterminadas",
@@ -2484,7 +2485,9 @@
    "wat": {
     "desc": "Suscripciones de agua medida.",
     "name": "Agua"
-   }
+   },
+   "notInPlan": "Fuera de su plan",
+   "notInPlanOn": "Ya no está en su plan: activada, pero sus pantallas están bloqueadas. Mejore su plan para volver a usarla."
   },
   "box": "caja de efectivo",
   "bx": {
@@ -2747,7 +2750,10 @@
    "receiverSign": "Firma del receptor",
    "saved": "Guardado: vale {{n}}",
    "words": "En palabras"
-  }
+  },
+  "notInPlanTitle": "No incluido en su plan",
+  "notInPlan": "La aplicación «{{app}}» no está incluida en su plan de Paxve.",
+  "upgrade": "Mejorar plan"
  },
  "nav": {
   "accounting": "Contabilidad",
@@ -3367,6 +3373,31 @@
    "invoices": "Facturas este mes",
    "payments": "Pagos este mes",
    "storage": "Adjuntos"
+  },
+  "allApps": "Todas las aplicaciones",
+  "gf": {
+   "apps": "Aplicaciones del plan",
+   "kept": "Aplicaciones conservadas",
+   "remove": "Quitar aplicaciones conservadas",
+   "hint": "Estaban en uso cuando se redujo la lista de aplicaciones del plan, así que la organización las conserva. Quítelas para aplicar el plan tal cual.",
+   "count": "{{n}} organizaciones conservan aplicaciones que ya usan",
+   "planHint": "Las organizaciones que ya usan una aplicación que desmarca la conservan (aparece como aplicación conservada en su resumen)."
+  },
+  "jobs": {
+   "paused": "tareas automáticas en pausa",
+   "resumed": "tareas automáticas reanudadas",
+   "hint": "Mientras esté vencida o bloqueada, nada se ejecuta solo para esta organización (facturación, recordatorios, asientos recurrentes, mensajes, corte/restablecimiento de internet, webhooks). El trabajo en cola espera y sale tras una renovación o desbloqueo."
+  },
+  "setup": {
+   "title": "Configuración de la plataforma",
+   "messaging": "Mensajería que envía los recordatorios de renovación ({{company}})",
+   "none": "Sin mensajería configurada: los recordatorios solo aparecen como aviso dentro de Paxve. Añada WhatsApp, SMS o correo en su empresa → Mensajes.",
+   "logOnly": "La mensajería está en «registro»: los recordatorios solo se escriben en el registro del servidor, no se envían. Añada WhatsApp, SMS o correo en su empresa → Mensajes.",
+   "ok": "Los recordatorios salen por {{name}}.",
+   "def": "predeterminado",
+   "off": "desactivado",
+   "sales": "Dónde pagan las organizaciones",
+   "salesMissing": "Sin definir: las organizaciones no saben dónde pagar y las solicitudes de renovación no llegan a su teléfono. Defina PAXVE_SALES_PHONE y PAXVE_SALES_EMAIL en el .env del servidor y reinicie Paxve."
   }
  },
  "perm": {

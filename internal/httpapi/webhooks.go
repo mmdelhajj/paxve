@@ -274,7 +274,7 @@ func (s *Server) sendWebhookBatch(ctx context.Context, client *http.Client) (int
 		rows, err := tx.Query(ctx, `SELECT d.id::text, h.url, h.secret_enc, d.event, d.payload::text, d.attempts
 			FROM webhook_deliveries d JOIN webhooks h ON h.id = d.webhook_id JOIN tenants t ON t.id = d.tenant_id
 			WHERE d.status = 'pending' AND d.next_attempt_at <= now()
-			  AND (h.is_active OR d.event = 'ping') AND t.is_active -- paused webhooks keep their queue until turned on again
+			  AND (h.is_active OR d.event = 'ping') AND tenant_jobs_ok(t.id) -- paused webhooks (and expired / blocked organisations) keep their queue
 			ORDER BY d.next_attempt_at LIMIT 20 FOR UPDATE OF d SKIP LOCKED`)
 		if err != nil {
 			return err

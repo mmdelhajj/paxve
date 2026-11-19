@@ -978,7 +978,8 @@
   "wrong_status": "Diese Aktion ist für diesen Eintrag nicht möglich",
   "year_closed": "Dieses Jahr ist bereits geschlossen.",
   "year_not_closed": "Dieses Jahr ist nicht geschlossen.",
-  "zero_invoice": "Der Betrag ist Null"
+  "zero_invoice": "Der Betrag ist Null",
+  "app_not_in_plan": "Diese App ist in Ihrem Paxve-Tarif nicht enthalten. Wechseln Sie den Tarif unter Einstellungen → Mein Paxve-Abo."
  },
  "fa": {
   "accounts": "Standardkonten",
@@ -2484,7 +2485,9 @@
    "wat": {
     "desc": "Abonnements für gemessenes Wasser.",
     "name": "Wasser"
-   }
+   },
+   "notInPlan": "Nicht im Tarif",
+   "notInPlanOn": "Nicht mehr in Ihrem Tarif: eingeschaltet, aber die Masken sind gesperrt. Wechseln Sie den Tarif, um sie wieder zu nutzen."
   },
   "box": "Geldkassette",
   "bx": {
@@ -2747,7 +2750,10 @@
    "receiverSign": "Signatur des Empfängers",
    "saved": "Gespeichert – Gutschein {{n}}",
    "words": "In Worten"
-  }
+  },
+  "notInPlanTitle": "Nicht in Ihrem Tarif enthalten",
+  "notInPlan": "Die App „{{app}}“ ist in Ihrem Paxve-Tarif nicht enthalten.",
+  "upgrade": "Tarif wechseln"
  },
  "nav": {
   "accounting": "Buchhaltung",
@@ -3367,6 +3373,31 @@
    "invoices": "Rechnungen diesen Monat",
    "payments": "Zahlungen in diesem Monat",
    "storage": "Anhänge"
+  },
+  "allApps": "Alle Apps",
+  "gf": {
+   "apps": "Apps im Tarif",
+   "kept": "Beibehaltene Apps",
+   "remove": "Beibehaltene Apps entfernen",
+   "hint": "Sie waren in Gebrauch, als die App-Liste des Tarifs verkleinert wurde, daher behält die Organisation sie. Entfernen Sie sie, um den Tarif unverändert anzuwenden.",
+   "count": "{{n}} Organisationen behalten bereits genutzte Apps",
+   "planHint": "Organisationen, die eine abgewählte App bereits nutzen, behalten sie (in ihrer Übersicht als beibehaltene App angezeigt)."
+  },
+  "jobs": {
+   "paused": "automatische Aufgaben pausiert",
+   "resumed": "automatische Aufgaben fortgesetzt",
+   "hint": "Solange sie abgelaufen oder gesperrt ist, läuft für diese Organisation nichts automatisch (Abrechnung, Mahnungen, wiederkehrende Buchungen, Nachrichten, Internet sperren/freigeben, Webhooks). Wartende Arbeit wird nach Verlängerung oder Entsperrung erledigt."
+  },
+  "setup": {
+   "title": "Plattform-Einrichtung",
+   "messaging": "Nachrichtenversand für Verlängerungserinnerungen ({{company}})",
+   "none": "Kein Nachrichtenversand eingerichtet: Erinnerungen erscheinen nur als Hinweis in Paxve. Fügen Sie WhatsApp, SMS oder E-Mail in Ihrer Firma → Nachrichten hinzu.",
+   "logOnly": "Nachrichtenversand steht auf „Protokoll“: Erinnerungen werden nur ins Serverprotokoll geschrieben, nicht versendet. Fügen Sie WhatsApp, SMS oder E-Mail in Ihrer Firma → Nachrichten hinzu.",
+   "ok": "Erinnerungen werden über {{name}} versendet.",
+   "def": "Standard",
+   "off": "aus",
+   "sales": "Wo Organisationen bezahlen",
+   "salesMissing": "Nicht gesetzt: Organisationen erfahren nicht, wo sie zahlen, und Verlängerungsanfragen kommen nicht auf Ihr Telefon. Setzen Sie PAXVE_SALES_PHONE und PAXVE_SALES_EMAIL in der .env des Servers und starten Sie Paxve neu."
   }
  },
  "perm": {

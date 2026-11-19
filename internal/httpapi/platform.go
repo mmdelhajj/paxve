@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -49,7 +50,7 @@ var platformMethods = map[string]bool{"cash": true, "whish": true, "omt": true, 
 
 const platformTenantCols = `t.id, t.name, t.slug, t.plan, t.trial_ends_at, t.max_subscribers, t.max_users, t.max_companies, t.is_active,
 	t.suspended_reason, t.blocked_at, t.blocked_reason, t.created_at, t.paid_until, t.billing_cycle, t.price_override, t.price_currency,
-	t.grace_days, t.notes, t.contact_phone, t.contact_email, tenant_state(t) AS state,
+	t.grace_days, t.notes, t.contact_phone, t.contact_email, tenant_state(t) AS state, t.grandfathered_apps, p.apps AS plan_apps,
 	CASE WHEN t.plan = 'trial' THEN t.trial_ends_at::date ELSE t.paid_until END AS ends_on,
 	coalesce(t.price_override, CASE WHEN t.billing_cycle = 'yearly' THEN p.price_yearly ELSE p.price_monthly END) AS price,
 	coalesce(t.price_currency, p.currency) AS currency,
@@ -272,6 +273,26 @@ func (s *Server) platformSummary(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GET /platform/setup: what the platform itself relies on — the messaging providers of the owner's own company
+// (they send the renewal reminders; "log" only writes them to the log) and the contact organisations are shown
+// for paying (PAXVE_SALES_PHONE / PAXVE_SALES_EMAIL in the server .env).
+func (s *Server) platformSetup(w http.ResponseWriter, r *http.Request) {
+	tid := s.platformAdminTenant(r.Context())
+	s.ownerRun(w, r, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		providers, err := queryJSON(ctx, tx, `SELECT p.id, p.kind, p.name, p.is_default, p.is_active, c.name_en AS company
+			FROM message_providers p JOIN companies c ON c.id = p.company_id
+			WHERE c.id = (SELECT id FROM companies WHERE tenant_id = nullif($1, '')::uuid AND is_active ORDER BY created_at LIMIT 1)
+			ORDER BY p.is_active DESC, p.is_default DESC, p.created_at`, tid)
+		if err != nil {
+			return nil, err
+		}
+		var company *string
+		_ = tx.QueryRow(ctx, `SELECT name_en FROM companies WHERE tenant_id = nullif($1, '')::uuid AND is_active ORDER BY created_at LIMIT 1`, tid).Scan(&company)
+		return map[string]any{"owner_company": company, "providers": providers,
+			"sales_phone": s.platformContactPhone, "sales_email": s.platformContactEmail}, nil
+	})
+}
+
 func (s *Server) platformTenants(w http.ResponseWriter, r *http.Request) {
 	s.ownerRun(w, r, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		return queryJSON(ctx, tx, `SELECT `+platformTenantCols+platformTenantFrom+` ORDER BY t.created_at DESC`)
@@ -352,11 +373,26 @@ func (s *Server) platformUpdateTenant(w http.ResponseWriter, r *http.Request) {
 		Notes           *string `json:"notes"`
 		ContactPhone    *string `json:"contact_phone"`
 		ContactEmail    *string `json:"contact_email"`
+		// apps kept from before the plan narrowed its list ([] removes them all)
+		GrandfatheredApps *[]string `json:"grandfathered_apps"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
 	}
 	id := r.PathValue("id")
+	var gf []string
+	if in.GrandfatheredApps != nil {
+		gf = []string{}
+		for _, a := range *in.GrandfatheredApps {
+			if !slices.Contains(knownApps, a) {
+				writeErr(w, http.StatusBadRequest, "bad_request")
+				return
+			}
+			if !slices.Contains(gf, a) && !slices.Contains(coreApps, a) {
+				gf = append(gf, a)
+			}
+		}
+	}
 	if !isUUID(id) {
 		writeErr(w, http.StatusNotFound, "not_found")
 		return
@@ -450,9 +486,10 @@ func (s *Server) platformUpdateTenant(w http.ResponseWriter, r *http.Request) {
 			notes = coalesce($15, notes),
 			contact_phone = coalesce($16, contact_phone),
 			contact_email = coalesce($17, contact_email),
-			name = coalesce($18, name)
+			name = coalesce($18, name),
+			grandfathered_apps = coalesce($19::text[], grandfathered_apps)
 			WHERE id = $1`, id, in.Plan, in.TrialEndsAt, setS, valS, setU, valU, setC, valC, in.PaidUntil, in.BillingCycle,
-			in.PriceOverride, in.PriceCurrency, in.GraceDays, in.Notes, in.ContactPhone, in.ContactEmail, name); err != nil {
+			in.PriceOverride, in.PriceCurrency, in.GraceDays, in.Notes, in.ContactPhone, in.ContactEmail, name, gf); err != nil {
 			return nil, err
 		}
 		if in.IsActive != nil {
@@ -491,13 +528,13 @@ func setBlocked(ctx context.Context, tx pgx.Tx, r *http.Request, id string, bloc
 			_, err = tx.Exec(ctx, `UPDATE user_sessions SET revoked_at = now() WHERE tenant_id = $1 AND revoked_at IS NULL`, id)
 		}
 		if err == nil {
-			err = platformEvent(ctx, tx, r, id, "block", map[string]any{"reason": reason})
+			err = platformEvent(ctx, tx, r, id, "block", map[string]any{"reason": reason, "jobs": "paused"})
 		}
 		return err
 	}
 	tag, err := tx.Exec(ctx, `UPDATE tenants SET is_active = true, blocked_at = NULL, blocked_reason = '', suspended_reason = '' WHERE id = $1 AND NOT is_active`, id)
 	if err == nil && tag.RowsAffected() > 0 {
-		err = platformEvent(ctx, tx, r, id, "unblock", nil)
+		err = platformEvent(ctx, tx, r, id, "unblock", map[string]any{"jobs": "resumed"})
 	}
 	return err
 }
@@ -911,6 +948,13 @@ func (p *planInput) valid() bool {
 	if p.NameEn != nil && strings.TrimSpace(*p.NameEn) == "" {
 		return false
 	}
+	if p.Apps != nil {
+		for _, a := range *p.Apps {
+			if !slices.Contains(knownApps, a) {
+				return false
+			}
+		}
+	}
 	return true
 }
 
@@ -922,6 +966,17 @@ func zeroNil(n *int) (bool, *int) {
 		return true, nil
 	}
 	return true, n
+}
+
+// sameApps: two plan app lists hold the same apps (nil = every app).
+func sameApps(a, b []string) bool {
+	if (a == nil) != (b == nil) {
+		return false
+	}
+	x, y := slices.Clone(a), slices.Clone(b)
+	slices.Sort(x)
+	slices.Sort(y)
+	return slices.Equal(slices.Compact(x), slices.Compact(y))
 }
 
 func appsArg(a *[]string) (bool, []string) {
@@ -986,6 +1041,14 @@ func (s *Server) platformUpdatePlan(w http.ResponseWriter, r *http.Request) {
 	setC, comps := zeroNil(in.MaxCompanies)
 	setA, apps := appsArg(in.Apps)
 	s.ownerRun(w, r, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		var oldApps []string
+		if err := tx.QueryRow(ctx, `SELECT apps FROM platform_plans WHERE code = $1 FOR UPDATE`, code).Scan(&oldApps); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, notFound()
+			}
+			return nil, err
+		}
+		appsChanged := setA && !sameApps(oldApps, apps)
 		tag, err := tx.Exec(ctx, `UPDATE platform_plans SET
 			name_en = coalesce($2, name_en), name_ar = coalesce($3, name_ar), name_fr = coalesce($4, name_fr),
 			price_monthly = coalesce($5::numeric, price_monthly), price_yearly = coalesce($6::numeric, price_yearly), currency = coalesce($7, currency),
@@ -1011,7 +1074,14 @@ func (s *Server) platformUpdatePlan(w http.ResponseWriter, r *http.Request) {
 			}
 			applied = tag.RowsAffected()
 		}
-		if err := platformEvent(ctx, tx, r, "", "plan_update", map[string]any{"code": code, "applied_to": applied}); err != nil {
+		// organisations on this plan keep the apps they already use that the new list leaves out
+		grandfathered := 0
+		if appsChanged {
+			if err := tx.QueryRow(ctx, `SELECT grandfather_plan_apps($1)`, code).Scan(&grandfathered); err != nil {
+				return nil, err
+			}
+		}
+		if err := platformEvent(ctx, tx, r, "", "plan_update", map[string]any{"code": code, "applied_to": applied, "grandfathered": grandfathered}); err != nil {
 			return nil, err
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+platformPlanCols+` FROM platform_plans WHERE code = $1`, code)
@@ -1234,6 +1304,22 @@ var reminderTexts = map[string]map[string]string{
 	},
 }
 
+// jobsStopped: background jobs (billing, dunning, recurring entries, messages, ISP actions, webhooks …) do not
+// run for an expired or blocked organisation; its queued work waits and goes out after a renewal / unblock.
+func jobsStopped(state string) bool { return state == "expired" || state == "blocked" }
+
+// heldJobs counts the background work waiting because its organisation is expired or blocked.
+func (s *Server) heldJobs(ctx context.Context) (map[string]int, error) {
+	var msgs, acts, hooks, recur, comps int
+	err := s.OwnerPool.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM messages WHERE status = 'queued' AND NOT tenant_jobs_ok(tenant_id)),
+		(SELECT count(*) FROM router_actions WHERE status = 'queued' AND NOT tenant_jobs_ok(tenant_id)),
+		(SELECT count(*) FROM webhook_deliveries WHERE status = 'pending' AND NOT tenant_jobs_ok(tenant_id)),
+		(SELECT count(*) FROM recurring_templates WHERE is_active AND next_date <= current_date AND NOT tenant_jobs_ok(tenant_id)),
+		(SELECT count(*) FROM companies WHERE is_active AND NOT tenant_jobs_ok(tenant_id))`).Scan(&msgs, &acts, &hooks, &recur, &comps)
+	return map[string]int{"messages": msgs, "router_actions": acts, "webhooks": hooks, "recurring": recur, "companies": comps}, err
+}
+
 // RunPlatformLifecycle records state changes (trial → expired, active → grace → expired …) and sends the
 // renewal reminders 7, 3 and 1 days before the end date and once on expiry (each only once per end date).
 func (s *Server) RunPlatformLifecycle(ctx context.Context) (map[string]int, error) {
@@ -1260,6 +1346,9 @@ func (s *Server) RunPlatformLifecycle(ctx context.Context) (map[string]int, erro
 		return res, err
 	}
 	own := s.platformAdminTenant(ctx)
+	if _, err := s.OwnerPool.Exec(ctx, `UPDATE tenants SET platform_owner = (id::text = $1) WHERE platform_owner <> (id::text = $1)`, own); err != nil {
+		return res, err
+	}
 	for _, t := range list {
 		if own == t.id {
 			continue // the platform owner's own organisation
@@ -1269,7 +1358,12 @@ func (s *Server) RunPlatformLifecycle(ctx context.Context) (map[string]int, erro
 				if _, err := tx.Exec(ctx, `UPDATE tenants SET last_state = $2 WHERE id = $1`, t.id, t.state); err != nil {
 					return err
 				}
-				return platformEvent(ctx, tx, nil, t.id, "state", map[string]any{"from": t.last, "to": t.state})
+				detail := map[string]any{"from": t.last, "to": t.state}
+				if jobsStopped(t.state) != jobsStopped(t.last) {
+					detail["jobs"] = map[bool]string{true: "paused", false: "resumed"}[jobsStopped(t.state)]
+					slog.Info("platform: background jobs "+detail["jobs"].(string), "tenant", t.id, "state", t.state)
+				}
+				return platformEvent(ctx, tx, nil, t.id, "state", detail)
 			})
 			if err != nil {
 				return res, err
@@ -1317,6 +1411,15 @@ func (s *Server) RunPlatformLifecycle(ctx context.Context) (map[string]int, erro
 			t.id, map[string]any{"kind": kind, "for": t.ends.Format(time.DateOnly), "channels": channels})
 		res["reminders"]++
 	}
+	held, err := s.heldJobs(ctx)
+	if err != nil {
+		return res, err
+	}
+	if held["companies"] > 0 {
+		slog.Info("platform: background jobs skipped for expired / blocked organisations", "companies", held["companies"],
+			"queued_messages", held["messages"], "router_actions", held["router_actions"], "webhooks", held["webhooks"], "recurring_due", held["recurring"])
+	}
+	res["held_companies"] = held["companies"]
 	return res, nil
 }
 

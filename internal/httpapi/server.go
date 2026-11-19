@@ -113,6 +113,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/platform/tenants", s.auth(s.platformOnly(s.platformTenants)))
 	mux.Handle("PATCH "+v+"/platform/tenants/{id}", s.auth(s.platformOnly(s.platformUpdateTenant)))
 	mux.Handle("GET "+v+"/platform/summary", s.auth(s.platformOnly(s.platformSummary)))
+	mux.Handle("GET "+v+"/platform/setup", s.auth(s.platformOnly(s.platformSetup)))
 	mux.Handle("GET "+v+"/platform/tenants/{id}", s.auth(s.platformOnly(s.platformTenant)))
 	mux.Handle("POST "+v+"/platform/tenants/{id}/{op}", s.auth(s.platformOnly(s.platformTenantAction)))
 	mux.Handle("PATCH "+v+"/platform/tenants/{id}/users/{uid}", s.auth(s.platformOnly(s.platformUpdateUser)))
@@ -738,6 +739,8 @@ type Principal struct {
 	PaidUntil *string      `json:"paid_until"`
 	GraceEnds *string      `json:"grace_ends"`
 	Support   *SupportInfo `json:"support,omitempty"` // a platform owner looking at this organisation (read-only)
+	// apps the organisation's plan allows besides the core apps (nil = every app), grandfathered apps included
+	PlanApps []string `json:"plan_apps"`
 
 	RoleID           *string  `json:"role_id"`   // custom role, if any
 	RoleName         string   `json:"role_name"` // custom role name ("" = built-in)
@@ -801,14 +804,16 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 			       (u.is_active AND t.is_active), t.plan, t.trial_ends_at,
 			       u.role_id::text, coalesce(ro.name, ''), ro.permissions, ro.is_active,
 			       u.company_ids::text[], coalesce(m.enabled_at IS NOT NULL, false), t.require_mfa,
-			       tenant_state(t), t.paid_until::text, CASE WHEN t.paid_until IS NULL THEN NULL ELSE (t.paid_until + t.grace_days)::text END
+			       tenant_state(t), t.paid_until::text, CASE WHEN t.paid_until IS NULL THEN NULL ELSE (t.paid_until + t.grace_days)::text END,
+			       CASE WHEN pp.apps IS NULL THEN NULL ELSE pp.apps || t.grandfathered_apps END
 			FROM users u JOIN tenants t ON t.id = u.tenant_id
+			LEFT JOIN platform_plans pp ON pp.code = t.plan
 			LEFT JOIN roles ro ON ro.id = u.role_id
 			LEFT JOIN user_mfa m ON m.user_id = u.id
 			WHERE u.id = $1`, sc.UserID).
 			Scan(&p.ID, &p.TenantID, &p.TenantName, &p.Email, &p.FullName, &p.Role, &p.Locale, &p.Active, &p.Plan,
 				&p.TrialEndsAt, &p.RoleID, &p.RoleName, &custom, &roleActive, &p.CompanyIDs, &p.MFAEnabled, &p.MFARequired,
-				&p.SubState, &p.PaidUntil, &p.GraceEnds)
+				&p.SubState, &p.PaidUntil, &p.GraceEnds, &p.PlanApps)
 	})
 	if err != nil {
 		return p, err
@@ -889,8 +894,8 @@ func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) htt
 			writeErr(w, http.StatusNotFound, "not_found")
 			return
 		}
-		if !s.appAllowed(r, p) {
-			writeErr(w, http.StatusForbidden, "app_disabled")
+		if code := s.appBlocked(r, p); code != "" {
+			writeErr(w, http.StatusForbidden, code)
 			return
 		}
 		handler(w, r.WithContext(context.WithValue(r.Context(), principalKey{}, p)))

@@ -659,6 +659,7 @@ const en = {
     same_currency: 'Both boxes use the same currency: use a cash transfer instead.', year_closed: 'This year is already closed.', year_not_closed: 'This year is not closed.',
     later_year_closed: 'Reopen the later closed years first.', drafts_pending: 'Post or delete the draft entries of this year first ({{detail}}).',
     app_disabled: 'This app is switched off for this company (Settings → Apps).',
+    app_not_in_plan: "This app is not included in your Paxve plan. Upgrade from Settings → My Paxve subscription.",
     mfa_setup_required: 'Set up two-step sign-in first (My security).',
     mfa_expired: 'Too slow — sign in again.',
     invalid_code: 'Wrong code. Check the time on your phone and try again.',
@@ -887,6 +888,7 @@ const en = {
     copyCell: 'Copy cell', copyRow: 'Copy row', copyAll: 'Copy all rows', open: 'Open', clearFilters: 'Clear filters',
     menus: 'Menus', openScreens: 'Open screens', pin: 'Keep icons open', unpin: 'Hide icons', noScreens: 'No screen is open. Choose one from the menus above.',
     appOffTitle: 'This app is switched off', appOff: 'The "{{app}}" app is switched off for this company.',
+    notInPlanTitle: "Not in your Paxve plan", notInPlan: "The \"{{app}}\" app is not included in your Paxve plan.", upgrade: "Upgrade plan",
     user: 'User', box: 'Cash box', rate: 'Rate', today: 'Collected today', keyF2: 'search subscriber', keyF9: 'save / print', keyEsc: 'cancel', refresh: 'Refresh',
     page: { customer: 'Customer', supplier: 'Supplier', item: 'Item', statement: 'Statement', journal: 'Journal entries', ledger: 'Ledger' },
     rib: {
@@ -948,6 +950,7 @@ const en = {
     bx: { owner: 'Owner', company: 'Company', kind: 'Kind', by: 'By' },
     apps: {
       intro: 'Switch on only what this company needs. Menus follow at once.', business: 'Business type', soon: 'Coming soon', core: 'Included', always: 'Always on', price: '+${{n}} / month',
+      notInPlan: "Not in your plan", notInPlanOn: "No longer in your plan: switched on, but its screens are locked. Upgrade to use it again.",
       biz: { generator: 'Generator / electricity', internet: 'Internet', satellite: 'Satellite', water: 'Water' },
       gen: { name: 'Subscriptions & billing', desc: 'Subscribers, plans, meters, monthly bills, printing.' },
       acc: { name: 'General accounting', desc: 'Chart of accounts, double entry, ledger, trial balance, balance sheet, VAT.' },
@@ -1385,6 +1388,9 @@ const en = {
       plans: { title: 'Plans & prices', body: 'Prices per month and per year, and the limits of each plan (active subscriptions, users, companies; empty = unlimited). Changing a limit applies to new organisations and renewals; tick "also give these limits" to update the organisations already on the plan.' },
     },
     sum: { orgs: '{{n}} organisations', requests: '{{n}} open requests' },
+    allApps: "Every app", gf: { apps: "Apps in the plan", kept: "Kept apps", remove: "Remove kept apps", hint: "They were in use when the plan's app list was narrowed, so the organisation keeps them. Remove them to apply the plan as it is.", count: "{{n}} organisations keep apps they already use", planHint: "Organisations already using an app you untick keep it (shown as a kept app in their summary)." },
+    jobs: { paused: "background jobs paused", resumed: "background jobs resumed", hint: "While expired or blocked, nothing runs on its own for this organisation (billing runs, reminders, recurring entries, messages, internet cut/restore, webhooks). Queued work waits and goes out after a renewal or unblock." },
+    setup: { title: "Platform setup", messaging: "Messaging that sends the renewal reminders ({{company}})", none: "No messaging set up: reminders show only as a banner inside Paxve. Add WhatsApp, SMS or e-mail in your company → Messages.", logOnly: "Messaging is set to \"log\": reminders are only written to the server log, not sent. Add WhatsApp, SMS or e-mail in your company → Messages.", ok: "Reminders go out through {{name}}.", def: "default", off: "off", sales: "Where organisations pay", salesMissing: "Not set: organisations are not told where to pay, and renewal requests are not sent to your phone. Set PAXVE_SALES_PHONE and PAXVE_SALES_EMAIL in the server .env and restart Paxve." },
     st: { trial: 'Trial', active: 'Active', grace: 'Grace', expired: 'Expired', blocked: 'Blocked' },
     k: { orgs: 'Organisations', mrr: 'Monthly revenue', arr: 'Yearly revenue', signups: 'New this month', expiring: 'Ending in 7 days', churn: 'Lost in 30 days',
       requests: 'Open requests', revenue: 'Money received per month', payments: '{{n}} payments' },

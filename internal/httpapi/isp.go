@@ -448,7 +448,7 @@ func (s *Server) StartISPWorker(ctx context.Context) {
 // role inside each tenant (row-level security applies). Returns how many subscriptions were suspended.
 func (s *Server) RunISPRules(ctx context.Context) (int, error) {
 	rows, err := s.OwnerPool.Query(ctx, `SELECT id::text, tenant_id::text FROM companies c
-		WHERE auto_suspend_enabled AND is_active AND EXISTS (SELECT 1 FROM routers r WHERE r.company_id = c.id AND r.enabled)`)
+		WHERE auto_suspend_enabled AND is_active AND tenant_jobs_ok(c.tenant_id) AND EXISTS (SELECT 1 FROM routers r WHERE r.company_id = c.id AND r.enabled)`)
 	if err != nil {
 		return 0, err
 	}
@@ -495,7 +495,7 @@ func (s *Server) ProcessRouterActions(ctx context.Context) (int, error) {
 			SELECT a.id::text, a.tenant_id::text, a.subscription_id::text, a.action, a.attempts, s.network_username, s.service_type,
 			       r.host, r.port, r.username, r.password_enc, r.use_tls, r.enabled
 			FROM router_actions a JOIN subscriptions s ON s.id = a.subscription_id JOIN routers r ON r.id = a.router_id
-			WHERE a.status = 'queued' AND a.next_attempt_at <= now()
+			WHERE a.status = 'queued' AND a.next_attempt_at <= now() AND tenant_jobs_ok(a.tenant_id)
 			ORDER BY a.next_attempt_at LIMIT 20
 			FOR UPDATE OF a SKIP LOCKED`)
 		if err != nil {

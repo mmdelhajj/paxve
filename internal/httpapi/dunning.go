@@ -455,7 +455,7 @@ func (s *Server) StartDunningWorker(ctx context.Context) {
 // RunDunning applies due dunning levels for every company that switched dunning on.
 func (s *Server) RunDunning(ctx context.Context) error {
 	rows, err := s.OwnerPool.Query(ctx, `SELECT c.id::text, c.tenant_id::text FROM companies c
-		WHERE c.dunning_enabled AND c.is_active AND EXISTS (SELECT 1 FROM dunning_levels l WHERE l.company_id = c.id AND l.is_active)`)
+		WHERE c.dunning_enabled AND c.is_active AND tenant_jobs_ok(c.tenant_id) AND EXISTS (SELECT 1 FROM dunning_levels l WHERE l.company_id = c.id AND l.is_active)`)
 	if err != nil {
 		return err
 	}

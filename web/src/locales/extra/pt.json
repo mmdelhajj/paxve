@@ -978,7 +978,8 @@
   "wrong_status": "Esta ação não é possível para esta entrada",
   "year_closed": "Este ano já está fechado.",
   "year_not_closed": "Este ano não está fechado.",
-  "zero_invoice": "O valor é zero"
+  "zero_invoice": "O valor é zero",
+  "app_not_in_plan": "Esta aplicação não está incluída no seu plano Paxve. Mude de plano em Definições → A minha subscrição Paxve."
  },
  "fa": {
   "accounts": "Contas padrão",
@@ -2484,7 +2485,9 @@
    "wat": {
     "desc": "Assinaturas de água medida.",
     "name": "Água"
-   }
+   },
+   "notInPlan": "Fora do plano",
+   "notInPlanOn": "Já não está no seu plano: ativada, mas os ecrãs estão bloqueados. Mude de plano para voltar a usá-la."
   },
   "box": "Caixa de dinheiro",
   "bx": {
@@ -2747,7 +2750,10 @@
    "receiverSign": "Assinatura do receptor",
    "saved": "Salvo — voucher {{n}}",
    "words": "Em palavras"
-  }
+  },
+  "notInPlanTitle": "Não incluído no seu plano",
+  "notInPlan": "A aplicação «{{app}}» não está incluída no seu plano Paxve.",
+  "upgrade": "Mudar de plano"
  },
  "nav": {
   "accounting": "Contabilidade",
@@ -3367,6 +3373,31 @@
    "invoices": "Faturas deste mês",
    "payments": "Pagamentos este mês",
    "storage": "Anexos"
+  },
+  "allApps": "Todas as aplicações",
+  "gf": {
+   "apps": "Aplicações do plano",
+   "kept": "Aplicações mantidas",
+   "remove": "Remover aplicações mantidas",
+   "hint": "Estavam em uso quando a lista de aplicações do plano foi reduzida, por isso a organização mantém-nas. Remova-as para aplicar o plano tal como está.",
+   "count": "{{n}} organizações mantêm aplicações que já usam",
+   "planHint": "As organizações que já usam uma aplicação que desmarca mantêm-na (aparece como aplicação mantida no resumo)."
+  },
+  "jobs": {
+   "paused": "tarefas automáticas em pausa",
+   "resumed": "tarefas automáticas retomadas",
+   "hint": "Enquanto estiver expirada ou bloqueada, nada corre sozinho para esta organização (faturação, lembretes, lançamentos recorrentes, mensagens, corte/reposição de internet, webhooks). O trabalho em fila espera e segue após renovação ou desbloqueio."
+  },
+  "setup": {
+   "title": "Configuração da plataforma",
+   "messaging": "Mensagens que enviam os lembretes de renovação ({{company}})",
+   "none": "Sem mensagens configuradas: os lembretes aparecem só como aviso dentro do Paxve. Adicione WhatsApp, SMS ou e-mail na sua empresa → Mensagens.",
+   "logOnly": "As mensagens estão em «registo»: os lembretes só são escritos no registo do servidor, não enviados. Adicione WhatsApp, SMS ou e-mail na sua empresa → Mensagens.",
+   "ok": "Os lembretes saem por {{name}}.",
+   "def": "predefinido",
+   "off": "desativado",
+   "sales": "Onde as organizações pagam",
+   "salesMissing": "Não definido: as organizações não sabem onde pagar e os pedidos de renovação não chegam ao seu telefone. Defina PAXVE_SALES_PHONE e PAXVE_SALES_EMAIL no .env do servidor e reinicie o Paxve."
   }
  },
  "perm": {

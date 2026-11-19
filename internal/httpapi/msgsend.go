@@ -288,7 +288,7 @@ func (s *Server) sendBatch(ctx context.Context) (int, error) {
 			FROM messages m
 			LEFT JOIN message_providers p ON p.id = m.provider_id AND p.is_active
 			LEFT JOIN message_templates t ON t.id = m.template_id
-			WHERE m.status = 'queued' AND m.next_attempt_at <= now()
+			WHERE m.status = 'queued' AND m.next_attempt_at <= now() AND tenant_jobs_ok(m.tenant_id)
 			ORDER BY m.next_attempt_at
 			LIMIT 25
 			FOR UPDATE OF m SKIP LOCKED`)
