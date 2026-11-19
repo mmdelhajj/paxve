@@ -229,7 +229,16 @@ function toBase64(bytes: Uint8Array): string {
 // ---------- printing ----------
 
 export async function printLines(lines: PrintLine[]): Promise<void> {
-  const data = receiptBytes(lines);
+  await writeBytes(receiptBytes(lines));
+}
+
+/** Opens the cash drawer wired to the receipt printer (ESC p 0 25 250), only when a printer is already connected. */
+export async function kickDrawer(): Promise<void> {
+  if (!printerName()) return;
+  await writeBytes(new Uint8Array([0x1b, 0x70, 0x00, 0x19, 0xfa]));
+}
+
+async function writeBytes(data: Uint8Array): Promise<void> {
   if (isNativeApp()) {
     if (!nativeConnected) {
       const saved = savedPrinter();

@@ -118,7 +118,8 @@ function RegisterForm({ reg, onClose, onSaved }: { reg?: Register; onClose: () =
     name: reg?.name ?? '', currency: reg?.currency ?? company?.base_currency ?? 'USD', warehouse_id: reg?.warehouse_id ?? '',
     method_ids: reg?.method_ids ?? [], revenue_account_id: reg?.revenue_account_id ?? '', over_short_account_id: reg?.over_short_account_id ?? '',
     cashier_refunds: reg?.cashier_refunds ?? false, cashier_price_edit: reg?.cashier_price_edit ?? false, receipt_footer: reg?.receipt_footer ?? '',
-    is_active: reg?.is_active ?? true,
+    is_active: reg?.is_active ?? true, cashier_quick_item: reg?.cashier_quick_item ?? false, drawer_kick: reg?.drawer_kick ?? false,
+    customer_display: reg?.customer_display ?? false,
   });
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -172,6 +173,8 @@ function RegisterForm({ reg, onClose, onSaved }: { reg?: Register; onClose: () =
             value={f.over_short_account_id || null} onChange={(v) => v && setF({ ...f, over_short_account_id: v })} />}
           <Switch label={t('pos.cashierRefunds')} checked={f.cashier_refunds} onChange={(e) => setF({ ...f, cashier_refunds: e.currentTarget.checked })} />
           <Switch label={t('pos.cashierPriceEdit')} checked={f.cashier_price_edit} onChange={(e) => setF({ ...f, cashier_price_edit: e.currentTarget.checked })} />
+          <Switch label={t('rt.pos.allowQuick')} checked={f.cashier_quick_item} onChange={(e) => setF({ ...f, cashier_quick_item: e.currentTarget.checked })} />
+          <Switch label={t('rt.pos.drawerKick')} description={t('rt.pos.drawerKickHint')} checked={f.drawer_kick} onChange={(e) => setF({ ...f, drawer_kick: e.currentTarget.checked })} />
           <Textarea label={t('pos.receiptFooter')} autosize minRows={2} maxLength={500} value={f.receipt_footer}
             onChange={(e) => setF({ ...f, receipt_footer: e.currentTarget.value })} />
           {reg && <Switch label={t('common.active')} checked={f.is_active} onChange={(e) => setF({ ...f, is_active: e.currentTarget.checked })} />}

@@ -30,6 +30,12 @@ var appRoutes = []struct {
 }{
 	{"/pos/", "pos", false},
 	{"/reports/pos", "pos", false},
+	{"/retail/packs", "", false}, // choosing a business pack switches apps on itself
+	{"/retail/scale", "stk", false},
+	{"/retail/labels", "stk", false},
+	{"/retail/expiry", "stk", false},
+	{"/retail/", "pos", false},
+	{"/reports/retail", "pos", false},
 	{"/employees", "hr", false},
 	{"/payroll", "hr", false},
 	{"/hr/", "hr", false},
@@ -175,7 +181,7 @@ func (s *Server) updateApps(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if in.BusinessType != nil && *in.BusinessType != "generator" && *in.BusinessType != "internet" && *in.BusinessType != "satellite" && *in.BusinessType != "water" {
+	if in.BusinessType != nil && !slices.Contains([]string{"generator", "internet", "satellite", "water", "supermarket", "clothing"}, *in.BusinessType) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}

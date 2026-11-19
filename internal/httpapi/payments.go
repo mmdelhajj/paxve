@@ -34,6 +34,7 @@ type paymentIn struct {
 
 	upTo        decimal.Decimal // internal (POS on-account sale): apply what was received, at most this much; the rest is change
 	allowCheque bool            // internal (cheques module): the tender may be a cheque box
+	allowRetail bool            // internal (POS): gift card / loyalty points tenders checked by the till
 }
 
 type method struct {
@@ -119,6 +120,9 @@ func receivePayment(ctx context.Context, tx pgx.Tx, cid string, in paymentIn, co
 	usable := func(m method) bool {
 		if m.Kind == "cheque" { // cheque boxes are used only through the cheques register
 			return in.allowCheque
+		}
+		if m.Kind == "gift" || m.Kind == "loyalty" { // gift cards / points: only the till, which checks the card or the points
+			return in.allowRetail
 		}
 		return m.Active && (!collector || m.UserID == nil || *m.UserID == me)
 	}

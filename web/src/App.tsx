@@ -12,6 +12,7 @@ const Signup = lazy(() => import('./pages/public/Signup'));
 const Portal = lazy(() => import('./pages/public/Portal'));
 const PaySim = lazy(() => import('./pages/fin/Finish').then((m) => ({ default: m.PaySim })));
 const Reset = lazy(() => import('./pages/public/Reset'));
+const PosDisplay = lazy(() => import('./pages/pos/PosApp').then((m) => ({ default: m.CustomerDisplay })));
 const ForcedMfa = lazy(() => import('./pages/Security').then((m) => ({ default: m.ForcedMfa })));
 const Shell = lazy(() => import('./Shell'));
 
@@ -71,6 +72,7 @@ function Root() {
 
   // the customer portal is public: it works whether or not someone is signed in on this browser
   if (portalToken) return <Suspense fallback={fullPageLoader}><Portal token={portalToken} /></Suspense>;
+  if (route === 'pos-display') return <Suspense fallback={fullPageLoader}><PosDisplay /></Suspense>;
   if (route === 'pay-sim') return <Suspense fallback={fullPageLoader}><PaySim token={window.location.hash.replace(/^#\/?/, '').split('/')[1] ?? ''} /></Suspense>;
   if (resetToken) return <Suspense fallback={fullPageLoader}><Reset token={resetToken} /></Suspense>;
   if (me === undefined) return fullPageLoader;

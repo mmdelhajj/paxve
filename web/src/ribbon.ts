@@ -9,7 +9,7 @@ import {
   IconFileDollar, IconCurrencyDollar, IconSitemap, IconCalendarCheck, IconDoorEnter, IconTimeline, IconArrowsLeftRight, IconLanguage,
   IconHeadset, IconTool, IconClipboardList, IconAlarm, IconScaleOutline, IconCalendarTime,
   IconSwitchHorizontal, IconTags, IconReceiptRefund, IconForms, IconHammer, IconFingerprint, IconCreditCard, IconFileCertificate, IconCalendarRepeat,
-  IconCrown, IconInbox,
+  IconCrown, IconInbox, IconDiscount2, IconGift, IconStar, IconTag, IconCalendarDue, IconScan, IconBuildingStore, IconColorSwatch,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
@@ -172,6 +172,19 @@ export const RIBBON: RibbonTab[] = [
     ],
   },
   {
+    id: 'rtl', label: 'rt.rib', color: '#c2185b', app: 'pos', tiles: [
+      { page: 'retail', param: 'promos', label: 'rt.m.promos', icon: IconDiscount2, perm: 'pos.view' },
+      { page: 'retail', param: 'loyalty', label: 'rt.m.loyalty', icon: IconStar, perm: 'pos.view' },
+      { page: 'retail', param: 'gift', label: 'rt.m.gift', icon: IconGift, perm: 'pos.view' },
+      { page: 'retail', param: 'variants', label: 'rt.m.variants', icon: IconColorSwatch, perm: 'stock.view' },
+      { page: 'retail', param: 'labels', label: 'rt.m.labels', icon: IconTag, perm: 'stock.view' },
+      { page: 'retail', param: 'expiry', label: 'rt.m.expiry', icon: IconCalendarDue, perm: 'stock.view' },
+      { page: 'retail', param: 'receive', label: 'rt.m.receive', icon: IconScan, perm: 'purchasing.view' },
+      { page: 'retail', param: 'report', label: 'rt.m.report', icon: IconChartBar },
+      { page: 'retail', param: 'packs', label: 'rt.m.packs', icon: IconBuildingStore, perm: 'settings.view' },
+    ],
+  },
+  {
     id: 'svc', label: 'mx.rib.svc', color: '#d35400', app: 'svc', tiles: [
       { page: 'service', label: 'svc.m.tickets', icon: IconHeadset, perm: 'service.view' },
       { page: 'service', param: 'maintenance', label: 'svc.m.maintenance', icon: IconTool, perm: 'service.view' },
@@ -225,7 +238,7 @@ export const RIBBON: RibbonTab[] = [
 
 /** Pages that are only reached from inside another page (detail screens), with the app they need. */
 export const PAGE_APP: Record<string, AppId | undefined> = {
-  supplier: 'pur', item: 'stk', statement: undefined, customer: undefined, 'hr-extra': 'hr', claims: 'hr', mfg: 'mfg', 'supplier-prices': 'pur',
+  supplier: 'pur', item: 'stk', statement: undefined, customer: undefined, 'hr-extra': 'hr', claims: 'hr', mfg: 'mfg', 'supplier-prices': 'pur', retail: 'pos',
 };
 
 /** The app a page belongs to (from the ribbon), so a page of a switched-off app shows a notice. */

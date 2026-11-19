@@ -110,6 +110,7 @@ const Manufacturing = lazy(() => named(import('./pages/fin/Finish'), 'Manufactur
 const HRExtra = lazy(() => named(import('./pages/fin/Finish'), 'HRExtra'));
 const OnlinePayments = lazy(() => named(import('./pages/fin/Finish'), 'OnlinePayments'));
 const EInvoice = lazy(() => named(import('./pages/fin/Finish'), 'EInvoice'));
+const Retail = lazy(() => import('./pages/retail/Retail'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -118,7 +119,7 @@ const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'vouche
 /** Screens that use the whole work area themselves (no padding, own scrolling). */
 const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash', 'invoices', 'customers', 'print-bills', 'trial-balance', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances',
-  'localization', 'translations', 'stock-pro', 'hr', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'platform']);
+  'localization', 'translations', 'stock-pro', 'hr', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'platform', 'retail']);
 const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
   'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
   'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
@@ -126,7 +127,7 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'print-bills', 'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec', 'crm', 'activities', 'quotes', 'orders',
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
-  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'my-sub']);
+  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'my-sub', 'retail']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -469,6 +470,7 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     claims: () => <Claims me={me} />,
     'custom-fields': () => <CustomFields me={me} />,
     mfg: () => <Manufacturing me={me} initial={param} key={param} />,
+    retail: () => <Retail me={me} initial={param} key={param} />,
     'hr-extra': () => <HRExtra me={me} initial={param} key={param} />,
     'online-pay': () => <OnlinePayments me={me} />,
     einvoice: () => <EInvoice me={me} />,

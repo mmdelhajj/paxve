@@ -7,6 +7,7 @@ import { notifications } from '@mantine/notifications';
 import {
   IconArrowBack, IconBarcode, IconBluetooth, IconCamera, IconCash, IconCloudOff, IconCloudUpload, IconLogout, IconMenu2, IconMinus,
   IconPlus, IconPrinter, IconReceipt, IconRefresh, IconSearch, IconShoppingCart, IconTrash, IconUser, IconUserPlus, IconX,
+  IconDiscount2, IconGift, IconStar, IconPlayerPause, IconDeviceDesktop, IconTicket,
 } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError, type Me } from '../../api';
@@ -16,7 +17,7 @@ import { formatAmount, formatDateTime, notifyError, notifySaved, roundChange } f
 import { printPage } from '../../native';
 import Logo from '../../components/Logo';
 import {
-  bluetoothSupported, ChoosePrinterError, connectPrinter, isNativeApp, paperWidth, printerName, printLines, setPaper,
+  bluetoothSupported, ChoosePrinterError, connectPrinter, isNativeApp, kickDrawer, paperWidth, printerName, printLines, setPaper,
 } from '../../bt';
 import { cacheGet, cacheSet, enqueue, newClientRef, outbox, syncOutbox } from '../../outbox';
 import { PrinterPicker } from '../collector/CollectorApp';
@@ -61,6 +62,49 @@ function saveRegister(cid: string, id: string | null) {
 interface CartLine { key: number; item: CatItem; qty: string; price: string; discount: string }
 let lineKey = 1;
 
+interface GiftLine { code: string; amount: string }
+interface PromoEval { lines: string[]; line_promos: string[][]; applied: { id: string; name: string; name_i18n?: Record<string, string>; discount: string }[]; total: string; coupon_valid: boolean | null }
+interface Member { id: string; code: string; name: string; points: string; tier: string; point_value: string; min_redeem: string; active: boolean; value?: string }
+
+/** Scale / in-store barcode (EAN-13 starting 20-29): prefix + PLU (5) + weight or price (5) + check digit. */
+export function parseScale(code: string, prefixes: { prefix: string; mode: string; decimals: number }[]): { plu: number; qty?: number; price?: number } | null {
+  if (!/^2\d{12}$/.test(code)) return null;
+  const p = prefixes.find((x) => code.startsWith(x.prefix));
+  if (!p) return null;
+  const plu = Number(code.slice(2, 7));
+  const v = Number(code.slice(7, 12)) / 10 ** (p.decimals ?? (p.mode === 'price' ? 2 : 3));
+  return p.mode === 'price' ? { plu, price: v } : { plu, qty: v };
+}
+
+const displayChannel = (): BroadcastChannel | null => { try { return new BroadcastChannel('paxve-pos-display'); } catch { return null; } };
+
+/** The customer-facing second screen: shows the basket the till broadcasts (same browser). */
+export function CustomerDisplay() {
+  const { t } = useTranslation();
+  const [s, setS] = useState<{ lines: { name: string; qty: string; amount: string }[]; total: string; currency: string; saved: string; company: string } | null>(null);
+  useEffect(() => {
+    const ch = displayChannel();
+    if (!ch) return;
+    ch.onmessage = (e) => setS(e.data);
+    ch.postMessage({ hello: true });
+    return () => ch.close();
+  }, []);
+  return (
+    <Box mih="100vh" p="xl" bg="var(--mantine-color-dark-8)" c="white">
+      <Text fw={700} size="xl" ta="center">{s?.company ?? 'Paxve'}</Text>
+      {!s || s.lines.length === 0 ? <Center h="70vh"><Text size="2rem">{t('rt.pos.welcome')}</Text></Center> : (
+        <Stack mt="lg">
+          {s.lines.map((l, i) => (
+            <Group key={i} justify="space-between"><Text size="xl">{Number(l.qty)} × {l.name}</Text><Text size="xl" ff="monospace" dir="ltr">{l.amount}</Text></Group>
+          ))}
+          {Number(s.saved) > 0 && <Group justify="space-between"><Text size="xl" c="teal.3">{t('rt.pos.saved')}</Text><Text size="xl" c="teal.3" ff="monospace" dir="ltr">−{s.saved}</Text></Group>}
+          <Group justify="space-between" mt="xl"><Text fw={800} size="3rem">{t('pos.total')}</Text><Text fw={800} size="3rem" ff="monospace" dir="ltr">{s.total} {s.currency}</Text></Group>
+        </Stack>
+      )}
+    </Box>
+  );
+}
+
 /** Point of sale screen (cashiers see only this; office users open it from the menu). */
 export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const { t, i18n } = useTranslation();
@@ -85,6 +129,15 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
   const [scanOpen, setScanOpen] = useState(false);
   const [printer, setPrinter] = useState(printerName());
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [giftSold, setGiftSold] = useState<GiftLine[]>([]);
+  const [giftOpen, setGiftOpen] = useState(false);
+  const [coupon, setCoupon] = useState('');
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [promo, setPromo] = useState<PromoEval | null>(null);
+  const [member, setMember] = useState<Member | null>(null);
+  const [heldOpen, setHeldOpen] = useState(false);
+  const [quick, setQuick] = useState<string | null>(null);
+  const [variantOf, setVariantOf] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const cid = company?.id;
   const office = me.role !== 'cashier';
@@ -145,29 +198,47 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
     return m;
   }, [items]);
 
+  const byPlu = useMemo(() => {
+    const m = new Map<number, CatItem>();
+    for (const it of items) if (it.plu) m.set(it.plu, it);
+    return m;
+  }, [items]);
+  const templates = useMemo(() => (cat?.templates ?? []).filter((tp) => items.some((it) => it.template_id === tp.id)), [cat, items]);
+
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return items.filter((it) => (!catFilter || it.category_id === catFilter) &&
+    return items.filter((it) => (!catFilter || it.category_id === catFilter) && (s !== '' || !it.template_id) &&
       (!s || itemName(it, lang).toLowerCase().includes(s) || it.name.toLowerCase().includes(s) || it.code.toLowerCase().startsWith(s) || it.barcode === s));
   }, [items, q, catFilter, lang]);
 
-  const add = useCallback((it: CatItem, qty = 1) => {
+  const add = useCallback((it: CatItem, qty = 1, price = '') => {
     setCart((c) => {
-      const i = c.findIndex((l) => l.item.id === it.id && l.price === '' && l.discount === '');
+      const i = price === '' && !it.sold_by_weight ? c.findIndex((l) => l.item.id === it.id && l.price === '' && l.discount === '') : -1;
       if (i >= 0) return c.map((l, j) => (j === i ? { ...l, qty: String(Number(l.qty) + qty) } : l));
-      return [...c, { key: lineKey++, item: it, qty: String(qty), price: '', discount: '' }];
+      return [...c, { key: lineKey++, item: it, qty: String(qty), price, discount: '' }];
     });
   }, []);
 
+  const office0 = me.role !== 'cashier';
   const scan = useCallback((code: string) => {
-    const it = byBarcode.get(code.trim()) ?? byBarcode.get(code.trim().toLowerCase());
+    const c = code.trim();
+    const it = byBarcode.get(c) ?? byBarcode.get(c.toLowerCase());
     if (it) {
       add(it);
       return true;
     }
+    // a scale label: PLU + weight (or price) in the barcode
+    const sc = parseScale(c, cat?.retail?.scale?.prefixes ?? []);
+    const w = sc ? byPlu.get(sc.plu) : undefined;
+    if (sc && w) {
+      if (sc.qty !== undefined) add(w, Math.round(sc.qty * 1000) / 1000);
+      else if (sc.price !== undefined && Number(w.price) > 0) add(w, Math.round((sc.price / Number(w.price)) * 1000) / 1000);
+      return true;
+    }
+    if (office0 || cat?.register.cashier_quick_item) { setQuick(c); return true; }
     notifications.show({ color: 'orange', message: `${t('pos.notFound')}: ${code}` });
     return false;
-  }, [byBarcode, add, t]);
+  }, [byBarcode, byPlu, add, t, cat, office0]);
 
   // keyboard-wedge barcode scanners type fast and end with Enter: catch them even when no field has focus
   useEffect(() => {
@@ -210,17 +281,77 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
     return best ? best.p : null;
   };
 
-  const priced = cart.map((l) => {
+  const gross = cart.map((l) => {
     const price = l.price !== '' ? Number(l.price) : (listPrice(l.item.id, Number(l.qty || 0)) ?? Number(l.item.price));
     const disc = Number(l.discount || 0);
-    const amount = round(Number(l.qty || 0) * price * (100 - disc) / 100, dec);
-    const tax = l.item.tax_rate ? round(amount * Number(l.item.tax_rate) / 100, dec) : 0;
-    return { ...l, unit: price, amount, tax };
+    return { ...l, unit: price, before: round(Number(l.qty || 0) * price * (100 - disc) / 100, dec) };
   });
-  const subtotal = priced.reduce((s, l) => s + l.amount, 0);
+  // live promotions (the server applies exactly the same rules when the sale is saved)
+  const promoKey = JSON.stringify([gross.map((l) => [l.item.id, l.qty, l.before]), coupon, customer?.id]);
+  const usePromos = online && !!cat?.retail?.promotions;
+  useEffect(() => {
+    if (!cid || !usePromos || !gross.length) { setPromo(null); return; }
+    const h = window.setTimeout(() => {
+      api<PromoEval>(`/companies/${cid}/retail/promotions/evaluate`, { method: 'POST', body: {
+        currency, register_id: regId ?? '', customer_id: customer?.id ?? '', coupon,
+        lines: gross.map((l) => ({ item_id: l.item.id, quantity: l.qty, amount: String(l.before) })) } }).then(setPromo).catch(() => setPromo(null));
+    }, 250);
+    return () => window.clearTimeout(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promoKey, usePromos, cid, currency, regId]);
+  const promoOk = !!promo && promo.lines.length === gross.length;
+  const priced = gross.map((l, i) => {
+    const pd = promoOk ? Number(promo!.lines[i]) : 0;
+    const amount = round(l.before - pd, dec);
+    const tax = l.item.tax_rate ? round(amount * Number(l.item.tax_rate) / 100, dec) : 0;
+    return { ...l, amount, tax, promoDisc: pd, promoNames: promoOk ? promo!.line_promos[i] : [] };
+  });
+  const giftTotal = giftSold.reduce((s, g) => s + Number(g.amount || 0), 0);
+  const subtotal = priced.reduce((s, l) => s + l.amount, 0) + giftTotal;
   const taxTotal = priced.reduce((s, l) => s + l.tax, 0);
   const total = round(subtotal + taxTotal, dec);
+  const saved = promoOk ? Number(promo!.total) : 0;
   const count = cart.reduce((s, l) => s + Number(l.qty || 0), 0);
+
+  // the customer display (second screen in the same browser)
+  const chan = useMemo(() => displayChannel(), []);
+  useEffect(() => () => chan?.close(), [chan]);
+  useEffect(() => {
+    chan?.postMessage({ company: company?.name_en ?? '', currency, total: formatAmount(total, dec), saved: formatAmount(saved, dec),
+      lines: [...priced.map((l) => ({ name: itemName(l.item, lang), qty: l.qty, amount: formatAmount(l.amount + l.tax, dec) })),
+        ...giftSold.map((g) => ({ name: `${t('rt.pos.giftCard')} ${g.code}`, qty: '1', amount: formatAmount(Number(g.amount), dec) }))] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chan, total, saved, cart.length, giftSold.length, promoKey]);
+
+  // loyalty card of the chosen customer
+  useEffect(() => {
+    const code = (customer as { code?: string } | null)?.code;
+    if (!cid || !customer || !online || !code || !cat?.retail?.loyalty?.is_active) { setMember(null); return; }
+    api<Member>(`/companies/${cid}/retail/loyalty/lookup?code=${encodeURIComponent(code)}`).then(setMember).catch(() => setMember(null));
+  }, [cid, customer, online, cat]);
+
+  async function hold() {
+    if (!cid || !regId || (!cart.length && !giftSold.length)) return;
+    try {
+      await api(`/companies/${cid}/pos/held`, { method: 'POST', body: { register_id: regId, label: customer?.name ?? '', payload: { cart, customer, giftSold, coupon } } });
+      setCart([]); setCustomer(null); setGiftSold([]); setCoupon('');
+      notifications.show({ color: 'teal', message: t('rt.pos.held') });
+    } catch (e) { notifyError(t, e); }
+  }
+
+  // keyboard shortcuts: F2 search · F4 customer · F7 coupon · F8 hold · F9 pay
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (payOpen || closeOpen || editLine) return;
+      if (e.key === 'F2') { e.preventDefault(); searchRef.current?.focus(); }
+      else if (e.key === 'F4') { e.preventDefault(); setCustOpen(true); }
+      else if (e.key === 'F7') { e.preventDefault(); setCouponOpen(true); }
+      else if (e.key === 'F8') { e.preventDefault(); void hold(); }
+      else if (e.key === 'F9' && (cart.length || giftSold.length) && total > 0) { e.preventDefault(); setPayOpen(true); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   function choose(id: string | null) {
     if (!cid) return;
@@ -269,6 +400,9 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
               {sessionId && <Menu.Item leftSection={<IconCash size={14} />} disabled={!online || pending > 0} onClick={() => setCloseOpen(true)}>{t('pos.closeSession')}</Menu.Item>}
               {(registers?.length ?? 0) > 1 && <Menu.Item leftSection={<IconRefresh size={14} />} onClick={() => choose(null)}>{t('pos.changeRegister')}</Menu.Item>}
               <Menu.Item leftSection={<IconRefresh size={14} />} onClick={loadCatalog}>{t('pos.reload')}</Menu.Item>
+              <Menu.Item leftSection={<IconDeviceDesktop size={14} />} onClick={() => window.open(`${window.location.pathname}#/pos-display`, 'paxve-display', 'width=900,height=600')}>{t('rt.pos.display')}</Menu.Item>
+              {sessionId && <Menu.Item leftSection={<IconPlayerPause size={14} />} onClick={() => setHeldOpen(true)}>{t('rt.pos.heldList')}</Menu.Item>}
+              <Menu.Label>{t('rt.pos.keys')}</Menu.Label>
               <Menu.Divider />
               {languages.map((l) => <Menu.Item key={l.code} onClick={() => applyLang(l.code)}>{l.label}</Menu.Item>)}
               <Menu.Divider />
@@ -335,19 +469,28 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
             <IconUser size={16} />
             <Text size="sm" fw={500} truncate>{customer ? customer.name : t('pos.walkIn')}</Text>
             {customer && plist.name && <Text size="xs" c="teal" truncate>{t('pos.priceList', { name: plist.name })}</Text>}
+            {member && <Badge size="sm" color="yellow" leftSection={<IconStar size={10} />}>{Number(member.points)}{member.tier ? ` · ${member.tier}` : ''}</Badge>}
           </Group>
         </UnstyledButton>
         {customer && <ActionIcon size="sm" variant="subtle" color="gray" onClick={() => setCustomer(null)} aria-label="x"><IconX size={14} /></ActionIcon>}
       </Group>
+      <Group gap={4} wrap="wrap">
+        <Button size="compact-xs" variant="light" color="grape" leftSection={<IconGift size={12} />} onClick={() => setGiftOpen(true)}>{t('rt.pos.sellGift')}</Button>
+        {usePromos && <Button size="compact-xs" variant={coupon ? 'filled' : 'light'} color="pink" leftSection={<IconTicket size={12} />} onClick={() => setCouponOpen(true)}>{coupon || t('rt.pos.coupon')}</Button>}
+        <Button size="compact-xs" variant="light" color="gray" leftSection={<IconPlayerPause size={12} />} disabled={!online || (!cart.length && !giftSold.length)} onClick={() => void hold()}>{t('rt.pos.hold')}</Button>
+        <Button size="compact-xs" variant="subtle" color="gray" disabled={!online} onClick={() => setHeldOpen(true)}>{t('rt.pos.heldList')}</Button>
+      </Group>
+      {promo && coupon && promo.coupon_valid === false && <Text size="xs" c="red">{t('rt.pos.badCoupon')}</Text>}
       <ScrollArea style={{ flex: 1 }} mih={120}>
-        {priced.length === 0 ? <Text c="dimmed" ta="center" size="sm" p="lg">{t('pos.emptyCart')}</Text> : (
+        {priced.length === 0 && giftSold.length === 0 ? <Text c="dimmed" ta="center" size="sm" p="lg">{t('pos.emptyCart')}</Text> : (
           <Stack gap={4}>
             {priced.map((l) => (
               <Paper key={l.key} withBorder p={6} radius="sm">
                 <Group justify="space-between" wrap="nowrap" gap={4}>
                   <UnstyledButton style={{ flex: 1, minWidth: 0 }} onClick={() => setEditLine(l)}>
                     <Text size="sm" fw={500} truncate>{itemName(l.item, lang)}</Text>
-                    <Text size="xs" c="dimmed" dir="ltr" ta="start">{formatAmount(l.unit, dec)}{l.discount ? ` −${l.discount}%` : ''}{l.tax ? ` +${l.item.tax_name ?? ''}` : ''}</Text>
+                    <Text size="xs" c="dimmed" dir="ltr" ta="start">{formatAmount(l.unit, dec)}{l.item.sold_by_weight ? ` / ${l.item.unit}` : ''}{l.discount ? ` −${l.discount}%` : ''}{l.tax ? ` +${l.item.tax_name ?? ''}` : ''}</Text>
+                    {l.promoDisc > 0 && <Text size="xs" c="pink" truncate><IconDiscount2 size={10} /> {l.promoNames.join(', ')} −{formatAmount(l.promoDisc, dec)}</Text>}
                   </UnstyledButton>
                   <Group gap={2} wrap="nowrap">
                     <ActionIcon size="md" variant="light" color="gray" aria-label="-" onClick={() => setCart((c) => c.flatMap((x) => (x.key !== l.key ? [x] : Number(x.qty) > 1 ? [{ ...x, qty: String(Number(x.qty) - 1) }] : [])))}>
@@ -362,16 +505,28 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
                 </Group>
               </Paper>
             ))}
+            {giftSold.map((g, i) => (
+              <Paper key={'g' + i} withBorder p={6} radius="sm" bg="var(--mantine-color-grape-0)">
+                <Group justify="space-between" wrap="nowrap">
+                  <Text size="sm"><IconGift size={14} /> {t('rt.pos.giftCard')} <span dir="ltr">{g.code || t('rt.pos.newCode')}</span></Text>
+                  <Group gap={4} wrap="nowrap">
+                    <Text ff="monospace" size="sm" dir="ltr">{formatAmount(Number(g.amount), dec)}</Text>
+                    <ActionIcon size="sm" variant="subtle" color="red" onClick={() => setGiftSold(giftSold.filter((_, j) => j !== i))} aria-label="x"><IconX size={12} /></ActionIcon>
+                  </Group>
+                </Group>
+              </Paper>
+            ))}
           </Stack>
         )}
       </ScrollArea>
       <Paper withBorder p="sm" bg="var(--mantine-color-gray-0)">
+        {saved > 0 && <Group justify="space-between"><Text size="sm" c="pink" fw={600}>{t('rt.pos.saved')}</Text><Text size="sm" c="pink" fw={600} ff="monospace" dir="ltr">−{formatAmount(saved, dec)}</Text></Group>}
         {taxTotal > 0 && <Group justify="space-between"><Text size="sm">{t('pos.tax')}</Text><Text size="sm" ff="monospace" dir="ltr">{formatAmount(taxTotal, dec)}</Text></Group>}
         <Group justify="space-between"><Text fw={700}>{t('pos.total')}</Text><Text fw={700} size="xl" ff="monospace" dir="ltr">{formatAmount(total, dec)} {currency}</Text></Group>
       </Paper>
       <Group grow>
-        <Button variant="default" color="red" leftSection={<IconTrash size={16} />} disabled={!cart.length} onClick={() => { setCart([]); setCustomer(null); }}>{t('pos.clear')}</Button>
-        <Button size="md" leftSection={<IconCash size={18} />} disabled={!cart.length || total <= 0} onClick={() => { setCartOpen(false); setPayOpen(true); }}>{t('pos.pay')}</Button>
+        <Button variant="default" color="red" leftSection={<IconTrash size={16} />} disabled={!cart.length && !giftSold.length} onClick={() => { setCart([]); setCustomer(null); setGiftSold([]); setCoupon(''); }}>{t('pos.clear')}</Button>
+        <Button size="md" leftSection={<IconCash size={18} />} disabled={(!cart.length && !giftSold.length) || total <= 0} onClick={() => { setCartOpen(false); setPayOpen(true); }}>{t('pos.pay')} <Text span size="xs" ml={4} opacity={0.7}>F9</Text></Button>
       </Group>
     </Stack>
   );
@@ -412,6 +567,14 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
               <Alert color="yellow">{t('pos.noItems')}</Alert>
             ) : (
               <SimpleGrid cols={{ base: 2, xs: 3, sm: 4, lg: 5 }} spacing="xs">
+                {!q.trim() && templates.filter((tp) => !catFilter || tp.category_id === catFilter).map((tp) => (
+                  <Card key={'t' + tp.id} withBorder padding={6} radius="md" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setVariantOf(tp.id)}>
+                    {tp.image ? <Image src={tp.image} h={80} fit="cover" radius="sm" alt="" />
+                      : <Center h={80} bg="var(--mantine-color-indigo-0)" style={{ borderRadius: 6 }}><Text fw={700} size="xl" c="indigo">{itemName(tp, lang).slice(0, 2).toUpperCase()}</Text></Center>}
+                    <Text size="sm" fw={500} lineClamp={2} mt={4} lh={1.2} mih={34}>{itemName(tp, lang)}</Text>
+                    <Text size="xs" c="dimmed">{tp.attributes.map((a) => a.name).join(' × ')}</Text>
+                  </Card>
+                ))}
                 {shown.slice(0, 300).map((it) => (
                   <Card key={it.id} withBorder padding={6} radius="md" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => add(it)}>
                     {it.image ? <Image src={it.image} h={80} fit="cover" radius="sm" alt="" />
@@ -438,7 +601,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
       <Box hiddenFrom="md" h={76} />
       <Box hiddenFrom="md" p="xs" bg="white"
         style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 15, paddingBottom: 'calc(var(--mantine-spacing-xs) + env(safe-area-inset-bottom))', boxShadow: '0 -2px 8px rgba(0,0,0,.06)' }}>
-        <Button fullWidth size="lg" leftSection={<IconShoppingCart size={20} />} onClick={() => setCartOpen(true)} disabled={!cart.length}
+        <Button fullWidth size="lg" leftSection={<IconShoppingCart size={20} />} onClick={() => setCartOpen(true)} disabled={!cart.length && !giftSold.length}
           rightSection={<Text fw={700} ff="monospace" dir="ltr">{formatAmount(total, dec)} {currency}</Text>} justify="space-between">
           {t('pos.cart')} ({count})
         </Button>
@@ -455,8 +618,48 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
       {scanOpen && <CameraScanner onClose={() => setScanOpen(false)} onCode={(c) => { if (scan(c)) setScanOpen(false); }} />}
       {payOpen && (
         <PayDialog cat={cat} sessionId={sessionId} customer={customer} total={total} taxTotal={taxTotal} priced={priced} online={online} me={me}
+          giftSold={giftSold} coupon={coupon} promos={usePromos && promoOk} member={member}
           onClose={() => setPayOpen(false)}
-          onDone={(d) => { setPayOpen(false); setCart([]); setCustomer(null); setReceipt(d); if (!d.pending) loadCatalog(); }} />
+          onDone={(d) => {
+            setPayOpen(false); setCart([]); setCustomer(null); setGiftSold([]); setCoupon(''); setReceipt(d);
+            if (cat.register.drawer_kick && d.order.cash.some((x) => Number(x.amount) !== 0)) void kickDrawer().catch(() => undefined);
+            if (!d.pending) loadCatalog();
+          }} />
+      )}
+      {giftOpen && <GiftSellDialog dec={dec} currency={currency} onClose={() => setGiftOpen(false)} onAdd={(g) => { setGiftSold([...giftSold, g]); setGiftOpen(false); }} />}
+      {couponOpen && (
+        <Modal opened onClose={() => setCouponOpen(false)} title={t('rt.pos.coupon')} size="xs">
+          <Stack>
+            <TextInput dir="ltr" data-autofocus defaultValue={coupon} id="pos-coupon" onKeyDown={(e) => { if (e.key === 'Enter') { setCoupon(e.currentTarget.value.trim().toUpperCase()); setCouponOpen(false); } }} />
+            <Group grow>
+              <Button variant="default" onClick={() => { setCoupon(''); setCouponOpen(false); }}>{t('rt.pos.removeCoupon')}</Button>
+              <Button onClick={() => { setCoupon(((document.getElementById('pos-coupon') as HTMLInputElement | null)?.value ?? '').trim().toUpperCase()); setCouponOpen(false); }}>{t('common.save')}</Button>
+            </Group>
+          </Stack>
+        </Modal>
+      )}
+      {heldOpen && regId && (
+        <HeldDrawer registerId={regId} onClose={() => setHeldOpen(false)} onResume={(p) => {
+          setCart(p.cart ?? []); setCustomer(p.customer ?? null); setGiftSold(p.giftSold ?? []); setCoupon(p.coupon ?? ''); setHeldOpen(false);
+        }} />
+      )}
+      {quick !== null && (
+        <QuickItemDialog barcode={quick} registerId={regId ?? ''} categories={cat.categories} currency={currency} onClose={() => setQuick(null)}
+          onCreated={(it) => { setCat((c) => (c ? { ...c, items: [...c.items, it] } : c)); add(it); setQuick(null); }} />
+      )}
+      {variantOf && (
+        <Modal opened onClose={() => setVariantOf(null)} title={itemName(templates.find((x) => x.id === variantOf) ?? { name: '', name_i18n: null }, lang)} size="lg">
+          <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="xs">
+            {items.filter((it) => it.template_id === variantOf).map((it) => (
+              <Button key={it.id} variant="light" h="auto" py={6} onClick={() => { add(it); setVariantOf(null); }} disabled={it.kind === 'stock' && Number(it.stock) <= 0}>
+                <Stack gap={0} align="center">
+                  <Text size="sm" fw={600}>{Object.values(it.variant_values ?? {}).join(' / ')}</Text>
+                  <Text size="xs" ff="monospace" dir="ltr">{formatAmount(it.price, dec)} · {Number(it.stock)}</Text>
+                </Stack>
+              </Button>
+            ))}
+          </SimpleGrid>
+        </Modal>
       )}
       {receipt && <ReceiptSheet d={receipt} onClose={() => { setReceipt(null); searchRef.current?.focus(); }} onNeedPrinter={() => setPickerOpen(true)} />}
       {ordersOpen && (
@@ -469,6 +672,88 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
       )}
       {pickerOpen && <PrinterPicker onClose={() => setPickerOpen(false)} onConnected={(n) => { setPrinter(n); setPickerOpen(false); }} />}
     </Box>
+  );
+}
+
+// ---------- retail: gift card sale, held baskets, quick item ----------
+
+function GiftSellDialog({ dec, currency, onClose, onAdd }: { dec: number; currency: string; onClose: () => void; onAdd: (g: GiftLine) => void }) {
+  const { t } = useTranslation();
+  const [g, setG] = useState({ code: '', amount: '' });
+  return (
+    <Modal opened onClose={onClose} title={t('rt.pos.sellGift')} size="sm">
+      <Stack>
+        <TextInput label={t('rt.pos.giftCode')} dir="ltr" placeholder={t('rt.pos.newCode')} value={g.code} onChange={(e) => setG({ ...g, code: e.currentTarget.value.toUpperCase().replace(/[^A-Z0-9-]/g, '') })} />
+        <TextInput label={`${t('rt.amount')} (${currency})`} dir="ltr" inputMode="decimal" data-autofocus placeholder={formatAmount(0, dec)} value={g.amount}
+          onChange={(e) => setG({ ...g, amount: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
+        <Group grow>
+          {[10, 25, 50, 100].map((v) => <Button key={v} variant="light" size="xs" onClick={() => setG({ ...g, amount: String(v) })}>{v}</Button>)}
+        </Group>
+        <Text size="xs" c="dimmed">{t('rt.pos.giftHint')}</Text>
+        <Button disabled={!(Number(g.amount) > 0)} onClick={() => onAdd(g)}>{t('rt.pos.addToCart')}</Button>
+      </Stack>
+    </Modal>
+  );
+}
+
+interface Held { id: string; label: string; created_at: string; created_by_name: string | null; payload: { cart?: CartLine[]; customer?: { id: string; name: string } | null; giftSold?: GiftLine[]; coupon?: string } }
+
+function HeldDrawer({ registerId, onClose, onResume }: { registerId: string; onClose: () => void; onResume: (p: Held['payload']) => void }) {
+  const { t } = useTranslation();
+  const { company } = useCompany();
+  const [rows, setRows] = useState<Held[] | null>(null);
+  useEffect(() => {
+    if (company) api<Held[]>(`/companies/${company.id}/pos/held?register_id=${registerId}`).then(setRows).catch(() => setRows([]));
+  }, [company, registerId]);
+  async function resume(h: Held) {
+    if (!company) return;
+    try { await api(`/companies/${company.id}/pos/held/${h.id}`, { method: 'DELETE' }); onResume(h.payload); } catch (e) { notifyError(t, e); }
+  }
+  return (
+    <Drawer opened onClose={onClose} position="right" size="sm" title={t('rt.pos.heldList')}>
+      {rows === null ? <Center p="md"><Loader size="sm" /></Center> : rows.length === 0 ? <Text c="dimmed" ta="center">{t('rt.pos.noHeld')}</Text> : (
+        <Stack gap={6}>
+          {rows.map((h) => (
+            <Card key={h.id} withBorder padding="xs" style={{ cursor: 'pointer' }} onClick={() => void resume(h)}>
+              <Text size="sm" fw={600}>{h.label || t('pos.walkIn')} · {(h.payload.cart ?? []).length} {t('rt.pos.lines')}</Text>
+              <Text size="xs" c="dimmed">{formatDateTime(h.created_at)}{h.created_by_name ? ` · ${h.created_by_name}` : ''}</Text>
+            </Card>
+          ))}
+        </Stack>
+      )}
+    </Drawer>
+  );
+}
+
+function QuickItemDialog({ barcode, registerId, categories, currency, onClose, onCreated }: {
+  barcode: string; registerId: string; categories: { id: string; name: string; name_i18n: Record<string, string> | null }[]; currency: string;
+  onClose: () => void; onCreated: (it: CatItem) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const { company } = useCompany();
+  const [f, setF] = useState({ name: '', price: '', category_id: '' });
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    if (!company) return;
+    setBusy(true);
+    try {
+      onCreated(await api<CatItem>(`/companies/${company.id}/pos/quick-item`, { method: 'POST', body: { register_id: registerId, barcode, ...f } }));
+    } catch (e) { notifyError(t, e); } finally { setBusy(false); }
+  }
+  return (
+    <Modal opened onClose={onClose} title={t('rt.pos.quickItem')} size="sm">
+      <Stack>
+        <Text size="sm">{t('pos.notFound')}: <b dir="ltr">{barcode}</b></Text>
+        <TextInput label={t('rt.name')} data-autofocus value={f.name} onChange={(e) => setF({ ...f, name: e.currentTarget.value })} />
+        <TextInput label={`${t('rt.price')} (${currency})`} dir="ltr" inputMode="decimal" value={f.price} onChange={(e) => setF({ ...f, price: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
+        {categories.length > 0 && <Select label={t('rt.rep.category')} clearable value={f.category_id || null} onChange={(v) => setF({ ...f, category_id: v ?? '' })}
+          data={categories.map((c) => ({ value: c.id, label: itemName(c, i18n.language) }))} />}
+        <Group grow>
+          <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button loading={busy} disabled={!f.name.trim() || f.price === ''} onClick={save}>{t('rt.pos.createAndAdd')}</Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }
 
@@ -551,7 +836,7 @@ function LineEditor({ line, canEdit, dec, lang, onClose, onSave }: {
 
 // ---------- named customer ----------
 
-function CustomerPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: { id: string; name: string }) => void }) {
+function CustomerPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: { id: string; name: string; code?: string }) => void }) {
   const { t } = useTranslation();
   const { company } = useCompany();
   const [q, setQ] = useState('');
@@ -594,7 +879,11 @@ function CustomerPicker({ onClose, onPick }: { onClose: () => void; onPick: (c: 
         </Stack>
       ) : (
         <Stack gap="xs">
-          <TextInput leftSection={<IconSearch size={16} />} placeholder={t('customers.search')} value={q} data-autofocus onChange={(e) => setQ(e.currentTarget.value)} />
+          <TextInput leftSection={<IconSearch size={16} />} placeholder={t('rt.pos.custSearch')} value={q} data-autofocus onChange={(e) => setQ(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' || !company || q.trim().length < 4) return;
+              api<{ id: string; code: string; name: string }>(`/companies/${company.id}/retail/loyalty/lookup?code=${encodeURIComponent(q.trim())}`).then((c) => onPick(c)).catch(() => undefined);
+            }} />
           {list.map((c) => (
             <Button key={c.id} variant="light" justify="space-between" onClick={() => onPick(c)}
               rightSection={<Text size="xs" c="dimmed" dir="ltr">{c.phone}</Text>}>{c.name} ({c.code})</Button>
@@ -653,12 +942,16 @@ function CameraScanner({ onClose, onCode }: { onClose: () => void; onCode: (code
 
 // ---------- payment ----------
 
-interface Priced extends CartLine { unit: number; amount: number; tax: number }
+interface Priced extends CartLine { unit: number; amount: number; tax: number; promoDisc?: number; promoNames?: string[] }
 
-function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, me, onClose, onDone }: {
+function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, me, giftSold, coupon, promos, member, onClose, onDone }: {
   cat: Catalog; sessionId: string; customer: { id: string; name: string } | null; total: number; taxTotal: number; priced: Priced[];
-  online: boolean; me: Me; onClose: () => void; onDone: (d: PosOrderDetail) => void;
+  online: boolean; me: Me; giftSold: GiftLine[]; coupon: string; promos: boolean; member: Member | null; onClose: () => void; onDone: (d: PosOrderDetail) => void;
 }) {
+  const [giftCode, setGiftCode] = useState('');
+  const [giftAmt, setGiftAmt] = useState('');
+  const [giftInfo, setGiftInfo] = useState<{ balance: string; currency: string; status: string; expired: boolean } | null>(null);
+  const [points, setPoints] = useState('');
   const { t, i18n } = useTranslation();
   const { company, decimalsOf } = useCompany();
   const reg = cat.register;
@@ -676,7 +969,19 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
   const [onAccount, setOnAccount] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  let received = 0;
+  // gift card and loyalty points paid on this sale (till currency)
+  const giftPay = giftInfo && !giftInfo.expired && giftInfo.status === 'active' && giftInfo.currency === currency ? Math.min(Number(giftAmt || 0), Number(giftInfo.balance)) : 0;
+  const pointsVal = member && Number(points) > 0 && Number(points) <= Number(member.points) && Number(points) >= Number(member.min_redeem)
+    ? round(conv(Number(points) * Number(member.point_value), base, currency), dec) : 0;
+  async function checkGift() {
+    if (!company || !giftCode.trim()) return;
+    try {
+      const g = await api<{ balance: string; currency: string; status: string; expired: boolean }>(`/companies/${company.id}/retail/gift-cards/lookup?code=${encodeURIComponent(giftCode.trim())}`);
+      setGiftInfo(g);
+      if (!giftAmt) setGiftAmt(String(Math.min(Number(g.balance), total)));
+    } catch (e) { setGiftInfo(null); notifyError(t, e); }
+  }
+  let received = giftPay + pointsVal;
   let missingRate = false;
   for (const m of cat.methods) {
     const a = Number(amounts[m.id] || 0);
@@ -707,7 +1012,12 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
       lines: priced.map((l) => ({ item_id: l.item.id, quantity: l.qty, unit_price: l.price, discount_pct: l.discount })),
       tenders: cat.methods.filter((m) => Number(amounts[m.id] || 0) > 0).map((m) => ({ method_id: m.id, amount: amounts[m.id] })),
       change_method_id: extra > 0.00005 ? changeId ?? '' : '',
+      apply_promos: online && promos, coupon: online && promos ? coupon : '',
+      gift_sold: giftSold.map((g) => ({ code: g.code, amount: g.amount })),
+      gift_redeem: giftPay > 0 ? [{ code: giftCode.trim(), amount: String(giftPay) }] : [],
+      redeem_points: pointsVal > 0 ? points : '',
     };
+    if (!online && (giftPay > 0 || pointsVal > 0 || giftSold.length)) { notifications.show({ color: 'red', message: t('rt.pos.needOnline') }); return; }
     const local = (): PosOrderDetail => ({
       pending: true,
       order: {
@@ -768,6 +1078,22 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
             <Button size="md" variant="light" onClick={() => exact(m)}>{t('pos.exact')}</Button>
           </Group>
         ))}
+        {online && (
+          <Group gap="xs" wrap="nowrap" align="flex-end">
+            <TextInput style={{ flex: 1 }} size="sm" label={t('rt.pos.payGift')} dir="ltr" placeholder="GC-…" value={giftCode}
+              leftSection={<IconGift size={14} />} onChange={(e) => { setGiftCode(e.currentTarget.value.toUpperCase()); setGiftInfo(null); }} onBlur={() => void checkGift()} />
+            <TextInput w={110} size="sm" dir="ltr" inputMode="decimal" placeholder="0" value={giftAmt} disabled={!giftInfo}
+              onChange={(e) => setGiftAmt(e.currentTarget.value.replace(/[^\d.]/g, ''))}
+              description={giftInfo ? `${formatAmount(giftInfo.balance, decimalsOf(giftInfo.currency))} ${giftInfo.currency}${giftInfo.status !== 'active' || giftInfo.expired ? ' ✕' : ''}` : undefined} />
+          </Group>
+        )}
+        {online && member?.active && Number(member.points) > 0 && (
+          <Group gap="xs" wrap="nowrap" align="flex-end">
+            <TextInput style={{ flex: 1 }} size="sm" leftSection={<IconStar size={14} />} label={t('rt.pos.payPoints', { points: Number(member.points), min: Number(member.min_redeem) })}
+              dir="ltr" inputMode="numeric" value={points} onChange={(e) => setPoints(e.currentTarget.value.replace(/\D/g, ''))} />
+            <Text w={110} ff="monospace" dir="ltr" mb={6}>= {formatAmount(pointsVal, dec)} {currency}</Text>
+          </Group>
+        )}
         <Paper withBorder p="md" bg="var(--mantine-color-gray-0)">
           <SimpleGrid cols={2}>
             <div>
@@ -963,6 +1289,15 @@ function CloseSession({ sessionId, onClose, onClosed, onNeedPrinter }: {
   const { company, decimalsOf } = useCompany();
   const [d, setD] = useState<SessionDetail | null>(null);
   const [counted, setCounted] = useState<Record<string, string>>({});
+  const [denoms, setDenoms] = useState<Record<string, Record<string, string>>>({});
+  const [countOpen, setCountOpen] = useState<string | null>(null);
+  const DEN: Record<string, number[]> = { USD: [100, 50, 20, 10, 5, 1], LBP: [100000, 50000, 20000, 10000, 5000, 1000], EUR: [200, 100, 50, 20, 10, 5, 2, 1], SAR: [500, 100, 50, 10, 5, 1], AED: [1000, 500, 100, 50, 20, 10, 5] };
+  function setDen(methodId: string, cur: string, d: string, n: string) {
+    const next = { ...(denoms[methodId] ?? {}), [d]: n.replace(/\D/g, '') };
+    setDenoms({ ...denoms, [methodId]: next });
+    const sum = Object.entries(next).reduce((s, [k, v]) => s + Number(k) * Number(v || 0), 0);
+    setCounted((x) => ({ ...x, [methodId]: String(round(sum, decimalsOf(cur))) }));
+  }
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<SessionDetail | null>(null);
@@ -977,7 +1312,8 @@ function CloseSession({ sessionId, onClose, onClosed, onNeedPrinter }: {
     setBusy(true);
     try {
       const r = await api<SessionDetail>(`/companies/${company.id}/pos/sessions/${sessionId}/close`, {
-        method: 'POST', body: { notes, counted: d.drawer.map((m) => ({ method_id: m.method_id, amount: counted[m.method_id] ?? '0' })) },
+        method: 'POST', body: { notes, counted: d.drawer.map((m) => ({ method_id: m.method_id, amount: counted[m.method_id] ?? '0' })),
+          denominations: Object.fromEntries(Object.entries(denoms).map(([m, x]) => [m, Object.fromEntries(Object.entries(x).filter(([, v]) => v !== '').map(([k, v]) => [k, Number(v)]))])) },
       });
       setDone(r); // the till goes back to 'open a session' when this Z report is closed
     } catch (e) {
@@ -1024,9 +1360,24 @@ function CloseSession({ sessionId, onClose, onClosed, onNeedPrinter }: {
                 <Text w={110} ta="end" ff="monospace" dir="ltr" mb={8} c={diff === null ? 'dimmed' : diff < 0 ? 'red' : diff > 0 ? 'teal' : undefined}>
                   {diff === null ? '—' : `${diff > 0 ? '+' : ''}${formatAmount(diff, md)}`}
                 </Text>
+                {DEN[m.currency] && <Button size="xs" variant={countOpen === m.method_id ? 'filled' : 'light'} mb={6} onClick={() => setCountOpen(countOpen === m.method_id ? null : m.method_id)}>{t('rt.pos.countNotes')}</Button>}
               </Group>
             );
           })}
+          {countOpen && (() => {
+            const m = d.drawer.find((x) => x.method_id === countOpen);
+            if (!m) return null;
+            return (
+              <Paper withBorder p="xs" className="no-print">
+                <SimpleGrid cols={{ base: 2, sm: 3 }} spacing={6}>
+                  {DEN[m.currency].map((v) => (
+                    <TextInput key={v} size="xs" dir="ltr" inputMode="numeric" leftSection={<Text size="xs" w={60} ta="end" pr={4}>{v.toLocaleString()} ×</Text>} leftSectionWidth={70}
+                      value={denoms[m.method_id]?.[String(v)] ?? ''} onChange={(e) => setDen(m.method_id, m.currency, String(v), e.currentTarget.value)} />
+                  ))}
+                </SimpleGrid>
+              </Paper>
+            );
+          })()}
           <TextInput label={t('pos.notes')} value={notes} onChange={(e) => setNotes(e.currentTarget.value)} className="no-print" />
           <Group justify="space-between" className="no-print">
             <Button variant="default" leftSection={<IconPrinter size={16} />} onClick={() => (bluetoothSupported() ? void bt(d) : void printPage())}>{t('pos.xReport')}</Button>

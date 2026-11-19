@@ -785,6 +785,7 @@
   "already_matched": "Bu günlük satırı zaten eşleşti",
   "already_revalued": "Bu ay zaten yeniden değerlendi",
   "app_disabled": "Bu uygulama bu şirket için kapalı (Ayarlar → Uygulamalar).",
+  "app_not_in_plan": "Bu uygulama Paxve planınıza dahil değil. Ayarlar → Paxve aboneliğim bölümünden planınızı yükseltin.",
   "approval_required": "Onay için gönderildi.",
   "bad_currency": "Bilinmeyen para birimi",
   "bad_date": "Tarih geçerli değil.",
@@ -799,6 +800,7 @@
   "cannot_approve_own": "Başka birinin kendi isteğinizi onaylaması gerekir.",
   "cannot_change_self": "Kendi rolünüzü veya durumunuzu değiştiremezsiniz",
   "cannot_grant": "Kendinizde olmayan hakları veremezsiniz.",
+  "card_taken": "Bu kart numarası zaten başka bir müşteriye verilmiş.",
   "change_method_required": "Değişikliğin nereden verileceğini seçin",
   "chart_not_empty": "Bu şirketin zaten hesapları var",
   "cheque_debit": "Bu miktar iade edilen bir çekten gelir. Kontroller ekranından halledin.",
@@ -808,6 +810,7 @@
   "common_password": "Bu şifrenin tahmin edilmesi çok kolaydır. Başka bir tane seç.",
   "company_create_failed": "Yeni şirket oluşturulamadı: {{detail}}",
   "component_not_stock": "Bir kit bileşeni stok öğesi olmalıdır",
+  "coupon_taken": "Başka bir promosyon zaten bu kupon kodunu kullanıyor.",
   "credit_exceeds_invoice": "Tutar, hâlâ yatırılabilecek tutardan fazla ( {{detail}} )",
   "currency_mismatch": "Her iki kutu da aynı para birimine sahip olmalıdır",
   "currency_not_supported": "Bu ödeme şekli bu para birimini almaz.",
@@ -828,6 +831,11 @@
   "file_too_large": "Dosya çok büyük (en fazla {{detail}} MB)",
   "forbidden": "Bunu yapmak için izniniz yok",
   "gateway_error": "Ödeme işlemcisi şunu reddetti: {{detail}}",
+  "gift_balance": "Hediye kartı bakiyesi yalnızca {{detail}} tutarındadır.",
+  "gift_code_taken": "Bu hediye kartı kodu zaten kullanılıyor.",
+  "gift_currency": "Bu hediye kartı başka bir para biriminde ( {{detail}} ).",
+  "gift_not_active": "Bu hediye kartı kullanılmış, geçersiz kılınmış veya süresi dolmuş.",
+  "gift_not_found": "Hediye kartı bulunamadı: {{detail}} .",
   "import_errors": "Bazı satırlar geçersiz; hiçbir şey ithal edilmedi",
   "import_size": "Çok fazla satır (maks {{detail}} )",
   "insufficient_payment": "Alınan para ( {{detail}} ) başvurulacak tutardan az",
@@ -849,6 +857,7 @@
   "invalid_file": "Bu dosya okunamıyor: {{detail}}",
   "invalid_gateway": "Bu ödeme şekli mevcut değildir.",
   "invalid_generator": "Geçersiz oluşturucu",
+  "invalid_gift_card": "Hediye kartı kodunu ve tutarını kontrol edin.",
   "invalid_invoice": "Geçersiz fatura",
   "invalid_item": "Geçersiz veya etkin olmayan öğe",
   "invalid_lead": "Geçersiz potansiyel müşteri",
@@ -862,7 +871,9 @@
   "invalid_period": "Geçersiz ay",
   "invalid_photo": "Fotoğraf okunamadı.",
   "invalid_plan": "Geçersiz veya etkin olmayan plan",
+  "invalid_points": "Puanlar, sadakat programı açıkken yalnızca adı belirtilen müşteri tarafından kullanılabilir.",
   "invalid_rate": "Geçersiz döviz kuru",
+  "invalid_reference": "Hiçbir ürün, kategori, kasa veya fiyat listesi bu şirkete ait değil.",
   "invalid_router": "Geçersiz yönlendirici",
   "invalid_schedule": "Bu şirketin çalışma programını seçin.",
   "invalid_source": "Belge bulunamadı",
@@ -885,6 +896,7 @@
   "logo_too_big": "Logo çok büyük (en fazla 250 KB)",
   "lot_insufficient": "Bu partide yeterli miktar kalmadı",
   "lots_mismatch": "Parti miktarlarının toplamı satır miktarına eşit olmalıdır ( {{detail}} )",
+  "loyalty_off": "Önce sadakat programını açın.",
   "match_mismatch": "Bu günlük satırı eşleşmiyor (hesap, para birimi veya tutar)",
   "method_required": "Banka hesabını veya kasayı seçin.",
   "mfa_enable_first": "Önce kendiniz için iki adımlı oturum açmayı açın (Güvenliğim).",
@@ -905,6 +917,8 @@
   "no_support": "Hiçbir destek görünümü açık değil.",
   "no_template": "Bu tür için mesaj şablonu yok",
   "no_working_days": "Bu tarihlerde iş günü yoktur",
+  "not_a_template": "Önce nitelikleri kaydedin.",
+  "not_enough_points": "Yeterli puan yok (mevcut: {{detail}} ).",
   "not_found": "Bulunamadı",
   "not_received": "Alınandan daha fazla faturalandırıldı: {{detail}}",
   "not_stock_item": "Bu ürün stok ürünü değildir",
@@ -933,16 +947,19 @@
   "plan_limit_companies": "Planınız {{detail}} şirkete izin veriyor. Daha fazlasını eklemek için planı yükseltin.",
   "plan_limit_users": "Planınız {{detail}} aktif kullanıcıya izin veriyor. Daha fazlasını eklemek için planı yükseltin.",
   "plan_required": "Deneme planı kapatılamaz.",
+  "plu_taken": "Başka bir öğede zaten bu PLU var.",
   "po_not_confirmed": "Siparişi teslim almadan ve faturalandırmadan önce onaylayın",
   "posted_locked": "Gönderilen girişler değiştirilemez. Bunun yerine girişi ters çevirin.",
   "price_edit_forbidden": "Bu tarihe kadar fiyatları değiştirmenize izin verilmez.",
   "price_mismatch": "Fatura fiyatı siparişten farklı: {{detail}}",
   "purchasing_not_setup": "Satın alma hesapları ayarlanmamış ( {{detail}} ). Bkz. Öğeler ve stok → Satın alma hesapları.",
   "quantity_exceeds_order": "Siparişte kalandan fazlası: {{detail}}",
+  "quick_item_forbidden": "Kasiyerler bu kasada ürün oluşturamaz.",
   "rate_feed_missing_base": "Kur hizmetinin temel para biriminiz için oranı yoktur",
   "rate_feed_unavailable": "Döviz kuru hizmetine şu anda ulaşılamıyor. Daha sonra tekrar deneyin.",
   "reading_below_previous": "{{detail}} için okuma önceki okumaya göre daha düşük",
   "recovery_too_high": "İyileşme açık avanstan daha yüksek",
+  "redeem_over_total": "Hediye kartları ve puanlar satıştan ( {{detail}} ) fazla ödeme yapamaz.",
   "reference_required": "Aktarım referansını yazın.",
   "refund_exceeds_credit": "Geri ödeme, müşterinin kredisinden fazla ( {{detail}} )",
   "refund_uses_credit": "Bu kredi iade edildi. Öncelikle iadeyi iptal edin.",
@@ -965,12 +982,16 @@
   "support_active": "Bir destek görünümü zaten açık. Önce bunu sonlandırın.",
   "support_ended": "Destek görünümü sona erdi. Sayfayı yeniden yükleyin.",
   "support_read_only": "Destek görünümü: hiçbir şey değiştirilemez.",
+  "template_has_stock": "Bu öğenin stoğu var: şablon olamaz. Şablon için yeni bir öğe oluşturun.",
   "too_many_attempts": "Çok fazla deneme. 15 dakika sonra tekrar deneyin.",
   "too_many_files": "Bu belgede zaten 50 dosya var",
+  "too_many_held": "(30)'a kadar çok fazla basket tutuldu.",
+  "too_many_variants": "Çok fazla kombinasyon (en fazla 400 çeşit).",
   "trial_expired": "Ücretsiz deneme süreniz sona erdi. Abonelik eklemeye devam etmek için bir plan seçin.",
   "unauthorized": "Lütfen tekrar oturum açın",
   "unbalanced": "Borçlar ve alacaklar eşit olmalıdır (ve girişin en az iki satıra ihtiyacı vardır)",
   "unknown_plan": "Bu plan mevcut değil veya kapalı.",
+  "variant_cannot_be_template": "Bir varyantın kendisi bir şablon olamaz.",
   "weak_password": "Şifre en az 10 karakter olmalıdır",
   "wps_not_setup": "Önce şirketin WPS ayrıntılarını (işveren kimliği ve banka) ayarlayın",
   "wrong_account_type": "Bir gelir/gider hesabı ve ertelenmiş gelir (borç)/ön ödemeli (varlık) hesabı seçin",
@@ -978,8 +999,7 @@
   "wrong_status": "Bu işlem bu giriş için mümkün değil",
   "year_closed": "Bu yıl zaten kapalı.",
   "year_not_closed": "Bu yıl kapanmadı.",
-  "zero_invoice": "Tutar sıfır",
-  "app_not_in_plan": "Bu uygulama Paxve planınıza dahil değil. Ayarlar → Paxve aboneliğim bölümünden planınızı yükseltin."
+  "zero_invoice": "Tutar sıfır"
  },
  "fa": {
   "accounts": "Varsayılan hesaplar",
@@ -2424,9 +2444,11 @@
    },
    "always": "Her zaman açık",
    "biz": {
+    "clothing": "Giyim ve ayakkabı",
     "generator": "Jeneratör / elektrik",
     "internet": "internet",
     "satellite": "Uydu",
+    "supermarket": "Süpermarket",
     "water": "su"
    },
    "business": "İşletme türü",
@@ -2460,6 +2482,8 @@
     "desc": "Yönlendiriciler, otomatik kesme ve yeniden bağlanma ( MikroTik ).",
     "name": "internet"
    },
+   "notInPlan": "Planınızda yok",
+   "notInPlanOn": "Artık planınızda değil: açık ama ekranları kilitli. Yeniden kullanmak için planınızı yükseltin.",
    "pos": {
     "desc": "Alışveriş, barkod, seanslar, Z raporu.",
     "name": "Satış noktası"
@@ -2485,9 +2509,7 @@
    "wat": {
     "desc": "Ölçülü su abonelikleri.",
     "name": "su"
-   },
-   "notInPlan": "Planınızda yok",
-   "notInPlanOn": "Artık planınızda değil: açık ama ekranları kilitli. Yeniden kullanmak için planınızı yükseltin."
+   }
   },
   "box": "Para kutusu",
   "bx": {
@@ -2613,6 +2635,8 @@
   "loading": "Yükleniyor…",
   "menus": "Menüler",
   "noScreens": "Hiçbir ekran açık değil. Yukarıdaki menülerden birini seçin.",
+  "notInPlan": "\"{{app}}\" uygulaması Paxve planınıza dahil değil.",
+  "notInPlanTitle": "Planınıza dahil değil",
   "ofRows": "{{n}}",
   "open": "Açık",
   "openScreens": "Ekranları aç",
@@ -2736,6 +2760,7 @@
   "today": "Bugün toplandı",
   "total": "Toplam",
   "unpin": "Simgeleri gizle",
+  "upgrade": "Planı yükselt",
   "user": "Kullanıcı",
   "v": {
    "about": "İçin",
@@ -2750,10 +2775,7 @@
    "receiverSign": "Alıcı imzası",
    "saved": "Kaydedildi — kupon {{n}}",
    "words": "Kelimelerle"
-  },
-  "notInPlanTitle": "Planınıza dahil değil",
-  "notInPlan": "\"{{app}}\" uygulaması Paxve planınıza dahil değil.",
-  "upgrade": "Planı yükselt"
+  }
  },
  "nav": {
   "accounting": "Muhasebe",
@@ -3118,6 +3140,7 @@
    "unblock": "Engellemeyi kaldır"
   },
   "all": "Tüm",
+  "allApps": "Tüm uygulamalar",
   "allCountries": "Tüm ülkeler",
   "allPlans": "Tüm planlar",
   "answer": "Kuruluşa cevap (isteğe bağlı)",
@@ -3136,9 +3159,11 @@
    "trial_other": "Ücretsiz deneme: {{count}} gün kaldı."
   },
   "biz": {
+   "clothing": "Giyim ve ayakkabı",
    "generator": "Jeneratör",
    "internet": "internet",
    "satellite": "Uydu",
+   "supermarket": "Süpermarket",
    "water": "su"
   },
   "blockReason": "Oturum açma sırasında gösterilen neden (ör. ücretsiz)",
@@ -3223,6 +3248,14 @@
    "users": "Kullanıcılar"
   },
   "from": "İtibaren",
+  "gf": {
+   "apps": "Plandaki uygulamalar",
+   "count": "{{n}} kuruluş kullandığı uygulamaları korur",
+   "hint": "Planın uygulama listesi daraltıldığında kullanılıyorlardı, bu yüzden kuruluş bunları korur. Planı olduğu gibi uygulamak için kaldırın.",
+   "kept": "Korunan uygulamalar",
+   "planHint": "İşaretini kaldırdığınız bir uygulamayı zaten kullanan kuruluşlar onu korur (özetlerinde korunan uygulama olarak görünür).",
+   "remove": "Korunan uygulamaları kaldır"
+  },
   "help": {
    "dash": {
     "body": "Paxve kaydolan her kuruluş, şu anki durumuna göre sayılır: deneme aşamasında, aktif (ücretli), yetkisiz (bitiş tarihi geçti ancak hala birkaç gün çalışabilirler), süresi doldu (bakıp dışa aktarabilirler ancak kaydedemezler) ve engellendi (kimse oturum açamaz).\n\n Aylık gelir (MRR), her aktif veya ödemesiz kuruluşun aylık fiyatını ekler; Yıllık planlar onikinci olarak sayılır. Arkasındaki listeyi açmak için bir kutuyu tıklayın.",
@@ -3247,6 +3280,11 @@
   },
   "hide": "Saklamak",
   "inAppOnly": "yalnızca banner (mesaj kurulumu yok)",
+  "jobs": {
+   "hint": "Süresi dolmuş veya engellenmişken bu kuruluş için hiçbir şey kendiliğinden çalışmaz (faturalama, hatırlatmalar, yinelenen kayıtlar, mesajlar, internet kesme/açma, webhook'lar). Bekleyen işler yenileme veya engel kaldırıldıktan sonra gönderilir.",
+   "paused": "otomatik işler durduruldu",
+   "resumed": "otomatik işler yeniden başladı"
+  },
   "k": {
    "arr": "Yıllık gelir",
    "churn": "30 günde kayboldu",
@@ -3336,6 +3374,17 @@
   "saved": "Kaydedildi.",
   "search": "Ad, e-posta, telefon arayın…",
   "secretHint": "{{email}} hesabının yeni şifresi — yalnızca şimdi gösteriliyor. Bunu onlara ver; açık oturumları sona erdi.",
+  "setup": {
+   "def": "varsayılan",
+   "logOnly": "Mesajlaşma \"günlük\" olarak ayarlı: hatırlatmalar gönderilmez, yalnızca sunucu günlüğüne yazılır. Şirketinizde → Mesajlar bölümünden WhatsApp, SMS veya e-posta ekleyin.",
+   "messaging": "Yenileme hatırlatmalarını gönderen mesajlaşma ({{company}})",
+   "none": "Mesajlaşma kurulmamış: hatırlatmalar yalnızca Paxve içinde bir şerit olarak görünür. Şirketinizde → Mesajlar bölümünden WhatsApp, SMS veya e-posta ekleyin.",
+   "off": "kapalı",
+   "ok": "Hatırlatmalar {{name}} üzerinden gönderilir.",
+   "sales": "Kuruluşların ödeme yeri",
+   "salesMissing": "Ayarlanmamış: kuruluşlara nereye ödeme yapacakları söylenmiyor ve yenileme talepleri telefonunuza gelmiyor. Sunucudaki .env dosyasında PAXVE_SALES_PHONE ve PAXVE_SALES_EMAIL değerlerini ayarlayıp Paxve'yi yeniden başlatın.",
+   "title": "Platform ayarları"
+  },
   "st": {
    "active": "Aktif",
    "blocked": "Engellendi",
@@ -3373,31 +3422,6 @@
    "invoices": "Bu ayki faturalar",
    "payments": "Bu ayki ödemeler",
    "storage": "Ekler"
-  },
-  "allApps": "Tüm uygulamalar",
-  "gf": {
-   "apps": "Plandaki uygulamalar",
-   "kept": "Korunan uygulamalar",
-   "remove": "Korunan uygulamaları kaldır",
-   "hint": "Planın uygulama listesi daraltıldığında kullanılıyorlardı, bu yüzden kuruluş bunları korur. Planı olduğu gibi uygulamak için kaldırın.",
-   "count": "{{n}} kuruluş kullandığı uygulamaları korur",
-   "planHint": "İşaretini kaldırdığınız bir uygulamayı zaten kullanan kuruluşlar onu korur (özetlerinde korunan uygulama olarak görünür)."
-  },
-  "jobs": {
-   "paused": "otomatik işler durduruldu",
-   "resumed": "otomatik işler yeniden başladı",
-   "hint": "Süresi dolmuş veya engellenmişken bu kuruluş için hiçbir şey kendiliğinden çalışmaz (faturalama, hatırlatmalar, yinelenen kayıtlar, mesajlar, internet kesme/açma, webhook'lar). Bekleyen işler yenileme veya engel kaldırıldıktan sonra gönderilir."
-  },
-  "setup": {
-   "title": "Platform ayarları",
-   "messaging": "Yenileme hatırlatmalarını gönderen mesajlaşma ({{company}})",
-   "none": "Mesajlaşma kurulmamış: hatırlatmalar yalnızca Paxve içinde bir şerit olarak görünür. Şirketinizde → Mesajlar bölümünden WhatsApp, SMS veya e-posta ekleyin.",
-   "logOnly": "Mesajlaşma \"günlük\" olarak ayarlı: hatırlatmalar gönderilmez, yalnızca sunucu günlüğüne yazılır. Şirketinizde → Mesajlar bölümünden WhatsApp, SMS veya e-posta ekleyin.",
-   "ok": "Hatırlatmalar {{name}} üzerinden gönderilir.",
-   "def": "varsayılan",
-   "off": "kapalı",
-   "sales": "Kuruluşların ödeme yeri",
-   "salesMissing": "Ayarlanmamış: kuruluşlara nereye ödeme yapacakları söylenmiyor ve yenileme talepleri telefonunuza gelmiyor. Sunucudaki .env dosyasında PAXVE_SALES_PHONE ve PAXVE_SALES_EMAIL değerlerini ayarlayıp Paxve'yi yeniden başlatın."
   }
  },
  "perm": {
@@ -3805,6 +3829,271 @@
   "collector": "Kolektör",
   "data_entry": "Veri girişi",
   "read_only": "Salt okunur"
+ },
+ "rt": {
+  "active": "Aktif",
+  "amount": "Miktar",
+  "barcode": "Barkod",
+  "code": "Kod",
+  "currency": "Para birimi",
+  "customer": "Müşteri",
+  "date": "Tarih",
+  "e": {
+   "days": "günler",
+   "daysLeft": "Kalan gün sayısı",
+   "expiry": "Son kullanma tarihi",
+   "lot": "Pay",
+   "markdown": "Aşağı işaretle",
+   "marked": "Promosyonda",
+   "none": "Hiçbir şey yakında sona ermez",
+   "remove": "Raftan kaldır",
+   "returnsHint": "Tedarikçiye geri gönderilecek mallar: tedarikçi faturasını açın ve bir borç dekontu yapın (kredili iade).",
+   "suggested": "Önerilen",
+   "warehouse": "Depo",
+   "within": "Süresi doluyor"
+  },
+  "from": "İtibaren",
+  "g": {
+   "auto": "otomatik",
+   "balance": "Denge",
+   "code": "Kart kodu",
+   "expires": "Süresi doluyor",
+   "initial": "İlk",
+   "issue": "Kuponu düzenleyin",
+   "mv": {
+    "issue": "Veriliş",
+    "redeem": "Kullanılmış",
+    "refund": "Geri ödemek",
+    "void": "Geçersiz kılındı"
+   },
+   "outstanding": "Kullanılmayan kartlar",
+   "search": "Kart kodunu arayın…",
+   "source": "Kaynak",
+   "src": {
+    "manual": "Manuel",
+    "pos": "Kasada satıldı",
+    "promo": "Ücretsiz kupon"
+   },
+   "st": {
+    "active": "Aktif",
+    "used": "Kullanılmış",
+    "void": "Geçersiz"
+   },
+   "void": "Kartı geçersiz kıl",
+   "voidQ": "Bu kart iptal edilsin mi? Kullanılmayan bakiye serbest bırakılır.",
+   "voucher": "Ücretsiz bir kupon verin",
+   "voucherHint": "Ücretsiz olarak verilen kupon (doğum günü, özür, yarışma) bir pazarlama maliyetidir. Kasada satılan kartlar kullanılıncaya kadar sorumluluk altındadır."
+  },
+  "l": {
+   "adjust": "Nokta ekle/kaldır",
+   "card": "Kart",
+   "earnPer": "1 {{cur}} başına puan",
+   "hint": "Müşteriler ödedikleri tutar üzerinden puan kazanır ve bunları daha sonra ödeme yapmak için kullanır. Puan değeri, maliyet ve yükümlülük ( {{cur}} ) olarak kaydedilir.",
+   "k": {
+    "adjust": "Düzeltildi",
+    "earn": "Kazanılan",
+    "expire": "Günü geçmiş",
+    "redeem": "Kullanılmış",
+    "reverse": "Ters çevrilmiş"
+   },
+   "kind": "Taşınmak",
+   "lifetime": "Ömür boyu",
+   "minRedeem": "Kullanılacak minimum puan",
+   "newCard": "Kart numarası ver",
+   "phone": "Telefon",
+   "pointValue": "1 puanın değeri ( {{cur}} )",
+   "points": "Puanlar",
+   "program": "Sadakat programı",
+   "pts": "puan",
+   "search": "Bir üyeyi arayın (isim, telefon, kart)…",
+   "stats": "{{members}} üye · Kullanılacak {{points}} puan",
+   "tiers": "Katmanlar (isim:minimum puan:çarpan)"
+  },
+  "lb": {
+   "brand": "Marka",
+   "byWeight": "Ağırlığa göre satılır",
+   "content": "İçerik (birim fiyatı için)",
+   "copies": "Kopyalar",
+   "exportPLU": "Terazi için PLU dosyasını dışa aktarın",
+   "itemRetail": "Öğe: PLU, ağırlık, marka, içerik",
+   "labels": "Raf ve barkod etiketleri",
+   "layout": "Düzen",
+   "prefixes": "Önekler",
+   "print": "Yazdır",
+   "scale": "Barkodları ölçeklendirin",
+   "scaleHint": "Terazinin yazdırdığı etiketler 2 + önekle başlar, ardından PLU (5 hane) ve ağırlık veya fiyatla başlar. Biçim: önek:ağırlık|fiyat:ondalık sayılar.",
+   "shelf": "Raf etiketleri (A4, her satırda 3 adet)",
+   "small": "Küçük barkod etiketleri (satır başına 5 adet)",
+   "variantPrefix": "Yeni varyant barkodlar için önek"
+  },
+  "m": {
+   "expiry": "Son kullanma tarihi yaklaşıyor",
+   "gift": "Hediye kartları",
+   "labels": "Teraziler ve etiketler",
+   "loyalty": "Sadakat puanları",
+   "packs": "İş paketleri",
+   "promos": "Promosyonlar",
+   "receive": "Tarayarak alma",
+   "report": "Perakende satışlar",
+   "variants": "Boyutlar ve renkler"
+  },
+  "name": "İsim",
+  "nameAr": "İsim (Arapça)",
+  "note": "Not",
+  "p": {
+   "a": {
+    "all": "Her şey",
+    "brands": "Markalar",
+    "categories": "Kategoriler",
+    "items": "Bazı öğeler"
+   },
+   "appliesTo": "Şunlar için geçerlidir:",
+   "brands": "Markalar (virgülle ayrılmış)",
+   "bundleItems": "Paket öğeleri ve miktarları",
+   "buy": "Satın almak",
+   "conditions": "Koşullar (tarihler, saatler, kupon, vadeler)",
+   "coupon": "Kupon kodu (boş = otomatik)",
+   "dayNames": "Paz, Pzt, Sal, Çar, Per, Cum, Cumartesi",
+   "edit": "Promosyonu düzenle",
+   "get": "Elde etmek",
+   "getPct": "Ücretsiz olanlarda kapalı (%)",
+   "given": "Verilen",
+   "help": {
+    "basket": "Belirli bir miktara ulaştığında tüm sepet kapatılır (örneğin 50 üzerinden %5).",
+    "bundle": "Bu öğeler birlikte paket fiyatına (veya pakette % indirime) tabidir.",
+    "bxgy": "X satın alın, Y'yi bedava alın (veya % indirimle). En ucuz birimler ücretsiz olanlardır.",
+    "discount": "Seçilen ürünlerde birim başına yüzde veya belirli bir indirim veya özel birim fiyatı.",
+    "tiers": "Seçilen ürünlerden ne kadar çok satın alırlarsa yüzde o kadar büyük olur (örneğin 3+ → %5, 6+ → %10)."
+   },
+   "k": {
+    "basket": "Sepet indirimi",
+    "bundle": "Paket",
+    "bxgy": "X satın al, Y kazan",
+    "discount": "İndirim",
+    "tiers": "Miktar katmanları"
+   },
+   "kind": "Tip",
+   "maxUses": "Maksimum kullanım",
+   "minAmount": "Sepet",
+   "new": "Yeni promosyon",
+   "none": "Henüz promosyon yok",
+   "priority": "Öncelik",
+   "stackable": "Diğer promosyonlara eklenebilir",
+   "tiers": "Miktar katmanları (adet:%, miktar:%)",
+   "timeFrom": "saatten itibaren",
+   "timeTo": "saate kadar",
+   "uses": "Kullanım Alanları",
+   "value": "Değer",
+   "valueType": "İndirim olarak",
+   "vt": {
+    "amount": "Tutar (birim başına)",
+    "pct": "% kapalı",
+    "price": "Özel fiyat"
+   },
+   "when": "Ne zaman"
+  },
+  "pk": {
+   "apply": "Bu paketi kullan",
+   "clothing": "Giyim ve ayakkabı",
+   "clothingDesc": "Boyutlar × renkler, çeşit başına barkod, sezonluk indirimler, 3'e 2 teklifler, sadakat, hediye kartları.",
+   "demo": "Demo verilerini de yükle",
+   "hint": "Bir iş paketi, doğru uygulamaları, sadakat programını ve perakende varsayılanlarını açar ve her şeyi denemek için demo verilerini (ürünler, promosyonlar, kasa) yükleyebilir.",
+   "supermarket": "Süpermarket / minimarket",
+   "supermarketDesc": "Tartılan ürünler ve tartı etiketleri, promosyonlar, sadakat puanları, hediye kartları, son kullanma tarihi yaklaşmış indirimler, hızlı kasa."
+  },
+  "pos": {
+   "addToCart": "Sepete ekle",
+   "allowQuick": "Barkod bilinmediğinde kasiyerler hızlı bir ürün oluşturabilir",
+   "badCoupon": "Bu kupon şu anda geçerli değil.",
+   "countNotes": "Notları say",
+   "coupon": "Kupon",
+   "createAndAdd": "Oluşturun ve ekleyin",
+   "custSearch": "İsim, telefon veya sadakat kartı…",
+   "display": "Müşteri ekranı",
+   "drawerKick": "Nakit satıştan sonra kasa çekmecesini açın",
+   "drawerKickHint": "Çekmecenin Bluetooth makbuz yazıcısına bağlanması gerekir.",
+   "giftCard": "Hediye kartı",
+   "giftCode": "Kart kodu (boş = yeni)",
+   "giftHint": "Hediye kartı bir sorumluluktur: Kart satın almak için kullanıldığında KDV tahsil edilir.",
+   "giftSold": "Hediye kartı satıldı",
+   "giftUsed": "Hediye kartıyla ödendi",
+   "held": "Sepet tutuldu",
+   "heldList": "Sepetler",
+   "hold": "Tutmak",
+   "keys": "Tuşlar: F2 arama · F4 müşteri · F7 kupon · F8 tutma · F9 ödeme",
+   "lines": "çizgiler",
+   "needOnline": "Hediye kartları ve puanların bağlantıya ihtiyacı vardır.",
+   "newCode": "(yeni kod)",
+   "noHeld": "Tutulan sepet yok",
+   "payGift": "Hediye kartıyla ödeme yapın",
+   "payPoints": "Puan kullan ( {{points}} mevcut, min {{min}} )",
+   "points": "Kazanılan puanlar {{earned}} · bakiye {{balance}}",
+   "quickItem": "Kasada yeni ürün",
+   "removeCoupon": "Kaldırmak",
+   "saved": "Kazanıyorsun",
+   "sellGift": "Hediye kartı",
+   "welcome": "Hoş geldin!"
+  },
+  "price": "Fiyat",
+  "qty": "Adet",
+  "r": {
+   "cost": "Maliyet",
+   "hint": "Tedarikçiyi seçin, her bir öğeyi tarayın (veya kodunu yazın ve Enter'a basın), miktarları ve maliyetleri kontrol edin ve ardından tedarikçi faturasını oluşturun.",
+   "makeBill": "Tedarikçi faturasını oluşturun",
+   "notFound": "Bulunamadı",
+   "ref": "Tedarikçi fatura no.",
+   "scan": "Tara",
+   "title": "Tarayarak malları alın"
+  },
+  "rep": {
+   "byCategory": "Kategoriye göre satışlar",
+   "byHour": "Saatlik satışlara kadar",
+   "byItem": "Öğeye göre marj",
+   "category": "Kategori",
+   "cost": "Maliyet",
+   "margin": "Marj",
+   "noCategory": "Kategori yok",
+   "note": "KDV'siz satışlar. Maliyet, satılan malların stok maliyetidir (temel para birimi, başka bir para biriminde bugünkü kur üzerinden gösterilir). Kitler bileşenlerini gösterir.",
+   "revenue": "Satış"
+  },
+  "rib": "Perakende",
+  "save": "Kaydetmek",
+  "saved": "Kaydedildi",
+  "searchItem": "Bir öğeyi arayın (isim, kod veya barkod)…",
+  "signup": {
+   "b": {
+    "clothing": "Giyim ve ayakkabı",
+    "generator": "Jeneratör / elektrik",
+    "internet": "İnternet sağlayıcısı",
+    "satellite": "Uydu TV",
+    "supermarket": "Süpermarket / minimarket",
+    "water": "su"
+   },
+   "business": "İşletmeniz",
+   "demoHint": "Uygulamaları kuruyoruz ve daha sonra silebileceğiniz demo öğeleri ve promosyonlar ekliyoruz."
+  },
+  "status": "Durum",
+  "to": "İle",
+  "v": {
+   "addAttr": "Bağlanmak",
+   "attrName": "Özellik (Boyut, Renk…)",
+   "attrValues": "Virgülle ayrılmış değerler",
+   "attributes": "Nitelikler",
+   "colour": "Renk",
+   "extras": "Değer başına ekstra fiyat (satır başına bir tane, örneğin Boyut=XL: 2)",
+   "generate": "Varyantları oluşturun",
+   "hint": "Bir ürün seçin (Tişört, ayakkabı…), ona özellikler verin (Beden: S, M, L · Renk: Beyaz, Siyah) ve kombinasyon başına bir ürün oluşturun. Her çeşidin kendine ait kodu, barkodu, fiyatı ve stoğu vardır ve her ürün gibi satılır.",
+   "list": "Varyantlar (fiyat, barkod)",
+   "makePO": "Satınalma siparişini oluşturun",
+   "makeTemplate": "Bir öğeyi şablon yapma",
+   "matrix": "Stok ızgarası",
+   "none": "Henüz şablon yok",
+   "order": "emir",
+   "saveSetup": "Nitelikleri kaydet",
+   "size": "Boyut",
+   "supplier": "Tedarikçi",
+   "variants": "Varyantlar"
+  }
  },
  "sales": {
   "accept": "Kabul etmek",

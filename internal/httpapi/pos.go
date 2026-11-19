@@ -93,6 +93,7 @@ func ensureOverShortAccount(ctx context.Context, tx pgx.Tx, cid string) (string,
 
 const registerCols = `g.id, g.name, g.currency, g.warehouse_id, w.name AS warehouse, g.customer_id, c.name AS customer_name,
 	g.method_ids, g.revenue_account_id, g.over_short_account_id, g.cashier_refunds, g.cashier_price_edit, g.receipt_footer, g.is_active,
+	g.cashier_quick_item, g.drawer_kick, g.customer_display,
 	(SELECT json_build_object('id', s.id, 'number', s.number, 'opened_at', s.opened_at, 'opened_by', u.full_name)
 	   FROM pos_sessions s LEFT JOIN users u ON u.id = s.opened_by WHERE s.register_id = g.id AND s.status = 'open') AS open_session`
 
@@ -117,6 +118,9 @@ func (s *Server) saveRegister(w http.ResponseWriter, r *http.Request) {
 		CashierPriceEdit   *bool     `json:"cashier_price_edit"`
 		ReceiptFooter      *string   `json:"receipt_footer"`
 		IsActive           *bool     `json:"is_active"`
+		CashierQuickItem   *bool     `json:"cashier_quick_item"`
+		DrawerKick         *bool     `json:"drawer_kick"`
+		CustomerDisplay    *bool     `json:"customer_display"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -230,6 +234,10 @@ func (s *Server) saveRegister(w http.ResponseWriter, r *http.Request) {
 			if tag.RowsAffected() == 0 {
 				return nil, notFound()
 			}
+		}
+		if _, err := tx.Exec(ctx, `UPDATE pos_registers SET cashier_quick_item = coalesce($2, cashier_quick_item), drawer_kick = coalesce($3, drawer_kick),
+			customer_display = coalesce($4, customer_display) WHERE id = $1`, id, in.CashierQuickItem, in.DrawerKick, in.CustomerDisplay); err != nil {
+			return nil, err
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+registerCols+` FROM pos_registers g JOIN warehouses w ON w.id = g.warehouse_id
 			JOIN customers c ON c.id = g.customer_id WHERE g.id = $1`, id)
@@ -383,7 +391,8 @@ func (s *Server) posCatalog(w http.ResponseWriter, r *http.Request) {
 		rc := newRateCache(ctx, tx, cid, set.Base, today())
 		rows, err := tx.Query(ctx, `SELECT it.id::text, it.code, it.name, it.name_i18n::text, it.kind, it.unit, it.barcode,
 			it.category_id::text, it.image, ip.price::text, it.sale_price::text, coalesce(it.sale_currency, $3)::text,
-			t.id::text, trim_scale(t.rate)::text, t.name, coalesce(st.quantity, 0)::text
+			t.id::text, trim_scale(t.rate)::text, t.name, coalesce(st.quantity, 0)::text,
+			it.template_id::text, it.variant_values::text, it.sold_by_weight, it.plu, it.brand
 			FROM items it
 			LEFT JOIN item_prices ip ON ip.item_id = it.id AND ip.currency = $2
 			LEFT JOIN tax_rates t ON t.id = it.sale_tax_rate_id AND t.is_active AND t.applies_to IN ('sales', 'both')
@@ -408,22 +417,30 @@ func (s *Server) posCatalog(w http.ResponseWriter, r *http.Request) {
 			TaxRate    *string         `json:"tax_rate"`
 			TaxName    *string         `json:"tax_name"`
 			Stock      string          `json:"stock"`
+			TemplateID *string         `json:"template_id"`
+			Variant    json.RawMessage `json:"variant_values"`
+			ByWeight   bool            `json:"sold_by_weight"`
+			PLU        *int            `json:"plu"`
+			Brand      string          `json:"brand"`
 		}
 		items := []item{}
 		type raw struct {
 			it                  item
 			list                *string
 			sale, saleCur, i18n string
+			variant             string
 		}
 		raws := []raw{}
 		for rows.Next() {
 			var x raw
 			if err := rows.Scan(&x.it.ID, &x.it.Code, &x.it.Name, &x.i18n, &x.it.Kind, &x.it.Unit, &x.it.Barcode, &x.it.CategoryID,
-				&x.it.Image, &x.list, &x.sale, &x.saleCur, &x.it.TaxID, &x.it.TaxRate, &x.it.TaxName, &x.it.Stock); err != nil {
+				&x.it.Image, &x.list, &x.sale, &x.saleCur, &x.it.TaxID, &x.it.TaxRate, &x.it.TaxName, &x.it.Stock,
+				&x.it.TemplateID, &x.variant, &x.it.ByWeight, &x.it.PLU, &x.it.Brand); err != nil {
 				rows.Close()
 				return nil, err
 			}
 			x.it.NameI18n = json.RawMessage(x.i18n)
+			x.it.Variant = json.RawMessage(x.variant)
 			raws = append(raws, x)
 		}
 		rows.Close()
@@ -465,8 +482,21 @@ func (s *Server) posCatalog(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		b, _ := json.Marshal(items)
+		templates, err := queryJSON(ctx, tx, `SELECT it.id, it.name, it.name_i18n, it.attributes, it.image, it.category_id FROM items it
+			WHERE it.company_id = $1 AND it.is_template AND it.is_active ORDER BY it.name`, cid)
+		if err != nil {
+			return nil, err
+		}
+		retail, err := queryJSONOne(ctx, tx, `SELECT c.scale_config AS scale,
+			(SELECT row_to_json(l) FROM (SELECT is_active, point_value::text AS point_value, min_redeem::text AS min_redeem
+			   FROM loyalty_programs WHERE company_id = c.id) l) AS loyalty,
+			EXISTS (SELECT 1 FROM promotions p WHERE p.company_id = c.id AND p.is_active) AS promotions
+			FROM companies c WHERE c.id = $1`, cid)
+		if err != nil {
+			return nil, err
+		}
 		return map[string]json.RawMessage{"register": reg, "items": b, "categories": cats, "methods": methods, "rates": rates,
-			"company": company}, nil
+			"company": company, "templates": templates, "retail": retail}, nil
 	})
 }
 
@@ -693,18 +723,37 @@ func (s *Server) listSessions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) closeSession(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Counted []posAmount `json:"counted"`
-		Notes   string      `json:"notes"`
+		Counted       []posAmount                 `json:"counted"`
+		Notes         string                      `json:"notes"`
+		Denominations map[string]map[string]int64 `json:"denominations"` // {method_id: {"100": 3, "50": 1}} (kept with the session)
 	}
 	if !decodeBody(w, r, &in) {
 		return
 	}
 	cid, id := r.PathValue("cid"), r.PathValue("id")
-	if !isUUID(id) || len(in.Counted) > 40 {
+	if !isUUID(id) || len(in.Counted) > 40 || len(in.Denominations) > 20 {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
+	for m, d := range in.Denominations {
+		if !isUUID(m) || len(d) > 30 {
+			writeErr(w, http.StatusBadRequest, "bad_request")
+			return
+		}
+		for k, n := range d {
+			if !okMoney(k) || n < 0 || n > 1000000 {
+				writeErr(w, http.StatusBadRequest, "bad_request")
+				return
+			}
+		}
+	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		if len(in.Denominations) > 0 {
+			db, _ := json.Marshal(in.Denominations)
+			if _, err := tx.Exec(ctx, `UPDATE pos_sessions SET counted_detail = $3 WHERE id = $1 AND company_id = $2 AND status = 'open'`, id, cid, db); err != nil {
+				return nil, err
+			}
+		}
 		var status, regID string
 		var number int64
 		err := tx.QueryRow(ctx, `SELECT status, register_id::text, number FROM pos_sessions WHERE id = $1 AND company_id = $2 FOR UPDATE`, id, cid).
@@ -800,12 +849,18 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 		ChangeMethodID string      `json:"change_method_id"`
 		OnAccount      bool        `json:"on_account"` // named customer: the unpaid part stays on their account
 		Notes          string      `json:"notes"`
+		ApplyPromos    bool        `json:"apply_promos"` // apply the active promotions (the till showed them)
+		Coupon         string      `json:"coupon"`
+		GiftSold       []giftIn    `json:"gift_sold"`     // gift cards sold in this sale
+		GiftRedeem     []giftIn    `json:"gift_redeem"`   // gift cards used to pay
+		RedeemPoints   string      `json:"redeem_points"` // loyalty points used to pay (named customer)
 	}
 	if !decodeBody(w, r, &in) {
 		return
 	}
 	in.ClientRef = strings.TrimSpace(in.ClientRef)
-	if !isUUID(in.SessionID) || len(in.Lines) == 0 || len(in.Lines) > 200 || len(in.Tenders) > 10 ||
+	if !isUUID(in.SessionID) || len(in.Lines)+len(in.GiftSold) == 0 || len(in.Lines) > 200 || len(in.Tenders) > 10 || len(in.GiftSold) > 10 ||
+		len(in.GiftRedeem) > 5 || len(in.Coupon) > 32 ||
 		(in.CustomerID != "" && !isUUID(in.CustomerID)) || (in.ChangeMethodID != "" && !isUUID(in.ChangeMethodID)) ||
 		(in.ClientRef != "" && (len(in.ClientRef) < 8 || len(in.ClientRef) > 64)) || len(in.Notes) > 500 {
 		writeErr(w, http.StatusBadRequest, "bad_request")
@@ -953,6 +1008,157 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			}
 			lines = append(lines, il)
 		}
+		// promotions: lower each line's net amount (VAT on the discounted amount)
+		var promoRes *promoResult
+		if in.ApplyPromos && len(lines) > 0 {
+			pc := ""
+			if !walkIn {
+				pc = customer
+			}
+			promos, _, conv, _, err := promoContext(ctx, tx, cid, g.Currency, g.ID, pc, in.Coupon, time.Now())
+			if err != nil {
+				return nil, err
+			}
+			ids := []string{}
+			for _, l := range in.Lines {
+				ids = append(ids, l.ItemID)
+			}
+			facts, err := lineFacts(ctx, tx, cid, ids)
+			if err != nil {
+				return nil, err
+			}
+			pls := []promoLine{}
+			for i, l := range lines {
+				f := facts[in.Lines[i].ItemID]
+				pls = append(pls, promoLine{ItemID: in.Lines[i].ItemID, CategoryID: f[0], Brand: f[1], TemplateID: f[2], Qty: l.Quantity, Amount: l.Amount})
+			}
+			if promoRes, err = evalPromotions(promos, pls, conv, dec); err != nil {
+				return nil, err
+			}
+			for i := range lines {
+				if d := promoRes.Lines[i]; d.IsPositive() {
+					lines[i].Amount = lines[i].Amount.Sub(d)
+					lines[i].TaxAmount = taxOn(lines[i].Amount, lines[i].Tax, dec)
+					lines[i].Description += " · " + strings.Join(promoRes.LinePromos[i], ", ")
+				}
+			}
+		}
+		// gift cards sold: a liability, not revenue (no VAT on the card itself)
+		giftSold := decimal.Zero
+		type soldCard struct {
+			code string
+			amt  decimal.Decimal
+		}
+		sold := []soldCard{}
+		if len(in.GiftSold) > 0 {
+			liab, err := ensureRetailAccount(ctx, tx, cid, "gift_liability_account_id")
+			if err != nil {
+				return nil, err
+			}
+			for _, gs := range in.GiftSold {
+				amt, ok := money(gs.Amount)
+				code := normGiftCode(gs.Code)
+				if code == "" {
+					code = newGiftCode()
+				}
+				if !ok || !amt.IsPositive() || !giftCodeRe.MatchString(code) {
+					return nil, badRequest("invalid_gift_card")
+				}
+				amt = amt.Round(dec)
+				var taken bool
+				if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM gift_cards WHERE company_id = $1 AND code = $2)`, cid, code).Scan(&taken); err != nil {
+					return nil, err
+				}
+				if taken {
+					return nil, &apiError{status: http.StatusConflict, code: "gift_code_taken", detail: code}
+				}
+				lines = append(lines, invLine{Kind: "other", Description: "Gift card " + code, Quantity: decimal.NewFromInt(1), UnitPrice: amt,
+					Amount: amt, Revenue: liab})
+				giftSold = giftSold.Add(amt)
+				sold = append(sold, soldCard{code, amt})
+			}
+		}
+		// gift cards and loyalty points used to pay: checked (and locked) now, written off after the sale
+		type usedCard struct {
+			id, code string
+			amt      decimal.Decimal
+		}
+		used := []usedCard{}
+		sysTenders := []tenderIn{}
+		sysMethods := map[string]bool{}
+		redeemed := decimal.Zero
+		for _, gr := range in.GiftRedeem {
+			amt, ok := money(gr.Amount)
+			code := normGiftCode(gr.Code)
+			if !ok || !amt.IsPositive() || code == "" {
+				return nil, badRequest("invalid_gift_card")
+			}
+			var id, cur, bal, status string
+			var expired bool
+			err := tx.QueryRow(ctx, `SELECT id::text, currency::text, balance::text, status, (expires_on IS NOT NULL AND expires_on < current_date)
+				FROM gift_cards WHERE company_id = $1 AND code = $2 FOR UPDATE`, cid, code).Scan(&id, &cur, &bal, &status, &expired)
+			if err == pgx.ErrNoRows {
+				return nil, &apiError{status: http.StatusUnprocessableEntity, code: "gift_not_found", detail: code}
+			}
+			if err != nil {
+				return nil, err
+			}
+			b, _ := decimal.NewFromString(bal)
+			switch {
+			case status != "active" || expired:
+				return nil, &apiError{status: http.StatusUnprocessableEntity, code: "gift_not_active", detail: code}
+			case cur != g.Currency:
+				return nil, &apiError{status: http.StatusUnprocessableEntity, code: "gift_currency", detail: cur}
+			case amt.GreaterThan(b):
+				return nil, &apiError{status: http.StatusUnprocessableEntity, code: "gift_balance", detail: b.String() + " " + cur}
+			}
+			mid, err := ensureSystemMethod(ctx, tx, cid, "gift", g.Currency)
+			if err != nil {
+				return nil, err
+			}
+			sysTenders = append(sysTenders, tenderIn{MethodID: mid, Amount: amt.String()})
+			sysMethods[mid] = true
+			used = append(used, usedCard{id, code, amt})
+			redeemed = redeemed.Add(amt)
+		}
+		var prog *loyaltyProg
+		if !walkIn {
+			if prog, err = loadLoyalty(ctx, tx, cid); err != nil {
+				return nil, err
+			}
+		}
+		pts := decimal.Zero
+		ptsValue := decimal.Zero
+		if strings.TrimSpace(in.RedeemPoints) != "" {
+			p, ok := money(in.RedeemPoints)
+			if !ok || walkIn || prog == nil || !prog.Active {
+				return nil, badRequest("invalid_points")
+			}
+			if p.IsPositive() {
+				var have string
+				if err := tx.QueryRow(ctx, `SELECT loyalty_points::text FROM customers WHERE id = $1 FOR UPDATE`, customer).Scan(&have); err != nil {
+					return nil, err
+				}
+				h, _ := decimal.NewFromString(have)
+				if p.GreaterThan(h) || p.LessThan(prog.MinRed) {
+					return nil, &apiError{status: http.StatusUnprocessableEntity, code: "not_enough_points", detail: h.String()}
+				}
+				v, err := rc.convert(p.Mul(prog.PointValue), set.Base, g.Currency)
+				if err != nil {
+					return nil, err
+				}
+				if v = v.Round(dec); v.IsPositive() {
+					mid, err := ensureSystemMethod(ctx, tx, cid, "loyalty", g.Currency)
+					if err != nil {
+						return nil, err
+					}
+					sysTenders = append(sysTenders, tenderIn{MethodID: mid, Amount: v.String()})
+					sysMethods[mid] = true
+					pts, ptsValue = p, v
+					redeemed = redeemed.Add(v)
+				}
+			}
+		}
 		qctx := quietCtx(ctx)
 		var number int64
 		if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'pos_order')`, cid).Scan(&number); err != nil {
@@ -978,7 +1184,11 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 		var paymentID *string
 		paid := decimal.Zero
 		cash := []map[string]string{}
-		if len(in.Tenders) == 0 {
+		if redeemed.GreaterThan(total) {
+			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "redeem_over_total", detail: total.String() + " " + g.Currency}
+		}
+		allTenders := append(append([]tenderIn{}, in.Tenders...), sysTenders...)
+		if len(allTenders) == 0 {
 			if !in.OnAccount {
 				return nil, badRequest("payment_required")
 			}
@@ -991,7 +1201,7 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			if in.ChangeMethodID != "" && !g.hasMethod(in.ChangeMethodID) {
 				return nil, badRequest("change_method_required")
 			}
-			pin := paymentIn{CustomerID: customer, Date: date, Currency: g.Currency, Tenders: in.Tenders, ChangeMethodID: in.ChangeMethodID,
+			pin := paymentIn{CustomerID: customer, Date: date, Currency: g.Currency, Tenders: allTenders, ChangeMethodID: in.ChangeMethodID, allowRetail: true,
 				Notes: fmt.Sprintf("POS %s #%d", g.Name, number)}
 			if in.OnAccount {
 				pin.upTo = total
@@ -1021,6 +1231,9 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 					rows.Close()
 					return nil, err
 				}
+				if sysMethods[m] {
+					continue // gift cards / points are not money in the drawer
+				}
 				cash = append(cash, map[string]string{"method_id": m, "currency": c, "amount": a})
 			}
 			rows.Close()
@@ -1036,12 +1249,77 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 		}
 		cb, _ := json.Marshal(cash)
 		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO pos_orders (company_id, session_id, register_id, number, kind, order_date, customer_id, currency,
-			total, tax_total, paid, invoice_id, payment_id, cash, client_ref, client_time, notes)
-			VALUES ($1, $2, $3, $4, 'sale', $5::date, $6, $7, $8::numeric, $9::numeric, $10::numeric, $11, $12, $13, nullif($14, ''), $15, $16)
-			RETURNING id::text`, cid, in.SessionID, g.ID, number, date, customer, g.Currency, total.String(), taxTotal.String(), paid.String(),
-			invID, paymentID, cb, in.ClientRef, clientTime, strings.TrimSpace(in.Notes)).Scan(&id); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT uuidv7()::text`).Scan(&id); err != nil {
 			return nil, err
+		}
+		// loyalty points on what the customer really paid for (not the gift cards bought, not what points / cards paid)
+		earned := decimal.Zero
+		if prog != nil && prog.Active {
+			if spend := total.Sub(giftSold).Sub(redeemed); spend.IsPositive() {
+				base, err := rc.convert(spend, g.Currency, set.Base)
+				if err != nil {
+					return nil, err
+				}
+				if earned, err = loyaltyEarn(ctx, tx, cid, set, prog, customer, base, "pos", id, date, fmt.Sprintf("Loyalty points · POS %s #%d", g.Name, number)); err != nil {
+					return nil, err
+				}
+			}
+		}
+		promosJSON, giftJSON, loyJSON := []byte("[]"), []map[string]string{}, map[string]string{}
+		if promoRes != nil && len(promoRes.Applied) > 0 {
+			promosJSON, _ = json.Marshal(promoRes.Applied)
+		}
+		for _, c := range sold {
+			giftJSON = append(giftJSON, map[string]string{"code": c.code, "amount": c.amt.String(), "kind": "sold"})
+		}
+		for _, c := range used {
+			giftJSON = append(giftJSON, map[string]string{"code": c.code, "amount": c.amt.String(), "kind": "redeemed"})
+		}
+		if !walkIn && prog != nil && prog.Active {
+			var bal string
+			if err := tx.QueryRow(ctx, `SELECT (loyalty_points - $2::numeric)::text FROM customers WHERE id = $1`, customer, pts.String()).Scan(&bal); err != nil {
+				return nil, err
+			}
+			loyJSON = map[string]string{"earned": earned.String(), "redeemed": pts.String(), "redeemed_value": ptsValue.String(), "balance": bal}
+		}
+		gb, _ := json.Marshal(giftJSON)
+		lb, _ := json.Marshal(loyJSON)
+		if _, err := tx.Exec(ctx, `INSERT INTO pos_orders (id, company_id, session_id, register_id, number, kind, order_date, customer_id, currency,
+			total, tax_total, paid, invoice_id, payment_id, cash, client_ref, client_time, notes, promos, loyalty, gift)
+			VALUES ($20::uuid, $1, $2, $3, $4, 'sale', $5::date, $6, $7, $8::numeric, $9::numeric, $10::numeric, $11, $12, $13, nullif($14, ''), $15, $16, $17, $18, $19)`,
+			cid, in.SessionID, g.ID, number, date, customer, g.Currency, total.String(), taxTotal.String(), paid.String(),
+			invID, paymentID, cb, in.ClientRef, clientTime, strings.TrimSpace(in.Notes), promosJSON, lb, gb, id); err != nil {
+			return nil, err
+		}
+		if promoRes != nil {
+			if err := recordPromoUses(ctx, tx, cid, "pos", id, g.Currency, promoRes.Applied); err != nil {
+				return nil, err
+			}
+		}
+		for _, c := range sold {
+			if _, err := insertGiftCard(ctx, tx, cid, c.code, g.Currency, c.amt, map[bool]string{true: "", false: customer}[walkIn], "", "pos", id, ""); err != nil {
+				return nil, err
+			}
+		}
+		for _, c := range used {
+			if _, err := tx.Exec(ctx, `UPDATE gift_cards SET balance = balance - $2::numeric, status = CASE WHEN balance - $2::numeric = 0 THEN 'used' ELSE status END
+				WHERE id = $1`, c.id, c.amt.String()); err != nil {
+				return nil, err
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO gift_card_moves (company_id, card_id, kind, amount, source, source_id) VALUES ($1, $2, 'redeem', $3::numeric, 'pos', $4)`,
+				cid, c.id, c.amt.Neg().String(), id); err != nil {
+				return nil, err
+			}
+		}
+		if pts.IsPositive() {
+			if _, err := tx.Exec(ctx, `INSERT INTO loyalty_moves (company_id, customer_id, kind, points, value, source, source_id, note)
+				VALUES ($1, $2, 'redeem', $3::numeric, $4::numeric, 'pos', $5, $6)`, cid, customer, pts.Neg().String(), ptsValue.Neg().String(), id,
+				fmt.Sprintf("POS %s #%d", g.Name, number)); err != nil {
+				return nil, err
+			}
+			if _, err := tx.Exec(ctx, `UPDATE customers SET loyalty_points = loyalty_points - $2::numeric WHERE id = $1`, customer, pts.String()); err != nil {
+				return nil, err
+			}
 		}
 		return loadPosOrder(ctx, tx, cid, id)
 	})
@@ -1164,7 +1442,7 @@ const posOrderCols = `o.id, o.number, o.kind, o.order_date, o.session_id, s.numb
 	o.currency, o.total::text AS total, o.tax_total::text AS tax_total, o.paid::text AS paid, (o.total - o.paid)::text AS on_account,
 	o.invoice_id, (SELECT i.number FROM invoices i WHERE i.id = o.invoice_id) AS invoice_number, o.payment_id, o.refund_doc_id, o.refund_of,
 	(SELECT r.number FROM pos_orders r WHERE r.id = o.refund_of) AS refund_of_number, o.cash, o.client_ref, o.notes,
-	u.full_name AS cashier, o.created_at`
+	u.full_name AS cashier, o.created_at, o.promos, o.loyalty, o.gift`
 
 const posOrderFrom = ` FROM pos_orders o JOIN pos_sessions s ON s.id = o.session_id JOIN pos_registers g ON g.id = o.register_id
 	JOIN customers c ON c.id = o.customer_id LEFT JOIN users u ON u.id = o.cashier_id`

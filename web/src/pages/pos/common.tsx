@@ -11,7 +11,7 @@ import type { PrintLine } from '../../bt';
 export interface Register {
   id: string; name: string; currency: string; warehouse_id: string; warehouse: string; customer_id: string; customer_name: string;
   method_ids: string[]; revenue_account_id: string | null; over_short_account_id: string; cashier_refunds: boolean; cashier_price_edit: boolean;
-  receipt_footer: string; is_active: boolean;
+  receipt_footer: string; is_active: boolean; cashier_quick_item?: boolean; drawer_kick?: boolean; customer_display?: boolean;
   open_session: { id: string; number: number; opened_at: string; opened_by: string | null } | null;
 }
 
@@ -19,7 +19,10 @@ export interface CatItem {
   id: string; code: string; name: string; name_i18n: Record<string, string> | null; kind: 'stock' | 'service' | 'consumable'; unit: string;
   barcode: string; category_id: string | null; image: string; price: string; tax_rate_id: string | null; tax_rate: string | null;
   tax_name: string | null; stock: string;
+  template_id?: string | null; variant_values?: Record<string, string>; sold_by_weight?: boolean; plu?: number | null; brand?: string;
 }
+
+export interface ScalePrefix { prefix: string; mode: 'weight' | 'price'; decimals: number }
 
 export interface Category { id: string; name: string; name_i18n: Record<string, string> | null; color: string }
 
@@ -29,6 +32,8 @@ export interface Catalog {
   register: Register; items: CatItem[]; categories: Category[]; methods: TillMethod[];
   rates: { currency: string; rate: string; rate_date: string }[];
   company: { name_en: string; name_ar: string; base_currency: string; local_currency: string; tax_id: string; doc_header: string; doc_footer: string };
+  templates?: { id: string; name: string; name_i18n: Record<string, string> | null; attributes: { name: string; values: string[] }[]; image: string; category_id: string | null }[];
+  retail?: { scale: { prefixes: ScalePrefix[] }; loyalty: { is_active: boolean; point_value: string; min_redeem: string } | null; promotions: boolean };
 }
 
 export interface PosOrder {
@@ -38,6 +43,9 @@ export interface PosOrder {
   refund_doc_id: string | null; refund_of: string | null; refund_of_number: number | null;
   cash: { method_id: string; currency: string; amount: string }[]; client_ref: string | null; notes: string; cashier: string | null; created_at: string;
   company_name?: string; company_name_ar?: string; company_tax_id?: string; company_header?: string; receipt_footer?: string;
+  promos?: { id: string; name: string; name_i18n?: Record<string, string>; discount: string }[];
+  loyalty?: { earned?: string; redeemed?: string; redeemed_value?: string; balance?: string };
+  gift?: { code: string; amount: string; kind: 'sold' | 'redeemed' }[];
 }
 
 export interface PosOrderDetail {
@@ -106,6 +114,12 @@ export function orderReceiptLines(d: PosOrderDetail, t: T, dec: (c: string) => n
   }
   if (o.kind === 'sale' && Number(o.on_account) > 0) L.push({ text: t('pos.onAccount'), right: `${formatAmount(o.on_account, cd)} ${o.currency}`, size: 22 });
   if (o.kind === 'refund' && Number(o.paid) > 0) L.push({ text: t('pos.paidBack'), right: `${formatAmount(o.paid, cd)} ${o.currency}`, size: 22 });
+  const lang = document.documentElement.lang || 'en';
+  const saved = (o.promos ?? []).reduce((s, p) => s + Number(p.discount), 0);
+  for (const p of o.promos ?? []) L.push({ text: p.name_i18n?.[lang] || p.name, right: `-${formatAmount(p.discount, cd)}`, size: 20 });
+  if (saved > 0) L.push({ text: t('rt.pos.saved'), right: `${formatAmount(saved, cd)} ${o.currency}`, bold: true, size: 22 });
+  for (const g of o.gift ?? []) L.push({ text: `${t(g.kind === 'sold' ? 'rt.pos.giftSold' : 'rt.pos.giftUsed')} ${g.code}`, right: formatAmount(g.amount, cd), size: 20 });
+  if (o.loyalty && o.loyalty.balance !== undefined) L.push({ text: t('rt.pos.points', { earned: Number(o.loyalty.earned ?? 0), balance: Number(o.loyalty.balance) }), size: 20 });
   if (d.pending) L.push({ text: t('collector.pendingSync'), align: 'center', size: 20 });
   L.push({ text: '', rule: true });
   L.push({ text: o.receipt_footer || t('payments.thanks'), align: 'center', size: 20 });
@@ -152,6 +166,16 @@ export function OrderReceipt({ d }: { d: PosOrderDetail }) {
           )}
           {o.kind === 'refund' && Number(o.paid) > 0 && (
             <tr><td>{t('pos.paidBack')}</td><td className="num">{formatAmount(o.paid, cd)} {o.currency}</td></tr>
+          )}
+          {(o.promos ?? []).map((p) => (
+            <tr key={'p' + p.id}><td>{p.name_i18n?.[i18n.language] || p.name}</td><td className="num">-{formatAmount(p.discount, cd)}</td></tr>
+          ))}
+          {(o.promos ?? []).length > 0 && <tr><th>{t('rt.pos.saved')}</th><th className="num">{formatAmount((o.promos ?? []).reduce((s, p) => s + Number(p.discount), 0), cd)} {o.currency}</th></tr>}
+          {(o.gift ?? []).map((g) => (
+            <tr key={'g' + g.code + g.kind}><td>{t(g.kind === 'sold' ? 'rt.pos.giftSold' : 'rt.pos.giftUsed')} <span dir="ltr">{g.code}</span></td><td className="num">{formatAmount(g.amount, cd)}</td></tr>
+          ))}
+          {o.loyalty && o.loyalty.balance !== undefined && (
+            <tr><td colSpan={2}>{t('rt.pos.points', { earned: Number(o.loyalty.earned ?? 0), balance: Number(o.loyalty.balance) })}</td></tr>
           )}
         </tfoot>
       </table>

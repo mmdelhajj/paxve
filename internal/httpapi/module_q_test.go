@@ -177,6 +177,16 @@ func seedEverything(t *testing.T, o *org) {
 	step(201, "POST", "/hr/devices", map[string]any{"serial": "BDEV" + randHex(4), "name": secretB})
 	step(201, "POST", "/payment-gateways", map[string]any{"kind": "transfer", "name": secretB + " whish", "method_id": usd})
 	step(200, "PUT", "/einvoice/config", map[string]any{"kind": "zatca", "env": "sandbox", "config": map[string]any{"seller_name": secretB}})
+
+	// retail core: promotion, voucher, held basket, loyalty program and card, variant template
+	step(201, "POST", "/retail/promotions", map[string]any{"name": secretB + " promo", "kind": "discount", "value": "10"})
+	step(201, "POST", "/retail/gift-cards", map[string]any{"amount": "5", "currency": "USD", "note": secretB})
+	step(201, "POST", "/pos/held", map[string]any{"register_id": reg, "label": secretB, "payload": map[string]any{"note": secretB}})
+	step(200, "PUT", "/retail/loyalty", map[string]any{"is_active": true, "earn_per": "1", "point_value": "0.01"})
+	step(200, "PUT", "/retail/loyalty/customers/"+cust, map[string]any{"card": "B" + randHex(5)})
+	vtpl := id(step(201, "POST", "/items", map[string]any{"code": "BTPL", "name": secretB + " shirt", "kind": "stock"}), "id")
+	step(200, "PUT", "/items/"+vtpl+"/variant-setup", map[string]any{"attributes": []any{map[string]any{"name": "Size", "values": []any{"S", "M"}}}})
+	step(200, "POST", "/items/"+vtpl+"/variants/generate", map[string]any{})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -262,6 +272,7 @@ var idTable = map[string]string{
 	"goods-receipts": "goods_receipts", "supplier-prices": "supplier_prices", "claims": "expense_claims", "rotations": "shift_rotations",
 	"devices": "attendance_devices", "custom-fields": "custom_fields", "boms": "boms", "payment-gateways": "payment_gateways",
 	"payment-intents": "payment_intents", "attendance": "attendance",
+	"promotions": "promotions", "gift-cards": "gift_cards", "held": "pos_held_baskets",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -272,6 +283,7 @@ var paramValues = map[string][]string{
 	"action": {"confirm", "cancel", "send", "reopen", "unmatch", "ignore", "unignore"},
 	"op":     {"freeze", "unfreeze"},
 	"entity": {"customers", "suppliers", "items", "invoices", "employees"},
+	"key":    {"none"}, // business packs act on the caller's own company: only an unknown pack is swept
 }
 
 type sweepCall struct{ method, path, pattern string }

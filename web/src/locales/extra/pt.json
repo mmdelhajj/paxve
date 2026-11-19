@@ -785,6 +785,7 @@
   "already_matched": "Esta linha do diário já corresponde",
   "already_revalued": "Este mês já está reavaliado",
   "app_disabled": "Este aplicativo está desativado para esta empresa (Configurações → Aplicativos).",
+  "app_not_in_plan": "Esta aplicação não está incluída no seu plano Paxve. Mude de plano em Definições → A minha subscrição Paxve.",
   "approval_required": "Enviado para aprovação.",
   "bad_currency": "Moeda desconhecida",
   "bad_date": "A data não é válida.",
@@ -799,6 +800,7 @@
   "cannot_approve_own": "Outra pessoa deve aprovar sua própria solicitação.",
   "cannot_change_self": "Você não pode mudar sua própria função ou status",
   "cannot_grant": "Você não pode conceder direitos que você mesmo não possui.",
+  "card_taken": "Este número de cartão já foi fornecido a outro cliente.",
   "change_method_required": "Escolha de onde o troco é dado",
   "chart_not_empty": "Esta empresa já tem contas",
   "cheque_debit": "Este valor provém de um cheque devolvido. Faça isso na tela Verificações.",
@@ -808,6 +810,7 @@
   "common_password": "Esta senha é muito fácil de adivinhar. Escolha outro.",
   "company_create_failed": "A nova empresa não pôde ser criada: {{detail}}",
   "component_not_stock": "Um componente do kit deve ser um item de estoque",
+  "coupon_taken": "Outra promoção já utiliza este código de cupom.",
   "credit_exceeds_invoice": "O valor é maior do que ainda pode ser creditado ( {{detail}} )",
   "currency_mismatch": "Ambas as caixas devem ter a mesma moeda",
   "currency_not_supported": "Esta forma de pagamento não leva esta moeda.",
@@ -828,6 +831,11 @@
   "file_too_large": "O arquivo é muito grande (máx. {{detail}} MB)",
   "forbidden": "Você não tem permissão para fazer isso",
   "gateway_error": "O processador de pagamento recusou: {{detail}}",
+  "gift_balance": "O saldo do vale-presente é de apenas {{detail}} .",
+  "gift_code_taken": "Este código de vale-presente já está em uso.",
+  "gift_currency": "Este vale-presente está em outra moeda ( {{detail}} ).",
+  "gift_not_active": "Este vale-presente está esgotado, anulado ou expirou.",
+  "gift_not_found": "Vale-presente não encontrado: {{detail}} .",
   "import_errors": "Algumas linhas são inválidas; nada foi importado",
   "import_size": "Muitas linhas (máx. {{detail}} )",
   "insufficient_payment": "O dinheiro recebido ( {{detail}} ) é menor que o valor a ser aplicado",
@@ -849,6 +857,7 @@
   "invalid_file": "Este arquivo não pode ser lido: {{detail}}",
   "invalid_gateway": "Esta forma de pagamento não está disponível.",
   "invalid_generator": "Gerador inválido",
+  "invalid_gift_card": "Verifique o código e o valor do cartão-presente.",
   "invalid_invoice": "Fatura inválida",
   "invalid_item": "Item inválido ou inativo",
   "invalid_lead": "Lead inválido",
@@ -862,7 +871,9 @@
   "invalid_period": "Mês inválido",
   "invalid_photo": "A foto não pôde ser lida.",
   "invalid_plan": "Plano inválido ou inativo",
+  "invalid_points": "Os pontos podem ser usados ​​apenas por um cliente nomeado quando o programa de fidelidade estiver ativado.",
   "invalid_rate": "Taxa de câmbio inválida",
+  "invalid_reference": "Um item, categoria, caixa ou lista de preços não pertence a esta empresa.",
   "invalid_router": "Roteador inválido",
   "invalid_schedule": "Escolha um horário de trabalho desta empresa.",
   "invalid_source": "Documento não encontrado",
@@ -885,6 +896,7 @@
   "logo_too_big": "O logotipo é muito grande (máximo de 250 KB)",
   "lot_insufficient": "Não resta quantidade suficiente neste lote",
   "lots_mismatch": "As quantidades do lote devem somar a quantidade da linha ( {{detail}} )",
+  "loyalty_off": "Ative o programa de fidelidade primeiro.",
   "match_mismatch": "Esta linha do diário não corresponde (conta, moeda ou valor)",
   "method_required": "Escolha a conta bancária ou caixa.",
   "mfa_enable_first": "Ative primeiro o login em duas etapas para você (Minha segurança).",
@@ -905,6 +917,8 @@
   "no_support": "Nenhuma visualização de suporte está aberta.",
   "no_template": "Nenhum modelo de mensagem para este tipo",
   "no_working_days": "Não há dias úteis nestas datas",
+  "not_a_template": "Salve os atributos primeiro.",
+  "not_enough_points": "Pontos insuficientes (disponíveis: {{detail}} ).",
   "not_found": "Não encontrado",
   "not_received": "Faturado mais do que foi recebido: {{detail}}",
   "not_stock_item": "Este item não é um item de estoque",
@@ -933,16 +947,19 @@
   "plan_limit_companies": "Seu plano permite {{detail}} empresas. Atualize o plano para adicionar mais.",
   "plan_limit_users": "Seu plano permite {{detail}} usuários ativos. Atualize o plano para adicionar mais.",
   "plan_required": "O plano de teste não pode ser desligado.",
+  "plu_taken": "Outro item já possui esse PLU.",
   "po_not_confirmed": "Confirme o pedido antes de recebê-lo e cobrá-lo",
   "posted_locked": "As entradas publicadas não podem ser alteradas. Em vez disso, inverta a entrada.",
   "price_edit_forbidden": "Você não tem permissão para alterar os preços até",
   "price_mismatch": "O preço da fatura é diferente do pedido: {{detail}}",
   "purchasing_not_setup": "As contas de compras não estão configuradas ( {{detail}} ). Consulte Itens e estoque → Contas de compras.",
   "quantity_exceeds_order": "Mais do que resta no pedido: {{detail}}",
+  "quick_item_forbidden": "Os caixas não podem criar itens nesta caixa registradora.",
   "rate_feed_missing_base": "O serviço de taxas não possui taxas para sua moeda base",
   "rate_feed_unavailable": "O serviço de taxa de câmbio não está acessível agora. Tente novamente mais tarde.",
   "reading_below_previous": "A leitura de {{detail}} é inferior à leitura anterior",
   "recovery_too_high": "Recuperação é maior que os avanços em aberto",
+  "redeem_over_total": "Vales-presente e pontos não podem pagar mais do que a venda ( {{detail}} ).",
   "reference_required": "Digite a referência de transferência.",
   "refund_exceeds_credit": "O reembolso é superior ao crédito do cliente ( {{detail}} )",
   "refund_uses_credit": "Este crédito foi reembolsado. Anule o reembolso primeiro.",
@@ -965,12 +982,16 @@
   "support_active": "Uma visualização de suporte já está aberta. Termine primeiro.",
   "support_ended": "A visualização de suporte terminou. Recarregue a página.",
   "support_read_only": "Visão de suporte: nada pode ser alterado.",
+  "template_has_stock": "Este item tem estoque: não pode se tornar um modelo. Crie um novo item para o modelo.",
   "too_many_attempts": "Muitas tentativas. Tente novamente em 15 minutos.",
   "too_many_files": "Este documento já possui 50 arquivos",
+  "too_many_held": "Muitas cestas guardadas até (30).",
+  "too_many_variants": "Muitas combinações (no máximo 400 variantes).",
   "trial_expired": "Seu teste gratuito terminou. Escolha um plano para continuar adicionando assinaturas.",
   "unauthorized": "Faça login novamente",
   "unbalanced": "Os débitos e os créditos devem ser iguais (e o lançamento precisa de pelo menos duas linhas)",
   "unknown_plan": "Este plano não existe ou está desativado.",
+  "variant_cannot_be_template": "Uma variante não pode ser um modelo em si.",
   "weak_password": "A senha deve ter pelo menos 10 caracteres",
   "wps_not_setup": "Defina primeiro os detalhes do WPS da empresa (ID do empregador e banco)",
   "wrong_account_type": "Escolha uma conta de receitas/despesas e uma conta de receita diferida (passivo)/pré-paga (ativo)",
@@ -978,8 +999,7 @@
   "wrong_status": "Esta ação não é possível para esta entrada",
   "year_closed": "Este ano já está fechado.",
   "year_not_closed": "Este ano não está fechado.",
-  "zero_invoice": "O valor é zero",
-  "app_not_in_plan": "Esta aplicação não está incluída no seu plano Paxve. Mude de plano em Definições → A minha subscrição Paxve."
+  "zero_invoice": "O valor é zero"
  },
  "fa": {
   "accounts": "Contas padrão",
@@ -2424,9 +2444,11 @@
    },
    "always": "Sempre ligado",
    "biz": {
+    "clothing": "Roupas e sapatos",
     "generator": "Gerador / eletricidade",
     "internet": "Internet",
     "satellite": "Satélite",
+    "supermarket": "Supermercado",
     "water": "Água"
    },
    "business": "Tipo de negócio",
@@ -2460,6 +2482,8 @@
     "desc": "Roteadores, corte e reconexão automáticos ( MikroTik ).",
     "name": "Internet"
    },
+   "notInPlan": "Fora do plano",
+   "notInPlanOn": "Já não está no seu plano: ativada, mas os ecrãs estão bloqueados. Mude de plano para voltar a usá-la.",
    "pos": {
     "desc": "Caixa de compras, código de barras, sessões, relatório Z.",
     "name": "Ponto de venda"
@@ -2485,9 +2509,7 @@
    "wat": {
     "desc": "Assinaturas de água medida.",
     "name": "Água"
-   },
-   "notInPlan": "Fora do plano",
-   "notInPlanOn": "Já não está no seu plano: ativada, mas os ecrãs estão bloqueados. Mude de plano para voltar a usá-la."
+   }
   },
   "box": "Caixa de dinheiro",
   "bx": {
@@ -2613,6 +2635,8 @@
   "loading": "Carregando…",
   "menus": "Cardápios",
   "noScreens": "Nenhuma tela está aberta. Escolha um dos menus acima.",
+  "notInPlan": "A aplicação «{{app}}» não está incluída no seu plano Paxve.",
+  "notInPlanTitle": "Não incluído no seu plano",
   "ofRows": "de {{n}}",
   "open": "Abrir",
   "openScreens": "Abrir telas",
@@ -2736,6 +2760,7 @@
   "today": "Coletado hoje",
   "total": "Total",
   "unpin": "Ocultar ícones",
+  "upgrade": "Mudar de plano",
   "user": "Usuário",
   "v": {
    "about": "Para",
@@ -2750,10 +2775,7 @@
    "receiverSign": "Assinatura do receptor",
    "saved": "Salvo — voucher {{n}}",
    "words": "Em palavras"
-  },
-  "notInPlanTitle": "Não incluído no seu plano",
-  "notInPlan": "A aplicação «{{app}}» não está incluída no seu plano Paxve.",
-  "upgrade": "Mudar de plano"
+  }
  },
  "nav": {
   "accounting": "Contabilidade",
@@ -3118,6 +3140,7 @@
    "unblock": "Desbloquear"
   },
   "all": "Todos",
+  "allApps": "Todas as aplicações",
   "allCountries": "Todos os países",
   "allPlans": "Todos os planos",
   "answer": "Resposta à organização (opcional)",
@@ -3136,9 +3159,11 @@
    "trial_other": "Teste gratuito: faltam {{count}} dias."
   },
   "biz": {
+   "clothing": "Roupas e sapatos",
    "generator": "Gerador",
    "internet": "Internet",
    "satellite": "Satélite",
+   "supermarket": "Supermercado",
    "water": "Água"
   },
   "blockReason": "Motivo mostrado no login (por exemplo, não pago)",
@@ -3223,6 +3248,14 @@
    "users": "Usuários"
   },
   "from": "De",
+  "gf": {
+   "apps": "Aplicações do plano",
+   "count": "{{n}} organizações mantêm aplicações que já usam",
+   "hint": "Estavam em uso quando a lista de aplicações do plano foi reduzida, por isso a organização mantém-nas. Remova-as para aplicar o plano tal como está.",
+   "kept": "Aplicações mantidas",
+   "planHint": "As organizações que já usam uma aplicação que desmarca mantêm-na (aparece como aplicação mantida no resumo).",
+   "remove": "Remover aplicações mantidas"
+  },
   "help": {
    "dash": {
     "body": "Cada organização que se inscreveu no Paxve , contada pela sua situação: em teste, ativa (paga), em carência (a data de término passou, mas ainda podem trabalhar por alguns dias), expirada (podem procurar e exportar, mas não salvar) e bloqueada (ninguém pode entrar).\n\n A receita mensal (MRR) soma o preço mensal de cada organização ativa ou de carência; os planos anuais contam como um duodécimo. Clique em uma caixa para abrir a lista atrás dela.",
@@ -3247,6 +3280,11 @@
   },
   "hide": "Esconder",
   "inAppOnly": "apenas banner (sem configuração de mensagens)",
+  "jobs": {
+   "hint": "Enquanto estiver expirada ou bloqueada, nada corre sozinho para esta organização (faturação, lembretes, lançamentos recorrentes, mensagens, corte/reposição de internet, webhooks). O trabalho em fila espera e segue após renovação ou desbloqueio.",
+   "paused": "tarefas automáticas em pausa",
+   "resumed": "tarefas automáticas retomadas"
+  },
   "k": {
    "arr": "Receita anual",
    "churn": "Perdido em 30 dias",
@@ -3336,6 +3374,17 @@
   "saved": "Salvo.",
   "search": "Pesquise nome, e-mail, telefone…",
   "secretHint": "Nova senha de {{email}} — mostrada apenas agora. Dê a eles; suas sessões abertas foram encerradas.",
+  "setup": {
+   "def": "predefinido",
+   "logOnly": "As mensagens estão em «registo»: os lembretes só são escritos no registo do servidor, não enviados. Adicione WhatsApp, SMS ou e-mail na sua empresa → Mensagens.",
+   "messaging": "Mensagens que enviam os lembretes de renovação ({{company}})",
+   "none": "Sem mensagens configuradas: os lembretes aparecem só como aviso dentro do Paxve. Adicione WhatsApp, SMS ou e-mail na sua empresa → Mensagens.",
+   "off": "desativado",
+   "ok": "Os lembretes saem por {{name}}.",
+   "sales": "Onde as organizações pagam",
+   "salesMissing": "Não definido: as organizações não sabem onde pagar e os pedidos de renovação não chegam ao seu telefone. Defina PAXVE_SALES_PHONE e PAXVE_SALES_EMAIL no .env do servidor e reinicie o Paxve.",
+   "title": "Configuração da plataforma"
+  },
   "st": {
    "active": "Ativo",
    "blocked": "Bloqueado",
@@ -3373,31 +3422,6 @@
    "invoices": "Faturas deste mês",
    "payments": "Pagamentos este mês",
    "storage": "Anexos"
-  },
-  "allApps": "Todas as aplicações",
-  "gf": {
-   "apps": "Aplicações do plano",
-   "kept": "Aplicações mantidas",
-   "remove": "Remover aplicações mantidas",
-   "hint": "Estavam em uso quando a lista de aplicações do plano foi reduzida, por isso a organização mantém-nas. Remova-as para aplicar o plano tal como está.",
-   "count": "{{n}} organizações mantêm aplicações que já usam",
-   "planHint": "As organizações que já usam uma aplicação que desmarca mantêm-na (aparece como aplicação mantida no resumo)."
-  },
-  "jobs": {
-   "paused": "tarefas automáticas em pausa",
-   "resumed": "tarefas automáticas retomadas",
-   "hint": "Enquanto estiver expirada ou bloqueada, nada corre sozinho para esta organização (faturação, lembretes, lançamentos recorrentes, mensagens, corte/reposição de internet, webhooks). O trabalho em fila espera e segue após renovação ou desbloqueio."
-  },
-  "setup": {
-   "title": "Configuração da plataforma",
-   "messaging": "Mensagens que enviam os lembretes de renovação ({{company}})",
-   "none": "Sem mensagens configuradas: os lembretes aparecem só como aviso dentro do Paxve. Adicione WhatsApp, SMS ou e-mail na sua empresa → Mensagens.",
-   "logOnly": "As mensagens estão em «registo»: os lembretes só são escritos no registo do servidor, não enviados. Adicione WhatsApp, SMS ou e-mail na sua empresa → Mensagens.",
-   "ok": "Os lembretes saem por {{name}}.",
-   "def": "predefinido",
-   "off": "desativado",
-   "sales": "Onde as organizações pagam",
-   "salesMissing": "Não definido: as organizações não sabem onde pagar e os pedidos de renovação não chegam ao seu telefone. Defina PAXVE_SALES_PHONE e PAXVE_SALES_EMAIL no .env do servidor e reinicie o Paxve."
   }
  },
  "perm": {
@@ -3805,6 +3829,271 @@
   "collector": "Coletor",
   "data_entry": "Entrada de dados",
   "read_only": "Somente leitura"
+ },
+ "rt": {
+  "active": "Ativo",
+  "amount": "Quantia",
+  "barcode": "Código de barras",
+  "code": "Código",
+  "currency": "Moeda",
+  "customer": "Cliente",
+  "date": "Data",
+  "e": {
+   "days": "dias",
+   "daysLeft": "Dias restantes",
+   "expiry": "Termo",
+   "lot": "Muito",
+   "markdown": "Marcar para baixo",
+   "marked": "Em promoção",
+   "none": "Nada expira em breve",
+   "remove": "Remover da prateleira",
+   "returnsHint": "Mercadoria para devolver ao fornecedor: abrir a fatura do fornecedor e fazer uma nota de débito (devolução com crédito).",
+   "suggested": "Sugerido",
+   "warehouse": "Armazém",
+   "within": "Expirando dentro"
+  },
+  "from": "De",
+  "g": {
+   "auto": "automático",
+   "balance": "Equilíbrio",
+   "code": "Código do cartão",
+   "expires": "Expira",
+   "initial": "Inicial",
+   "issue": "Emitir o voucher",
+   "mv": {
+    "issue": "Publicado",
+    "redeem": "Usado",
+    "refund": "Reembolso",
+    "void": "Anulado"
+   },
+   "outstanding": "Cartões não utilizados",
+   "search": "Pesquise um código de cartão…",
+   "source": "Fonte",
+   "src": {
+    "manual": "Manual",
+    "pos": "Vendido no caixa",
+    "promo": "Voucher grátis"
+   },
+   "st": {
+    "active": "Ativo",
+    "used": "Usado",
+    "void": "Vazio"
+   },
+   "void": "Anular o cartão",
+   "voidQ": "Anular este cartão? Seu saldo não utilizado é liberado.",
+   "voucher": "Dê um voucher grátis",
+   "voucherHint": "Um voucher oferecido gratuitamente (aniversário, pedido de desculpas, concurso) é um custo de marketing. Os cartões vendidos no caixa são um passivo até serem usados."
+  },
+  "l": {
+   "adjust": "Adicionar/remover pontos",
+   "card": "Cartão",
+   "earnPer": "Pontos por 1 {{cur}}",
+   "hint": "Os clientes ganham pontos sobre o que pagam e os usam para pagar posteriormente. O valor dos pontos é contabilizado como custo e passivo ( {{cur}} ).",
+   "k": {
+    "adjust": "Ajustado",
+    "earn": "Merecido",
+    "expire": "Expirado",
+    "redeem": "Usado",
+    "reverse": "Invertido"
+   },
+   "kind": "Mover",
+   "lifetime": "Vida",
+   "minRedeem": "Pontos mínimos para usar",
+   "newCard": "Dê um número de cartão",
+   "phone": "Telefone",
+   "pointValue": "Valor de 1 ponto ( {{cur}} )",
+   "points": "Pontos",
+   "program": "Programa de fidelidade",
+   "pts": "pontos",
+   "search": "Pesquise um membro (nome, telefone, cartão)…",
+   "stats": "{{members}} membros · {{points}} pontos para resgatar",
+   "tiers": "Níveis (nome: pontos mínimos: multiplicador)"
+  },
+  "lb": {
+   "brand": "Marca",
+   "byWeight": "Vendido por peso",
+   "content": "Conteúdo (pelo preço unitário)",
+   "copies": "Cópias",
+   "exportPLU": "Exportar arquivo PLU para a balança",
+   "itemRetail": "Item: PLU, peso, marca, conteúdo",
+   "labels": "Etiquetas de prateleira e código de barras",
+   "layout": "Disposição",
+   "prefixes": "Prefixos",
+   "print": "Imprimir",
+   "scale": "Códigos de barras de escala",
+   "scaleHint": "As etiquetas impressas pela balança começam com 2 + o prefixo, depois o PLU (5 dígitos) e o peso ou preço. Formato: prefixo:peso|preço:decimais.",
+   "shelf": "Etiquetas de prateleira (A4, 3 por linha)",
+   "small": "Etiquetas de código de barras pequenas (5 por linha)",
+   "variantPrefix": "Prefixo para novos códigos de barras variantes"
+  },
+  "m": {
+   "expiry": "Perto do vencimento",
+   "gift": "Cartões-presente",
+   "labels": "Escalas e rótulos",
+   "loyalty": "Pontos de fidelidade",
+   "packs": "Pacotes de negócios",
+   "promos": "Promoções",
+   "receive": "Receba digitalizando",
+   "report": "Vendas no varejo",
+   "variants": "Tamanhos e cores"
+  },
+  "name": "Nome",
+  "nameAr": "Nome (Árabe)",
+  "note": "Observação",
+  "p": {
+   "a": {
+    "all": "Tudo",
+    "brands": "Marcas",
+    "categories": "Categorias",
+    "items": "Alguns itens"
+   },
+   "appliesTo": "Aplica-se a",
+   "brands": "Marcas (separadas por vírgulas)",
+   "bundleItems": "Itens e quantidades do pacote",
+   "buy": "Comprar",
+   "conditions": "Condições (datas, horários, cupom, caixas registradoras)",
+   "coupon": "Código do cupom (vazio = automático)",
+   "dayNames": "Dom, Seg, Ter, Quarta, Qui, Sex, Sábado",
+   "edit": "Editar promoção",
+   "get": "Pegar",
+   "getPct": "Desconto nos gratuitos (%)",
+   "given": "Dado",
+   "help": {
+    "basket": "Fora de toda a cesta quando atingir um valor (por exemplo, 5% acima de 50).",
+    "bundle": "Esses itens juntos a um preço de pacote (ou% de desconto no pacote).",
+    "bxgy": "Compre X e ganhe Y grátis (ou com% de desconto). As unidades mais baratas são as gratuitas.",
+    "discount": "Uma % ou um desconto por unidade, ou um preço unitário especial, nos itens escolhidos.",
+    "tiers": "Quanto mais comprarem dos itens escolhidos, maior será a % (por exemplo, 3+ → 5%, 6+ → 10%)."
+   },
+   "k": {
+    "basket": "Desconto na cesta",
+    "bundle": "Pacote",
+    "bxgy": "Compre X e ganhe Y",
+    "discount": "Desconto",
+    "tiers": "Camadas de quantidade"
+   },
+   "kind": "Tipo",
+   "maxUses": "Máximo de usos",
+   "minAmount": "Cesta de",
+   "new": "Nova promoção",
+   "none": "Nenhuma promoção ainda",
+   "priority": "Prioridade",
+   "stackable": "Pode somar com outras promoções",
+   "tiers": "Camadas de quantidade (quantidade:% , quantidade:%)",
+   "timeFrom": "A partir de hora",
+   "timeTo": "Para hora",
+   "uses": "Usos",
+   "value": "Valor",
+   "valueType": "Desconto como",
+   "vt": {
+    "amount": "Valor de desconto (por unidade)",
+    "pct": "% desligado",
+    "price": "Preço especial"
+   },
+   "when": "Quando"
+  },
+  "pk": {
+   "apply": "Use este pacote",
+   "clothing": "Roupas e sapatos",
+   "clothingDesc": "Tamanhos × cores com código de barras por variante, vendas sazonais, ofertas 3 por 2, fidelidade, cartões-presente.",
+   "demo": "Carregue também dados de demonstração",
+   "hint": "Um pacote empresarial ativa os aplicativos certos, o programa de fidelidade e os padrões de varejo, e pode carregar dados de demonstração (itens, promoções, caixa registradora) para experimentar de tudo.",
+   "supermarket": "Supermercado / minimercado",
+   "supermarketDesc": "Mercadorias pesadas e etiquetas de balança, promoções, pontos de fidelidade, cartões-presente, descontos perto do vencimento, caixa rápida."
+  },
+  "pos": {
+   "addToCart": "Adicionar ao carrinho",
+   "allowQuick": "Os caixas podem criar um item rápido quando um código de barras é desconhecido",
+   "badCoupon": "Este cupom não é válido agora.",
+   "countNotes": "Contar notas",
+   "coupon": "Cupom",
+   "createAndAdd": "Criar e adicionar",
+   "custSearch": "Nome, telefone ou cartão fidelidade…",
+   "display": "Exibição do cliente",
+   "drawerKick": "Abra a gaveta do dinheiro após uma venda à vista",
+   "drawerKickHint": "A gaveta deve estar conectada à impressora de recibos Bluetooth.",
+   "giftCard": "Vale-presente",
+   "giftCode": "Código do cartão (vazio = novo)",
+   "giftHint": "Um cartão-presente é um passivo: o IVA é cobrado quando o cartão é usado para comprar.",
+   "giftSold": "Vale-presente vendido",
+   "giftUsed": "Pago com vale-presente",
+   "held": "Cesta segurada",
+   "heldList": "Cestas seguradas",
+   "hold": "Segurar",
+   "keys": "Chaves: Pesquisa F2 · Cliente F4 · Cupom F7 · Espera F8 · Pagamento F9",
+   "lines": "linhas",
+   "needOnline": "Cartões-presente e pontos precisam de conexão.",
+   "newCode": "(novo código)",
+   "noHeld": "Nenhuma cesta retida",
+   "payGift": "Pague com um vale-presente",
+   "payPoints": "Use pontos ( {{points}} disponíveis, min {{min}} )",
+   "points": "Pontos ganhos {{earned}} · saldo {{balance}}",
+   "quickItem": "Novo item no caixa",
+   "removeCoupon": "Remover",
+   "saved": "Você salva",
+   "sellGift": "Vale-presente",
+   "welcome": "Bem-vindo!"
+  },
+  "price": "Preço",
+  "qty": "Quantidade",
+  "r": {
+   "cost": "Custo",
+   "hint": "Escolha o fornecedor, digitalize cada item (ou digite seu código e pressione Enter), verifique as quantidades e custos e crie a fatura do fornecedor.",
+   "makeBill": "Crie a fatura do fornecedor",
+   "notFound": "Não encontrado",
+   "ref": "Fatura do fornecedor nº.",
+   "scan": "Digitalizar",
+   "title": "Receba mercadorias digitalizando"
+  },
+  "rep": {
+   "byCategory": "Vendas por categoria",
+   "byHour": "Até vendas por hora",
+   "byItem": "Margem por item",
+   "category": "Categoria",
+   "cost": "Custo",
+   "margin": "Margem",
+   "noCategory": "Nenhuma categoria",
+   "note": "Vendas sem IVA. O custo é o custo do estoque das mercadorias vendidas (moeda base, mostrada à taxa de hoje em outra moeda). Os kits mostram seus componentes.",
+   "revenue": "Vendas"
+  },
+  "rib": "Varejo",
+  "save": "Salvar",
+  "saved": "Salvo",
+  "searchItem": "Pesquise um item (nome, código ou código de barras)…",
+  "signup": {
+   "b": {
+    "clothing": "Roupas e sapatos",
+    "generator": "Gerador / eletricidade",
+    "internet": "Provedor de Internet",
+    "satellite": "Televisão por satélite",
+    "supermarket": "Supermercado / minimercado",
+    "water": "Água"
+   },
+   "business": "Seu negócio",
+   "demoHint": "Configuramos os aplicativos e adicionamos itens de demonstração e promoções que você pode excluir posteriormente."
+  },
+  "status": "Status",
+  "to": "Para",
+  "v": {
+   "addAttr": "Atributo",
+   "attrName": "Atributo (tamanho, cor…)",
+   "attrValues": "Valores separados por vírgulas",
+   "attributes": "Atributos",
+   "colour": "Cor",
+   "extras": "Preço extra por valor (um por linha, por exemplo Tamanho=XL: 2)",
+   "generate": "Gerar as variantes",
+   "hint": "Escolha um item (camiseta, sapato…), atribua atributos (Tamanho: S, M, L · Cor: Branco, Preto) e gere um item por combinação. Cada variante tem seu próprio código, código de barras, preço e estoque, e é vendida como qualquer item.",
+   "list": "Variantes (preço, código de barras)",
+   "makePO": "Crie o pedido de compra",
+   "makeTemplate": "Transforme um item em modelo",
+   "matrix": "Grade de estoque",
+   "none": "Nenhum modelo ainda",
+   "order": "ordem",
+   "saveSetup": "Salvar atributos",
+   "size": "Tamanho",
+   "supplier": "Fornecedor",
+   "variants": "Variantes"
+  }
  },
  "sales": {
   "accept": "Aceitar",
