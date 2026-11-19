@@ -148,10 +148,11 @@ func (s *Server) createStockTransfer(w http.ResponseWriter, r *http.Request) {
 		if notes != "" {
 			memo += " · " + notes
 		}
-		if err := stockOut(ctx, tx, cid, it.ID, in.From, qty, avg, value, in.Date, "transfer", id, nil, memo); err != nil {
+		lctx := withLotCarry(ctx) // the lots taken out arrive in the other warehouse
+		if err := stockOut(lctx, tx, cid, it.ID, in.From, qty, avg, value, in.Date, "transfer", id, nil, memo); err != nil {
 			return nil, err
 		}
-		if err := stockIn(ctx, tx, cid, it.ID, in.To, qty, value, in.Date, "transfer", id, nil, memo); err != nil {
+		if err := stockIn(lctx, tx, cid, it.ID, in.To, qty, value, in.Date, "transfer", id, nil, memo); err != nil {
 			return nil, err
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+transferCols+transferFrom+` WHERE t.id = $1`, id)

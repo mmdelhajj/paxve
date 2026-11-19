@@ -2728,6 +2728,10 @@
     "body": "El paquete de países establece el plan de cuentas, los impuestos predeterminados, el año fiscal y qué facturas deben mostrar en ese país.\n\n El idioma predeterminado se utiliza para los mensajes de WhatsApp /SMS y el portal del cliente cuando un cliente no tiene un idioma propio (configúrelo en la tarjeta del cliente).\n\n En Arabia Saudita, las facturas impresas llevan el código QR ZATCA (vendedor, número de IVA, hora, total, IVA): introduzca su número de IVA en la configuración del documento.",
     "title": "País e idioma"
    },
+   "stock": {
+    "body": "Configuración de artículos: elija costeo promedio o FIFO, seguimiento de lotes o series, otras unidades (un barril de 200 L), kits y reglas de reorden.\n\n Lotes y series: dónde está cada lote o número de serie y su historial completo. Recuento de existencias: imprima la hoja, escriba lo que contó, publique las diferencias. Reposición: qué pedir y cuántos días te dura el diésel. Listas de precios: precios por cliente y por cantidad. Costos desembarcados: fletes y aduanas añadidos al costo de las mercancías.",
+    "title": "Acciones profesionales"
+   },
    "translations": {
     "body": "Cada texto de la interfaz se puede reformular para su organización, en todos los idiomas.\n\n Elija un idioma, busque el texto (escriba en la fila amarilla), haga clic en él y escriba su texto. Sus usuarios lo ven en la siguiente carga de la página. Vacíe el texto para volver al enviado.\n\n Turco, español, alemán, portugués, ruso, persa, urdu y kurdo son traducciones automáticas: corrige lo que se lee mal.",
     "title": "Traducciones"
@@ -2764,6 +2768,84 @@
   },
   "saved": "Guardado",
   "showIn": "Entrar",
+  "st": {
+   "avg": "Promedio ponderado",
+   "byQty": "Distribuido por cantidad",
+   "byValue": "Distribución por valor",
+   "component": "Componente",
+   "costing": "Costo",
+   "count": "recuento de existencias",
+   "counted": "contado",
+   "cs": {
+    "cancelled": "Cancelado",
+    "draft": "Borrador",
+    "posted": "Al corriente"
+   },
+   "dailyUse": "Usado por día",
+   "daysLeft": "Días restantes",
+   "diff": "Diferencia",
+   "doc": "Documento",
+   "expected": "en el sistema",
+   "expiry": "Expiración",
+   "fromQty": "De cantidad",
+   "inStock": "En stock",
+   "kind": "Tipo",
+   "kinds": {
+    "consumable": "Consumible",
+    "kit": "Equipo",
+    "service": "Servicio",
+    "stock": "Existencias"
+   },
+   "kitHint": "Kit: la venta de este artículo agota estos componentes",
+   "landed": "Costo de destino",
+   "landedHint": "Flete, aduana o transporte añadido al coste de la mercancía en factura. La proporción de bienes ya vendidos se destina al costo de ventas.",
+   "listName": "Lista de precios",
+   "lot": "Lotes/vencimiento",
+   "lotNo": "Lote/serie",
+   "m": {
+    "counts": "recuento de existencias",
+    "items": "Configuración del artículo",
+    "landed": "Costos de aterrizaje",
+    "lots": "Lotes y series",
+    "prices": "Listas de precios",
+    "replenish": "Reposición"
+   },
+   "newCount": "Nueva hoja de recuento",
+   "none": "Ninguno",
+   "paidFrom": "Pagado desde…",
+   "pickBill": "Elija la factura del proveedor de la mercancía.",
+   "pickCount": "Elige o inicia un conteo",
+   "pickItem": "Elige un artículo",
+   "pickList": "Elige una lista de precios",
+   "plHint": "Varias líneas de un artículo = saltos de cantidad",
+   "postCount": "Publica las diferencias",
+   "reorder": "Regla de reorden (min → max) por almacén",
+   "repHint": "Los artículos por debajo del mínimo son lo primero; días restantes = stock ÷ uso de los últimos 30 días",
+   "saveKit": "guardar kit",
+   "saveUnits": "Guardar unidades",
+   "serial": "Números de serie",
+   "src": {
+    "adjust": "Ajuste",
+    "bill": "Factura",
+    "bill_void": "Factura cancelada",
+    "count": "Contar",
+    "credit_note": "nota de crédito",
+    "debit_note": "Volver al proveedor",
+    "delivery": "Entrega",
+    "fuel": "Combustible usado",
+    "sale": "Venta",
+    "sale_void": "Venta cancelada",
+    "stock_void": "Cancelado",
+    "transfer": "Transferir"
+   },
+   "status": "Estado",
+   "title": "Acciones profesionales",
+   "toOrder": "Para ordenar",
+   "trace": "Haz doble clic en mucho para ver su historial.",
+   "tracking": "Seguimiento",
+   "unit": "Unidad",
+   "units": "Otras unidades (1 unidad = n {{unit}} )"
+  },
   "t": {
    "localization": "País e idioma",
    "translations": "Traducciones"

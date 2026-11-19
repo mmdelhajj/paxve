@@ -95,3 +95,11 @@ See [docs/API.md](docs/API.md) and the OpenAPI spec at `https://paxve.com/api/v1
 
 `web/src/locales/{en,ar,fr}.ts`. To add one: copy `en.ts`, translate, register it in `web/src/i18n.ts` and in
 `supportedLocales` (`internal/httpapi/server.go`).
+
+## Module T: countries, currencies, languages, professional stock
+
+- Country packs for 19 countries (chart, account roles, taxes, invoice rules, ZATCA QR for Saudi Arabia) — see docs/LOCALIZATION.md.
+- All ISO 4217 currencies; automatic daily rates (opt-in, never over a typed rate); statements in any presentation currency.
+- 11 interface languages (8 machine-translated, RTL for Persian / Urdu / Kurdish), customer language, per-tenant text corrections.
+- Stock: FIFO or average costing per item, lots / serial numbers with expiry and traceability, units of measure on purchases,
+  kits, reorder rules with replenishment and days-left, stock counts, landed costs, price lists with quantity breaks.

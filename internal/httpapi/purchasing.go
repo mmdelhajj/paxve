@@ -114,6 +114,15 @@ func outValue(ctx context.Context, tx pgx.Tx, item, wh string, have, avg, qty de
 	if qty.Equal(have) {
 		return held, nil
 	}
+	if costing, _, err := itemStockMode(ctx, tx, item); err != nil {
+		return decimal.Zero, err
+	} else if costing == "fifo" {
+		v, err := fifoOutValue(ctx, tx, item, wh, qty)
+		if err != nil {
+			return decimal.Zero, err
+		}
+		return decimal.Min(v, held), nil
+	}
 	v := qty.Mul(avg).Round(4)
 	if v.GreaterThan(held) {
 		v = held
@@ -153,10 +162,13 @@ func stockIn(ctx context.Context, tx pgx.Tx, cid, item, wh string, qty, value de
 	if !qty.IsZero() {
 		unit = value.DivRound(qty, 6)
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO stock_moves (company_id, item_id, warehouse_id, move_date, quantity, unit_cost, value, source, source_id, journal_entry_id, notes)
-		VALUES ($1, $2, $3, $4::date, $5::numeric, $6::numeric, $7::numeric, $8, nullif($9, '')::uuid, $10, $11)`,
-		cid, item, wh, date, qty.String(), unit.String(), value.String(), source, sourceID, je, notes)
-	return err
+	var moveID string
+	if err = tx.QueryRow(ctx, `INSERT INTO stock_moves (company_id, item_id, warehouse_id, move_date, quantity, unit_cost, value, source, source_id, journal_entry_id, notes)
+		VALUES ($1, $2, $3, $4::date, $5::numeric, $6::numeric, $7::numeric, $8, nullif($9, '')::uuid, $10, $11) RETURNING id::text`,
+		cid, item, wh, date, qty.String(), unit.String(), value.String(), source, sourceID, je, notes).Scan(&moveID); err != nil {
+		return err
+	}
+	return stockHooks(ctx, tx, cid, moveID, item, wh, qty, value, date, source, sourceID)
 }
 
 // stockOut removes quantity at the current average cost (value already computed by the caller).
@@ -172,10 +184,13 @@ func stockOut(ctx context.Context, tx pgx.Tx, cid, item, wh string, qty, avg, va
 	if err := setStock(ctx, tx, item, wh, q.Sub(qty), held.Sub(value)); err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO stock_moves (company_id, item_id, warehouse_id, move_date, quantity, unit_cost, value, source, source_id, journal_entry_id, notes)
-		VALUES ($1, $2, $3, $4::date, $5::numeric, $6::numeric, $7::numeric, $8, nullif($9, '')::uuid, $10, $11)`,
-		cid, item, wh, date, qty.Neg().String(), avg.String(), value.Neg().String(), source, sourceID, je, notes)
-	return err
+	var moveID string
+	if err = tx.QueryRow(ctx, `INSERT INTO stock_moves (company_id, item_id, warehouse_id, move_date, quantity, unit_cost, value, source, source_id, journal_entry_id, notes)
+		VALUES ($1, $2, $3, $4::date, $5::numeric, $6::numeric, $7::numeric, $8, nullif($9, '')::uuid, $10, $11) RETURNING id::text`,
+		cid, item, wh, date, qty.Neg().String(), avg.String(), value.Neg().String(), source, sourceID, je, notes).Scan(&moveID); err != nil {
+		return err
+	}
+	return stockHooks(ctx, tx, cid, moveID, item, wh, qty.Neg(), value.Neg(), date, source, sourceID)
 }
 
 // ---- settings ----
@@ -723,13 +738,15 @@ const billCols = `b.id, b.number, b.supplier_id, su.code AS supplier_code, su.na
 	b.journal_entry_id, b.notes, b.created_at`
 
 type billLineIn struct {
-	ItemID      string `json:"item_id"`
-	WarehouseID string `json:"warehouse_id"`
-	AccountID   string `json:"account_id"`
-	Description string `json:"description"`
-	Quantity    string `json:"quantity"`
-	UnitPrice   string `json:"unit_price"`
-	TaxRateID   string `json:"tax_rate_id"`
+	ItemID      string   `json:"item_id"`
+	WarehouseID string   `json:"warehouse_id"`
+	AccountID   string   `json:"account_id"`
+	Description string   `json:"description"`
+	Quantity    string   `json:"quantity"`
+	UnitPrice   string   `json:"unit_price"`
+	TaxRateID   string   `json:"tax_rate_id"`
+	UnitID      string   `json:"unit_id"` // a purchase unit of the item (barrel = 200 L): quantity and price are per that unit
+	Lots        []lotQty `json:"lots"`    // lot / serial numbers received (tracked items)
 }
 
 func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
@@ -793,6 +810,7 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 			amount, value decimal.Decimal
 			tax           *taxInfo
 			taxAmount     decimal.Decimal
+			lots          []lotQty
 		}
 		lines := []line{}
 		total := decimal.Zero
@@ -812,6 +830,15 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 				if ln.desc == "" {
 					ln.desc = it.Name
 				}
+				if l.UnitID != "" { // bought in a bigger unit: same amount, base quantity and price stored
+					f, uname, err := unitFactor(ctx, tx, it.ID, l.UnitID)
+					if err != nil {
+						return nil, err
+					}
+					ln.desc = fmt.Sprintf("%s (%s %s)", ln.desc, qty.String(), uname)
+					ln.qty, ln.price = qty.Mul(f), price.DivRound(f, 6)
+				}
+				ln.lots = l.Lots
 				if it.Kind == "stock" {
 					if it.Inventory == nil {
 						return nil, notSetup("inventory")
@@ -896,7 +923,7 @@ func (s *Server) createBill(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 			if l.item != nil && l.item.Kind == "stock" {
-				if err := stockIn(ctx, tx, cid, l.item.ID, l.wh, l.qty, l.value, in.BillDate, "bill", id, &je, fmt.Sprintf("Bill #%d", number)); err != nil {
+				if err := stockIn(withLots(ctx, l.item.ID, l.lots), tx, cid, l.item.ID, l.wh, l.qty, l.value, in.BillDate, "bill", id, &je, fmt.Sprintf("Bill #%d", number)); err != nil {
 					return nil, err
 				}
 			}
@@ -1026,10 +1053,10 @@ func (s *Server) voidBill(w http.ResponseWriter, r *http.Request) {
 // at the same unit cost, so the stock value matches the reversed journal entry.
 func reverseStockMoves(ctx context.Context, tx pgx.Tx, cid, source, voidSource, sourceID string, je *string, notes string) error {
 	type mv struct {
-		item, wh, name   string
-		qty, unit, value decimal.Decimal
+		id, item, wh, name string
+		qty, unit, value   decimal.Decimal
 	}
-	rows, err := tx.Query(ctx, `SELECT m.item_id::text, m.warehouse_id::text, it.name, m.quantity::text, m.unit_cost::text, m.value::text
+	rows, err := tx.Query(ctx, `SELECT m.id::text, m.item_id::text, m.warehouse_id::text, it.name, m.quantity::text, m.unit_cost::text, m.value::text
 		FROM stock_moves m JOIN items it ON it.id = m.item_id WHERE m.source = $1 AND m.source_id = $2`, source, sourceID)
 	if err != nil {
 		return err
@@ -1037,7 +1064,7 @@ func reverseStockMoves(ctx context.Context, tx pgx.Tx, cid, source, voidSource, 
 	moves, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (mv, error) {
 		var m mv
 		var q, u, v string
-		err := row.Scan(&m.item, &m.wh, &m.name, &q, &u, &v)
+		err := row.Scan(&m.id, &m.item, &m.wh, &m.name, &q, &u, &v)
 		m.qty, _ = decimal.NewFromString(q)
 		m.unit, _ = decimal.NewFromString(u)
 		m.value, _ = decimal.NewFromString(v)
@@ -1048,7 +1075,12 @@ func reverseStockMoves(ctx context.Context, tx pgx.Tx, cid, source, voidSource, 
 	}
 	date := today()
 	for _, m := range moves {
-		if m.qty.IsPositive() { // was incoming: take it out at its own cost
+		lots, err := moveLots(ctx, tx, m.id)
+		if err != nil {
+			return err
+		}
+		ctx := withLots(ctx, m.item, lots) // the same lots / serials go back
+		if m.qty.IsPositive() {            // was incoming: take it out at its own cost
 			q, _, err := lockStock(ctx, tx, m.item, m.wh)
 			if err != nil {
 				return err
@@ -1066,9 +1098,13 @@ func reverseStockMoves(ctx context.Context, tx pgx.Tx, cid, source, voidSource, 
 			if err := setStock(ctx, tx, m.item, m.wh, q.Sub(m.qty), held.Sub(m.value)); err != nil {
 				return err
 			}
-			if _, err := tx.Exec(ctx, `INSERT INTO stock_moves (company_id, item_id, warehouse_id, move_date, quantity, unit_cost, value, source, source_id, journal_entry_id, notes)
-				VALUES ($1, $2, $3, $4::date, $5::numeric, $6::numeric, $7::numeric, $8, $9, $10, $11)`,
-				cid, m.item, m.wh, date, m.qty.Neg().String(), m.unit.String(), m.value.Neg().String(), voidSource, sourceID, je, notes); err != nil {
+			var moveID string
+			if err := tx.QueryRow(ctx, `INSERT INTO stock_moves (company_id, item_id, warehouse_id, move_date, quantity, unit_cost, value, source, source_id, journal_entry_id, notes)
+				VALUES ($1, $2, $3, $4::date, $5::numeric, $6::numeric, $7::numeric, $8, $9, $10, $11) RETURNING id::text`,
+				cid, m.item, m.wh, date, m.qty.Neg().String(), m.unit.String(), m.value.Neg().String(), voidSource, sourceID, je, notes).Scan(&moveID); err != nil {
+				return err
+			}
+			if err := stockHooks(ctx, tx, cid, moveID, m.item, m.wh, m.qty.Neg(), m.value.Neg(), date, voidSource, sourceID); err != nil {
 				return err
 			}
 		} else { // was outgoing: put it back
@@ -1654,6 +1690,10 @@ type saleLine struct {
 func postSaleCOGS(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings, invoiceID string, number int64, date string, lines []saleLine) error {
 	if len(lines) == 0 {
 		return nil
+	}
+	lines, err := expandKits(ctx, tx, cid, lines)
+	if err != nil {
+		return err
 	}
 	ps, err := loadPurchSettings(ctx, tx, cid)
 	if err != nil {

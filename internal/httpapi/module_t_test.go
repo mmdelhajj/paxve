@@ -246,3 +246,119 @@ func TestLanguagesAndTranslations(t *testing.T) {
 	}
 	o.c.ok("PATCH", o.p(""), map[string]any{"default_locale": "fr", "invoice_title": "Facture"}, 200)
 }
+
+func TestStockPro(t *testing.T) {
+	needDB(t)
+	o := signup(t, "lebanon")
+	sup := str(o.c.ok("POST", o.p("/suppliers"), map[string]any{"name": "Fuel Co", "currency": "USD"}, 201).body["id"])
+	main := str(obj(o.c.ok("GET", o.p("/warehouses"), nil, 200).list[0])["id"])
+	bill := func(lines ...any) string {
+		return str(obj(o.c.ok("POST", o.p("/bills"), map[string]any{"supplier_id": sup, "bill_date": "2026-11-01", "currency": "USD", "lines": lines}, 201).body["bill"])["id"])
+	}
+	stockOf := func(item string) map[string]any {
+		for _, s := range o.c.ok("GET", o.p("/items/"+item), nil, 200).body["stock"].([]any) {
+			if str(obj(s)["warehouse_id"]) == main {
+				return obj(s)
+			}
+		}
+		return map[string]any{"quantity": "0", "value": "0"}
+	}
+
+	// units: diesel bought by the barrel (200 L), FIFO costing
+	dsl := str(o.c.ok("POST", o.p("/items"), map[string]any{"code": "DSL", "name": "Diesel", "kind": "stock", "unit": "L"}, 201).body["id"])
+	o.c.ok("PUT", o.p("/items/"+dsl+"/stock-settings"), map[string]any{"costing": "fifo"}, 200)
+	ex := o.c.ok("PUT", o.p("/items/"+dsl+"/units"), map[string]any{"units": []any{map[string]any{"name": "Barrel", "factor": "200"}}}, 200).body
+	barrel := str(obj(ex["units"].([]any)[0])["id"])
+	bill(map[string]any{"item_id": dsl, "unit_id": barrel, "quantity": "2", "unit_price": "180"}) // 400 L at 0.90
+	bill(map[string]any{"item_id": dsl, "quantity": "400", "unit_price": "1.10"})                 // 400 L at 1.10
+	st := stockOf(dsl)
+	eqDec(t, "diesel qty (barrels → litres)", st["quantity"], "800")
+	eqDec(t, "diesel value", st["value"], "800")
+	// FIFO: 500 L used = 400 × 0.90 + 100 × 1.10 = 470
+	o.c.ok("POST", o.p("/stock/fuel"), map[string]any{"item_id": dsl, "quantity": "500", "date": "2026-11-05"}, 201)
+	eqDec(t, "diesel value after FIFO use", stockOf(dsl)["value"], "330")
+	eqDec(t, "inventory = stock value", o.baseBalance(t, "31"), "330")
+
+	// serial numbers: routers
+	rtr := str(o.c.ok("POST", o.p("/items"), map[string]any{"code": "RTR", "name": "Router", "kind": "stock", "unit": "pcs"}, 201).body["id"])
+	o.c.ok("PUT", o.p("/items/"+rtr+"/stock-settings"), map[string]any{"tracking": "serial"}, 200)
+	if r := o.c.do("POST", o.p("/bills"), map[string]any{"supplier_id": sup, "bill_date": "2026-11-01", "currency": "USD",
+		"lines": []any{map[string]any{"item_id": rtr, "quantity": "2", "unit_price": "30"}}}); r.status != 422 {
+		t.Fatalf("serials required: %d %s", r.status, r.raw)
+	}
+	bill(map[string]any{"item_id": rtr, "quantity": "2", "unit_price": "30", "lots": []any{
+		map[string]any{"lot_no": "SN-001", "quantity": "1"}, map[string]any{"lot_no": "SN-002", "quantity": "1"}}})
+	lots := o.c.ok("GET", o.p("/stock/lots?item_id="+rtr), nil, 200).list
+	if len(lots) != 2 {
+		t.Fatalf("lots: %v", lots)
+	}
+	// a stock count finds one router missing: the oldest serial leaves
+	cnt := o.c.ok("POST", o.p("/stock/counts"), map[string]any{"warehouse_id": main, "date": "2026-11-06"}, 201).body
+	cid := str(obj(cnt["count"])["id"])
+	o.c.ok("PUT", o.p("/stock/counts/"+cid+"/lines"), map[string]any{"lines": []any{map[string]any{"item_id": rtr, "counted": "1"}}}, 200)
+	o.c.ok("POST", o.p("/stock/counts/"+cid+"/post"), map[string]any{}, 200)
+	eqDec(t, "routers after count", stockOf(rtr)["quantity"], "1")
+	tr := o.c.ok("GET", o.p("/stock/lots/"+str(obj(lots[0])["id"])+"/trace"), nil, 200).body
+	if len(tr["moves"].([]any)) != 2 {
+		t.Fatalf("trace of %v: %v", obj(lots[0])["lot_no"], tr["moves"])
+	}
+	if r := o.c.do("POST", o.p("/stock/counts/"+cid+"/post"), map[string]any{}); r.status != 409 {
+		t.Fatalf("count posted twice: %d", r.status)
+	}
+
+	// landed cost on the router bill: freight 10 → the router still in stock carries half, the missing one went to the count
+	rbill := ""
+	for _, b := range o.c.ok("GET", o.p("/bills"), nil, 200).body["rows"].([]any) {
+		if str(obj(b)["total"]) == "60.0000" {
+			rbill = str(obj(b)["id"])
+		}
+	}
+	if rbill == "" {
+		t.Fatal("router bill not found")
+	}
+	o.c.ok("POST", o.p("/bills/"+rbill+"/landed-costs"), map[string]any{"currency": "USD", "amount": "10", "method_id": o.methods["Cash USD"], "date": "2026-11-07"}, 201)
+	eqDec(t, "router value with freight", stockOf(rtr)["value"], "35")
+
+	// kit: installation kit = 1 router + 20 L diesel (stand-in component)
+	kit := str(o.c.ok("POST", o.p("/items"), map[string]any{"code": "KIT", "name": "Install kit", "kind": "consumable", "unit": "kit"}, 201).body["id"])
+	o.c.ok("PUT", o.p("/items/"+kit+"/components"), map[string]any{"components": []any{
+		map[string]any{"component_id": rtr, "quantity": "1"}, map[string]any{"component_id": dsl, "quantity": "20"}}}, 200)
+	cust := o.customer(t, "Kit buyer", "")
+	o.c.ok("POST", o.p("/invoices"), map[string]any{"customer_id": cust, "currency": "USD", "issue_date": "2026-11-08",
+		"lines": []any{map[string]any{"item_id": kit, "description": "Kit", "quantity": "1", "unit_price": "80"}}}, 201)
+	eqDec(t, "routers after kit sale", stockOf(rtr)["quantity"], "0")
+	eqDec(t, "diesel after kit sale", stockOf(dsl)["quantity"], "280")
+
+	// reorder rule and replenishment
+	o.c.ok("PUT", o.p("/stock/reorder-rules"), map[string]any{"item_id": dsl, "warehouse_id": main, "min_qty": "300", "max_qty": "1000", "supplier_id": sup}, 200)
+	rep := o.c.ok("GET", o.p("/reports/stock-replenishment"), nil, 200).body["rows"].([]any)
+	found := false
+	for _, x := range rep {
+		if m := obj(x); str(m["item_id"]) == dsl {
+			found = true
+			eqDec(t, "to order", m["to_order"], "720")
+			if m["days_left"] == nil {
+				t.Fatalf("days left missing: %v", m)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("replenishment: %v", rep)
+	}
+
+	// price list with a quantity break
+	pl := str(o.c.ok("POST", o.p("/price-lists"), map[string]any{"name": "Wholesale", "currency": "USD"}, 201).body["id"])
+	o.c.ok("PUT", o.p("/price-lists/"+pl+"/items"), map[string]any{"items": []any{
+		map[string]any{"item_id": dsl, "min_qty": "0", "price": "1.30"}, map[string]any{"item_id": dsl, "min_qty": "100", "price": "1.20"}}}, 200)
+	o.c.ok("PUT", o.p("/customers/"+cust+"/price-list"), map[string]any{"price_list_id": pl}, 200)
+	eqDec(t, "price 10 L", o.c.ok("GET", o.p("/items/"+dsl+"/price?customer_id="+cust+"&quantity=10&currency=USD"), nil, 200).body["price"], "1.3")
+	eqDec(t, "price 150 L", o.c.ok("GET", o.p("/items/"+dsl+"/price?customer_id="+cust+"&quantity=150&currency=USD"), nil, 200).body["price"], "1.2")
+
+	o.trialBalanced(t)
+	// valuation equals the inventory ledger
+	var val string
+	if err := itOwnerPool.QueryRow(context.Background(), `SELECT coalesce(sum(s.value), 0)::text FROM stock s JOIN items i ON i.id = s.item_id WHERE i.company_id = $1`, o.company).Scan(&val); err != nil {
+		t.Fatal(err)
+	}
+	eqDec(t, "stock valuation = inventory ledger", val, o.baseBalance(t, "31"))
+}

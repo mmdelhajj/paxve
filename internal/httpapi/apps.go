@@ -39,6 +39,7 @@ var appRoutes = []struct {
 	{"/isp/", "net", false},
 	{"/router-actions", "net", false},
 	{"/items", "stk", true},
+	{"/price-lists", "stk", true},
 	{"/warehouses", "stk", true},
 	{"/stock/", "stk", false},
 	{"/reports/stock-", "stk", false},

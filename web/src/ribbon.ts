@@ -121,6 +121,12 @@ export const RIBBON: RibbonTab[] = [
     id: 'stk', label: 'mx.rib.stk', color: '#8b5a2b', app: 'stk', tiles: [
       { page: 'items', label: 'mx.t.items', icon: IconPackage, perm: 'stock.view' },
       { page: 'stock', label: 'mx.t.stock', icon: IconGasStation, perm: 'stock.view' },
+      { page: 'stock-pro', label: 't2.st.m.items', icon: IconPackages, perm: 'stock.view' },
+      { page: 'stock-pro', param: 'counts', label: 't2.st.m.counts', icon: IconChecklist, perm: 'stock.view' },
+      { page: 'stock-pro', param: 'lots', label: 't2.st.m.lots', icon: IconBarcode, perm: 'stock.view' },
+      { page: 'stock-pro', param: 'replenish', label: 't2.st.m.replenish', icon: IconHourglass, perm: 'stock.view' },
+      { page: 'stock-pro', param: 'prices', label: 't2.st.m.prices', icon: IconCoins, perm: 'stock.view' },
+      { page: 'stock-pro', param: 'landed', label: 't2.st.m.landed', icon: IconTruck, perm: 'purchasing.view', app: 'pur' },
     ],
   },
   {

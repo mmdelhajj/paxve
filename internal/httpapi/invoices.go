@@ -228,7 +228,7 @@ func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
 					l.Description = it.Name
 				}
 				itemID = &it.ID
-				if it.Kind == "stock" && ok1 && q.IsPositive() {
+				if (it.Kind == "stock" || it.Kind == "kit") && ok1 && q.IsPositive() { // a kit sells its components
 					wh, err := checkWarehouse(ctx, tx, cid, l.WarehouseID)
 					if err != nil {
 						return nil, err

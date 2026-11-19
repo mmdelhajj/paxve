@@ -226,6 +226,7 @@ var idTable = map[string]string{
 	"lines": "bank_statement_lines", "approvals": "approval_requests", "webhooks": "webhooks",
 	"webhook-deliveries": "webhook_deliveries", "ledger": "accounts",
 	"cost-centers": "cost_centers", "journal-lines": "journal_lines", "exchanges": "currency_exchanges", "cheques": "cheques",
+	"lots": "stock_lots", "counts": "stock_counts", "price-lists": "price_lists",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)

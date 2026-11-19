@@ -215,3 +215,16 @@ curl -s "$API/companies/$CID/owner-summary" -H "$H"
   shows its real income and expenses; the balance sheet and trial balance include them.
 - A payment created by a cheque can only be undone from the cheque (`409 cheque_payment` on `/payments/{id}/void`).
 - `POST /payments` accepts `invoice_id` to settle that bill first (barcode collection).
+
+## Module T endpoints
+
+- `GET/PUT /companies/{cid}/rates/settings`, `POST /companies/{cid}/rates/fetch`; reports accept `?currency=XXX`.
+- `GET /translations?lang=xx`, `PUT /translations {lang, key, value}`.
+- `PATCH /companies/{cid}` also takes `default_locale`, `tax_id_label`, `invoice_title`, `legal_mentions`; customers take `locale`.
+- Stock: `GET /items/{id}/extras`, `PUT /items/{id}/stock-settings {costing: avg|fifo, tracking: none|lot|serial}`,
+  `PUT /items/{id}/units {units:[{name,factor}]}`, `PUT /items/{id}/components {components:[{component_id,quantity}]}`,
+  `GET /items/{id}/price?customer_id&quantity&currency`, `GET /stock/lots`, `GET /stock/lots/{id}/trace`,
+  `PUT /stock/reorder-rules`, `GET /reports/stock-replenishment`, `GET|POST /stock/counts`, `GET /stock/counts/{id}`,
+  `PUT /stock/counts/{id}/lines`, `POST /stock/counts/{id}/post|cancel`, `GET|POST /bills/{id}/landed-costs`,
+  `GET|POST /price-lists`, `PATCH /price-lists/{id}`, `GET|PUT /price-lists/{id}/items`, `PUT /customers/{id}/price-list`.
+- Bill lines accept `unit_id` (quantity and price per that unit) and `lots: [{lot_no, expiry, quantity}]`.

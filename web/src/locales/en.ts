@@ -993,7 +993,23 @@ const en = {
     },
   },
   t2: {
-    showIn: 'Show in', saved: 'Saved', custLang: 'Language of messages and portal', companyDefault: 'Company default',
+    st: {
+      title: 'Professional stock', unit: 'Unit', kind: 'Type', pickItem: 'Choose an item', costing: 'Costing', avg: 'Weighted average',
+      tracking: 'Tracking', none: 'None', lot: 'Lots / expiry', serial: 'Serial numbers', units: 'Other units (1 unit = n {{unit}})',
+      saveUnits: 'Save units', kitHint: 'Kit: selling this item takes these components out of stock', component: 'Component', saveKit: 'Save kit',
+      reorder: 'Reorder rule (min → max) per warehouse', lotNo: 'Lot / serial', expiry: 'Expiry', trace: 'Double-click a lot to see its history',
+      doc: 'Document', newCount: 'New count sheet', status: 'Status', count: 'Stock count', pickCount: 'Choose or start a count',
+      expected: 'In the system', counted: 'Counted', diff: 'Difference', postCount: 'Post the differences', inStock: 'In stock', toOrder: 'To order',
+      dailyUse: 'Used per day', daysLeft: 'Days left', repHint: 'Items under their minimum come first; days left = stock ÷ use of the last 30 days',
+      listName: 'Price list', pickList: 'Choose a price list', plHint: 'Several lines of one item = quantity breaks', fromQty: 'From quantity',
+      landed: 'Landed cost', pickBill: 'Choose the supplier bill of the goods', paidFrom: 'Paid from…', byValue: 'Spread by value', byQty: 'Spread by quantity',
+      landedHint: 'Freight, customs or transport added to the cost of the bill\'s goods. The share of goods already sold goes to cost of sales.',
+      m: { items: 'Item setup', lots: 'Lots & serials', counts: 'Stock counts', replenish: 'Replenishment', prices: 'Price lists', landed: 'Landed costs' },
+      kinds: { stock: 'Stock', service: 'Service', consumable: 'Consumable', kit: 'Kit' },
+      cs: { draft: 'Draft', posted: 'Posted', cancelled: 'Cancelled' },
+      src: { bill: 'Bill', bill_void: 'Bill cancelled', sale: 'Sale', sale_void: 'Sale cancelled', fuel: 'Fuel used', adjust: 'Adjustment', count: 'Count',
+        transfer: 'Transfer', delivery: 'Delivery', credit_note: 'Credit note', debit_note: 'Return to supplier', stock_void: 'Cancelled' },
+    },    showIn: 'Show in', saved: 'Saved', custLang: 'Language of messages and portal', companyDefault: 'Company default',
     packHint: 'Sets up the chart of accounts, taxes, invoice rules and currency of that country. Everything can be changed later.',
     t: { localization: 'Country & language', translations: 'Translations' },
     rates: {
@@ -1014,6 +1030,7 @@ const en = {
       invoiceTitle: 'Title of invoices', mentions: 'Legal mentions printed on invoices',
     },
     help: {
+      stock: { title: 'Professional stock', body: 'Item setup: choose average or FIFO costing, lot or serial tracking, other units (a barrel of 200 L), kits and reorder rules.\n\nLots & serials: where every lot or serial number is, and its whole history. Stock counts: print the sheet, type what you counted, post the differences. Replenishment: what to order and how many days your diesel lasts. Price lists: prices per customer and per quantity. Landed costs: freight and customs added to the cost of goods.' },
       translations: { title: 'Translations', body: 'Every text of the interface can be reworded for your organisation, in every language.\n\nPick a language, find the text (type in the yellow row), click it and write your wording. Your users see it at their next page load. Empty the text to go back to the shipped one.\n\nTurkish, Spanish, German, Portuguese, Russian, Persian, Urdu and Kurdish are machine translations: correct what reads badly.' },
       localization: { title: 'Country & language', body: 'The country pack sets the chart of accounts, the default taxes, the fiscal year and what invoices must show in that country.\n\nThe default language is used for WhatsApp / SMS messages and the customer portal when a customer has no language of their own (set it on the customer card).\n\nIn Saudi Arabia printed invoices carry the ZATCA QR code (seller, VAT number, time, total, VAT): fill in your VAT number in the document settings.' },
     },

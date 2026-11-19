@@ -2728,6 +2728,10 @@
     "body": "Ülke paketi, hesap planını, varsayılan vergileri, mali yılı ve o ülkede hangi faturaların gösterilmesi gerektiğini belirler.\n\n Müşterinin kendine ait bir dili olmadığında (müşteri kartında belirlenen dil) WhatsApp / SMS mesajları ve müşteri portalı için varsayılan dil kullanılır.\n\n Suudi Arabistan'da basılı faturalarda ZATCA QR kodu bulunur (satıcı, KDV numarası, saat, toplam, KDV): belge ayarlarında KDV numaranızı girin.",
     "title": "Ülke ve dil"
    },
+   "stock": {
+    "body": "Ürün kurulumu: ortalama veya FIFO maliyetlendirmeyi, parti veya seri takibini, diğer birimleri (200 L'lik bir varil), kitleri ve yeniden sipariş kurallarını seçin.\n\n Lotlar ve seriler: her lot veya seri numarasının bulunduğu yer ve tüm geçmişi. Stok sayımları: sayfayı yazdırın, ne saydığınızı yazın, farkları kaydedin. İkmal: ne sipariş edilmeli ve dizeliniz kaç gün dayanır. Fiyat listeleri: Müşteri ve miktar başına fiyatlar. İthalat maliyetleri: Mal maliyetine eklenen navlun ve gümrük.",
+    "title": "Profesyonel stok"
+   },
    "translations": {
     "body": "Arayüzdeki her metin kuruluşunuz için her dilde yeniden ifade edilebilir.\n\n Bir dil seçin, metni bulun (sarı satıra yazın), tıklayın ve ifadelerinizi yazın. Kullanıcılarınız bunu bir sonraki sayfa yüklemelerinde görür. Gönderilene geri dönmek için metni boşaltın.\n\n Türkçe, İspanyolca, Almanca, Portekizce, Rusça, Farsça, Urduca ve Kürtçe makine çevirisidir: Kötü okunanları düzeltin.",
     "title": "Çeviriler"
@@ -2764,6 +2768,84 @@
   },
   "saved": "Kaydedildi",
   "showIn": "Göster",
+  "st": {
+   "avg": "Ağırlıklı ortalama",
+   "byQty": "Miktara göre yayıldı",
+   "byValue": "Değere göre yayılma",
+   "component": "Bileşen",
+   "costing": "Maliyetlendirme",
+   "count": "Stok sayısı",
+   "counted": "sayıldı",
+   "cs": {
+    "cancelled": "İptal edildi",
+    "draft": "Taslak",
+    "posted": "Gönderildi"
+   },
+   "dailyUse": "Günlük olarak kullanılır",
+   "daysLeft": "Kalan gün sayısı",
+   "diff": "Fark",
+   "doc": "Belge",
+   "expected": "Sistemde",
+   "expiry": "Son kullanma tarihi",
+   "fromQty": "Miktardan",
+   "inStock": "Stokta var",
+   "kind": "Tip",
+   "kinds": {
+    "consumable": "Sarf malzemesi",
+    "kit": "Kit",
+    "service": "Hizmet",
+    "stock": "Stoklamak"
+   },
+   "kitHint": "Kit: Bu öğeyi satmak, bu bileşenlerin stokta kalmamasına neden olur",
+   "landed": "İniş maliyeti",
+   "landedHint": "Faturadaki malların maliyetine eklenen navlun, gümrük veya nakliye. Halihazırda satılan malların payı satışların maliyetine gider.",
+   "listName": "Fiyat listesi",
+   "lot": "Lotlar / son kullanma tarihi",
+   "lotNo": "Parti / seri",
+   "m": {
+    "counts": "Stok sayıları",
+    "items": "Öğe kurulumu",
+    "landed": "İthalat maliyetleri",
+    "lots": "Çok sayıda ve diziler",
+    "prices": "Fiyat listeleri",
+    "replenish": "Yenileme"
+   },
+   "newCount": "Yeni sayım sayfası",
+   "none": "Hiçbiri",
+   "paidFrom": "Şu tarihten itibaren ödendi:",
+   "pickBill": "Malların tedarikçi faturasını seçin",
+   "pickCount": "Bir sayım seçin veya başlatın",
+   "pickItem": "Bir öğe seçin",
+   "pickList": "Bir fiyat listesi seçin",
+   "plHint": "Bir öğenin birkaç satırı = miktar kesintileri",
+   "postCount": "Farklılıkları yayınlayın",
+   "reorder": "Depo başına yeniden sıralama kuralı (min → maks)",
+   "repHint": "Asgari sınırın altındaki öğeler önce gelir; kalan gün sayısı = stok ÷ son 30 günün kullanımı",
+   "saveKit": "Kiti kaydet",
+   "saveUnits": "Birimleri kaydet",
+   "serial": "Seri numaraları",
+   "src": {
+    "adjust": "Ayarlama",
+    "bill": "Fatura",
+    "bill_void": "Fatura iptal edildi",
+    "count": "Saymak",
+    "credit_note": "Kredi notu",
+    "debit_note": "Tedarikçiye geri dön",
+    "delivery": "Teslimat",
+    "fuel": "Kullanılan yakıt",
+    "sale": "Satış",
+    "sale_void": "Satış iptal edildi",
+    "stock_void": "İptal edildi",
+    "transfer": "Aktarım"
+   },
+   "status": "Durum",
+   "title": "Profesyonel stok",
+   "toOrder": "Sipariş vermek",
+   "trace": "Geçmişini görmek için çok şeye çift tıklayın",
+   "tracking": "Takip",
+   "unit": "Birim",
+   "units": "Diğer birimler (1 birim = n {{unit}} )"
+  },
   "t": {
    "localization": "Ülke ve dil",
    "translations": "Çeviriler"

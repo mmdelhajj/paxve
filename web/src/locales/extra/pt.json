@@ -2728,6 +2728,10 @@
     "body": "O pacote de países define o plano de contas, os impostos padrão, o ano fiscal e quais faturas devem aparecer naquele país.\n\n O idioma padrão é utilizado para mensagens WhatsApp /SMS e portal do cliente quando um cliente não possui idioma próprio (configure-o no cartão do cliente).\n\n Na Arábia Saudita, as faturas impressas trazem o código QR ZATCA (vendedor, número de IVA, hora, total, IVA): preencha o seu número de IVA nas configurações do documento.",
     "title": "País e idioma"
    },
+   "stock": {
+    "body": "Configuração de itens: escolha custo médio ou FIFO, rastreamento de lote ou série, outras unidades (barril de 200 L), kits e regras de reordenamento.\n\n Lotes e séries: onde está cada lote ou número de série e todo o seu histórico. Contagens de estoque: imprima a planilha, digite o que contou, poste as diferenças. Reabastecimento: o que pedir e quantos dias dura o seu diesel. Listas de preços: preços por cliente e por quantidade. Custos de importação: frete e alfândega somados ao custo da mercadoria.",
+    "title": "Estoque profissional"
+   },
    "translations": {
     "body": "Cada texto da interface pode ser reformulado para a sua organização, em todos os idiomas.\n\n Escolha um idioma, encontre o texto (digite na linha amarela), clique nele e escreva seu texto. Seus usuários verão isso no próximo carregamento da página. Esvazie o texto para voltar ao enviado.\n\n Turco, espanhol, alemão, português, russo, persa, urdu e curdo são traduções automáticas: corrija o que lê mal.",
     "title": "Traduções"
@@ -2764,6 +2768,84 @@
   },
   "saved": "Salvo",
   "showIn": "Mostrar em",
+  "st": {
+   "avg": "Média ponderada",
+   "byQty": "Distribuído por quantidade",
+   "byValue": "Distribuído por valor",
+   "component": "Componente",
+   "costing": "Custeio",
+   "count": "Contagem de estoque",
+   "counted": "Contado",
+   "cs": {
+    "cancelled": "Cancelado",
+    "draft": "Rascunho",
+    "posted": "Publicado"
+   },
+   "dailyUse": "Usado por dia",
+   "daysLeft": "Dias restantes",
+   "diff": "Diferença",
+   "doc": "Documento",
+   "expected": "No sistema",
+   "expiry": "Termo",
+   "fromQty": "Da quantidade",
+   "inStock": "Em estoque",
+   "kind": "Tipo",
+   "kinds": {
+    "consumable": "Consumível",
+    "kit": "Conjunto",
+    "service": "Serviço",
+    "stock": "Estoque"
+   },
+   "kitHint": "Kit: vender este item tira esses componentes do estoque",
+   "landed": "Custo final",
+   "landedHint": "Frete, alfândega ou transporte acrescido ao custo da mercadoria da fatura. A parcela das mercadorias já vendidas vai para o custo das vendas.",
+   "listName": "Lista de preços",
+   "lot": "Lotes / expiração",
+   "lotNo": "Lote/série",
+   "m": {
+    "counts": "Contagens de estoque",
+    "items": "Configuração de itens",
+    "landed": "Custos no destino",
+    "lots": "Lotes e seriados",
+    "prices": "Listas de preços",
+    "replenish": "Reabastecimento"
+   },
+   "newCount": "Nova planilha de contagem",
+   "none": "Nenhum",
+   "paidFrom": "Pago a partir de…",
+   "pickBill": "Escolha a fatura do fornecedor das mercadorias",
+   "pickCount": "Escolha ou inicie uma contagem",
+   "pickItem": "Escolha um item",
+   "pickList": "Escolha uma lista de preços",
+   "plHint": "Várias linhas de um item = quebras de quantidade",
+   "postCount": "Poste as diferenças",
+   "reorder": "Regra de reordenar (min → max) por armazém",
+   "repHint": "Os itens abaixo do mínimo vêm primeiro; dias restantes = estoque ÷ utilização dos últimos 30 dias",
+   "saveKit": "Salvar kit",
+   "saveUnits": "Salvar unidades",
+   "serial": "Números de série",
+   "src": {
+    "adjust": "Ajuste",
+    "bill": "Conta",
+    "bill_void": "Fatura cancelada",
+    "count": "Contar",
+    "credit_note": "Nota de crédito",
+    "debit_note": "Devolver ao fornecedor",
+    "delivery": "Entrega",
+    "fuel": "Combustível usado",
+    "sale": "Oferta",
+    "sale_void": "Venda cancelada",
+    "stock_void": "Cancelado",
+    "transfer": "Transferir"
+   },
+   "status": "Status",
+   "title": "Estoque profissional",
+   "toOrder": "Para pedir",
+   "trace": "Clique duas vezes muito para ver seu histórico",
+   "tracking": "Monitorando",
+   "unit": "Unidade",
+   "units": "Outras unidades (1 unidade = n {{unit}} )"
+  },
   "t": {
    "localization": "País e idioma",
    "translations": "Traduções"

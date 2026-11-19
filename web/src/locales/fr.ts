@@ -995,7 +995,23 @@ const fr: Messages = {
     },
   },
   t2: {
-    showIn: 'Afficher en', saved: 'Enregistré', custLang: 'Langue des messages et du portail', companyDefault: 'Langue par défaut de la société',
+    st: {
+      title: 'Stock avancé', unit: 'Unité', kind: 'Type', pickItem: 'Choisissez un article', costing: 'Valorisation', avg: 'Coût moyen pondéré',
+      tracking: 'Suivi', none: 'Aucun', lot: 'Lots / péremption', serial: 'Numéros de série', units: 'Autres unités (1 unité = n {{unit}})',
+      saveUnits: 'Enregistrer les unités', kitHint: 'Kit : vendre cet article sort ces composants du stock', component: 'Composant', saveKit: 'Enregistrer le kit',
+      reorder: 'Règle de réapprovisionnement (min → max) par entrepôt', lotNo: 'Lot / série', expiry: 'Péremption', trace: 'Double-cliquez un lot pour voir son historique',
+      doc: 'Document', newCount: 'Nouvelle feuille d\'inventaire', status: 'Statut', count: 'Inventaire', pickCount: 'Choisissez ou démarrez un inventaire',
+      expected: 'Dans le système', counted: 'Compté', diff: 'Écart', postCount: 'Comptabiliser les écarts', inStock: 'En stock', toOrder: 'À commander',
+      dailyUse: 'Conso. par jour', daysLeft: 'Jours restants', repHint: 'Les articles sous leur minimum d\'abord ; jours restants = stock ÷ consommation des 30 derniers jours',
+      listName: 'Liste de prix', pickList: 'Choisissez une liste de prix', plHint: 'Plusieurs lignes d\'un article = prix par quantité', fromQty: 'À partir de',
+      landed: 'Frais d\'approche', pickBill: 'Choisissez la facture fournisseur des marchandises', paidFrom: 'Payé depuis…', byValue: 'Répartir par valeur', byQty: 'Répartir par quantité',
+      landedHint: 'Transport, douane ou fret ajoutés au coût des marchandises de la facture. La part des marchandises déjà vendues va au coût des ventes.',
+      m: { items: 'Paramétrage articles', lots: 'Lots et séries', counts: 'Inventaires', replenish: 'Réapprovisionnement', prices: 'Listes de prix', landed: 'Frais d\'approche' },
+      kinds: { stock: 'Stocké', service: 'Service', consumable: 'Consommable', kit: 'Kit' },
+      cs: { draft: 'Brouillon', posted: 'Comptabilisé', cancelled: 'Annulé' },
+      src: { bill: 'Facture', bill_void: 'Facture annulée', sale: 'Vente', sale_void: 'Vente annulée', fuel: 'Carburant consommé', adjust: 'Ajustement', count: 'Inventaire',
+        transfer: 'Transfert', delivery: 'Livraison', credit_note: 'Avoir', debit_note: 'Retour fournisseur', stock_void: 'Annulé' },
+    },    showIn: 'Afficher en', saved: 'Enregistré', custLang: 'Langue des messages et du portail', companyDefault: 'Langue par défaut de la société',
     packHint: 'Installe le plan comptable, les taxes, les règles de facturation et la devise de ce pays. Tout reste modifiable.',
     t: { localization: 'Pays et langue', translations: 'Traductions' },
     rates: {
@@ -1016,6 +1032,7 @@ const fr: Messages = {
       invoiceTitle: 'Titre des factures', mentions: 'Mentions légales imprimées sur les factures',
     },
     help: {
+      stock: { title: 'Stock avancé', body: 'Paramétrage : coût moyen ou FIFO, suivi par lot ou numéro de série, autres unités (un fût de 200 L), kits et règles de réapprovisionnement.\n\nLots et séries : où se trouve chaque lot et tout son historique. Inventaires : imprimez la feuille, saisissez le compté, comptabilisez les écarts. Réapprovisionnement : quoi commander et combien de jours dure votre gazole. Listes de prix : prix par client et par quantité. Frais d\'approche : transport et douane ajoutés au coût des marchandises.' },
       translations: { title: 'Traductions', body: 'Chaque texte de l\'interface peut être reformulé pour votre organisation, dans toutes les langues.\n\nChoisissez la langue, trouvez le texte (tapez dans la ligne jaune), cliquez et écrivez votre formulation. Vos utilisateurs la voient au prochain chargement. Videz le texte pour revenir au texte fourni.\n\nLe turc, l\'espagnol, l\'allemand, le portugais, le russe, le persan, l\'ourdou et le kurde sont des traductions automatiques : corrigez ce qui sonne mal.' },
       localization: { title: 'Pays et langue', body: 'Le pack pays fixe le plan comptable, les taxes par défaut, l\'exercice et ce que les factures doivent indiquer dans ce pays.\n\nLa langue par défaut sert aux messages WhatsApp / SMS et au portail client quand un client n\'a pas sa propre langue (à régler sur sa fiche).\n\nEn Arabie saoudite, les factures imprimées portent le QR code ZATCA (vendeur, numéro de TVA, heure, total, TVA) : saisissez votre numéro de TVA dans les réglages des documents.' },
     },

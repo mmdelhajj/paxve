@@ -2728,6 +2728,10 @@
     "body": "Das Länderpaket legt den Kontenplan, die Standardsteuern, das Geschäftsjahr und die in diesem Land auszuweisenden Rechnungen fest.\n\n Die Standardsprache wird für WhatsApp /SMS-Nachrichten und das Kundenportal verwendet, wenn ein Kunde keine eigene Sprache hat (auf der Kundenkarte einstellen).\n\n In Saudi-Arabien tragen gedruckte Rechnungen den ZATCA QR Code (Verkäufer, Umsatzsteuer-Identifikationsnummer, Zeit, Gesamtbetrag, Umsatzsteuer): Geben Sie Ihre Umsatzsteuer-Identifikationsnummer in den Dokumenteinstellungen ein.",
     "title": "Land und Sprache"
    },
+   "stock": {
+    "body": "Artikeleinrichtung: Wählen Sie Durchschnitts- oder FIFO-Kostenrechnung, Chargen- oder Serienverfolgung, andere Einheiten (ein Fass mit 200 l), Kits und Nachbestellungsregeln.\n\n Lose und Serien: Hier finden Sie jede Los- oder Seriennummer und ihre gesamte Geschichte. Bestandszählungen: Drucken Sie das Blatt aus, geben Sie ein, was Sie gezählt haben, und veröffentlichen Sie die Differenzen. Nachschub: Was Sie bestellen müssen und wie viele Tage Ihr Diesel reicht. Preislisten: Preise pro Kunde und pro Menge. Einstandskosten: Fracht und Zoll werden zu den Warenkosten hinzugerechnet.",
+    "title": "Professioneller Bestand"
+   },
    "translations": {
     "body": "Jeder Text der Benutzeroberfläche kann für Ihre Organisation in jeder Sprache umformuliert werden.\n\n Wählen Sie eine Sprache aus, suchen Sie den Text (tippen Sie ihn in die gelbe Zeile), klicken Sie darauf und schreiben Sie Ihren Wortlaut. Ihre Benutzer sehen es beim nächsten Laden der Seite. Leeren Sie den Text, um zum versendeten Text zurückzukehren.\n\n Türkisch, Spanisch, Deutsch, Portugiesisch, Russisch, Persisch, Urdu und Kurdisch sind maschinelle Übersetzungen: Korrigieren Sie, was sich schlecht liest.",
     "title": "Übersetzungen"
@@ -2764,6 +2768,84 @@
   },
   "saved": "Gespeichert",
   "showIn": "Einblenden",
+  "st": {
+   "avg": "Gewichteter Durchschnitt",
+   "byQty": "Nach Menge verteilen",
+   "byValue": "Nach Wert verteilen",
+   "component": "Komponente",
+   "costing": "Kalkulation",
+   "count": "Bestandszählung",
+   "counted": "Gezählt",
+   "cs": {
+    "cancelled": "Abgesagt",
+    "draft": "Entwurf",
+    "posted": "Gepostet"
+   },
+   "dailyUse": "Pro Tag verwendet",
+   "daysLeft": "Tage übrig",
+   "diff": "Unterschied",
+   "doc": "Dokumentieren",
+   "expected": "Im System",
+   "expiry": "Ablauf",
+   "fromQty": "Ab Menge",
+   "inStock": "Auf Lager",
+   "kind": "Typ",
+   "kinds": {
+    "consumable": "Verbrauchsmaterial",
+    "kit": "Bausatz",
+    "service": "Service",
+    "stock": "Aktie"
+   },
+   "kitHint": "Bausatz: Durch den Verkauf dieses Artikels sind diese Komponenten nicht mehr vorrätig",
+   "landed": "Gesamtkosten",
+   "landedHint": "Fracht-, Zoll- oder Transportkosten, die zu den Warenkosten auf der Rechnung hinzugerechnet werden. Der Anteil der bereits verkauften Waren fließt in die Umsatzkosten ein.",
+   "listName": "Preisliste",
+   "lot": "Lose / Ablauf",
+   "lotNo": "Los / Serie",
+   "m": {
+    "counts": "Der Bestand zählt",
+    "items": "Artikeleinrichtung",
+    "landed": "Anschaffungskosten",
+    "lots": "Lose und Serien",
+    "prices": "Preislisten",
+    "replenish": "Nachschub"
+   },
+   "newCount": "Neues Zählblatt",
+   "none": "Keiner",
+   "paidFrom": "Bezahlt von…",
+   "pickBill": "Wählen Sie die Lieferantenrechnung der Waren",
+   "pickCount": "Wählen Sie eine Zählung aus oder starten Sie sie",
+   "pickItem": "Wählen Sie einen Artikel",
+   "pickList": "Wählen Sie eine Preisliste",
+   "plHint": "Mehrere Zeilen eines Artikels = Mengenstaffelungen",
+   "postCount": "Posten Sie die Unterschiede",
+   "reorder": "Nachbestellungsregel (Min. → Max.) pro Lager",
+   "repHint": "Artikel, die unter ihrem Mindestwert liegen, kommen zuerst; Verbleibende Tage = Lagerbestand ÷ Nutzung der letzten 30 Tage",
+   "saveKit": "Kit speichern",
+   "saveUnits": "Einheiten speichern",
+   "serial": "Seriennummern",
+   "src": {
+    "adjust": "Einstellung",
+    "bill": "Rechnung",
+    "bill_void": "Rechnung abgesagt",
+    "count": "Zählen",
+    "credit_note": "Gutschrift",
+    "debit_note": "Zurück zum Lieferanten",
+    "delivery": "Lieferung",
+    "fuel": "Kraftstoffverbrauch",
+    "sale": "Verkauf",
+    "sale_void": "Verkauf abgebrochen",
+    "stock_void": "Abgesagt",
+    "transfer": "Überweisen"
+   },
+   "status": "Status",
+   "title": "Professioneller Bestand",
+   "toOrder": "Auf Bestellung",
+   "trace": "Doppelklicken Sie auf ein Los, um seinen Verlauf anzuzeigen",
+   "tracking": "Verfolgung",
+   "unit": "Einheit",
+   "units": "Andere Einheiten (1 Einheit = n {{unit}} )"
+  },
   "t": {
    "localization": "Land und Sprache",
    "translations": "Übersetzungen"
