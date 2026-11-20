@@ -55,6 +55,11 @@
 .sx-topin { display: flex; align-items: center; gap: 8px; height: 64px; }
 .sx-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); font-family: var(--display); font-weight: 600; font-size: 19px; }
 .sx-brand { gap: 8px; direction: ltr; color: var(--navy); }
+/* logo sizes: header 32 px (phone 28), footer 28 px; the wordmark caps are 1 / 1.2 of the mark */
+.sx-footbrand .sx-brand .pxv-mark { width: 28px; height: 28px; }
+.sx-footbrand .sx-brand .pxv-word { height: 24px; width: auto; }
+.sx-footbrand .sx-brand { gap: 7px; }
+@media (max-width: 720px) { .sx-brand .pxv-mark { width: 28px; height: 28px; } .sx-brand .pxv-word { height: 24px; width: auto; } }
 .sx-brand .nm { display: block; }
 .sx-nav { display: flex; align-items: center; gap: 2px; margin-inline-start: 22px; }
 .sx-nav > button { font: inherit; font-size: 15px; color: var(--ink2); background: none; border: 0; padding: 8px 11px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }

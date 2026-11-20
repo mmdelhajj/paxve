@@ -4,9 +4,9 @@ import { Mark, Wordmark } from './Brand';
 export default function Logo({ size = 'lg' }: { size?: 'lg' | 'xl' }) {
   const xl = size === 'xl';
   return (
-    <span className="pxv-lockup" style={{ gap: xl ? 9 : 6 }}>
-      <Mark size={xl ? 34 : 24} />
-      <Wordmark height={xl ? 28 : 20} />
+    <span className="pxv-lockup" style={{ gap: xl ? 12 : 6 }}>
+      <Mark size={xl ? 48 : 24} />
+      <Wordmark height={xl ? 40 : 20} />
     </span>
   );
 }
