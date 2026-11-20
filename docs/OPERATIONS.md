@@ -120,3 +120,27 @@ create databases and set the `paxve_app` password.
   the handlers; `TestCompanyIsolationEveryRoute` calls every id route of the API with another company's ids.
 - Approved requests run in the requester's name with the requester's current permissions; the audit log records
   the approver (`approved_by`) and the approval request.
+
+## Security and operations after the 2026-11-20 audit
+
+- **Backups**: `/usr/local/bin/paxve-backup` (daily 03:30) writes `/srv/backups/paxve-YYYYMMDD-HHMM.dump.gpg`, encrypted with
+  AES-256 using `/srv/paxve-secrets/backup-passphrase`. **Keep a copy of `/srv/paxve-secrets` off the server**: without the
+  passphrase the dumps cannot be read, and without `app-secret-key.env` encrypted fields cannot be read after a restore.
+  Restore: `gpg --batch --pinentry-mode loopback --passphrase-file /srv/paxve-secrets/backup-passphrase -d FILE.dump.gpg > db.dump`
+  then `pg_restore`.
+- **Off-site copy**: install rclone, put its config in `/srv/paxve-secrets/rclone.conf` and `RCLONE_REMOTE=remote:bucket` in
+  `/srv/paxve-secrets/offsite.env`; every backup is then copied there too.
+- **Restore test**: `/usr/local/bin/paxve-restore-test` every Sunday 04:15 restores the newest dump into a throw-away
+  PostgreSQL and logs the result in `/var/log/paxve-restore-test.log`.
+- **Docker clean-up**: Sundays 04:45, images and build cache older than 7 days (volumes are never pruned).
+- **Origin**: only Cloudflare may open ports 80/443 (`/usr/local/bin/paxve-cf-origin`, service `paxve-cf-origin`).
+  A device that must reach the server's IP directly (fingerprint machine on plain HTTP) goes in `/etc/paxve/origin-allow`
+  (one address per line), then `paxve-cf-origin`. `paxve-cf-origin off` removes the restriction.
+- **SSH**: keys only (`/etc/ssh/sshd_config.d/00-paxve-hardening.conf`) on both servers.
+- **Logs**: app logs in journald (`journalctl CONTAINER_TAG=paxve-app --since today`, 30 days / 1 GB), web access log in
+  `/var/log/caddy/access.log` (rotated, 30 days).
+- **Deploys**: `push.ps1` refuses to upload when the server's git state differs from the last sync (`sync.ps1` pulls the
+  server's files first). Never edit files on the server without syncing back.
+- **Fingerprint devices**: each device pushes to its own secret address `/iclock/k/<token>/` (shown in HR → devices), or
+  from a registered fixed IP. The serial number alone is refused.
+- **Platform owner**: two-step sign-in is mandatory for platform admins (7-day grace, then only its setup opens).

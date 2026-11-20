@@ -471,9 +471,11 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
   // ---- no open session: open one ----
   if (!sessionId) {
     return (
-      <Box mih="100vh" bg="var(--mantine-color-gray-0)">
+      <Box mih="100vh" bg="var(--mantine-color-gray-0)" style={{ display: 'flex', flexDirection: 'column' }}>
         {header}
         <OpenSession cat={cat} online={online} onOpened={(id) => { setSessionId(id); cacheSet(`pos.session.${regId}`, id); loadCatalog(); }} />
+        <div style={{ flex: 1 }} />
+        <StatusBar me={me} keys={false} />
       </Box>
     );
   }
