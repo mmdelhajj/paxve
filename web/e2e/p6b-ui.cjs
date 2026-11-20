@@ -81,6 +81,8 @@ const RAW = /\b(site|pwa|pc|vt|mx|sm|hr2|import)\.[a-z][\w]*\.[\w.]+/g;
     template: 'lebanon', full_name: 'QA Owner', email, password: pass, locale: 'en' } });
   ok('signup', r.status() === 201);
   const cid = (await (await qa.get('/api/v1/companies')).json())[0].id;
+  // a sign-up starts with its business type's apps only (phase 7); this check uses every app
+  await qa.put(`/api/v1/companies/${cid}/apps`, { data: { apps: ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt', 'web', 'mkt', 'ai'] } });
   const P = `/api/v1/companies/${cid}`;
   await qa.post(`${P}/rates`, { data: { currency: 'LBP', date: '2026-01-01', rate: '89500' } });
   const cust = await (await qa.post(`${P}/customers`, { data: { name: 'Portal Customer' } })).json();
@@ -156,6 +158,8 @@ const RAW = /\b(site|pwa|pc|vt|mx|sm|hr2|import)\.[a-z][\w]*\.[\w.]+/g;
     await cp.screenshot({ path: `/out/app-${run.tag}-portal.png`, fullPage: true });
     ok(`${run.tag} portal clean`, ov <= 2 && errors.length === 0, `overflow=${ov} ${errors.join(' | ').slice(0, 200)}`);
     errors.length = 0;
+    // since the P7 security fix the link is kept only when asked ("Remember on this phone") or inside the installed app
+    await cp.locator('button[type=button]').filter({ hasText: /تذكّر|Remember|Retenir/ }).first().click({ timeout: 3000 }).catch(() => {});
     await cp.goto(`${base}/my`); await cp.waitForTimeout(2500);
     ok(`${run.tag} /my opens the remembered account`, cp.url().includes(`#/p/${tok}`), cp.url());
     await cctx.close();

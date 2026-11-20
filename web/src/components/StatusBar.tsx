@@ -36,7 +36,7 @@ export default function StatusBar({ me, keys = true, extra, sticky }: { me: Me; 
     }
     api<{ rates: Rate[] }>(`/companies/${cid}/rates/latest`).then((r) => {
       const local = company.local_currency !== company.base_currency ? r.rates.find((x) => x.currency === company.local_currency) : undefined;
-      setRate(local ? `1 ${company.base_currency} = ${formatAmount(local.rate, 0)} ${local.currency}` : '');
+      setRate(local ? `1 ${company.base_currency} = ${formatAmount(local.rate, 0)} ${local.currency}` : company.local_currency !== company.base_currency ? '!' : '');
     }).catch(() => {});
   }, [company, me, decimalsOf]);
 
@@ -52,7 +52,10 @@ export default function StatusBar({ me, keys = true, extra, sticky }: { me: Me; 
       <span>{t('mx.user')}: <b>{me.full_name}</b></span>
       {company && <span>{t('mx.company')}: <b>{companyName(company, i18n.language)}</b></span>}
       {box && <span>{t('mx.box')}: <b>{box}</b></span>}
-      {rate && <span>{t('mx.rate')}: <b dir="ltr">{rate}</b></span>}
+      {rate === '!' && company ? (
+        // no rate for the second currency yet: every "≈ LBP" would read 0 (audit P7-F6)
+        <a className="mx-bell hot" href="#/rates" title={t('p7.noRateHint')}>{t('p7.noRate', { cur: company.local_currency })}</a>
+      ) : rate && <span>{t('mx.rate')}: <b dir="ltr">{rate}</b></span>}
       {todayCash && <span title={t('mx.todayHint')}>{t('mx.today')}: <b dir="ltr">{todayCash}</b></span>}
       {extra}
       {inbox && (me.permissions ?? []).length > 0 && me.role !== 'collector' && me.role !== 'cashier' && (

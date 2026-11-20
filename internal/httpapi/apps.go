@@ -198,8 +198,7 @@ func (s *Server) updateApps(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if in.BusinessType != nil && !slices.Contains([]string{"generator", "internet", "satellite", "water", "supermarket", "clothing", "electronics", "furniture",
-		"wholesale", "restaurant", "pharmacy", "factory"}, *in.BusinessType) {
+	if in.BusinessType != nil && !slices.Contains(businessTypes, *in.BusinessType) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}

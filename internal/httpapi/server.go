@@ -87,7 +87,7 @@ func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir str
 	}
 	return &Server{Pool: pool, OwnerPool: ownerPool, Sessions: sessions, WebDir: webDir,
 		loginIP: newLimiter(100, 15*time.Minute), loginPair: newBackoff(5, 30*time.Second, 15*time.Minute, time.Hour),
-		loginEmail: newBackoff(10, time.Minute, 15*time.Minute, time.Hour), loginTrust: newTrustSet(30 * 24 * time.Hour), signupLimiter: newLimiter(5, time.Hour), portalLimiter: newLimiter(120, 10*time.Minute), platformAdmins: admins,
+		loginEmail: newBackoff(10, time.Minute, 15*time.Minute, time.Hour), loginTrust: newTrustSet(30 * 24 * time.Hour), signupLimiter: newLimiter(20, time.Hour), portalLimiter: newLimiter(120, 10*time.Minute), platformAdmins: admins,
 		apiKeyLimiter: newLimiter(30, 15*time.Minute), resetLimiter: newLimiter(5, time.Hour), mfaLimiter: newLimiter(5, 15*time.Minute),
 		platformContactPhone: strings.TrimSpace(os.Getenv("PAXVE_SALES_PHONE")), platformContactEmail: strings.TrimSpace(os.Getenv("PAXVE_SALES_EMAIL")),
 		ai: aiFromEnv()}
@@ -208,6 +208,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST "+v+"/companies", s.auth(s.createCompany))
 	mux.Handle("PATCH "+v+"/companies/{cid}", s.auth(s.updateCompany))
 	mux.Handle("PUT "+v+"/companies/{cid}/apps", s.auth(s.updateApps))
+	mux.Handle("GET "+v+"/companies/{cid}/apps/plan", s.auth(s.appsPlan))
+	mux.Handle("POST "+v+"/companies/{cid}/translate-defaults", s.auth(s.translateDefaults))
 	mux.Handle("GET "+v+"/users", s.auth(s.listUsers))
 	mux.Handle("POST "+v+"/users", s.auth(s.createUser))
 	mux.Handle("PATCH "+v+"/users/{id}", s.auth(s.updateUser))

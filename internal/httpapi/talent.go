@@ -996,6 +996,9 @@ func (s *Server) selfAppraisals(w http.ResponseWriter, r *http.Request) {
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		emp, err := selfEmployee(ctx, tx, cid, principal(r).ID)
+		if isNotFound(err) { // no employee file (e.g. the owner): nothing to review, not an error (audit P7-F12)
+			return []any{}, nil
+		}
 		if err != nil {
 			return nil, err
 		}

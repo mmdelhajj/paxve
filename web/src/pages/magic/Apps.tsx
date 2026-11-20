@@ -25,6 +25,8 @@ const PRICE: Record<AppId | 'wat' | 'mfg', string> = {
 // business packs: choosing one switches its apps on and sets its defaults on the server (demo data stays optional)
 const PACKS = ['supermarket', 'clothing', 'electronics', 'furniture', 'wholesale', 'restaurant', 'pharmacy', 'factory'];
 
+interface Plan { business_type: string; target: string[]; add: string[]; remove: { app: string; has_data: boolean }[] }
+
 /** التطبيقات: switch modules on or off for this company (Odoo-style). Menus follow at once; the server refuses
  *  calls to switched-off apps. Core apps (subscriptions & billing, accounting, collections) stay on. */
 export default function Apps({ me }: { me: Me }) {
@@ -32,6 +34,8 @@ export default function Apps({ me }: { me: Me }) {
   const { company, reload } = useCompany();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [plan, setPlan] = useState<(Plan & { off: Set<string> }) | null>(null);
+  const [names, setNames] = useState<{ kind: string; from: string; to: string }[] | null>(null);
   if (!company) return null;
   const apps = new Set(company.apps ?? ALL_APPS);
   const canEdit = can(me, 'settings.manage');
@@ -50,14 +54,47 @@ export default function Apps({ me }: { me: Me }) {
     }
   }
 
+  // choosing a business type: first show what changes (apps to add, apps it does not need — those holding data are
+  // left on unless ticked), then apply (audit P7-F1)
   async function pickBusiness(b: string) {
-    if (!PACKS.includes(b)) { await save(apps, b); return; }
+    setMsg(null);
+    try {
+      const p = await api<Plan>(`/companies/${company!.id}/apps/plan?business_type=${b}`);
+      setPlan({ ...p, off: new Set(p.remove.filter((x) => !x.has_data).map((x) => x.app)) });
+    } catch (e) {
+      setMsg({ ok: false, text: errorText(t, e) });
+    }
+  }
+  async function applyPlan() {
+    if (!plan) return;
     setBusy(true);
     setMsg(null);
     try {
-      await api(`/companies/${company!.id}/retail/packs/${b}`, { method: 'POST', body: { demo: false } });
+      const b = plan.business_type;
+      if (PACKS.includes(b)) {
+        await api(`/companies/${company!.id}/retail/packs/${b}`, { method: 'POST', body: { demo: false, remove: [...plan.off] } });
+      } else {
+        const next = new Set([...apps].filter((a) => !plan.off.has(a)));
+        plan.add.forEach((a) => next.add(a));
+        await api<Company>(`/companies/${company!.id}/apps`, { method: 'PUT', body: { apps: [...next], business_type: b } });
+      }
+      setPlan(null);
       reload();
       setMsg({ ok: true, text: t('common.saved') });
+    } catch (e) {
+      setMsg({ ok: false, text: errorText(t, e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+  // rename the names the system created in English (accounts, stages, warehouse, till, demo items) — preview first
+  async function translateNames(run: boolean) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await api<{ changes: { kind: string; from: string; to: string }[] }>(`/companies/${company!.id}/translate-defaults`, { method: 'POST', body: { dry_run: !run } });
+      if (run) { setNames(null); reload(); setMsg({ ok: true, text: t('p7.tr.done', { n: r.changes.length }) }); }
+      else setNames(r.changes);
     } catch (e) {
       setMsg({ ok: false, text: errorText(t, e) });
     } finally {
@@ -89,6 +126,47 @@ export default function Apps({ me }: { me: Me }) {
           <small style={{ opacity: 0.75 }}>{t('mx.apps.biz.packHint')}</small>
           {msg && <span className={`mx-flash ${msg.ok ? 'good' : 'bad'}`}>{msg.text}</span>}
         </div>
+        {plan && (
+          <div className="mx-note" style={{ margin: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <b>{t('p7.plan.title', { biz: t(`mx.apps.biz.${plan.business_type}`) })}</b>
+            {plan.add.length > 0 && <span>{t('p7.plan.add')}: {plan.add.map((a) => t(`mx.apps.${a}.name`)).join('، ')}</span>}
+            {plan.remove.length > 0 ? (<>
+              <span>{t('p7.plan.remove')}</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                {plan.remove.map((x) => (
+                  <label key={x.app} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <input type="checkbox" checked={plan.off.has(x.app)} onChange={(e) => {
+                      const off = new Set(plan.off);
+                      if (e.currentTarget.checked) off.add(x.app); else off.delete(x.app);
+                      setPlan({ ...plan, off });
+                    }} />
+                    {t(`mx.apps.${x.app}.name`)}{x.has_data && <span className="mx-pill warn">{t('p7.plan.hasData')}</span>}
+                  </label>
+                ))}
+              </div>
+            </>) : <span>{t('p7.plan.nothingOff')}</span>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="mx-btn main" disabled={busy} onClick={() => void applyPlan()}>{t('p7.plan.apply')}</button>
+              <button className="mx-btn" disabled={busy} onClick={() => setPlan(null)}>{t('common.cancel')}</button>
+            </div>
+          </div>
+        )}
+        {canEdit && (
+          <div style={{ padding: '0 10px 10px', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button className="mx-btn" disabled={busy} onClick={() => void translateNames(false)}>{t('p7.tr.btn')}</button>
+            <small style={{ opacity: 0.75 }}>{t('p7.tr.hint')}</small>
+            {names && (names.length === 0 ? <span className="mx-flash good">{t('p7.tr.none')}</span> : (
+              <div className="mx-note" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <b>{t('p7.tr.preview', { n: names.length })}</b>
+                <div style={{ maxHeight: 160, overflow: 'auto', fontSize: 12 }}>{names.slice(0, 60).map((c, i) => <div key={i}>{c.from} ← {c.to}</div>)}</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="mx-btn main" disabled={busy} onClick={() => void translateNames(true)}>{t('p7.tr.run')}</button>
+                  <button className="mx-btn" onClick={() => setNames(null)}>{t('common.cancel')}</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div className="mx-apps">
         {list.map((id) => {

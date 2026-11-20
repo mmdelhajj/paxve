@@ -184,6 +184,12 @@
 .mx-grid tfoot td { position: sticky; bottom: 0; z-index: 2; background: var(--mx-grid-head); font-weight: 700; border-top: 1px solid var(--mx-line-strong); }
 .mx-grid .mx-sort { font-size: 10px; color: var(--mx-primary); margin-inline-start: 4px; }
 .mx-grid .mx-empty { padding: 24px; text-align: center; color: var(--mx-muted); }
+.mx-backsys { position: fixed; inset-inline-start: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 400; font: inherit; font-size: 12px;
+  padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(0, 0, 0, .15); background: rgba(255, 255, 255, .92); color: #1b2a41; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .12); }
+.mx-backsys:hover { background: #fff; }
+.mx-emptyhint { display: inline-flex; flex-direction: column; align-items: center; gap: 10px; max-width: 460px; line-height: 1.6; color: var(--mx-ink); }
+.mx-emptyhint > span { color: var(--mx-muted); }
 .mx-grid td input.mx-cell { width: 100%; height: 24px; border: 1px solid var(--mx-input-line); border-radius: 4px; background: #fff; padding: 0 6px; direction: ltr; text-align: left; font: inherit; box-sizing: border-box; }
 .mx-grid td input.mx-cell:focus { outline: none; border-color: var(--mx-primary); box-shadow: var(--mx-ring); }
 .mx-grid td input.mx-cell.ok { background: var(--mx-green-soft); }
@@ -240,6 +246,14 @@
   /* one scrollable row of menu tabs instead of four wrapped rows */
   .mx-ribbon { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .mx-ribbon::-webkit-scrollbar { display: none; }
+  .mx-ribwrap { position: relative; background: var(--mx-ribbon); }
+  .mx-ribwrap.more-end .mx-ribbon { padding-inline-end: 36px; }
+  .mx-ribwrap.more-start .mx-ribbon { padding-inline-start: 36px; }
+  .mx-ribarrow { position: absolute; top: 4px; bottom: 2px; z-index: 2; width: 30px; border: 0; border-radius: 6px; background: var(--mx-ribbon-hover);
+    box-shadow: 0 0 10px 6px var(--mx-ribbon);
+    color: #fff; font-size: 22px; font-weight: 700; line-height: 1; cursor: pointer; display: grid; place-items: center; padding: 0; }
+  .mx-ribarrow.start { inset-inline-start: 2px; }
+  .mx-ribarrow.end { inset-inline-end: 2px; }
   .mx-pin { display: none; }
 }
 /* documents rendered only to be printed (receipts, grid print-outs) */

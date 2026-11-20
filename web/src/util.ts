@@ -4,9 +4,31 @@ import i18n, { langInfo } from './i18n';
 import { ApiError, type Account } from './api';
 
 export function errorText(t: TFunction, e: unknown): string {
+  if (e instanceof ApiError) e.shown = true;
   const code = e instanceof ApiError ? e.code : 'server_error';
   const detail = e instanceof ApiError ? e.detail ?? '' : '';
+  // a limit without the seconds to wait: say "later" instead of "in  seconds" (audit P7-F3)
+  if (code === 'too_many_attempts' && !/^\d+$/.test(detail)) return t('errors.too_many_later');
+  if (code === 'pack_demo_failed') return t('errors.pack_demo_failed', { reason: t(`errors.${detail}`, { defaultValue: detail }) });
   return t(`errors.${code}`, { defaultValue: t('errors.server_error'), detail });
+}
+
+/** Required fields check before sending: shows which field is missing (no silent buttons, audit P7-F5). */
+export function requireFields(t: TFunction, fields: Record<string, unknown>): boolean {
+  const missing = Object.entries(fields).filter(([, v]) => v === undefined || v === null || String(v).trim() === '').map(([k]) => k);
+  if (missing.length === 0) return true;
+  notifications.show({ color: 'orange', message: t('errors.required', { fields: missing.join('، ') }), autoClose: 6000 });
+  return false;
+}
+
+/** Safety net: an API error from a button that the screen did not handle is shown instead of failing silently. */
+export function installErrorNet(t: TFunction) {
+  window.addEventListener('unhandledrejection', (ev) => {
+    const e = ev.reason;
+    if (!(e instanceof ApiError) || e.shown || e.method === 'GET' || e.status === 401 || e.code === 'approval_required') return;
+    e.shown = true;
+    notifyError(t, e);
+  });
 }
 
 export function notifyError(t: TFunction, e: unknown) {

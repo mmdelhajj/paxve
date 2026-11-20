@@ -98,7 +98,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
       Promise.allSettled([
         api<{ status: string }[]>(`/companies/${cid}/wh/trips?mine=1`),
         api<{ status: string }[]>(`/companies/${cid}/fs/my-jobs`),
-        api<{ van?: { id: string } | null }>(`/companies/${cid}/van/today`),
+        api<{ van?: { id: string } | null }>(`/companies/${cid}/van/today?soft=1`), // "no van" is not an error
       ]).then(([a, b, c]) => {
         if (!live) return;
         setWork({
@@ -172,7 +172,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
                 aria-label={t('collector.printer')}><IconBluetooth size={18} /></ActionIcon>
             )}
             <Menu position="bottom-end">
-              <Menu.Target><ActionIcon variant="light" color="gray" size="lg"><IconMenu2 size={18} /></ActionIcon></Menu.Target>
+              <Menu.Target><ActionIcon variant="light" color="gray" size="lg" aria-label={t('p7.menu')} title={t('p7.menu')}><IconMenu2 size={18} /></ActionIcon></Menu.Target>
               <Menu.Dropdown>
                 <Menu.Label>{me.full_name} · {company.display ?? company.name_en}</Menu.Label>
                 {languages.map((l) => <Menu.Item key={l.code} onClick={() => applyLang(l.code)}>{l.label}</Menu.Item>)}
@@ -467,7 +467,7 @@ function Collect({ customer, methods, rates, online, me, onClose, onDone }: {
                 rightSection={<Text size="xs" c="dimmed">{m?.currency}</Text>} rightSectionWidth={42}
                 styles={{ input: { fontFamily: 'monospace', fontSize: 20 } }}
                 onChange={(e) => { const v = e.currentTarget.value.replace(/[^\d.]/g, ''); setTenders((ts) => ts.map((x) => (x.key === tn.key ? { ...x, amount: v } : x))); }} />
-              {tenders.length > 1 && <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => setTenders((ts) => ts.filter((x) => x.key !== tn.key))}><IconTrash size={18} /></ActionIcon>}
+              {tenders.length > 1 && <ActionIcon variant="subtle" color="gray" size="lg" aria-label={t('common.delete')} title={t('common.delete')} onClick={() => setTenders((ts) => ts.filter((x) => x.key !== tn.key))}><IconTrash size={18} /></ActionIcon>}
             </Group>
           );
         })}

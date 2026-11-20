@@ -22,6 +22,8 @@ const day = (n) => { const d = new Date(); d.setUTCDate(d.getUTCDate() + n); ret
   ok('signup', r.status() === 201, me.error || '');
   const tid = me.tenant_id;
   const cid = (await (await qa.get('/api/v1/companies')).json())[0].id;
+  // a sign-up starts with its business type's apps only (phase 7); this check uses every app
+  await qa.put(`/api/v1/companies/${cid}/apps`, { data: { apps: ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt', 'web', 'mkt', 'ai'] } });
 
   r = await adm.get('/api/v1/platform/summary'); ok('summary', r.ok(), JSON.stringify(await r.json()).slice(0, 160));
   const list = await (await adm.get('/api/v1/platform/tenants')).json();

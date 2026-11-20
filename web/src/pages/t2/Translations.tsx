@@ -51,10 +51,11 @@ export default function Translations({ me }: { me: Me }) {
 
   const machine = languages.find((l) => l.code === lang && 'machine' in l && l.machine);
   const cols: Col<Row>[] = [
-    { key: 'key', title: t('t2.tr.key'), get: (r) => r.key, width: 220 },
-    { key: 'en', title: 'English', get: (r) => r.en, width: 300 },
+    // the texts first; the technical key last, small (it read as untranslated text on the first rows, audit P7-F9)
     { key: 'shipped', title: t('t2.tr.shipped'), get: (r) => r.shipped, width: 300, cls: (r) => (r.shipped === r.en && lang !== 'en' ? 'muted' : '') },
+    { key: 'en', title: t('p7.english'), get: (r) => r.en, width: 300 },
     { key: 'own', title: t('t2.tr.own'), get: (r) => r.own, width: 300, cls: () => 'ok' },
+    { key: 'key', title: t('t2.tr.key'), get: (r) => r.key, width: 220, cls: () => 'muted', render: (r) => <code dir="ltr" style={{ fontSize: 11 }}>{r.key}</code> },
   ];
 
   async function save(v: string) {

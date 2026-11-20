@@ -188,6 +188,28 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   const [openTab, setOpenTab] = useState<string | null>(null);
   const [pinned, setPinned] = useState<boolean>(() => { try { return localStorage.getItem('paxve.ribbonPinned') === '1'; } catch { return false; } });
   const [pwOpen, pw] = useDisclosure(false);
+  // phone width: the menu tabs scroll sideways; arrows + a fade show there is more (audit P7-F1)
+  const ribRef = useRef<HTMLElement>(null);
+  const [ribMore, setRibMore] = useState({ start: false, end: false });
+  const ribCheck = useCallback(() => {
+    const el = ribRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const pos = Math.abs(el.scrollLeft); // RTL scrollLeft is negative
+    const next = { start: max > 4 && pos > 4, end: max > 4 && pos < max - 4 };
+    setRibMore((o) => (o.start === next.start && o.end === next.end ? o : next));
+  }, []);
+  const ribScroll = (dir: number) => {
+    const el = ribRef.current;
+    if (!el) return;
+    const rtl = getComputedStyle(el).direction === 'rtl';
+    el.scrollBy({ left: dir * (rtl ? -1 : 1) * Math.max(120, el.clientWidth * 0.6), behavior: 'smooth' });
+  };
+  useEffect(() => {
+    ribCheck();
+    window.addEventListener('resize', ribCheck);
+    return () => window.removeEventListener('resize', ribCheck);
+  });
   const winsRef = useRef(wins);
   winsRef.current = wins;
   const activeRef = useRef(active);
@@ -249,9 +271,10 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
     if (tile.app && !apps.has(tile.app)) return false;
     if (tile.biz && !tile.biz.includes(biz)) return false;
     return tile.any ? true : can(me, tile.perm ?? 'reports.view');
-  }, [apps, me]);
+  }, [apps, me, biz]);
 
-  const tabs = RIBBON.filter((tab) => (!tab.app || apps.has(tab.app)) && tab.tiles.some(allowed));
+  // a tab shows when its app is on, it fits the business type (a pharmacy has no meter lists) and has a usable tile
+  const tabs = RIBBON.filter((tab) => (!tab.app || apps.has(tab.app)) && (!tab.biz || tab.biz.includes(biz)) && tab.tiles.some(allowed));
   // a screen the user may not use (by permission) shows a notice instead of failing calls; the server checks again
   const blocked = (p: string) => {
     if (p === 'dashboard' && (me.permissions ?? []).length === 0) return false; // employees: their own page
@@ -277,29 +300,31 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
     if (window.location.hash !== h) window.location.hash = h;
   }
 
-  // full-screen modes that replace the whole shell
+  // full-screen modes: an office user always has a way back to the system (audit P7-F10); collectors and cashiers live there
+  const office = me.role !== 'collector' && me.role !== 'cashier';
+  const back = office ? <button className="mx-backsys no-print" onClick={() => { window.location.hash = '#/dashboard'; }}>{t('p7.back')}</button> : null;
   if (page === 'shopfloor') {
-    return <Suspense fallback={pageFallback}><ShopFloor me={me} onExit={() => { window.location.hash = '#/mfg/orders'; }} /></Suspense>;
+    return <Suspense fallback={pageFallback}>{back}<ShopFloor me={me} onExit={() => { window.location.hash = '#/mfg/orders'; }} /></Suspense>;
   }
   if (page === 'tech') {
-    return <Suspense fallback={pageFallback}><Tech me={me} onExit={() => { window.location.hash = me.role === 'collector' ? '#/collect' : '#/field/jobs'; }} /></Suspense>;
+    return <Suspense fallback={pageFallback}>{back}<Tech me={me} onExit={() => { window.location.hash = me.role === 'collector' ? '#/collect' : '#/field/jobs'; }} /></Suspense>;
   }
   if (page === 'scan' || page === 'driver') {
     const exit = () => { window.location.hash = me.role === 'collector' ? '#/collect' : '#/wh/ops'; };
-    return <Suspense fallback={pageFallback}>{page === 'scan' ? <WhScan me={me} onExit={exit} /> : <WhDriver me={me} onExit={exit} />}</Suspense>;
+    return <Suspense fallback={pageFallback}>{back}{page === 'scan' ? <WhScan me={me} onExit={exit} /> : <WhDriver me={me} onExit={exit} />}</Suspense>;
   }
   if (page === 'owner' && me.role !== 'collector' && me.role !== 'cashier') {
-    return <Suspense fallback={pageFallback}><OwnerApp me={me} onLogout={onLogout} onExit={() => { window.location.hash = '#/dashboard'; }} /></Suspense>;
+    return <Suspense fallback={pageFallback}>{back}<OwnerApp me={me} onLogout={onLogout} onExit={() => { window.location.hash = '#/dashboard'; }} /></Suspense>;
   }
   if (page === 'resto' || page === 'kds' || page === 'van') {
     const exit = () => { window.location.hash = me.role === 'cashier' ? '#/pos' : me.role === 'collector' ? '#/collect' : page === 'van' ? '#/vert/wholesale' : '#/vert/restaurant'; };
-    return <Suspense fallback={pageFallback}>{page === 'resto' ? <Resto me={me} onExit={exit} /> : page === 'kds' ? <Kds me={me} onExit={exit} /> : <Van me={me} onExit={exit} />}</Suspense>;
+    return <Suspense fallback={pageFallback}>{back}{page === 'resto' ? <Resto me={me} onExit={exit} /> : page === 'kds' ? <Kds me={me} onExit={exit} /> : <Van me={me} onExit={exit} />}</Suspense>;
   }
   if (me.role === 'cashier' || page === 'pos') {
-    return <Suspense fallback={pageFallback}><PosApp me={me} onLogout={me.role === 'cashier' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
+    return <Suspense fallback={pageFallback}>{back}<PosApp me={me} onLogout={me.role === 'cashier' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
   }
   if (me.role === 'collector' || page === 'collect') {
-    return <Suspense fallback={pageFallback}><CollectorApp me={me} onLogout={me.role === 'collector' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
+    return <Suspense fallback={pageFallback}>{back}<CollectorApp me={me} onLogout={me.role === 'collector' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
   }
 
   async function logout() {
@@ -346,7 +371,9 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
         </Menu>
       </div>
 
-      <nav className="mx-ribbon" role="tablist" aria-label={t('mx.menus')}>
+      <div className={`mx-ribwrap ${ribMore.start ? 'more-start' : ''} ${ribMore.end ? 'more-end' : ''}`}>
+      {ribMore.start && <button className="mx-ribarrow start" aria-label={t('p7.ribPrev')} onClick={() => ribScroll(-1)}>{i18n.dir() === 'rtl' ? '›' : '‹'}</button>}
+      <nav ref={ribRef} onScroll={ribCheck} className="mx-ribbon" role="tablist" aria-label={t('mx.menus')}>
         {tabs.map((tab) => (
           <button key={tab.id} className="mx-rtab" role="tab" aria-selected={visibleTab === tab.id} style={{ '--c': tab.color } as React.CSSProperties}
             onClick={() => setOpenTab(openTab === tab.id && !pinned ? null : tab.id)}>{t(tab.label)}</button>
@@ -358,6 +385,8 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
           if (!v) setOpenTab(null);
         }}>{pinned ? t('mx.unpin') : t('mx.pin')}</button>
       </nav>
+      {ribMore.end && <button className="mx-ribarrow end" aria-label={t('p7.ribNext')} onClick={() => ribScroll(1)}>{i18n.dir() === 'rtl' ? '‹' : '›'}</button>}
+      </div>
       {shownTab && (
         <div className="mx-tiles" role="toolbar" aria-label={t(shownTab.label)}>
           {shownTab.tiles.filter(allowed).map((tile) => (

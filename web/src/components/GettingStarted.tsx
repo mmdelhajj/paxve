@@ -5,10 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { can, api, ApiError, type Me } from '../api';
 import { useCompany } from '../company';
 import { notifyError } from '../util';
+import { SUB_BIZ } from '../ribbon';
 
 interface Steps { chart: boolean; rate: boolean; plans: boolean; customers: boolean; collector: boolean; messaging: boolean; billing: boolean; plan: string }
 
-const steps: { key: keyof Omit<Steps, 'plan'>; href: string }[] = [
+const allSteps: { key: keyof Omit<Steps, 'plan'>; href: string }[] = [
   { key: 'chart', href: '#/accounts' },
   { key: 'rate', href: '#/rates' },
   { key: 'plans', href: '#/billing-setup' },
@@ -41,6 +42,9 @@ export default function GettingStarted({ me }: { me: Me }) {
   }, [company]);
 
   if (!company || !s || hidden) return null;
+  // shops, restaurants, factories have no plans, meters or monthly bills to set up (audit P7-F1)
+  const sub = SUB_BIZ.includes(company.business_type ?? 'generator');
+  const steps = sub ? allSteps : allSteps.filter((x) => x.key !== 'plans' && x.key !== 'billing' && x.key !== 'collector');
   const done = steps.filter((x) => s[x.key]).length;
   const isAdmin = can(me, 'settings.manage');
   if (done === steps.length && s.plan !== 'trial') return null;
@@ -85,7 +89,7 @@ export default function GettingStarted({ me }: { me: Me }) {
           </Group>
         ))}
       </SimpleGrid>
-      {isAdmin && s.plan === 'trial' && (
+      {isAdmin && s.plan === 'trial' && sub && (
         <Group mt="md" gap="xs">
           <Button size="xs" variant="light" leftSection={<IconSparkles size={14} />} loading={busy} onClick={loadDemo}>{t('onboard.demo')}</Button>
           <Text size="xs" c="dimmed">{t('onboard.demoHint')}</Text>

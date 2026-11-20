@@ -61,7 +61,7 @@ export default function Setup({ me }: { me: Me }) {
         <Title order={5} mb="sm">{t('setup.accounts')}</Title>
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           {(['ar_account_id', 'default_revenue_account_id', 'fx_gain_account_id', 'fx_loss_account_id'] as const).map((k) => (
-            <Select key={k} searchable clearable disabled={!canManage} data={postable} value={settings?.[k] ?? null}
+            <Select key={k} searchable clearable clearButtonProps={{ 'aria-label': t('p7.clear') }} disabled={!canManage} data={postable} value={settings?.[k] ?? null}
               label={t({ ar_account_id: 'setup.ar', default_revenue_account_id: 'setup.revenue', fx_gain_account_id: 'setup.fxGain', fx_loss_account_id: 'setup.fxLoss' }[k])}
               onChange={(v) => saveSetting(k, v)} />
           ))}

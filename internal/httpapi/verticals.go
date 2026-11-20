@@ -798,6 +798,11 @@ func (s *Server) vanToday(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		van, name, err := resolveVan(ctx, tx, r, cid, r.URL.Query().Get("warehouse_id"))
 		if err != nil {
+			// ?soft=1 (the collector app asking whether this user has a van): "no van" is an answer, not an error (audit P7-F12)
+			var ae *apiError
+			if r.URL.Query().Get("soft") == "1" && errors.As(err, &ae) && ae.status == http.StatusUnprocessableEntity {
+				return map[string]any{"van": nil}, nil
+			}
 			return nil, err
 		}
 		var base string

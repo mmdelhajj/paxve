@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -146,6 +147,27 @@ func (l *limiter) fail(key string) {
 			}
 		}
 	}
+}
+
+// retryAfter: how long until the key may try again (0 when it may now).
+func (l *limiter) retryAfter(key string) time.Duration {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	b := l.m[key]
+	if b == nil || b.n < l.max {
+		return 0
+	}
+	if d := time.Until(b.until); d > 0 {
+		return d
+	}
+	return 0
+}
+
+// tooMany answers 429 with the seconds to wait in detail (the UI shows "try again in N seconds").
+func tooMany(w http.ResponseWriter, l *limiter, key string) {
+	secs := int(l.retryAfter(key).Seconds()) + 1
+	w.Header().Set("Retry-After", strconv.Itoa(secs))
+	writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too_many_attempts", "detail": strconv.Itoa(secs)})
 }
 
 func (l *limiter) reset(key string) {

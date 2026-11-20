@@ -87,7 +87,7 @@ func (s *Server) loadDemoData(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	})
-	raw, err := callInternal(r, s.createCompany, nil, map[string]string{
+	raw, err := callInternal(r, s.createCompany, nil, map[string]any{"no_chart": true, "locale": lang,
 		"name_en": name, "name_ar": "شركة تجريبية", "base_currency": "USD", "local_currency": "LBP"})
 	if err != nil {
 		serverErr(w, r, err)
@@ -131,7 +131,7 @@ func (s *Server) loadDemoData(w http.ResponseWriter, r *http.Request) {
 	var p5, p10, pm plan
 	_ = json.Unmarshal(step(s.createPlan, nil, map[string]string{"name": "5A", "billing_type": "fixed", "currency": "USD", "base_fee": "25"}), &p5)
 	_ = json.Unmarshal(step(s.createPlan, nil, map[string]string{"name": "10A", "billing_type": "fixed", "currency": "USD", "base_fee": "45"}), &p10)
-	_ = json.Unmarshal(step(s.createPlan, nil, map[string]string{"name": "Metered", "billing_type": "metered", "currency": "USD",
+	_ = json.Unmarshal(step(s.createPlan, nil, map[string]string{"name": pickLang(normLang(lang), "Metered", "حسب العداد", "Au compteur"), "billing_type": "metered", "currency": "USD",
 		"base_fee": "4.3", "unit_price": "0.54"}), &pm)
 
 	type sub struct{ id, customer string }

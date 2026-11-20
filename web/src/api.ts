@@ -198,7 +198,9 @@ export interface APIKey {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, public code: string, public detail?: string) {
+  /** set once a screen has shown this error, so the global safety net does not show it twice */
+  shown = false;
+  constructor(public status: number, public code: string, public detail?: string, public method = 'GET') {
     super(code);
   }
 }
@@ -249,7 +251,7 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
     if (res.status === 401 && path !== '/me' && path !== '/auth/login') {
       window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
     }
-    throw new ApiError(res.status, err.error ?? 'server_error', err.detail);
+    throw new ApiError(res.status, err.error ?? 'server_error', err.detail, opts.method ?? 'GET');
   }
   if (res.status === 202 && (data as { approval_required?: boolean } | null)?.approval_required) {
     // not done yet: the caller must not treat it as success

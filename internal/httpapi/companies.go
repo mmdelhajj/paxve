@@ -3,10 +3,13 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/mmdelhajj/paxve/internal/charts"
 
 	"github.com/mmdelhajj/paxve/internal/db"
 )
@@ -68,8 +71,27 @@ func (s *Server) createCompany(w http.ResponseWriter, r *http.Request) {
 		NameAr        string `json:"name_ar"`
 		BaseCurrency  string `json:"base_currency"`
 		LocalCurrency string `json:"local_currency"`
+		// audit P7-F2: the new company gets its chart (the organisation's country template unless one is chosen),
+		// its language and the apps of its business type, like a sign-up; no_chart keeps an empty chart (imports)
+		Template     string `json:"template"`
+		Locale       string `json:"locale"`
+		BusinessType string `json:"business_type"`
+		NoChart      bool   `json:"no_chart"`
 	}
 	if err := decode(w, r, &in); err != nil || strings.TrimSpace(in.NameEn) == "" {
+		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	if in.Locale == "" {
+		in.Locale = principal(r).Locale
+	}
+	if !supportedLocales[in.Locale] {
+		in.Locale = "en"
+	}
+	if in.BusinessType == "" {
+		in.BusinessType = "generator"
+	}
+	if !slices.Contains(businessTypes, in.BusinessType) || (in.Template != "" && charts.Find(in.Template) == nil) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -89,8 +111,22 @@ func (s *Server) createCompany(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		rows, err := tx.Query(ctx,
-			`INSERT INTO companies (name_en, name_ar, base_currency, local_currency) VALUES ($1, $2, $3, $4) RETURNING `+companyCols,
-			strings.TrimSpace(in.NameEn), strings.TrimSpace(in.NameAr), in.BaseCurrency, in.LocalCurrency)
+			`INSERT INTO companies (name_en, name_ar, base_currency, local_currency, default_locale, business_type, apps)
+			VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING `+companyCols,
+			strings.TrimSpace(in.NameEn), strings.TrimSpace(in.NameAr), in.BaseCurrency, in.LocalCurrency, in.Locale, in.BusinessType,
+			appsForBusiness(in.BusinessType))
+		if err != nil {
+			return err
+		}
+		c, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByPos[company])
+		if err != nil || in.NoChart {
+			return err
+		}
+		if err := ensureChart(ctx, tx, c.ID, in.Template, normLang(in.Locale)); err != nil {
+			return err
+		}
+		// the chart sets the country pack (l10n, country…): answer the company as it is now
+		rows, err = tx.Query(ctx, `SELECT `+companyCols+` FROM companies WHERE id = $1`, c.ID)
 		if err != nil {
 			return err
 		}

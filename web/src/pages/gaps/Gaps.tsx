@@ -642,7 +642,10 @@ function Instalments({ me }: { me: Me }) {
             </div>
             <label>{t('gp.inst.firstDue')}<input type="date" dir="ltr" value={nw.first_due} onChange={(e) => setNw({ ...nw, first_due: e.currentTarget.value })} /></label>
             <label>{t('gp.inst.notes')}<textarea rows={2} value={nw.notes} onChange={(e) => setNw({ ...nw, notes: e.currentTarget.value })} /></label>
-            <button className="mx-btn main" disabled={!nw.customer_id || (mode === 'sale' ? !nw.description.trim() || !nw.amount : !nw.invoice_id)} onClick={create}>{t('gp.inst.create')}</button>
+            <button className="mx-btn main" disabled={!nw.customer_id || (mode === 'sale' ? !nw.description.trim() || !nw.amount : !nw.invoice_id)} onClick={create}
+              title={!nw.customer_id ? t('p7.needCustomer') : mode === 'sale' && (!nw.description.trim() || !nw.amount) ? t('p7.needSale') : mode !== 'sale' && !nw.invoice_id ? t('p7.needInvoice') : undefined}>{t('gp.inst.create')}</button>
+            {(!nw.customer_id || (mode === 'sale' ? !nw.description.trim() || !nw.amount : !nw.invoice_id)) && <small style={{ opacity: 0.75 }}>
+              {!nw.customer_id ? t('p7.needCustomer') : mode === 'sale' ? t('p7.needSale') : t('p7.needInvoice')}</small>}
             <Flash m={msg} />
           </div>
         ) : <p style={{ padding: 12 }}>{t('gp.pick')}</p>}

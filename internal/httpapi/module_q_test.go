@@ -601,8 +601,9 @@ func TestCompanyIsolationEveryRoute(t *testing.T) {
 	needDB(t)
 	o := signup(t, "lebanon")
 	a := o.company
-	bID := str(o.c.ok("POST", "/companies", map[string]any{"name_en": secretB + " company"}, 201).body["id"])
+	bID := str(o.c.ok("POST", "/companies", map[string]any{"name_en": secretB + " company", "no_chart": true}, 201).body["id"])
 	o.c.ok("POST", "/companies/"+bID+"/accounts/load-template", map[string]any{"template": "lebanon"}, 200)
+	o.c.ok("PUT", "/companies/"+bID+"/apps", map[string]any{"apps": knownApps}, 200) // every app, like company A
 	b := &org{c: o.c, tenant: o.tenant, company: bID, accounts: map[string]string{}, methods: map[string]string{}}
 	for _, x := range o.c.ok("GET", b.p("/accounts"), nil, 200).list {
 		b.accounts[str(obj(x)["code"])] = str(obj(x)["id"])

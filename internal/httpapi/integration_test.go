@@ -198,6 +198,8 @@ func signup(t *testing.T, template string) *org {
 	o := &org{c: c, tenant: str(me.body["tenant_id"]), accounts: map[string]string{}, methods: map[string]string{}}
 	comps := c.ok("GET", "/companies", nil, 200)
 	o.company = str(obj(comps.list[0])["id"])
+	// a sign-up now starts with its business type's apps only (audit P7-F1); module tests use every app
+	c.ok("PUT", o.p("/apps"), map[string]any{"apps": knownApps}, 200)
 	for _, a := range c.ok("GET", o.p("/accounts"), nil, 200).list {
 		o.accounts[str(obj(a)["code"])] = str(obj(a)["id"])
 	}

@@ -41,9 +41,13 @@ func (s *Server) verticalDemo(r *http.Request, cid, key, base string,
 		})
 		return vals
 	}
+	lang := "en" // names in the company's language (audit P7-F7)
+	if l := query(`SELECT default_locale FROM companies WHERE id = $1`, cid); len(l) == 1 {
+		lang = normLang(l[0])
+	}
+	L := func(en, ar, fr string) string { return pickLang(lang, en, ar, fr) }
 	customer := func(name, ar, phone string) string {
-		_ = ar
-		return id(step(s.createCustomer, nil, map[string]any{"name": name, "phone": phone}))
+		return id(step(s.createCustomer, nil, map[string]any{"name": L(name, ar, ""), "phone": phone}))
 	}
 	serialLine := func(item, cost, prefix string, n int) {
 		if item == "" {
@@ -95,7 +99,7 @@ func (s *Server) verticalDemo(r *http.Request, cid, key, base string,
 		})
 		pl := map[string]string{}
 		for _, p := range []struct{ name, pct string }{{"Wholesale", "0.92"}, {"Distributor", "0.85"}} {
-			lid := id(step(s.savePriceList, nil, map[string]any{"name": p.name, "currency": base}))
+			lid := id(step(s.savePriceList, nil, map[string]any{"name": L(p.name, map[string]string{"Wholesale": "سعر الجملة", "Distributor": "سعر الموزع"}[p.name], ""), "currency": base}))
 			if lid == "" {
 				continue
 			}
@@ -134,7 +138,7 @@ func (s *Server) verticalDemo(r *http.Request, cid, key, base string,
 			var rt struct {
 				Route idOnly `json:"route"`
 			}
-			_ = json.Unmarshal(step(s.vanSaveRoute, nil, map[string]any{"name": "Daily route", "warehouse_id": vans[0]}), &rt)
+			_ = json.Unmarshal(step(s.vanSaveRoute, nil, map[string]any{"name": L("Daily route", "الجولة اليومية", "Tournée du jour"), "warehouse_id": vans[0]}), &rt)
 			rid := rt.Route.ID
 			if rid != "" {
 				step(s.vanRouteStops, map[string]string{"id": rid}, map[string]any{"customer_ids": custs})
@@ -163,7 +167,11 @@ func (s *Server) verticalDemo(r *http.Request, cid, key, base string,
 			{"FRIES", "French fries", "بطاطا مقلية", "Starters", "3", "kitchen", [][2]string{{"ING-POT", "0.3"}}},
 			{"FTSH", "Fattoush", "فتوش", "Starters", "5", "kitchen", [][2]string{{"ING-TOM", "0.2"}, {"ING-BRD", "0.5"}}},
 		} {
-			did := id(step(s.saveItem, nil, map[string]any{"code": d.code, "name": d.name, "name_i18n": map[string]string{"ar": d.ar}, "kind": "stock",
+			dn, di := d.name, map[string]string{"ar": d.ar}
+			if lang == "ar" {
+				dn, di = d.ar, map[string]string{"en": d.name, "ar": d.ar}
+			}
+			did := id(step(s.saveItem, nil, map[string]any{"code": d.code, "name": dn, "name_i18n": di, "kind": "stock",
 				"sale_price": d.price, "sale_currency": base, "category_id": c[d.cat], "barcode": ""}))
 			if did == "" {
 				continue
@@ -230,14 +238,14 @@ func (s *Server) verticalDemo(r *http.Request, cid, key, base string,
 		wcs := query(`SELECT id::text FROM mfg_workcenters WHERE company_id = $1 AND is_active ORDER BY code`, cid)
 		routing := ""
 		if len(wcs) >= 2 {
-			ops := []map[string]any{{"name": "Cut the sheets", "workcenter_id": wcs[1], "minutes": "30"}, {"name": "Assemble", "workcenter_id": wcs[0], "minutes": "45"}}
+			ops := []map[string]any{{"name": L("Cut the sheets", "قص الألواح", "Découpe des tôles"), "workcenter_id": wcs[1], "minutes": "30"}, {"name": L("Assemble", "التجميع", "Assemblage"), "workcenter_id": wcs[0], "minutes": "45"}}
 			if len(wcs) >= 3 {
-				ops = append(ops, map[string]any{"name": "Paint", "workcenter_id": wcs[2], "minutes": "20"})
+				ops = append(ops, map[string]any{"name": L("Paint", "الدهان", "Peinture"), "workcenter_id": wcs[2], "minutes": "20"})
 			}
-			routing = id(step(s.mfgSaveRouting, nil, map[string]any{"name": "Cabinet routing", "operations": ops}))
+			routing = id(step(s.mfgSaveRouting, nil, map[string]any{"name": L("Cabinet routing", "مسار تصنيع الخزانة", "Gamme armoire"), "operations": ops}))
 		}
 		if ids["CAB"] != "" && ids["STEEL"] != "" {
-			body := map[string]any{"item_id": ids["CAB"], "name": "Metal cabinet", "output_qty": "1", "labour_cost": "8", "overhead_cost": "4",
+			body := map[string]any{"item_id": ids["CAB"], "name": L("Metal cabinet", "خزانة معدنية", "Armoire métallique"), "output_qty": "1", "labour_cost": "8", "overhead_cost": "4",
 				"lines": []map[string]string{{"item_id": ids["STEEL"], "quantity": "18"}, {"item_id": ids["SCREW"], "quantity": "0.5"}, {"item_id": ids["PAINT"], "quantity": "1.5"}}}
 			if routing != "" {
 				body["routing_id"] = routing

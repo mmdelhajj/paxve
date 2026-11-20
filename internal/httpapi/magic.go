@@ -356,14 +356,14 @@ func (s *Server) commitMagicImport(w http.ResponseWriter, r *http.Request) {
 		if name == "" {
 			name = fmt.Sprintf("Magic %d", m.MagicCompany)
 		}
-		raw, err := callInternal(r, s.createCompany, nil, map[string]string{"name_en": name, "name_ar": name,
+		raw, err := callInternal(r, s.createCompany, nil, map[string]any{"no_chart": true, "name_en": name, "name_ar": name,
 			"base_currency": "USD", "local_currency": "LBP"})
 		for n := 1; err != nil && strings.Contains(err.Error(), "name_taken") && n <= 5; n++ {
 			alt := fmt.Sprintf("%s (Magic %d)", name, m.MagicCompany)
 			if n > 1 {
 				alt = fmt.Sprintf("%s (Magic %d-%d)", name, m.MagicCompany, n)
 			}
-			raw, err = callInternal(r, s.createCompany, nil, map[string]string{"name_en": alt, "name_ar": alt,
+			raw, err = callInternal(r, s.createCompany, nil, map[string]any{"no_chart": true, "name_en": alt, "name_ar": alt,
 				"base_currency": "USD", "local_currency": "LBP"})
 		}
 		if err != nil {

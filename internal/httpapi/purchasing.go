@@ -39,7 +39,8 @@ func defaultWarehouse(ctx context.Context, tx pgx.Tx, cid string) (string, error
 	// a van or a showroom is never the default warehouse while a normal one exists
 	err := tx.QueryRow(ctx, `SELECT id::text FROM warehouses WHERE company_id = $1 AND is_active ORDER BY (is_van OR is_showroom), created_at LIMIT 1`, cid).Scan(&id)
 	if err == pgx.ErrNoRows {
-		err = tx.QueryRow(ctx, `INSERT INTO warehouses (company_id, name) VALUES ($1, 'Main') RETURNING id::text`, cid).Scan(&id)
+		err = tx.QueryRow(ctx, `INSERT INTO warehouses (company_id, name) VALUES ($1, $2) RETURNING id::text`, cid,
+			pickLang(companyLang(ctx, tx, cid), "Main", "المستودع الرئيسي", "Dépôt principal")).Scan(&id)
 	}
 	return id, err
 }

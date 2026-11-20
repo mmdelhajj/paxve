@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { API_BASE, ApiError, api, can, type Me } from '../../api';
 import { useCompany } from '../../company';
 import DataGrid, { type Col } from '../../components/DataGrid';
-import { errorText, formatAmount, formatDate, today } from '../../util';
+import { errorText, formatAmount, formatDate, requireFields, today } from '../../util';
 import { openExternal, printPage, saveFile } from '../../native';
 import { Help, useBoxes, useCostCenters } from '../acc/common';
 
@@ -167,7 +167,7 @@ function People({ me }: { me: Me }) {
     });
   }
   async function create() {
-    if (!base || !nw.name.trim()) return;
+    if (!base || !requireFields(t as never, { [t('hr2.name')]: nw.name })) return;
     await run(api<{ id: string }>(`${base}/employees`, { method: 'POST', body: { name: nw.name.trim(), currency: nw.currency, salary: nw.salary || '0' } }), () => {
       setNw({ ...nw, name: '', salary: '' }); reload();
     });
@@ -420,17 +420,18 @@ function Attendance({ me }: { me: Me }) {
             <input type="time" dir="ltr" value={ns.end_time} onChange={(e) => setNs({ ...ns, end_time: e.currentTarget.value })} />
             <input dir="ltr" style={{ width: 50 }} title={t('hr2.break')} value={ns.break_minutes} onChange={(e) => setNs({ ...ns, break_minutes: e.currentTarget.value })} />
             <input dir="ltr" style={{ width: 90 }} title={t('hr2.workDays')} value={ns.days} onChange={(e) => setNs({ ...ns, days: e.currentTarget.value })} />
-            <button className="mx-btn sm" onClick={() => void run(api(`${base}/hr/schedules`, { method: 'POST', body: { name: ns.name, start_time: ns.start_time, end_time: ns.end_time,
+            <button className="mx-btn sm" onClick={() => requireFields(t as never, { [t('hr2.name')]: ns.name, [t('hr2.in')]: ns.start_time, [t('hr2.out')]: ns.end_time, [t('hr2.workDays')]: ns.days }) && void run(api(`${base}/hr/schedules`, { method: 'POST', body: { name: ns.name, start_time: ns.start_time, end_time: ns.end_time,
               break_minutes: Number(ns.break_minutes), grace_minutes: Number(ns.grace_minutes), work_days: ns.days.split(',').map(Number).filter(Boolean) } }), reloadS)}>{t('hr2.add')}</button>
           </div>)}
           <small>{t('hr2.workDaysHint')}</small>
+          <Flash m={msg} />
           <b>{t('hr2.holidays')}</b>
           {holidays.map((h) => <div key={h.id} className="mx-row" style={{ gap: 6 }}>{formatDate(h.day)} · {h.name}
             {canEdit && <button className="mx-btn sm" onClick={() => void run(api(`${base}/hr/holidays/${h.id}`, { method: 'DELETE' }), reloadH)}>✕</button>}</div>)}
           {canEdit && (<div className="mx-row" style={{ gap: 4 }}>
             <input type="date" dir="ltr" value={nh.day} onChange={(e) => setNh({ ...nh, day: e.currentTarget.value })} />
             <input placeholder={t('hr2.name')} value={nh.name} onChange={(e) => setNh({ ...nh, name: e.currentTarget.value })} />
-            <button className="mx-btn sm" onClick={() => void run(api(`${base}/hr/holidays`, { method: 'POST', body: nh }), reloadH)}>{t('hr2.add')}</button>
+            <button className="mx-btn sm" onClick={() => requireFields(t as never, { [t('hr2.name')]: nh.name, [t('hr2.date')]: nh.day }) && void run(api(`${base}/hr/holidays`, { method: 'POST', body: nh }), reloadH)}>{t('hr2.add')}</button>
           </div>)}
         </div>
       </section>
@@ -504,7 +505,7 @@ function Leave({ me }: { me: Me }) {
             <input dir="ltr" style={{ width: 50 }} value={nt.days_per_year} onChange={(e) => setNt({ ...nt, days_per_year: e.currentTarget.value })} />
             <select value={nt.accrual} onChange={(e) => setNt({ ...nt, accrual: e.currentTarget.value })}>{['yearly', 'monthly', 'none'].map((a) => <option key={a} value={a}>{t(`hr2.acc.${a}`)}</option>)}</select>
             <label><input type="checkbox" checked={nt.paid} onChange={(e) => setNt({ ...nt, paid: e.currentTarget.checked })} />{t('hr2.paid')}</label>
-            <button className="mx-btn sm" onClick={() => void run(api(`${base}/hr/leave-types`, { method: 'POST', body: nt }), reloadT)}>{t('hr2.add')}</button>
+            <button className="mx-btn sm" onClick={() => requireFields(t as never, { code: nt.code, English: nt.name_en }) && void run(api(`${base}/hr/leave-types`, { method: 'POST', body: nt }), reloadT)}>{t('hr2.add')}</button>
           </div>)}
         </div>
       </section>

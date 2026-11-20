@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Badge, Box, Button, Group, Paper, SegmentedControl, SimpleGrid, Skeleton, Stack, Text, TextInput, ThemeIcon, Title,
+  Badge, Box, Button, Group, Paper, SegmentedControl, SimpleGrid, Skeleton, Stack, Text, ThemeIcon, Title,
 } from '@mantine/core';
 import {
   IconAlertTriangle, IconBolt, IconCash, IconGauge, IconUserPlus, IconUsers, IconUserExclamation,
@@ -16,6 +16,7 @@ import { currentPeriod } from '../billing';
 import { EmptyState } from '../components/ListState';
 import GettingStarted from '../components/GettingStarted';
 import { OwnerSummary } from './acc/Reports3';
+import { SUB_BIZ } from '../ribbon';
 
 interface Kpi { currency: string; billed: string; billed_paid: string; collected: string; outstanding: string }
 interface Counts { active_subscriptions: number; active_customers: number; customers_owing: number; customers_late_60: number; open_invoices: number }
@@ -39,6 +40,29 @@ function Stat({ label, value, sub, color, icon }: { label: string; value: React.
   );
 }
 
+/** Month + year in the reader's language (the browser's own month input shows "November 2026" in English, audit P7-F8). */
+function MonthSelect({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+  const { i18n } = useTranslation();
+  const [y, m] = value.split('-').map(Number);
+  const names = useMemo(() => {
+    let loc = i18n.language;
+    try { new Intl.DateTimeFormat(loc); } catch { loc = 'en'; }
+    return Array.from({ length: 12 }, (_, i) => new Intl.DateTimeFormat(loc, { month: 'long' }).format(new Date(2026, i, 1)));
+  }, [i18n.language]);
+  const set = (yy: number, mm: number) => onChange(`${yy}-${String(mm).padStart(2, '0')}`);
+  const now = new Date().getFullYear();
+  return (
+    <Group gap={4} wrap="nowrap" aria-label={label}>
+      <select style={{ padding: '3px 6px', borderRadius: 4, border: '1px solid #ced4da', background: '#fff', font: 'inherit', fontSize: 13 }} aria-label={label} value={m} onChange={(e) => set(y, Number(e.currentTarget.value))}>
+        {names.map((n, i) => <option key={i} value={i + 1}>{n}</option>)}
+      </select>
+      <select style={{ padding: '3px 6px', borderRadius: 4, border: '1px solid #ced4da', background: '#fff', font: 'inherit', fontSize: 13 }} aria-label={label} value={y} onChange={(e) => set(Number(e.currentTarget.value), m)}>
+        {Array.from({ length: 8 }, (_, i) => now + 1 - i).map((yy) => <option key={yy} value={yy}>{yy}</option>)}
+      </select>
+    </Group>
+  );
+}
+
 const short = (n: number) => new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
 
 export default function Dashboard({ me }: { me: Me }) {
@@ -57,6 +81,13 @@ export default function Dashboard({ me }: { me: Me }) {
     }).catch((e) => notifyError(t, e));
   }, [company, month, t]);
 
+  const [noRate, setNoRate] = useState(false);
+  useEffect(() => {
+    if (!company || company.local_currency === company.base_currency) { setNoRate(false); return; }
+    api<{ rates: { currency: string }[] }>(`/companies/${company.id}/rates/latest`)
+      .then((r) => setNoRate(!r.rates.some((x) => x.currency === company.local_currency))).catch(() => setNoRate(false));
+  }, [company]);
+
   const series = useMemo(() => (d?.series ?? []).filter((s) => s.currency === cur)
     .map((s) => ({ month: s.month.slice(2), billed: Number(s.billed), collected: Number(s.collected) })), [d, cur]);
   const collectors = useMemo(() => (d?.collectors ?? []).filter((c) => c.currency === cur)
@@ -71,6 +102,7 @@ export default function Dashboard({ me }: { me: Me }) {
   const others = (field: keyof Kpi) => d?.kpis.filter((x) => x.currency !== cur && Number(x[field]) !== 0)
     .map((x) => `${formatAmount(x[field], decimalsOf(x.currency))} ${x.currency}`).join(' · ');
   const empty = d && d.kpis.length === 0;
+  const subBiz = SUB_BIZ.includes(company.business_type ?? 'generator');
   const canBill = can(me, 'billing.create');
 
   return (
@@ -84,26 +116,47 @@ export default function Dashboard({ me }: { me: Me }) {
           {d && d.kpis.length > 1 && (
             <SegmentedControl size="xs" value={cur ?? ''} onChange={setCur} data={d.kpis.map((x) => x.currency)} />
           )}
-          <TextInput type="month" size="xs" value={month} onChange={(e) => setMonth(e.currentTarget.value)} aria-label={t('readings.period')} />
+          <MonthSelect value={month} onChange={setMonth} label={t('readings.period')} />
         </Group>
       </Group>
+      {noRate && (
+        // a Lebanese company without the LBP rate shows "≈ 0 LBP" everywhere: ask for it first (audit P7-F6)
+        <Paper withBorder p="sm" bg="var(--mantine-color-orange-0)">
+          <Group justify="space-between" wrap="wrap">
+            <Text size="sm" fw={600} c="orange.9">{t('p7.noRateHint')}</Text>
+            {can(me, 'accounting.view') && <Button size="xs" color="orange" onClick={() => { window.location.hash = '#/rates'; }}>{t('p7.noRate', { cur: company.local_currency })}</Button>}
+          </Group>
+        </Paper>
+      )}
 
       {can(me, 'reports.view') && <OwnerSummary />}
       {canAny(me, 'settings.manage', 'billing.manage') && <GettingStarted me={me} />}
 
-      <Group gap="xs" wrap="wrap">
-        <Button size="xs" variant="light" component="a" href="#/customers" leftSection={<IconUserPlus size={14} />}>{t('bill.customers')}</Button>
-        <Button size="xs" variant="light" component="a" href="#/readings" leftSection={<IconGauge size={14} />}>{t('bill.readings')}</Button>
-        {canBill && <Button size="xs" variant="light" component="a" href="#/invoices" leftSection={<IconBolt size={14} />}>{t('billing.run')}</Button>}
-        <Button size="xs" variant="light" component="a" href="#/payments" leftSection={<IconCash size={14} />}>{t('bill.payments')}</Button>
-      </Group>
+      {subBiz ? (
+        <Group gap="xs" wrap="wrap">
+          <Button size="xs" variant="light" component="a" href="#/customers" leftSection={<IconUserPlus size={14} />}>{t('bill.customers')}</Button>
+          <Button size="xs" variant="light" component="a" href="#/readings" leftSection={<IconGauge size={14} />}>{t('bill.readings')}</Button>
+          {canBill && <Button size="xs" variant="light" component="a" href="#/invoices" leftSection={<IconBolt size={14} />}>{t('billing.run')}</Button>}
+          <Button size="xs" variant="light" component="a" href="#/payments" leftSection={<IconCash size={14} />}>{t('bill.payments')}</Button>
+        </Group>
+      ) : (
+        // shops, restaurants, factories: their own first steps, not meters and monthly bills (audit P7-F1)
+        <Group gap="xs" wrap="wrap">
+          {company.apps?.includes('pos') && <Button size="xs" variant="light" component="a" href="#/pos" leftSection={<IconCash size={14} />}>{t('p7.eh.a.pos')}</Button>}
+          <Button size="xs" variant="light" component="a" href="#/items" leftSection={<IconBolt size={14} />}>{t('p7.eh.a.items')}</Button>
+          <Button size="xs" variant="light" component="a" href="#/bills" leftSection={<IconGauge size={14} />}>{t('p7.eh.a.bills')}</Button>
+          <Button size="xs" variant="light" component="a" href="#/customers" leftSection={<IconUserPlus size={14} />}>{t('p7.customersAll')}</Button>
+        </Group>
+      )}
 
       {!d ? (
         <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }}>{[1, 2, 3, 4].map((i) => <Skeleton key={i} h={96} radius="md" />)}</SimpleGrid>
       ) : empty ? (
         <Paper withBorder>
-          <EmptyState title={t('dash.emptyTitle')} hint={t('dash.emptyHint')}
+          {subBiz ? <EmptyState title={t('dash.emptyTitle')} hint={t('dash.emptyHint')}
             action={<Button component="a" href="#/billing-setup" mt="xs">{t('bill.setup')}</Button>} />
+            : <EmptyState title={t('p7.shopEmptyTitle')} hint={t('p7.shopEmptyHint')}
+              action={<Button component="a" href={company.apps?.includes('pos') ? '#/pos' : '#/items'} mt="xs">{company.apps?.includes('pos') ? t('p7.eh.a.pos') : t('p7.eh.a.items')}</Button>} />}
         </Paper>
       ) : (
         <>

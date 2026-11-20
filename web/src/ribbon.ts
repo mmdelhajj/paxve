@@ -37,18 +37,25 @@ export interface Tile {
   biz?: string[];        // only for these business types (business packs)
 }
 
-export interface RibbonTab { id: string; label: string; color: string; app?: AppId; tiles: Tile[] }
+export interface RibbonTab { id: string; label: string; color: string; app?: AppId; biz?: string[]; tiles: Tile[] }
+
+/** Business types that bill subscriptions monthly (meters, collectors, print runs); the other types never see those screens. */
+export const SUB_BIZ = ['generator', 'internet', 'satellite', 'water'];
+/** Types that sell on account and collect later (collector rounds, dunning, instalments). */
+const COLLECT_BIZ = [...SUB_BIZ, 'wholesale', 'furniture', 'electronics', 'factory'];
+const SHOP_BIZ = ['supermarket', 'clothing', 'electronics', 'furniture', 'wholesale', 'restaurant', 'pharmacy', 'factory'];
 
 // Magic's ribbon, in its own words (Arabic captions live in locales/ar.ts under mx.rib / mx.t).
 export const RIBBON: RibbonTab[] = [
   {
     id: 'daily', label: 'mx.rib.daily', color: '#2f6fd6', tiles: [
       { page: 'jibaya', label: 'mx.t.jibaya', icon: IconCash, perm: 'collections.create' },
-      { page: 'invoices', label: 'mx.t.monthly', icon: IconFileInvoice, perm: 'billing.view' },
-      { page: 'print-bills', label: 'mx.t.printBills', icon: IconPrinter, perm: 'billing.view' },
-      { page: 'jibaya', param: 'read', label: 'mx.t.meterLists', icon: IconGauge, perm: 'collections.view' },
-      { page: 'subscribers', label: 'mx.t.subscribers', icon: IconUsersGroup, perm: 'customers.view' },
-      { page: 'customers', label: 'mx.t.manageSubs', icon: IconUserCircle, perm: 'customers.view' },
+      { page: 'invoices', label: 'mx.t.monthly', icon: IconFileInvoice, perm: 'billing.view', biz: SUB_BIZ },
+      { page: 'print-bills', label: 'mx.t.printBills', icon: IconPrinter, perm: 'billing.view', biz: SUB_BIZ },
+      { page: 'jibaya', param: 'read', label: 'mx.t.meterLists', icon: IconGauge, perm: 'collections.view', biz: SUB_BIZ },
+      { page: 'subscribers', label: 'mx.t.subscribers', icon: IconUsersGroup, perm: 'customers.view', biz: SUB_BIZ },
+      { page: 'customers', label: 'mx.t.manageSubs', icon: IconUserCircle, perm: 'customers.view', biz: SUB_BIZ },
+      { page: 'customers', label: 'p7.customersAll', icon: IconUserCircle, perm: 'customers.view', biz: SHOP_BIZ },
       { page: 'voucher', param: 'receipt', label: 'mx.t.receiptVoucher', icon: IconReceipt, perm: 'collections.create' },
       { page: 'voucher', param: 'expense', label: 'mx.t.expenseVoucher', icon: IconReceiptTax, perm: 'expenses.create', app: 'pur' },
       { page: 'voucher', param: 'payment', label: 'mx.t.paymentVoucher', icon: IconCashBanknote, perm: 'purchasing.create', app: 'pur' },
@@ -62,7 +69,7 @@ export const RIBBON: RibbonTab[] = [
     ],
   },
   {
-    id: 'subs', label: 'mx.rib.subs', color: '#3d8f5a', app: 'gen', tiles: [
+    id: 'subs', label: 'mx.rib.subs', color: '#3d8f5a', app: 'gen', biz: SUB_BIZ, tiles: [
       { page: 'customers', label: 'mx.t.manageSubs', icon: IconUserCircle, perm: 'customers.view' },
       { page: 'subs-change', label: 'fin.t.subs', icon: IconSwitchHorizontal, perm: 'customers.view' },
       { page: 'network', label: 'mx.t.stations', icon: IconTopologyStar3, perm: 'network.view' },
@@ -82,7 +89,7 @@ export const RIBBON: RibbonTab[] = [
     ],
   },
   {
-    id: 'col', label: 'mx.rib.col', color: '#b7791f', tiles: [
+    id: 'col', label: 'mx.rib.col', color: '#b7791f', biz: COLLECT_BIZ, tiles: [
       { page: 'jibaya', param: 'col', label: 'mx.t.settle', icon: IconMoneybag, perm: 'collections.view' },
       { page: 'jibaya', param: 'scan', label: 'mx.t.barcode', icon: IconBarcode, perm: 'collections.create' },
       { page: 'jibaya', param: 'late', label: 'mx.t.late', icon: IconHourglass, perm: 'collections.view' },
@@ -130,7 +137,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'compare', label: 'ax.t.compare', icon: IconArrowsLeftRight },
       { page: 'cost-centers', label: 'ax.t.ccReport', icon: IconSitemap },
       { page: 'collections', label: 'mx.t.collectionsReport', icon: IconMoneybag },
-      { page: 'generator-report', label: 'mx.t.genReport', icon: IconEngine, app: 'gen' },
+      { page: 'generator-report', label: 'mx.t.genReport', icon: IconEngine, app: 'gen', biz: ['generator'] },
       { page: 'asset-register', label: 'mx.t.assetRegister', icon: IconBuildingFactory2 },
       { page: 'sales-report', label: 'mx.t.salesReport', icon: IconChartLine, app: 'crm' },
       { page: 'pos-report', label: 'mx.t.posReport', icon: IconCashRegister, app: 'pos' },

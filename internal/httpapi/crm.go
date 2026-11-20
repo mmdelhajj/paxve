@@ -30,10 +30,11 @@ func seedStages(ctx context.Context, tx pgx.Tx, cid string) error {
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM crm_stages WHERE company_id = $1`, cid).Scan(&n); err != nil || n > 0 {
 		return err
 	}
+	lang := companyLang(ctx, tx, cid) // the stage names in the company's language (audit P7-F7)
 	for i, st := range defaultStages {
 		j, _ := json.Marshal(st.I18n)
 		if _, err := tx.Exec(ctx, `INSERT INTO crm_stages (company_id, name, name_i18n, seq, probability, is_won) VALUES ($1, $2, $3, $4, $5, $6)`,
-			cid, st.Name, j, (i+1)*10, st.Probability, st.Won); err != nil {
+			cid, pickLang(lang, st.Name, st.I18n["ar"], st.I18n["fr"]), j, (i+1)*10, st.Probability, st.Won); err != nil {
 			return err
 		}
 	}

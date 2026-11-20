@@ -70,7 +70,11 @@ export default function Cheques({ me, openId }: { me: Me; openId: string }) {
           <span key={x.status + x.currency}>{t(`ax.ch.st.${x.status}`)}: <b dir="ltr">{x.cheques} · {formatAmount(x.amount, decimalsOf(x.currency))} {x.currency}</b></span>
         ))}
         <span className="mx-sp" />
-        {canEdit && <button className="mx-btn sm" onClick={() => { setCreating(true); setSel(null); }}>+ {t(`ax.ch.new.${dir}`)}</button>}
+        {canEdit && <button className="mx-btn sm" onClick={() => {
+          setCreating(true); setSel(null);
+          // the form may already be on screen: bring it into view and put the cursor in it (audit P7-F5)
+          setTimeout(() => { const el = document.querySelector<HTMLElement>('.mx-pane:not([hidden]) [data-ch-new] select'); el?.scrollIntoView({ block: 'center' }); el?.focus(); }, 30);
+        }}>+ {t(`ax.ch.new.${dir}`)}</button>}
         <Help topic="cheques" />
       </div>
       <div className="mx-body" style={{ gridTemplateColumns: 'minmax(0, 1.6fr) minmax(300px, 1fr)' }}>
@@ -137,7 +141,7 @@ function NewCheque({ dir, onDone }: { dir: 'in' | 'out'; onDone: (id: string) =>
   return (
     <>
       <h3>{t(`ax.ch.new.${dir}`)}</h3>
-      <div className="mx-form">
+      <div className="mx-form" data-ch-new>
         <div className="mx-fld"><label>{t('ax.ch.party')}</label>
           <select value={partyKind} onChange={(e) => setPartyKind(e.currentTarget.value as 'party' | 'account')}>
             <option value="party">{dir === 'in' ? t('ax.ch.customer') : t('ax.ch.supplier')}</option>

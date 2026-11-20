@@ -5,6 +5,7 @@ import { API_BASE, ApiError } from '../api';
 import { printPage, saveFile } from '../native';
 import { formatAmount, notifyError } from '../util';
 import { toCSV, type ExportTable } from './ExportMenu';
+import { EMPTY_HINTS, focusNewForm, routeKey } from './emptyHints';
 
 /** One grid column. `get` gives the raw value (filter, sort, copy, export, totals); `render` the cell content. */
 export interface Col<T> {
@@ -63,6 +64,8 @@ export default function DataGrid<T>(p: DataGridProps<T>) {
   const [ctx, setCtx] = useState<{ x: number; y: number; row: T | null; col: Col<T> | null } | null>(null);
   const [printing, setPrinting] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  // the screen this grid opened on (a window keeps its route): its empty-state hint, if any
+  const [hint] = useState(() => EMPTY_HINTS[routeKey(window.location.hash)]);
 
   const view = useMemo(() => {
     let out = p.rows;
@@ -268,7 +271,15 @@ export default function DataGrid<T>(p: DataGridProps<T>) {
             </tfoot>
           )}
         </table>
-        {p.loading ? <div className="mx-empty">{t('mx.loading')}</div> : view.length === 0 && <div className="mx-empty">{p.empty ?? t('common.empty')}</div>}
+        {p.loading ? <div className="mx-empty">{t('mx.loading')}</div> : view.length === 0 && (
+          <div className="mx-empty">{p.empty ?? (hint && p.rows.length === 0 ? (
+            // an empty screen says what to do next (audit P7-F4)
+            <span className="mx-emptyhint"><span>{t(hint.hint)}</span>
+              {hint.label && (hint.go || hint.focus) && (
+                <button className="mx-btn sm main" onClick={(e) => { if (hint.go) window.location.hash = hint.go; else focusNewForm(e.currentTarget); }}>{t(hint.label)}</button>
+              )}</span>
+          ) : t('common.empty'))}</div>
+        )}
       </div>
       <div className="mx-gridinfo no-print">
         <span>{t('mx.rows', { n: view.length })}</span>

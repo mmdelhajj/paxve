@@ -15,6 +15,8 @@ const ok = (name, cond, extra = '') => { console.log(`${cond ? 'PASS' : 'FAIL'} 
     full_name: 'QA Owner', email, password: pass, locale: 'en' } });
   ok('signup', r.status() === 201);
   const cid = (await (await qa.get('/api/v1/companies')).json())[0].id;
+  // a sign-up starts with its business type's apps only (phase 7); this check uses every app
+  await qa.put(`/api/v1/companies/${cid}/apps`, { data: { apps: ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt', 'web', 'mkt', 'ai'] } });
   const P = `/api/v1/companies/${cid}`;
   await qa.post(`${P}/rates`, { data: { currency: 'LBP', date: '2026-01-01', rate: '89500' } });
   await qa.put(`${P}/apps`, { data: { apps: ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'pos', 'hr', 'crm', 'svc'] } });

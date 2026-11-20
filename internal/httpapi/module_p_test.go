@@ -110,7 +110,7 @@ func TestCustomRolesAndCompanyAccess(t *testing.T) {
 	}
 
 	// company access: a second company; the clerk is limited to the first
-	second := str(o.c.ok("POST", "/companies", map[string]any{"name_en": "Second Co " + randHex(3)}, 201).body["id"])
+	second := str(o.c.ok("POST", "/companies", map[string]any{"name_en": "Second Co " + randHex(3), "no_chart": true}, 201).body["id"])
 	o.c.ok("PATCH", "/roles/"+roleID, map[string]any{"is_active": true}, 200)
 	var clerkID string
 	for _, u := range o.c.ok("GET", "/users", nil, 200).list {
@@ -308,7 +308,7 @@ func TestApprovalsAndScopedKeys(t *testing.T) {
 func TestConsolidatedReport(t *testing.T) {
 	needDB(t)
 	o := signup(t, "lebanon")
-	second := str(o.c.ok("POST", "/companies", map[string]any{"name_en": "Branch " + randHex(3), "base_currency": "USD", "local_currency": "LBP"}, 201).body["id"])
+	second := str(o.c.ok("POST", "/companies", map[string]any{"name_en": "Branch " + randHex(3), "base_currency": "USD", "local_currency": "LBP", "no_chart": true}, 201).body["id"])
 	o.c.do("POST", "/companies/"+second+"/accounts/load-template", map[string]any{"template": "lebanon"})
 	accs := map[string]string{}
 	for _, a := range o.c.ok("GET", "/companies/"+second+"/accounts", nil, 200).list {

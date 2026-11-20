@@ -1107,9 +1107,13 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
               <Text fw={800} size="2rem" ff="monospace" dir="ltr" lh={1.1}>{formatAmount(total, dec)} {currency}</Text>
             </div>
             <Stack gap={0} align="flex-end">
-              {[...new Set(cat.methods.map((m) => m.currency))].filter((c) => c !== currency).map((c) => (
-                <Text key={c} size="sm" ff="monospace" dir="ltr" c="dimmed">≈ {formatAmount(conv(total, currency, c), decimalsOf(c))} {c}</Text>
-              ))}
+              {[...new Set(cat.methods.map((m) => m.currency))].filter((c) => c !== currency).map((c) => {
+                const v = conv(total, currency, c);
+                // no rate for that currency: say so instead of "≈ 0 LBP" (audit P7-F6)
+                return v > 0 || total === 0
+                  ? <Text key={c} size="sm" ff="monospace" dir="ltr" c="dimmed">≈ {formatAmount(v, decimalsOf(c))} {c}</Text>
+                  : <Text key={c} size="sm" c="red" fw={600}>{t('p7.noRate', { cur: c })}</Text>;
+              })}
             </Stack>
           </Group>
         </Paper>

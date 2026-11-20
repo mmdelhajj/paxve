@@ -342,3 +342,11 @@ portal payment, ZATCA phase 2 / Egypt ETA, expense claims, custom fields).
 ### Phase 7 audit fixes
 
 Security and accounting audit findings fixed (migration 00048): money-only POS refunds (insurance / trade-in), deposits reserved for their order, commission net of returns, idempotent supplier openings, LBP claim FX, control-account guards, full-number phone matching, shop abuse limits, atomic AI quotas, van shortage approval, inbound webhook signatures, e-sign codes and link expiry, CV quota, cache cleared at sign-out, reserved shop addresses. See `docs/API.md` → "Phase 7 audit fixes".
+### Phase 7 UX fixes
+
+UX audit findings fixed (migration 00049): each business type starts with its own apps and ribbon (subscription, collector and
+generator screens only for the businesses that use them; choosing another type previews the apps to add / switch off), a company added
+from Settings gets its chart of accounts, language and apps at once and a failing pack demo rolls back, sign-up asks the phone and the
+LBP rate (20 an hour per IP, the wait in seconds), missing exchange rates are flagged instead of "≈ 0 LBP", system-created names in the
+company's language (plus a rename tool for existing companies), empty screens with a hint and an action, required-field and server
+errors always shown, a back-to-system button on full-screen modes, phone ribbon arrows, Arabic month picker.

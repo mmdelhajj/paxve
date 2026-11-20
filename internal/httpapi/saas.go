@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/shopspring/decimal"
 
 	"github.com/mmdelhajj/paxve/internal/auth"
 	"github.com/mmdelhajj/paxve/internal/charts"
@@ -46,8 +48,10 @@ func randHex(n int) string {
 // tenant exists yet; every row it writes carries the new tenant's id.
 func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 	ip := clientIP(r)
+	// 20 sign-ups an hour per IP (an accountant or reseller onboarding several clients from one office), and the
+	// answer says how long to wait (audit P7-F3)
 	if !s.signupLimiter.allow(ip) {
-		writeErr(w, http.StatusTooManyRequests, "too_many_attempts")
+		tooMany(w, s.signupLimiter, ip)
 		return
 	}
 	var in struct {
@@ -60,11 +64,31 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		Email         string `json:"email"`
 		Password      string `json:"password"`
 		Locale        string `json:"locale"`
+		BusinessType  string `json:"business_type"`
+		Phone         string `json:"phone"`
+		Rate          string `json:"rate"` // local currency per 1 base currency (e.g. 89500 LBP per USD)
 	}
 	if !decodeBody(w, r, &in) {
 		return
 	}
 	s.signupLimiter.fail(ip) // every attempt counts
+	in.Phone = strings.TrimSpace(in.Phone)
+	if in.BusinessType == "" {
+		in.BusinessType = "generator"
+	}
+	var rate decimal.Decimal
+	if in.Rate = strings.TrimSpace(strings.ReplaceAll(in.Rate, ",", "")); in.Rate != "" {
+		d, err := decimal.NewFromString(in.Rate)
+		if err != nil || !d.IsPositive() {
+			writeErr(w, http.StatusBadRequest, "bad_rate")
+			return
+		}
+		rate = d
+	}
+	if !slices.Contains(businessTypes, in.BusinessType) || len(in.Phone) > 40 {
+		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
 	in.Organisation = strings.TrimSpace(in.Organisation)
 	in.CompanyName = strings.TrimSpace(in.CompanyName)
 	in.FullName = strings.TrimSpace(in.FullName)
@@ -133,6 +157,11 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 			in.Organisation, slug, trialDays, in.Email).Scan(&tid); err != nil {
 			return err
 		}
+		if in.Phone != "" {
+			if _, err := tx.Exec(ctx, `UPDATE tenants SET contact_phone = $2 WHERE id = $1`, tid, in.Phone); err != nil {
+				return err
+			}
+		}
 		// From here on, column defaults (tenant_id = app_tenant()) and audit triggers see the new tenant.
 		if _, err := tx.Exec(ctx, `SELECT set_config('app.tenant_id', $1, true), set_config('app.ip', $2, true)`, tid, ip); err != nil {
 			return err
@@ -142,9 +171,17 @@ func (s *Server) signup(w http.ResponseWriter, r *http.Request) {
 		if in.Locale == "ar" {
 			nameAr = in.CompanyName
 		}
-		if err := tx.QueryRow(ctx, `INSERT INTO companies (name_en, name_ar, base_currency, local_currency)
-			VALUES ($1, $2, $3, $4) RETURNING id::text`, in.CompanyName, nameAr, in.BaseCurrency, in.LocalCurrency).Scan(&cid); err != nil {
+		// the company starts with the apps of its business type only (audit P7-F1) and speaks the owner's language
+		if err := tx.QueryRow(ctx, `INSERT INTO companies (name_en, name_ar, base_currency, local_currency, default_locale, business_type, apps)
+			VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id::text`, in.CompanyName, nameAr, in.BaseCurrency, in.LocalCurrency,
+			in.Locale, in.BusinessType, appsForBusiness(in.BusinessType)).Scan(&cid); err != nil {
 			return err
+		}
+		if !rate.IsZero() && in.LocalCurrency != in.BaseCurrency {
+			if _, err := tx.Exec(ctx, `INSERT INTO exchange_rates (company_id, currency, rate_date, kind, rate) VALUES ($1, $2, $3::date, 'official', $4::numeric)`,
+				cid, in.LocalCurrency, time.Now().In(beirut).Format(time.DateOnly), rate.String()); err != nil {
+				return err
+			}
 		}
 		if err := tx.QueryRow(ctx, `INSERT INTO users (email, full_name, password_hash, role, locale)
 			VALUES ($1, $2, $3, 'admin', $4) RETURNING id::text`, in.Email, in.FullName, hash, in.Locale).Scan(&uid); err != nil {

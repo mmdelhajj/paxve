@@ -4,6 +4,7 @@ import {
 } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import { api, type Me } from '../../api';
+import { notifications } from '@mantine/notifications';
 import { errorText } from '../../util';
 import LangSwitch from '../../components/LangSwitch';
 import Logo from '../../components/Logo';
@@ -17,7 +18,7 @@ export default function Signup({ onSignedUp }: { onSignedUp: (m: Me) => void }) 
   const { t, i18n } = useTranslation();
   const [f, setF] = useState({
     organisation: '', company_name: '', full_name: '', email: '', password: '',
-    base_currency: 'USD', local_currency: 'LBP', template: 'lebanon',
+    base_currency: 'USD', local_currency: 'LBP', template: 'lebanon', phone: '', rate: '89500',
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -29,15 +30,19 @@ export default function Signup({ onSignedUp }: { onSignedUp: (m: Me) => void }) 
     setBusy(true);
     setError(null);
     try {
-      const me = await api<Me>('/signup', { method: 'POST', body: { ...f, locale: i18n.language } });
-      // the business pack: apps, defaults (and demo data for a quick start)
-      try {
-        const comps = await api<{ id: string; apps: string[] }[]>('/companies');
-        if (comps[0]) {
-          if (BIZ_PACKS.includes(biz)) await api(`/companies/${comps[0].id}/retail/packs/${biz}`, { method: 'POST', body: { demo: true } });
-          else if (biz !== 'generator') await api(`/companies/${comps[0].id}/apps`, { method: 'PUT', body: { apps: comps[0].apps ?? [], business_type: biz } });
+      // the business type sets the company's apps on the server; the rate is the first thing a Lebanese cashier needs
+      const body = { ...f, rate: f.local_currency !== f.base_currency ? f.rate : '', business_type: biz, locale: i18n.language };
+      const me = await api<Me>('/signup', { method: 'POST', body });
+      // the business pack: defaults and demo data for a quick start
+      if (BIZ_PACKS.includes(biz)) {
+        try {
+          const comps = await api<{ id: string }[]>('/companies');
+          if (comps[0]) await api(`/companies/${comps[0].id}/retail/packs/${biz}`, { method: 'POST', body: { demo: true } });
+        } catch (err) {
+          // the account exists: say what failed (audit P7-F3) and go on; the pack can be applied again from Apps
+          notifications.show({ color: 'orange', autoClose: 12000, message: ` ${errorText(t, err)}` });
         }
-      } catch { /* the pack can be chosen later from Retail → Business packs */ }
+      }
       onSignedUp(me);
     } catch (err) {
       setError(errorText(t, err));
@@ -71,7 +76,7 @@ export default function Signup({ onSignedUp }: { onSignedUp: (m: Me) => void }) 
                     data={PACKS.map((p) => ({ value: p.key, label: packName(p, i18n.language, t('signup.other')) }))}
                     onChange={(v) => {
                       const p = PACKS.find((x) => x.key === v);
-                      if (p) setF((x) => ({ ...x, template: p.key, base_currency: p.base, local_currency: p.local }));
+                      if (p) setF((x) => ({ ...x, template: p.key, base_currency: p.base, local_currency: p.local, rate: p.local === 'LBP' && p.base === 'USD' ? '89500' : '' }));
                     }} />
                   <Text size="xs" c="dimmed" mt={4}>{t('t2.packHint')}</Text>
                 </div>
@@ -84,7 +89,13 @@ export default function Signup({ onSignedUp }: { onSignedUp: (m: Me) => void }) 
                   <Select label={t('companies.local')} searchable data={currencies} value={f.local_currency} allowDeselect={false}
                     onChange={(v) => v && set('local_currency')(v)} />
                 </SimpleGrid>
+                {f.local_currency !== f.base_currency && (
+                  <TextInput label={t('p7.rate', { base: f.base_currency, local: f.local_currency })} dir="ltr" inputMode="decimal" value={f.rate}
+                    description={t('p7.rateHint')} onChange={(e) => set('rate')(e.currentTarget.value)} />
+                )}
                 <TextInput label={t('users.fullName')} required value={f.full_name} onChange={(e) => set('full_name')(e.currentTarget.value)} />
+                <TextInput label={t('p7.phone')} type="tel" dir="ltr" autoComplete="tel" value={f.phone} placeholder="+961 70 123 456"
+                  description={t('p7.phoneHint')} onChange={(e) => set('phone')(e.currentTarget.value)} />
                 <TextInput label={t('login.email')} type="email" dir="ltr" required autoComplete="username" value={f.email}
                   onChange={(e) => set('email')(e.currentTarget.value)} />
                 <PasswordInput label={t('password.new')} dir="ltr" required minLength={10} autoComplete="new-password" value={f.password}

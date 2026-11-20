@@ -755,6 +755,8 @@ function Setup({ me }: { me: Me }) {
           <span className="mx-sp" />
           <button className="mx-btn sm" onClick={() => setLabels(!labels)}>{t('wh.setup.labels')}</button>
         </div>
+        {/* the answer of "generate" right under it (a 409 used to show only at the bottom of the screen, audit P7-F5) */}
+        <Flash m={msg} />
         {manage && <div className="mx-row" style={{ gap: 6, padding: 6, flexWrap: 'wrap', alignItems: 'end' }}>
           <label className="mx-fld">{t('wh.kind')}<select value={nl.kind} onChange={(e) => setNl({ ...nl, kind: e.currentTarget.value })}>
             {['zone', 'aisle', 'shelf', 'bin', 'input', 'qc', 'output', 'pack'].map((k) => <option key={k} value={k}>{t(`wh.lk.${k}`)}</option>)}</select></label>

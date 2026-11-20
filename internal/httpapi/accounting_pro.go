@@ -57,8 +57,9 @@ func ensureAccount(ctx context.Context, tx pgx.Tx, cid string, codes []string, t
 			}
 		}
 	}
+	// named in the company's language, like the chart it joins (audit P7-F7); the others stay in name_i18n
 	err = tx.QueryRow(ctx, `INSERT INTO accounts (company_id, code, name, name_i18n, type, parent_id)
-		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id::text`, cid, code, en, i18n, typ, parent).Scan(&id)
+		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id::text`, cid, code, pickLang(companyLang(ctx, tx, cid), en, ar, fr), i18n, typ, parent).Scan(&id)
 	return id, err
 }
 

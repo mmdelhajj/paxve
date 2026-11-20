@@ -7,6 +7,9 @@ import { can, api, ApiError, type Company, type Me } from '../api';
 import { formatDate, notifyError, notifySaved } from '../util';
 import { useCompany } from '../company';
 import { Select } from '@mantine/core';
+import { PACKS, packName } from '../l10n';
+
+const BIZ_PACKS = ['supermarket', 'clothing', 'electronics', 'furniture', 'wholesale', 'restaurant', 'pharmacy', 'factory'];
 
 export default function Companies({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
@@ -118,15 +121,21 @@ function NewCompany({ opened, onClose, onCreated }: { opened: boolean; onClose: 
   const [nameAr, setNameAr] = useState('');
   const [baseCur, setBaseCur] = useState<string | null>('USD');
   const [localCur, setLocalCur] = useState<string | null>('LBP');
+  const [biz, setBiz] = useState<string>('generator');
+  const [tpl, setTpl] = useState<string | null>(null); // null = the organisation's country (same as the first company)
   const [busy, setBusy] = useState(false);
-  const { currencies } = useCompany();
+  const { currencies, company: current } = useCompany();
+  const { i18n } = useTranslation();
   const curOptions = currencies.map((c) => ({ value: c.code, label: `${c.code} · ${c.name}` }));
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api('/companies', { method: 'POST', body: { name_en: nameEn, name_ar: nameAr, base_currency: baseCur, local_currency: localCur } });
+      // the new company gets its chart of accounts, language and business-type apps at once (audit P7-F2)
+      const c = await api<Company>('/companies', { method: 'POST', body: { name_en: nameEn, name_ar: nameAr, base_currency: baseCur, local_currency: localCur,
+        business_type: biz, template: tpl ?? current?.l10n ?? '', locale: i18n.language } });
+      if (BIZ_PACKS.includes(biz)) await api(`/companies/${c.id}/retail/packs/${biz}`, { method: 'POST', body: { demo: false } });
       notifySaved(t);
       setNameEn('');
       setNameAr('');
@@ -149,6 +158,11 @@ function NewCompany({ opened, onClose, onCreated }: { opened: boolean; onClose: 
             onChange={(e) => setNameAr(e.currentTarget.value)} />
           <Select label={t('companies.base')} searchable allowDeselect={false} data={curOptions} value={baseCur} onChange={setBaseCur} />
           <Select label={t('companies.local')} searchable allowDeselect={false} data={curOptions} value={localCur} onChange={setLocalCur} />
+          <Select label={t('rt.signup.business')} allowDeselect={false} value={biz} onChange={(v) => v && setBiz(v)}
+            data={['generator', 'internet', 'satellite', 'water', ...BIZ_PACKS].map((b) => ({ value: b, label: t(`rt.signup.b.${b}`) }))} />
+          <Select label={t('p7.chart')} description={t('p7.chartHint')} searchable allowDeselect={false}
+            value={tpl ?? current?.l10n ?? 'lebanon'} onChange={setTpl}
+            data={PACKS.map((p) => ({ value: p.key, label: packName(p, i18n.language, t('signup.other')) }))} />
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose}>{t('common.cancel')}</Button>
             <Button type="submit" loading={busy}>{t('common.save')}</Button>
