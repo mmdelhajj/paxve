@@ -334,6 +334,32 @@ optional demo data, all through the normal handlers. Ribbon tab **Business** sho
   at the till; `pos_orders.price_cut`), and offline payments carry the **device time** (`payments.client_time`), which the
   "payments at night" check uses.
 
+## Branches, inter-company, layouts, dashboards, sign-in, tenders (phase 8)
+
+- **Branches** (Accounting › Branches): a branch has its own cost center (`BR-<code>`), so the income and expense lines of its
+  documents carry it and the **profit by branch** comes from the ledger. Documents (invoices, bills, payments, sales / purchase
+  orders, expenses, supplier payments, till orders) get the branch of the user who makes them (`users.branch_ids`, first = default)
+  through a database trigger. A user limited to branches only sees those branches' documents (row policy `branch_scope`) plus the
+  company-wide ones. An admin can move a document to another branch (by number); only the tag changes.
+- **Inter-company** (Accounting › Inter-company): link two companies of the organisation; each side gets the other as a customer
+  and a supplier and a current account (A: asset, B: liability). A sale of one to the other is **mirrored as a supplier bill** on the
+  other side (background job every 2 minutes, or "Mirror sales now"); a voided sale voids the unpaid bill. **Loans, transfers and
+  repayments** post both sides at once. **Group accounts** (`GET /reports/consolidated?...&eliminate=1`): the current accounts, the
+  open inter-company invoices and the inter-company sales against the buyer's expenses are taken out; a difference goes to an
+  equity line so the balance sheet still balances. Goods still in the buyer's stock keep their margin.
+- **Print layouts** (Settings › Print layouts): per document (invoice, receipt, quotation, sales order, purchase order, supplier
+  bill): colour, logo and its size, title, header / footer text, fields shown, block order, second language for titles, QR code
+  (document details or own text / link), paper (A4, A5, 80 / 58 mm), frame, text size; live preview; used by every print screen.
+- **Dashboards**: *My dashboard* (Daily work) with widgets from a catalogue of fixed metrics (each with its own permission), drag
+  to arrange, sizes and titles; *Role dashboards* (Settings) set the default of each role or of everyone.
+- **Sign-in**: Google / Microsoft sign-in (OIDC code + PKCE) when the platform sets `PAXVE_GOOGLE_CLIENT_ID` / `_SECRET` and / or
+  `PAXVE_MS_CLIENT_ID` / `_SECRET` (`PAXVE_MS_TENANT`, default `common`); only existing users, two-step sign-in still applies,
+  the organisation can switch it off. Password **complexity** and **expiry** (after it only a password change is possible),
+  **idle sign-out** per company (warning one minute before; the server also ends idle sessions), **sign-in history** (failed
+  attempts included).
+- **Tenders** (Purchases › Tenders): lines, bids per supplier (price per line, lead time), comparison with the best price per line,
+  award per line into confirmed purchase orders (one per supplier) or into blanket agreements. **Blanket agreements**: price and
+  quantity agreed for a period; purchase orders drawn at the agreed price, the remaining quantity followed and enforced.
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the

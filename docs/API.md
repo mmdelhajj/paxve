@@ -586,3 +586,29 @@ only use their own boxes (`invalid_tender`), and only those are listed to them.
 - `POST /companies/{cid}/translate-defaults {dry_run, lang}` renames the names the system created in English (accounts, CRM stages, demo categories / items, the main warehouse, showroom, van, till, demo supplier, routes, price lists, work centers, table areas) to the company's language; records the user named are not touched. Answers `{changes: [{kind, from, to}]}`.
 - `GET /van/today?soft=1` answers `{van: null}` instead of `422 no_van`; `GET /self/appraisals` answers `[]` for a user without an employee file.
 - At start-up, live companies (trial / active / grace) that have no chart at all get the organisation's chart template.
+
+## Branches, inter-company, layouts, dashboards, sign-in, tenders (migration 00050)
+
+| Route | Permission | Notes |
+|---|---|---|
+| `GET/POST /companies/{cid}/branches`, `PATCH .../branches/{id}` | settings.view / manage | `{code, name, address, phone, is_active}`; a new branch gets cost center `BR-<code>` |
+| `GET /companies/{cid}/branches/users`, `PUT .../branches/users/{uid}` | users.view / edit | `{branch_ids}` in this company (first = default, empty = every branch) |
+| `PUT /companies/{cid}/branches/assign` | settings.manage | `{doc, id or number, branch_id}`; doc = invoice, bill, payment, sales_order, purchase_order, expense, supplier_payment, pos_register, warehouse |
+| `GET /companies/{cid}/branches/report?from&to` | reports.view | income / expense from the ledger per branch, document counts |
+| `GET/POST /intercompany/links`, `PATCH /intercompany/links/{id}` | accounting.view / manage | `{company_a, company_b, auto_bills}`; both companies must be open to the user |
+| `POST /intercompany/sync`, `GET /intercompany/docs?link_id` | accounting.edit / view | mirror sales as bills now; status pending / done / error / source_void |
+| `GET/POST /intercompany/transfers`, `POST .../transfers/{id}/void` | accounting.view / edit / void | `{link_id, from_company, kind: loan|transfer|repayment, date, currency, amount, from_account_id, to_account_id, memo}` |
+| `GET /reports/consolidated?...&eliminate=1` | reports.view | adds `elimination` / `consolidated` per row, `eliminations`, `totals_after` (balance sheet, P&L) |
+| `GET /companies/{cid}/doc-layouts`, `PUT .../doc-layouts/{doc}` | any / settings.manage | doc = invoice, receipt, quote, order, delivery, po, bill; settings validated |
+| `GET .../dashboards/metrics`, `GET/PUT/DELETE .../dashboards/mine`, `POST .../dashboards/data` | any | widgets `{id, metric, size 1-3, title}`; each metric checks its own permission (`denied`) |
+| `GET .../dashboards/roles`, `PUT/DELETE .../dashboards/roles/{role}` | settings.view / manage | role = `company`, a built-in role or a custom role key |
+| `GET /auth/oidc/providers`, `GET /auth/oidc/{provider}/start`, `.../callback` | public | Google / Microsoft sign-in (redirects) |
+| `GET /me/login-history`, `GET /security/login-history?user_id&failed=1`, `GET /security/sso` | any / users.view | sign-in history; providers configured |
+| `PUT /security/settings` | users.edit | also `password_complexity`, `password_expiry_days` (0-730), `sso_allowed` |
+| `GET/PUT /companies/{cid}/idle-logout` | any / users.edit | `{minutes}` 0 or 5-1440 |
+| `GET/POST /companies/{cid}/purchasing/tenders`, `GET/PUT .../tenders/{id}` | purchasing.view / create | `{title, currency, deadline, notes, lines[{item_id, description, quantity}]}` |
+| `POST .../tenders/{id}/status`, `PUT .../tenders/{id}/bids`, `POST .../tenders/{id}/award` | purchasing.create / approve | bids `{supplier_id, lead_days, valid_until, lines[{tender_line_id, unit_price, quantity}]}`; award `{bid_id | lines[{tender_line_id, bid_id, quantity}], as_agreement, start_date, end_date}` |
+| `GET/POST /companies/{cid}/purchasing/agreements`, `GET/PUT .../agreements/{id}`, `POST .../status`, `POST .../order` | purchasing.view / manage / create | order `{lines[{agreement_line_id, quantity}], order_date, allow_over}`; `agreement_exceeded` (409) past the remaining quantity |
+
+Errors: `weak_password_complexity`, `password_expired` (403 on every route but `/me` and sign-out), `invalid_branch`,
+`ic_no_expense_account`, `tender_has_bids`, `agreement_exceeded`, `agreement_expired`, `agreement_used`.
