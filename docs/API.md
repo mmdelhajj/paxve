@@ -640,3 +640,12 @@ Errors: `weak_password_complexity`, `password_expired` (403 on every route but `
 | `GET .../gantt/field?from&to`, `PUT .../gantt/service-jobs/{id}` | service.view / edit | `{start, technician_id, duration_min}` → `conflicts` |
 
 Group report: `eliminations` may carry `IC-URP` (reason `unrealized_profit`): the seller's margin on goods the buyer still holds.
+
+## Appearance (migration 00052)
+
+| Route | Permission | Notes |
+|---|---|---|
+| `PATCH /me` | signed in | also `ui_prefs: {theme: auto|comfort|classic|dark|contrast, size: n|l|xl, density: comfy|compact}`; `null` clears it (back to the organisation default); absent = unchanged; bad values 400 |
+| `GET /me` | signed in | `ui_prefs`: the user's own look, else the organisation default, else `null` |
+| `GET /org/ui-default` | any signed-in user | the organisation default (`{}` when none) |
+| `PUT /org/ui-default` | users.edit | same object as `ui_prefs`; applies to users who never chose |

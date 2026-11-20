@@ -53,10 +53,10 @@ function MonthSelect({ value, onChange, label }: { value: string; onChange: (v: 
   const now = new Date().getFullYear();
   return (
     <Group gap={4} wrap="nowrap" aria-label={label}>
-      <select style={{ padding: '3px 6px', borderRadius: 4, border: '1px solid #ced4da', background: '#fff', font: 'inherit', fontSize: 13 }} aria-label={label} value={m} onChange={(e) => set(y, Number(e.currentTarget.value))}>
+      <select style={{ padding: '3px 6px', borderRadius: 4, border: '1px solid var(--mx-line-strong)', background: 'var(--mx-card)', font: 'inherit', fontSize: 13 }} aria-label={label} value={m} onChange={(e) => set(y, Number(e.currentTarget.value))}>
         {names.map((n, i) => <option key={i} value={i + 1}>{n}</option>)}
       </select>
-      <select style={{ padding: '3px 6px', borderRadius: 4, border: '1px solid #ced4da', background: '#fff', font: 'inherit', fontSize: 13 }} aria-label={label} value={y} onChange={(e) => set(Number(e.currentTarget.value), m)}>
+      <select style={{ padding: '3px 6px', borderRadius: 4, border: '1px solid var(--mx-line-strong)', background: 'var(--mx-card)', font: 'inherit', fontSize: 13 }} aria-label={label} value={y} onChange={(e) => set(Number(e.currentTarget.value), m)}>
         {Array.from({ length: 8 }, (_, i) => now + 1 - i).map((yy) => <option key={yy} value={yy}>{yy}</option>)}
       </select>
     </Group>

@@ -3806,6 +3806,32 @@
   "submit": "anmelden",
   "title": "Melden Sie sich bei Ihrem Konto an"
  },
+ "look": {
+  "d": {
+   "comfy": "Komfortabel",
+   "compact": "Kompakt (Magie)"
+  },
+  "density": "Reihenabstand",
+  "hint": "Nur Farben und Größen ändern sich: Jeder Bildschirm bleibt an seinem Platz. Wird in Ihrem Konto gespeichert, sodass es Ihnen auf Ihren anderen Geräten folgt. Automatisch folgt das Gerät (nachts dunkel, wenn das Telefon so eingestellt ist).",
+  "hintLocal": "Lediglich Farben und Größen ändern sich. Auf diesem Telefon gespeichert.",
+  "orgHint": "Gilt für jeden Benutzer, der noch keinen Look ausgewählt hat (und für neue Benutzer).",
+  "orgTitle": "Standard-Look für Benutzer",
+  "s": {
+   "l": "Groß",
+   "n": "Normal",
+   "xl": "Extra groß"
+  },
+  "size": "Textgröße",
+  "t": {
+   "auto": "Automatisch",
+   "classic": "Klassiker",
+   "comfort": "Komfort",
+   "contrast": "Hoher Kontrast",
+   "dark": "Dunkel"
+  },
+  "theme": "Farben",
+  "title": "Aussehen und Augenkomfort"
+ },
  "magic": {
   "accountsCreated": "Dem Diagramm hinzugefügte Konten",
   "allOrNothing": "Alles oder nichts: Ein fehlgeschlagener Import ändert nichts.",

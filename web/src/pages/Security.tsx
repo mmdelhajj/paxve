@@ -6,7 +6,8 @@ import {
 import { IconCopy, IconDeviceDesktop, IconLogout, IconShieldCheck, IconShieldLock } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import QRCode from 'qrcode';
-import { api, type Me } from '../api';
+import { api, can, type Me } from '../api';
+import { AppearancePanel, OrgAppearanceDefault } from '../components/AppearanceMenu';
 import { formatDateTime, notifyError, notifySaved } from '../util';
 import Logo from '../components/Logo';
 import LangSwitch from '../components/LangSwitch';
@@ -147,7 +148,7 @@ export function MfaSetup({ onEnabled }: { onEnabled: () => void }) {
 export function ForcedMfa({ onDone, onLogout }: { onDone: () => void; onLogout: () => void }) {
   const { t } = useTranslation();
   return (
-    <Box mih="100vh" bg="var(--mantine-color-gray-0)" px="md">
+    <Box mih="100vh" bg="var(--mx-panel)" px="md">
       <Group justify="space-between" pt="md">
         <Logo />
         <Group gap="xs">
@@ -204,6 +205,11 @@ export default function MySecurity({ me, onMe }: { me: Me; onMe: (m: Me) => void
   return (
     <Stack gap="lg" maw={900}>
       <Title order={2}>{t('sec.mySecurity')}</Title>
+      <Paper withBorder p="md" id="look">
+        <Title order={5} mb={4}>{t('look.title')}</Title>
+        <Box maw={520}><AppearancePanel /></Box>
+        {can(me, 'users.edit') && <OrgAppearanceDefault />}
+      </Paper>
       <Paper withBorder p="md">
         <Group justify="space-between" align="flex-start">
           <Stack gap={4} maw={560}>

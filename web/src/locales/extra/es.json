@@ -3806,6 +3806,32 @@
   "submit": "Iniciar sesión",
   "title": "Inicia sesión en tu cuenta"
  },
+ "look": {
+  "d": {
+   "comfy": "Cómodo",
+   "compact": "Compacto (mágico)"
+  },
+  "density": "Espaciado de filas",
+  "hint": "Sólo cambian los colores y los tamaños: cada pantalla permanece en su lugar. Guardado en tu cuenta, por lo que te sigue a tus otros dispositivos. Automático sigue al dispositivo (oscuro por la noche si el teléfono está configurado así).",
+  "hintLocal": "Sólo cambian los colores y las tallas. Guardado en este teléfono.",
+  "orgHint": "Se aplica a todos los usuarios que aún no han elegido un look (y a los nuevos usuarios).",
+  "orgTitle": "Búsqueda predeterminada para usuarios",
+  "s": {
+   "l": "Grande",
+   "n": "Normal",
+   "xl": "Extra grande"
+  },
+  "size": "Tamaño del texto",
+  "t": {
+   "auto": "Automático",
+   "classic": "Clásico",
+   "comfort": "Comodidad",
+   "contrast": "Alto contraste",
+   "dark": "Oscuro"
+  },
+  "theme": "Bandera",
+  "title": "Apariencia y comodidad visual."
+ },
  "magic": {
   "accountsCreated": "Cuentas agregadas al gráfico",
   "allOrNothing": "Todo o nada: una importación fallida no cambia nada.",

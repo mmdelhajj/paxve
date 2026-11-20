@@ -212,7 +212,7 @@ function PartsEditor({ me, job, parts, onSaved }: { me: Me; job: Job; parts: Par
       {editable && (
         <div style={{ position: 'relative' }}>
           <input style={{ width: '100%', minHeight: 36 }} placeholder={t('fsv.findPart')} value={q} onChange={(e) => setQ(e.currentTarget.value)} />
-          {cat.length > 0 && <div className="mx-list" style={{ background: '#fff', border: '1px solid #ccd' }}>
+          {cat.length > 0 && <div className="mx-list" style={{ background: 'var(--mx-card)', border: '1px solid var(--mx-line-strong)' }}>
             {cat.map((c) => <button key={c.id} className="mx-link" style={{ display: 'block', width: '100%', textAlign: 'start', minHeight: 36 }}
               onClick={() => { save([...cur, { item_id: c.id, quantity: '1' }]); setQ(''); setCat([]); }}>{c.code} · {c.name} · {amt(c.sale_price)} · {t('fsv.onHand', { n: Number(c.on_hand) })}</button>)}
           </div>}
@@ -245,7 +245,7 @@ function Board({ me }: { me: Me }) {
   const dayName = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString(i18n.language, { weekday: 'short', day: 'numeric', month: 'numeric' });
   const card = (j: Job) => (
     <div key={j.id} draggable={edit} onDragStart={() => setDrag(j)} onClick={() => setSel(j.id)}
-      style={{ background: '#fff', border: '1px solid #dde3ea', borderInlineStart: `3px solid ${stColor[j.status]}`, borderRadius: 5, padding: 4, marginBottom: 4, cursor: 'pointer', fontSize: 12 }}>
+      style={{ background: 'var(--mx-card)', border: '1px solid var(--mx-line)', borderInlineStart: `3px solid ${stColor[j.status]}`, borderRadius: 5, padding: 4, marginBottom: 4, cursor: 'pointer', fontSize: 12 }}>
       <b dir="ltr">{j.scheduled_start ? new Date(j.scheduled_start).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' }) : ''}</b> {j.title}<br /><small>{j.customer_name}</small>
     </div>);
   if (!b) return null;
@@ -435,7 +435,7 @@ export function TechJobs({ me }: { me: Me }) {
     } catch (e) { setMsg({ ok: false, text: errorText(t, e) }); } finally { setBusy(false); }
   }
   void me;
-  const box: React.CSSProperties = { background: '#fff', borderRadius: 10, padding: 10, border: '1px solid #dde3ea' };
+  const box: React.CSSProperties = { background: 'var(--mx-card)', borderRadius: 10, padding: 10, border: '1px solid var(--mx-line)' };
   if (sel && d) {
     const j = d.job;
     if (finish) return (
@@ -491,7 +491,7 @@ export function TechJobs({ me }: { me: Me }) {
 export function Tech({ me, onExit }: { me: Me; onExit: () => void }) {
   const { t, i18n } = useTranslation();
   return (
-    <div dir={i18n.dir()} style={{ minHeight: '100vh', background: '#f3f5f8', display: 'flex', flexDirection: 'column' }}>
+    <div dir={i18n.dir()} style={{ minHeight: '100vh', background: 'var(--mx-panel)', display: 'flex', flexDirection: 'column' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#14324f', color: '#fff', paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))' }}>
         <b style={{ flex: 1 }}>{t('fsv.tech.title')}</b>
         <button className="mx-btn sm" onClick={onExit}>{t('fsv.close')}</button>

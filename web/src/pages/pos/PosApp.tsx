@@ -27,6 +27,7 @@ import {
   itemName, OrderReceipt, orderReceiptLines, round, SessionReport, zReportLines,
   type Catalog, type CatItem, type PosOrder, type PosOrderDetail, type Register, type SessionDetail, type TillMethod,
 } from './common';
+import { AppearanceButton } from '../../components/AppearanceMenu';
 
 function useOnline() {
   const [on, setOn] = useState(navigator.onLine);
@@ -410,6 +411,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
               <IconBluetooth size={18} />
             </ActionIcon>
           )}
+          <AppearanceButton className="mx-look-ai" />
           <Menu position="bottom-end">
             <Menu.Target><ActionIcon variant="light" color="gray" size="lg" aria-label="menu"><IconMenu2 size={18} /></ActionIcon></Menu.Target>
             <Menu.Dropdown>
@@ -447,7 +449,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
   if (registers === null) return <Box mih="100vh">{header}<Center p="xl"><Loader /></Center></Box>;
   if (!regId) {
     return (
-      <Box mih="100vh" bg="var(--mantine-color-gray-0)">
+      <Box mih="100vh" bg="var(--mx-panel)">
         {header}
         <Center p="md">
           <Stack w="100%" maw={480}>
@@ -476,7 +478,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
   // ---- no open session: open one ----
   if (!sessionId) {
     return (
-      <Box mih="100vh" bg="var(--mantine-color-gray-0)" style={{ display: 'flex', flexDirection: 'column' }}>
+      <Box mih="100vh" bg="var(--mx-panel)" style={{ display: 'flex', flexDirection: 'column' }}>
         {header}
         <OpenSession cat={cat} online={online} onOpened={(id) => { setSessionId(id); cacheSet(`pos.session.${regId}`, id); loadCatalog(); }} />
         <div style={{ flex: 1 }} />
@@ -545,7 +547,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
           </Stack>
         )}
       </ScrollArea>
-      <Paper withBorder p="sm" bg="var(--mantine-color-gray-0)">
+      <Paper withBorder p="sm" bg="var(--mx-panel)">
         {saved > 0 && <Group justify="space-between"><Text size="sm" c="pink" fw={600}>{t('rt.pos.saved')}</Text><Text size="sm" c="pink" fw={600} ff="monospace" dir="ltr">−{formatAmount(saved, dec)}</Text></Group>}
         {taxTotal > 0 && <Group justify="space-between"><Text size="sm">{t('pos.tax')}</Text><Text size="sm" ff="monospace" dir="ltr">{formatAmount(taxTotal, dec)}</Text></Group>}
         <Group justify="space-between"><Text fw={700}>{t('pos.total')}</Text><Text fw={700} size="xl" ff="monospace" dir="ltr">{formatAmount(total, dec)} {currency}</Text></Group>
@@ -558,7 +560,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
   );
 
   return (
-    <Box mih="100vh" bg="var(--mantine-color-gray-0)">
+    <Box mih="100vh" bg="var(--mx-panel)">
       {header}
       <Grid gap="sm" p="sm" m={0}>
         <Grid.Col span={{ base: 12, md: 7, lg: 8 }}>
@@ -604,7 +606,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
                 {shown.slice(0, 300).map((it) => (
                   <Card key={it.id} withBorder padding={6} radius="md" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => add(it)}>
                     {it.image ? <Image src={it.image} h={80} fit="cover" radius="sm" alt="" />
-                      : <Center h={80} bg="var(--mantine-color-gray-1)" style={{ borderRadius: 6 }}>
+                      : <Center h={80} bg="var(--mx-head)" style={{ borderRadius: 6 }}>
                           <Text fw={700} size="xl" c="dimmed">{itemName(it, lang).slice(0, 2).toUpperCase()}</Text>
                         </Center>}
                     <Text size="sm" fw={500} lineClamp={2} mt={4} lh={1.2} mih={34}>{itemName(it, lang)}</Text>
@@ -619,7 +621,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
           </Stack>
         </Grid.Col>
         <Grid.Col span={{ md: 5, lg: 4 }} visibleFrom="md">
-          <Paper withBorder p="sm" style={{ position: 'sticky', top: 64, height: 'calc(100vh - 80px)' }}>{cartPanel}</Paper>
+          <Paper withBorder p="sm" style={{ position: 'sticky', top: 64, height: 'calc(100vh / var(--mx-zoom, 1) - 80px)' }}>{cartPanel}</Paper>
         </Grid.Col>
       </Grid>
 
@@ -1207,7 +1209,7 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
           </Group>
         )}
         {insPick && <CustomerPicker onClose={() => setInsPick(false)} onPick={(c) => { setIns((x) => ({ ...x, insurer: { id: c.id, name: c.name }, pct: x.pct || '80' })); setInsPick(false); }} />}
-        <Paper withBorder p="md" bg="var(--mantine-color-gray-0)">
+        <Paper withBorder p="md" bg="var(--mx-panel)">
           <SimpleGrid cols={2}>
             <div>
               <Text size="xs" c="dimmed">{t('payments.received')}</Text>

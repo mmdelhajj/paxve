@@ -2796,6 +2796,15 @@ const fr: Messages = {
     },
     dn: { print: 'Bon de livraison', title: 'Bon de livraison', driver: 'Livré par', receiver: 'Reçu par (nom et signature)' },
   },
+  look: {
+    title: 'Apparence et confort visuel', theme: 'Couleurs', size: 'Taille du texte', density: 'Espacement des lignes',
+    t: { auto: 'Automatique', comfort: 'Confort', classic: 'Classique', dark: 'Sombre', contrast: 'Contraste élevé' },
+    s: { n: 'Normal', l: 'Grand', xl: 'Très grand' },
+    d: { comfy: 'Confortable', compact: 'Compact (Magic)' },
+    hint: 'Seuls les couleurs et les tailles changent : chaque écran reste à sa place. Enregistré sur votre compte, il vous suit sur vos autres appareils. Automatique suit l’appareil (sombre le soir si le téléphone est réglé ainsi).',
+    hintLocal: 'Seuls les couleurs et les tailles changent. Enregistré sur ce téléphone.',
+    orgTitle: 'Apparence par défaut des utilisateurs', orgHint: 'S’applique à chaque utilisateur qui n’a pas encore choisi (et aux nouveaux utilisateurs).',
+  },
 };
 
 export default fr;

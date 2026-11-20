@@ -125,7 +125,7 @@ function Orders({ me }: { me: Me }) {
             <div>{t('sh.subtotal')} {formatAmount(order.subtotal, 2)} · {t('sh.discount')} {formatAmount(order.discount, 2)} · {t('sh.fee')} {formatAmount(order.fee, 2)} · <b>{t('sh.total')} {formatAmount(order.total, 2)} {order.currency}</b></div>
             <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap' }}>
               {order.status === 'new' && can(me, 'sales.create') && <button className="mx-btn main" onClick={() => void run(api(`${base}/shop/orders/${order.id}/confirm`, { method: 'POST', body: {} }))}>{t('sh.confirm')}</button>}
-              {order.state !== 'cancelled' && order.state !== 'delivered' && can(me, 'sales.void') && <button className="mx-btn" style={{ color: '#b42318' }}
+              {order.state !== 'cancelled' && order.state !== 'delivered' && can(me, 'sales.void') && <button className="mx-btn" style={{ color: 'var(--mx-red)' }}
                 onClick={() => { if (window.confirm(t('sh.cancelQ'))) void run(api(`${base}/shop/orders/${order.id}/cancel`, { method: 'POST', body: {} })); }}>{t('sh.cancel')}</button>}
               <a className="mx-btn" href={`#/orders`}>{t('sh.openOrder')}</a>
               <a className="mx-btn" target="_blank" rel="noopener noreferrer" href={`${origin}/#/order/${order.token}`}>{t('sh.tracking')}</a>

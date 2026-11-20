@@ -4,6 +4,7 @@ package httpapi
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net"
@@ -1135,6 +1136,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/me/login-history", s.field(sessionOnly(s.myLoginHistory)))
 	mux.Handle("GET "+v+"/security/login-history", s.auth(s.orgLoginHistory))
 	mux.Handle("GET "+v+"/security/sso", s.auth(s.ssoStatus))
+	mux.Handle("GET "+v+"/org/ui-default", s.field(s.getUIDefault))
+	mux.Handle("PUT "+v+"/org/ui-default", s.auth(s.putUIDefault))
 	mux.Handle("GET "+v+"/companies/{cid}/idle-logout", s.field(s.getIdleLogout))
 	mux.Handle("PUT "+v+"/companies/{cid}/idle-logout", s.auth(s.putIdleLogout))
 	mux.Handle("GET "+v+"/companies/{cid}/purchasing/tenders", s.auth(s.listTenders))
@@ -1287,6 +1290,8 @@ type Principal struct {
 	PasswordExpired bool     `json:"password_expired"`
 	IdleLogoutMin   int      `json:"idle_logout_min"`
 	BranchIDs       []string `json:"branch_ids"`
+	// the user's appearance (theme, text size, density), else the organisation's default; null = never chosen
+	UIPrefs json.RawMessage `json:"ui_prefs"`
 
 	perms map[string]bool
 }
@@ -1335,6 +1340,7 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 	p := &Principal{}
 	var custom []string
 	var roleActive *bool
+	var uiRaw []byte
 	err := db.InTenant(ctx, s.Pool, sc, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `
 			SELECT u.id::text, u.tenant_id::text, t.name, u.email, u.full_name, u.role, u.locale,
@@ -1346,7 +1352,7 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 			       (t.password_expiry_days > 0 AND coalesce(u.password_changed_at, u.created_at) < now() - make_interval(days => t.password_expiry_days)),
 			       coalesce((SELECT min(c.idle_logout_min) FROM companies c WHERE c.is_active AND c.idle_logout_min > 0
 			                   AND (u.company_ids IS NULL OR c.id = ANY (u.company_ids))), 0),
-			       u.branch_ids::text[]
+			       u.branch_ids::text[], coalesce(u.ui_prefs, t.ui_default)
 			FROM users u JOIN tenants t ON t.id = u.tenant_id
 			LEFT JOIN platform_plans pp ON pp.code = t.plan
 			LEFT JOIN roles ro ON ro.id = u.role_id
@@ -1354,10 +1360,13 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 			WHERE u.id = $1`, sc.UserID).
 			Scan(&p.ID, &p.TenantID, &p.TenantName, &p.Email, &p.FullName, &p.Role, &p.Locale, &p.Active, &p.Plan,
 				&p.TrialEndsAt, &p.RoleID, &p.RoleName, &custom, &roleActive, &p.CompanyIDs, &p.MFAEnabled, &p.MFARequired,
-				&p.SubState, &p.PaidUntil, &p.GraceEnds, &p.PlanApps, &p.PlatformMFADeadline, &p.PasswordExpired, &p.IdleLogoutMin, &p.BranchIDs)
+				&p.SubState, &p.PaidUntil, &p.GraceEnds, &p.PlanApps, &p.PlatformMFADeadline, &p.PasswordExpired, &p.IdleLogoutMin, &p.BranchIDs, &uiRaw)
 	})
 	if err != nil {
 		return p, err
+	}
+	if uiRaw != nil {
+		p.UIPrefs = json.RawMessage(uiRaw)
 	}
 	p.IsPlatformAdmin = s.platformAdmins[strings.ToLower(p.Email)]
 	if p.IsPlatformAdmin && !p.MFAEnabled {

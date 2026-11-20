@@ -382,6 +382,21 @@ optional demo data, all through the normal handlers. Ribbon tab **Business** sho
 - **Timelines**: project tasks (start dates, dependencies, shift dependants, loops refused), production (work orders per work
   center, plan an order in the center's hours, daily load vs capacity), technicians (jobs per technician, double bookings).
 - **Delivery note** print in the "delivery" layout; **unrealized inter-company profit** removed from stock and profit in the group report.
+
+## Appearance: comfort for the eyes (migration 00052)
+
+Same Magic layout (ribbon, tiles, window tabs, grids, status bar, F-keys); only colours, sizes and spacing change.
+- **Themes**: *Comfort* (default: warm off-white ground, softer ink #1f2937, calm navy bars, gentle lines, AA contrast),
+  *Classic* (the previous look), *Dark* (low-glare navy grey #14181f, not black), *High contrast* (black on white, strong lines,
+  yellow selection, for weaker eyes), *Automatic* (follows the device: dark when the phone/PC is dark, else Comfort).
+- **Text size** normal / large (×1.125) / extra large (×1.25): the whole app area scales (CSS `zoom` on `#root`); Mantine
+  pop-ups on the page body follow through `--mantine-scale`; pointer maths (timeline drag, signature pad) divide by the zoom.
+- **Row spacing** comfortable (default) / compact (classic Magic rows).
+- Where: the eye button in the title bar and in the phone apps (collector, till, owner, customer portal), and *My security →
+  Appearance*. Saved at once on the device and on the account (`PATCH /me {ui_prefs}`), so it follows the user; admins set the
+  organisation's default for users who never chose (`PUT /org/ui-default`). Public pages (site, shop, signing) keep their own design.
+- Tokens: `web/src/magic.css` (`:root[data-mx-theme=…]`, `[data-mx-size]`, `[data-mx-density]`), logic `web/src/appearance.ts`,
+  panel `web/src/components/AppearanceMenu.tsx`; browser check `web/e2e/comfort-ui.cjs`.
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the

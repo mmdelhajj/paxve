@@ -169,7 +169,7 @@ export function ExpensesReport() {
                 <Table.Tr key={r.id}>
                   <Table.Td><a href={`#/ledger/${r.id}`} style={{ color: 'inherit', textDecoration: 'none' }}><span dir="ltr" style={{ fontFamily: 'monospace', color: 'var(--mantine-color-dimmed)' }}>{r.code}</span> {accountName(r)}</a></Table.Td>
                   <Table.Td w={220}>
-                    <div style={{ height: 8, borderRadius: 4, background: 'var(--mantine-color-gray-2)' }}>
+                    <div style={{ height: 8, borderRadius: 4, background: 'var(--mx-btn-active)' }}>
                       <div style={{ height: 8, borderRadius: 4, width: `${total ? Math.max(2, (Number(r.amount) / total) * 100) : 0}%`, background: 'var(--mantine-color-teal-6)' }} />
                     </div>
                   </Table.Td>

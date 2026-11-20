@@ -196,7 +196,7 @@ function CampaignPanel({ me, id, onChange, onClose }: { me: Me; id: string; onCh
             <td>{x.skip ? t(`mk.skip.${x.skip}`) : ''}</td></tr>)}</tbody></table>
         </div>}
         {(d.campaign.status === 'scheduled' || d.campaign.status === 'sent') && can(me, 'marketing.manage') && s.queued > 0 || d.campaign.status === 'scheduled' ?
-          <button className="mx-btn" style={{ alignSelf: 'flex-start', color: '#b42318' }} onClick={() => { if (window.confirm(t('mk.cancelQ'))) void run(api(`${base}/mkt/campaigns/${id}/cancel`, { method: 'POST', body: {} })); }}>{t('mk.cancel')}</button> : null}
+          <button className="mx-btn" style={{ alignSelf: 'flex-start', color: 'var(--mx-red)' }} onClick={() => { if (window.confirm(t('mk.cancelQ'))) void run(api(`${base}/mkt/campaigns/${id}/cancel`, { method: 'POST', body: {} })); }}>{t('mk.cancel')}</button> : null}
         {d.recipients.length > 0 && <>
           <b>{t('mk.recipients')}</b>
           <div style={{ overflowX: 'auto', maxHeight: 360 }}>

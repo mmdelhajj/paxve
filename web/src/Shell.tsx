@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { Alert, Button, Center, Group, Loader, Menu, Modal, PasswordInput, Stack } from '@mantine/core';
 import { useIdleLogout } from './pages/ent/idle';
 import { useDisclosure } from '@mantine/hooks';
-import { IconChevronDown, IconKey, IconLogout, IconShieldLock } from '@tabler/icons-react';
+import { IconChevronDown, IconEye, IconKey, IconLogout, IconShieldLock } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { api, can, planHas, type Me, type Rate } from './api';
 import { useCompany } from './company';
@@ -14,6 +14,7 @@ import type { PaymentMethod } from './billing';
 import SubBanner from './components/SubBanner';
 import StatusBar from './components/StatusBar';
 import './magic.css';
+import { AppearanceButton } from './components/AppearanceMenu';
 import { PaneActive } from './paneActive';
 import { clearDeviceCache } from './outbox';
 
@@ -359,6 +360,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
             {companies.map((c) => <option key={c.id} value={c.id}>{i18n.language === 'ar' && c.name_ar ? c.name_ar : c.name_en}</option>)}
           </select>
         )}
+        <AppearanceButton />
         <select className="mx-tsel" aria-label={t('common.language')} value={i18n.language} onChange={(e) => { applyLang(e.currentTarget.value); saveLocale(e.currentTarget.value); }}>
           {languages.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
         </select>
@@ -369,6 +371,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
           <Menu.Dropdown>
             <Menu.Label>{me.tenant_name} · {me.role_name || t(`roles.${me.role}`)}</Menu.Label>
             <Menu.Label>{me.email}</Menu.Label>
+            <Menu.Item leftSection={<IconEye size={16} />} onClick={() => openScreen('security')}>{t('look.title')}</Menu.Item>
             <Menu.Item leftSection={<IconShieldLock size={16} />} onClick={() => openScreen('security')}>{t('sec.mySecurity')}</Menu.Item>
             <Menu.Item leftSection={<IconKey size={16} />} onClick={pw.open}>{t('common.changePassword')}</Menu.Item>
             <Menu.Item color="red" leftSection={<IconLogout size={16} />} onClick={logout}>{t('common.logout')}</Menu.Item>

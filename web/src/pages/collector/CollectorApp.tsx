@@ -25,6 +25,7 @@ import {
 } from '../../bt';
 import { cacheGet, cacheSet, clearDeviceCache, enqueue, newClientRef, outbox, syncOutbox } from '../../outbox';
 import InstallApp, { setBadge } from '../../components/InstallApp';
+import { AppearanceButton } from '../../components/AppearanceMenu';
 
 const DriverTrips = lazy(() => import('../wh/Driver').then((m) => ({ default: m.DriverTrips })));
 const TechJobs = lazy(() => import('../fsv/Field').then((m) => ({ default: m.TechJobs })));
@@ -151,7 +152,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
   if (!company) return <Center h="100vh"><Loader /></Center>;
 
   return (
-    <Box bg="var(--mantine-color-gray-0)" mih="100vh">
+    <Box bg="var(--mx-panel)" mih="100vh">
       <Paper shadow="xs" radius={0} px="sm" py={8} style={{ position: 'sticky', top: 0, zIndex: 10 }}>
         <Group justify="space-between" wrap="nowrap">
           <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
@@ -171,6 +172,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
               <ActionIcon variant={printer ? 'filled' : 'light'} color={printer ? 'teal' : 'gray'} size="lg" onClick={pickPrinter}
                 aria-label={t('collector.printer')}><IconBluetooth size={18} /></ActionIcon>
             )}
+            <AppearanceButton className="mx-look-ai" />
             <Menu position="bottom-end">
               <Menu.Target><ActionIcon variant="light" color="gray" size="lg" aria-label={t('p7.menu')} title={t('p7.menu')}><IconMenu2 size={18} /></ActionIcon></Menu.Target>
               <Menu.Dropdown>

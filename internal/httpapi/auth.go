@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -291,12 +292,20 @@ func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) {
 		Locale          *string `json:"locale"`
 		CurrentPassword string  `json:"current_password"`
 		NewPassword     *string `json:"new_password"`
+		// appearance: an object sets it, null clears it (back to the organisation's default); absent = unchanged
+		UIPrefs json.RawMessage `json:"ui_prefs"`
 	}
 	if err := decode(w, r, &in); err != nil {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
 	if in.Locale != nil && !supportedLocales[*in.Locale] {
+		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	setUI := in.UIPrefs != nil
+	ui, okUI := cleanUIPrefs(in.UIPrefs)
+	if !okUI {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -329,6 +338,11 @@ func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) {
 			       password_changed_at = CASE WHEN $2::text IS NULL THEN password_changed_at ELSE now() END
 			WHERE id = app_user()`, in.Locale, newHash); err != nil {
 			return err
+		}
+		if setUI {
+			if _, err := tx.Exec(ctx, `UPDATE users SET ui_prefs = $1 WHERE id = app_user()`, ui); err != nil {
+				return err
+			}
 		}
 		if newHash != nil {
 			_, err := tx.Exec(ctx, `UPDATE user_sessions SET revoked_at = now(), revoked_by = app_user()

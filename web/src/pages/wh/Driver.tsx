@@ -4,6 +4,7 @@ import { api, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { errorText, formatDate } from '../../util';
 import type { Stop } from './Wh';
+import { uiZoom } from '../../appearance';
 
 // The driver's phone: today's trips, each stop with call / map links, and the proof of delivery (the receiver's
 // name and signature, a photo, the place). Also shown inside the collector app ("Deliveries" tab).
@@ -27,7 +28,8 @@ export function SignaturePad({ onChange }: { onChange: (dataUrl: string) => void
   }, []);
   const pos = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    return [e.clientX - r.left, e.clientY - r.top] as const;
+    const z = uiZoom(); // screen pixels → the canvas' CSS pixels (large text zooms the app)
+    return [(e.clientX - r.left) / z, (e.clientY - r.top) / z] as const;
   };
   return (
     <div>
@@ -88,7 +90,7 @@ export function DriverTrips() {
     } catch (e) { setMsg({ ok: false, text: errorText(t, e) }); } finally { setBusy(false); }
   }
 
-  const box: React.CSSProperties = { background: '#fff', borderRadius: 10, padding: 10, border: '1px solid #dde3ea' };
+  const box: React.CSSProperties = { background: 'var(--mx-card)', borderRadius: 10, padding: 10, border: '1px solid var(--mx-line)' };
   if (stop) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={box}><b>{stop.customer_name ?? ''}</b><div>{stop.address}</div></div>
@@ -148,7 +150,7 @@ export default function Driver({ me, onExit }: { me: Me; onExit: () => void }) {
   const { t, i18n } = useTranslation();
   void me;
   return (
-    <div dir={i18n.dir()} style={{ minHeight: '100vh', background: '#f3f5f8', display: 'flex', flexDirection: 'column' }}>
+    <div dir={i18n.dir()} style={{ minHeight: '100vh', background: 'var(--mx-panel)', display: 'flex', flexDirection: 'column' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#14324f', color: '#fff', paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))' }}>
         <b style={{ flex: 1 }}>{t('wh.drv.title')}</b>
         <button className="mx-btn sm" onClick={onExit}>{t('wh.close')}</button>

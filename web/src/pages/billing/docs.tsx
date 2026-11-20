@@ -496,7 +496,7 @@ export function ReceivePayment({ customerId, customerName, due, onClose, onDone 
               setTenders((ts) => [...ts, { key: tk++, method_id: next?.id ?? null, amount: '', rate: '' }]);
             }}>{t('payments.addTender')}</Button>
 
-          <Paper withBorder p="md" bg="var(--mantine-color-gray-0)">
+          <Paper withBorder p="md" bg="var(--mx-panel)">
             <SimpleGrid cols={{ base: 1, xs: 3 }}>
               <div>
                 <Text size="xs" c="dimmed">{t('payments.received')}</Text>

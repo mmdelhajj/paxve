@@ -162,7 +162,7 @@ function Detail({ me, id, onChange, onClose }: { me: Me; id: string; onChange: (
         <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap' }}>
           {edit && q.status === 'draft' && <button className="mx-btn main" onClick={() => act('send')}>{t('es.send')}</button>}
           {edit && q.status === 'sent' && <button className="mx-btn" onClick={() => act('remind')}>{t('es.remindNow')}</button>}
-          {edit && (q.status === 'draft' || q.status === 'sent') && <button className="mx-btn" style={{ color: '#b42318' }} onClick={() => { if (window.confirm(t('es.cancelQ'))) act('cancel'); }}>{t('es.cancel')}</button>}
+          {edit && (q.status === 'draft' || q.status === 'sent') && <button className="mx-btn" style={{ color: 'var(--mx-red)' }} onClick={() => { if (window.confirm(t('es.cancelQ'))) act('cancel'); }}>{t('es.cancel')}</button>}
           <a className="mx-btn" target="_blank" rel="noopener noreferrer" href={`/api/v1${base}/esign/requests/${id}/certificate`}>⬇ {q.status === 'completed' ? t('es.certificate') : t('es.draftPdf')}</a>
           {q.sales_order_id && <a className="mx-btn" href="#/quotes">{t('es.openQuote')}</a>}
         </div>

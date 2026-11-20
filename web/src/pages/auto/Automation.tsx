@@ -133,7 +133,7 @@ function Editor({ meta, rule, onClose, onSaved }: { meta: Meta; rule: Rule; onCl
       <h3>{r.id ? t('au.edit') : t('au.new')}<span className="mx-sp" /><button className="mx-btn sm" onClick={onClose}>×</button></h3>
       <div style={{ padding: 6, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <label className="mx-fld">{t('au.name')}<input value={r.name} onChange={(e) => setR({ ...r, name: e.currentTarget.value })} /></label>
-        <fieldset style={{ border: '1px solid #dde3ea', borderRadius: 6 }}><legend>{t('au.whenT')}</legend>
+        <fieldset style={{ border: '1px solid var(--mx-line)', borderRadius: 6 }}><legend>{t('au.whenT')}</legend>
           <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap' }}>
             <label className="mx-fld">{t('au.modelT')}<select value={r.model} onChange={(e) => { const md = e.currentTarget.value; const tr = meta.models[md].triggers.includes(r.trigger) ? r.trigger : meta.models[md].triggers[0]; setR({ ...r, model: md, trigger: tr, conditions: [], watch_fields: [] }); }}>
               {Object.keys(meta.models).map((k) => <option key={k} value={k}>{t(`au.model.${k}`)}</option>)}</select></label>
@@ -147,7 +147,7 @@ function Editor({ meta, rule, onClose, onSaved }: { meta: Meta; rule: Rule; onCl
                 onChange={(e) => { const col = f.name === 'assignee_id' ? (r.model === 'ticket' ? 'assigned_to' : r.model === 'service_job' ? 'technician_id' : 'assignee_id') : f.name; setR({ ...r, watch_fields: e.currentTarget.checked ? [...r.watch_fields, col] : r.watch_fields.filter((x) => x !== col) }); }} />{t(`au.f.${f.name}`, { defaultValue: f.name })}</label>)}
             </div>)}
         </fieldset>
-        <fieldset style={{ border: '1px solid #dde3ea', borderRadius: 6 }}><legend>{t('au.ifT')}</legend>
+        <fieldset style={{ border: '1px solid var(--mx-line)', borderRadius: 6 }}><legend>{t('au.ifT')}</legend>
           {r.conditions.map((c, i) => {
             const f = fields.find((x) => x.name === c.field);
             return (
@@ -162,9 +162,9 @@ function Editor({ meta, rule, onClose, onSaved }: { meta: Meta; rule: Rule; onCl
           })}
           <button className="mx-btn sm" disabled={fields.length === 0} onClick={() => setR({ ...r, conditions: [...r.conditions, { field: fields[0].name, op: 'eq', value: fields[0].kind === 'bool' ? 'true' : '' }] })}>+ {t('au.addCond')}</button>
         </fieldset>
-        <fieldset style={{ border: '1px solid #dde3ea', borderRadius: 6 }}><legend>{t('au.thenT')}</legend>
+        <fieldset style={{ border: '1px solid var(--mx-line)', borderRadius: 6 }}><legend>{t('au.thenT')}</legend>
           {r.actions.map((a, i) => (
-            <div key={i} style={{ borderBottom: '1px dashed #dde3ea', paddingBottom: 4, marginBottom: 4 }}>
+            <div key={i} style={{ borderBottom: '1px dashed var(--mx-line)', paddingBottom: 4, marginBottom: 4 }}>
               <div className="mx-row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                 <select aria-label={t('au.actT')} value={a.type} onChange={(e) => setAct(i, { type: e.currentTarget.value })}>
                   {meta.actions.filter((x) => (x !== 'purchase_request' || r.model === 'item_stock') && (x !== 'message' || !['item_stock', 'vehicle'].includes(r.model)) && (x !== 'set_field' || Object.keys(m?.settable ?? {}).length > 0))

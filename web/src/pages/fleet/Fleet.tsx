@@ -72,7 +72,7 @@ function useMethods(): Method[] {
 function DocDays({ d }: { d: string | null }) {
   if (!d) return <span />;
   const days = Math.round((new Date(`${d}T00:00:00`).getTime() - new Date(`${today()}T00:00:00`).getTime()) / 86400000);
-  return <span className={days < 0 ? 'red' : days <= 30 ? 'warn' : ''} style={days <= 30 && days >= 0 ? { color: '#a15c00' } : undefined}>{formatDate(d)}</span>;
+  return <span className={days < 0 ? 'red' : days <= 30 ? 'warn' : ''} style={days <= 30 && days >= 0 ? { color: 'var(--mx-amber)' } : undefined}>{formatDate(d)}</span>;
 }
 
 // ======================= vehicles =======================
@@ -325,7 +325,7 @@ function Alerts() {
       <section className="mx-box"><h3>{t('fl.al.docs')} ({a.documents.length})</h3>
         <table className="mx-table"><tbody>
           {a.documents.map((x, i) => <tr key={i}><td>{x.vehicle_name} <span dir="ltr">{x.plate}</span></td><td>{t(`fl.${x.kind}`)}</td><td>{formatDate(x.expiry)}</td>
-            <td className={x.days < 0 ? 'red' : ''} style={x.days >= 0 ? { color: '#a15c00' } : undefined}>{x.days < 0 ? t('fl.expiredAgo', { n: -x.days }) : t('fl.inDays', { n: x.days })}</td></tr>)}
+            <td className={x.days < 0 ? 'red' : ''} style={x.days >= 0 ? { color: 'var(--mx-amber)' } : undefined}>{x.days < 0 ? t('fl.expiredAgo', { n: -x.days }) : t('fl.inDays', { n: x.days })}</td></tr>)}
           {a.documents.length === 0 && <tr><td className="mx-empty">{t('fl.allGood')}</td></tr>}
         </tbody></table>
       </section>

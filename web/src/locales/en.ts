@@ -2794,6 +2794,15 @@ const en = {
     },
     dn: { print: 'Delivery note', title: 'Delivery note', driver: 'Delivered by', receiver: 'Received by (name and signature)' },
   },
+  look: {
+    title: 'Appearance and eye comfort', theme: 'Colours', size: 'Text size', density: 'Row spacing',
+    t: { auto: 'Automatic', comfort: 'Comfort', classic: 'Classic', dark: 'Dark', contrast: 'High contrast' },
+    s: { n: 'Normal', l: 'Large', xl: 'Extra large' },
+    d: { comfy: 'Comfortable', compact: 'Compact (Magic)' },
+    hint: 'Only colours and sizes change: every screen stays in its place. Saved on your account, so it follows you to your other devices. Automatic follows the device (dark at night if the phone is set so).',
+    hintLocal: 'Only colours and sizes change. Saved on this phone.',
+    orgTitle: 'Default look for users', orgHint: 'Applies to every user who has not chosen a look yet (and to new users).',
+  },
 };
 
 export default en;

@@ -32,6 +32,8 @@ export interface Me {
   mfa_enabled: boolean;
   mfa_required: boolean;
   mfa_setup_required: boolean;
+  /** appearance: the user's own choice, else the organisation's default (null = never chosen) */
+  ui_prefs?: { theme?: string; size?: string; density?: string } | null;
 }
 
 /** The signed-in user holds this permission ("module.action"). The server checks it again on every call. */

@@ -202,6 +202,8 @@ var routePerms = map[string]string{
 	"GET /me/login-history":                                     permAny,
 	"GET /security/login-history":                               "users.view",
 	"GET /security/sso":                                         "users.view",
+	"GET /org/ui-default":                                       permAny,
+	"PUT /org/ui-default":                                       "users.edit",
 	"GET /companies/{cid}/idle-logout":                          permAny,
 	"PUT /companies/{cid}/idle-logout":                          "users.edit",
 	"POST /companies/{cid}/bank/statements/parse":               "bank.create",

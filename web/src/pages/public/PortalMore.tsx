@@ -34,7 +34,7 @@ export function MyAccounts() {
     if (list.length === 1) window.location.replace(`#/p/${list[0].token}`);
   }, [list]);
   return (
-    <Center mih="100vh" p="md" bg="var(--mantine-color-gray-0)">
+    <Center mih="100vh" p="md" bg="var(--mx-panel)">
       <Stack maw={420} w="100%" align="stretch">
         <Center><Logo size="xl" /></Center>
         <Title order={3} ta="center">{t('pwa.my.title')}</Title>
@@ -94,9 +94,9 @@ export default function PortalMore({ token }: { token: string }) {
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 90, marginTop: 6 }} role="img" aria-label={t('pwa.my.consumption')}>
                   {rows.map((r) => (
                     <div key={r.period} title={`${r.period}: ${r.used ?? '—'}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 0 }}>
-                      <span style={{ fontSize: 10, color: '#5B6B7F' }} dir="ltr">{r.used != null ? Math.round(Number(r.used)) : ''}</span>
+                      <span style={{ fontSize: 10, color: 'var(--mx-muted)' }} dir="ltr">{r.used != null ? Math.round(Number(r.used)) : ''}</span>
                       <span style={{ width: '100%', background: '#1D4ED8', borderRadius: '3px 3px 0 0', height: `${r.used != null ? Math.max(2, (Number(r.used) / max) * 60) : 2}px`, opacity: r.used != null ? 1 : 0.25 }} />
-                      <span style={{ fontSize: 9.5, color: '#5B6B7F' }} dir="ltr">{r.period.slice(5)}</span>
+                      <span style={{ fontSize: 9.5, color: 'var(--mx-muted)' }} dir="ltr">{r.period.slice(5)}</span>
                     </div>
                   ))}
                 </div>

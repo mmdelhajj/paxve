@@ -109,7 +109,7 @@ export function CustomerPicker({ value, label, onChange }: { value: { id: string
     <label className="mx-fld" style={{ position: 'relative' }}>{label}
       <input value={q} placeholder={t('pj.findCustomer')} onChange={(e) => { setQ(e.currentTarget.value); onChange({ id: '', text: e.currentTarget.value }); }} />
       {list.length > 0 && (
-        <div className="mx-list" style={{ position: 'absolute', top: '100%', insetInlineStart: 0, zIndex: 5, background: '#fff', border: '1px solid #ccd', minWidth: 220 }}>
+        <div className="mx-list" style={{ position: 'absolute', top: '100%', insetInlineStart: 0, zIndex: 5, background: 'var(--mx-card)', border: '1px solid var(--mx-line-strong)', minWidth: 220 }}>
           {list.map((c) => <button key={c.id} className="mx-link" style={{ display: 'block', textAlign: 'start', width: '100%' }}
             onClick={() => { onChange({ id: c.id, text: `${c.code} ${c.name}` }); setList([]); }}>{c.code} · {c.name}</button>)}
         </div>)}
@@ -226,7 +226,7 @@ function ProjectPanel({ me, id, onChange, onClose }: { me: Me; id: string; onCha
 
 function Kpi({ label, value, bad }: { label: string; value: string; bad?: boolean }) {
   return (
-    <div style={{ border: '1px solid #dde3ea', borderRadius: 6, padding: '4px 10px', minWidth: 110, background: '#fff' }}>
+    <div style={{ border: '1px solid var(--mx-line)', borderRadius: 6, padding: '4px 10px', minWidth: 110, background: 'var(--mx-card)' }}>
       <small style={{ opacity: 0.75 }}>{label}</small><div className={bad ? 'red' : ''} style={{ fontWeight: 600 }} dir="ltr">{value}</div>
     </div>
   );
@@ -258,7 +258,7 @@ function Board({ me, project, stages, tasks, milestones, onOpen, onChange }: { m
             <div className="mx-row" style={{ gap: 4, alignItems: 'center', marginBottom: 6 }}><b>{st.name}</b><span className="mx-pill">{shown.filter((x) => x.stage_id === st.id).length}</span></div>
             {shown.filter((x) => x.stage_id === st.id).map((x) => (
               <div key={x.id} draggable={editable} onDragStart={() => setDrag(x.id)} className="pj-card"
-                style={{ background: '#fff', border: '1px solid #dde3ea', borderInlineStart: `3px solid ${prioColor[x.priority] ?? '#ccc'}`, borderRadius: 6, padding: 6, marginBottom: 6 }}>
+                style={{ background: 'var(--mx-card)', border: '1px solid var(--mx-line)', borderInlineStart: `3px solid ${prioColor[x.priority] ?? '#ccc'}`, borderRadius: 6, padding: 6, marginBottom: 6 }}>
                 <a href="#" onClick={(e) => { e.preventDefault(); onOpen(x.id); }} style={{ fontWeight: 600, display: 'block' }}>#{x.number} {x.title}</a>
                 <small style={{ display: 'block', opacity: 0.85 }}>
                   {x.assignee_name ?? t('pj.unassigned')}
@@ -301,7 +301,7 @@ export function TaskPanel({ me, id, milestones, onChange, onClose, onOpen }: { m
   const patch = (body: Record<string, unknown>) => void run(api(`${base}/prj/project-tasks/${id}`, { method: 'PATCH', body }));
   const setChecklist = (cl: { text: string; done: boolean }[]) => patch({ checklist: cl });
   return (
-    <div role="dialog" aria-label={x.title} style={{ position: 'fixed', insetBlock: 0, insetInlineEnd: 0, width: 'min(520px, 100vw)', background: '#fff', boxShadow: '0 0 24px rgba(0,0,0,.25)', zIndex: 50, overflow: 'auto', padding: 10 }}>
+    <div role="dialog" aria-label={x.title} style={{ position: 'fixed', insetBlock: 0, insetInlineEnd: 0, width: 'min(520px, 100vw)', background: 'var(--mx-card)', boxShadow: '0 0 24px rgba(0,0,0,.25)', zIndex: 50, overflow: 'auto', padding: 10 }}>
       <div className="mx-row" style={{ gap: 6, alignItems: 'center' }}>
         <b style={{ flex: 1 }}>#{x.number} · {x.project_name}</b>
         {x.parent_id && <button className="mx-btn sm" onClick={() => onOpen(x.parent_id as string)}>{t('pj.parent')}</button>}
@@ -548,7 +548,7 @@ function Timer({ onChange, tick }: { onChange: () => void; tick: number }) {
   const secs = Math.max(0, Math.floor((now - new Date(tm.running_since as string).getTime()) / 1000));
   const clock = `${String(Math.floor(secs / 3600)).padStart(2, '0')}:${String(Math.floor((secs % 3600) / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
   return (
-    <div className="mx-row" style={{ gap: 8, alignItems: 'center', padding: 8, background: '#fff8e6', border: '1px solid #f0d18a', borderRadius: 8, marginBottom: 6 }}>
+    <div className="mx-row" style={{ gap: 8, alignItems: 'center', padding: 8, background: 'var(--mx-amber-soft)', border: '1px solid var(--mx-amber-line)', borderRadius: 8, marginBottom: 6 }}>
       <b dir="ltr" style={{ fontSize: 20, fontFamily: 'monospace' }}>{clock}</b>
       <span>{tm.project_name}{tm.task_title ? ` · #${tm.task_number} ${tm.task_title}` : ''}</span>
       <span className="mx-sp" />

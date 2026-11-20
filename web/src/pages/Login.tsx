@@ -79,7 +79,7 @@ export default function Login({ onLogin }: { onLogin: (me: Me) => void }) {
   }
 
   return (
-    <Box mih="100vh" bg="var(--mantine-color-gray-0)" px="md">
+    <Box mih="100vh" bg="var(--mx-panel)" px="md">
       <Group justify="space-between" pt="md">
         <Anchor href="#/" size="sm">← Paxve</Anchor>
         <LangSwitch />

@@ -16,6 +16,7 @@ import Logo from '../../components/Logo';
 import InstallApp from '../../components/InstallApp';
 import PortalMore, { rememberPortal, savedPortals } from './PortalMore';
 import { invoiceColor, type InvoiceDetail, type Money } from '../../billing';
+import { AppearanceButton } from '../../components/AppearanceMenu';
 
 interface PInvoice {
   id: string; number: number; period: string | null; issue_date: string; due_date: string; currency: string; total: string;
@@ -94,18 +95,19 @@ export default function Portal({ token }: { token: string }) {
   );
 
   return (
-    <Box mih="100vh" bg="var(--mantine-color-gray-0)">
+    <Box mih="100vh" bg="var(--mx-panel)">
       <Paper radius={0} shadow="xs" px="md" py="xs">
         <Group justify="space-between" wrap="nowrap">
           <Text fw={700} truncate>{company}</Text>
           <Group gap={6} wrap="nowrap">
             {!kept && (
-              <button type="button" style={{ font: 'inherit', fontSize: 13, fontWeight: 600, border: '1px solid #D5DCE6', background: '#fff', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' }}
+              <button type="button" style={{ font: 'inherit', fontSize: 13, fontWeight: 600, border: '1px solid var(--mx-line-strong)', background: 'var(--mx-card)', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' }}
                 onClick={() => { rememberPortal({ token, company: d.company.name_ar || d.company.name_en, name: d.customer.name }); setKept(true); }}>
                 {t('pwa.my.remember')}
               </button>
             )}
-            <InstallApp className="" label={t('pwa.short')} style={{ font: 'inherit', fontSize: 13, fontWeight: 600, border: '1px solid #D5DCE6', background: '#fff', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' }} />
+            <InstallApp className="" label={t('pwa.short')} style={{ font: 'inherit', fontSize: 13, fontWeight: 600, border: '1px solid var(--mx-line-strong)', background: 'var(--mx-card)', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' }} />
+            <AppearanceButton className="mx-look-ai" local />
             <LangSwitch onChange={() => { try { localStorage.setItem('paxve.portal.lang', '1'); } catch { /* storage unavailable */ } }} />
           </Group>
         </Group>
@@ -262,7 +264,7 @@ function PayOnline({ token, invoiceId, currency }: { token: string; invoiceId: s
     <Stack gap={6} className="no-print">
       <Text fw={600}>{t('fin.pay.online')}</Text>
       {opts.map((o) => (
-        <Stack key={o.id} gap={4} style={{ border: '1px solid #ddd', borderRadius: 6, padding: 8 }}>
+        <Stack key={o.id} gap={4} style={{ border: '1px solid var(--mx-cell-line)', borderRadius: 6, padding: 8 }}>
           <Text size="sm" fw={600}>{o.name}{o.test_mode ? ` (${t('fin.pay.test')})` : ''}</Text>
           {o.instructions && <Text size="sm">{o.instructions}</Text>}
           {o.kind === 'transfer' ? (

@@ -216,7 +216,7 @@ function DocSettings({ company, onClose }: { company: Company; onClose: () => vo
         <Stack>
           <Text size="sm" c="dimmed">{t('docs.intro')}</Text>
           <Group align="center">
-            {f.logo ? <img src={f.logo} alt="" style={{ maxHeight: 72, maxWidth: 200, objectFit: 'contain', border: '1px solid #eee', padding: 4 }} />
+            {f.logo ? <img src={f.logo} alt="" style={{ maxHeight: 72, maxWidth: 200, objectFit: 'contain', border: '1px solid var(--mx-cell-line)', padding: 4 }} />
               : <Text size="sm" c="dimmed">{t('docs.noLogo')}</Text>}
             <FileButton onChange={pickLogo} accept="image/png,image/jpeg,image/webp,image/svg+xml">
               {(props) => <Button {...props} variant="default" size="xs" leftSection={<IconUpload size={14} />}>{t('docs.uploadLogo')}</Button>}

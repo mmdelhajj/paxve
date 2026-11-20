@@ -67,7 +67,7 @@ export default function BulkPrint({ initialPeriod }: { initialPeriod?: string })
   const companyName = data ? (rtl && data.company.name_ar ? data.company.name_ar : data.company.name_en) : '';
 
   return (
-    <Box p="md" bg="var(--mantine-color-gray-0)" mih="100vh">
+    <Box p="md" bg="var(--mx-panel)" mih="100vh">
       <Paper withBorder p="sm" mb="md" className="no-print">
         <Group justify="space-between" wrap="wrap" gap="sm">
           <Anchor href="#/invoices" size="sm"><Group gap={4}><IconArrowBack size={14} />{t('invoices.title')}</Group></Anchor>

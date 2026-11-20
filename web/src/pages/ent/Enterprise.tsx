@@ -423,7 +423,7 @@ function Layouts({ me }: { me: Me }) {
               {['none', 'doc', 'custom'].map((s) => <option key={s} value={s}>{t(`ep.lay.q.${s}`)}</option>)}</select></label>
             {l.qr === 'custom' && <label className="mx-fld" style={{ flex: 1 }}>{t('ep.lay.qrText')}<input dir="ltr" maxLength={300} value={l.qr_text || ''} onChange={(e) => up({ qr_text: e.currentTarget.value })} /></label>}
           </div>
-          <fieldset style={{ border: '1px solid #d5dce6', borderRadius: 6 }}>
+          <fieldset style={{ border: '1px solid var(--mx-line-strong)', borderRadius: 6 }}>
             <legend>{t('ep.lay.fields')}</legend>
             <div className="mx-row" style={{ gap: 10, flexWrap: 'wrap' }}>
               {LAYOUT_FIELDS.map((f) => (
@@ -431,7 +431,7 @@ function Layouts({ me }: { me: Me }) {
                   onChange={(e) => up({ hide: e.currentTarget.checked ? (l.hide ?? []).filter((x) => x !== f) : [...(l.hide ?? []), f] })} /> {t(`ep.lay.f.${f}`)}</label>))}
             </div>
           </fieldset>
-          <fieldset style={{ border: '1px solid #d5dce6', borderRadius: 6 }}>
+          <fieldset style={{ border: '1px solid var(--mx-line-strong)', borderRadius: 6 }}>
             <legend>{t('ep.lay.order')}</legend>
             {order.map((b, i) => (
               <div key={b} className="mx-row" style={{ gap: 6, alignItems: 'center' }}>
@@ -448,7 +448,7 @@ function Layouts({ me }: { me: Me }) {
             </div>)}
         </div>
       </section>
-      <section className="mx-box" style={{ flex: '1 1 460px', minWidth: 0, background: '#fff' }}>
+      <section className="mx-box" style={{ flex: '1 1 460px', minWidth: 0, background: 'var(--mx-card)' }}>
         <h3>{t('ep.lay.preview')}</h3>
         <LayoutOverride.Provider value={ov}>
           <div className="print-doc" data-doc={doc} style={{ padding: 12 }}>
@@ -692,7 +692,7 @@ function TenderDetail({ id, me, onChanged }: { id: string; me: Me; onChanged: ()
                 <td>{l.description}</td><td className="num">{Number(l.quantity)}</td>
                 {d.bids.map((b) => {
                   const p = priceOf(b, l.id);
-                  return <td key={b.id} className="num" style={l.best_bid_id === b.id ? { background: '#e6f4ec', fontWeight: 700 } : undefined}>{p != null ? amt(p, 2) : '—'}</td>;
+                  return <td key={b.id} className="num" style={l.best_bid_id === b.id ? { background: 'var(--mx-green-soft)', fontWeight: 700 } : undefined}>{p != null ? amt(p, 2) : '—'}</td>;
                 })}
                 {open && approve && d.bids.length > 0 && <td><select aria-label={t('ep.td.award')} value={pick[l.id] ?? ''} onChange={(e) => setPick({ ...pick, [l.id]: e.currentTarget.value })}>
                   <option value="">—</option>{d.bids.filter((b) => priceOf(b, l.id) != null).map((b) => <option key={b.id} value={b.id}>{b.supplier_name}</option>)}</select></td>}

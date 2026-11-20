@@ -7,6 +7,8 @@ import '@fontsource/ibm-plex-sans-arabic/500.css';
 import '@fontsource/ibm-plex-sans-arabic/600.css';
 import '@fontsource/ibm-plex-sans-arabic/700.css';
 import './print.css';
+import './magic.css'; // also the appearance tokens (theme / text size / density) used by every app screen
+import './appearance'; // applies the saved look before the first paint
 import i18n from './i18n'; // applies the saved language
 import App from './App';
 import { installNativeHooks } from './native';

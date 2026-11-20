@@ -681,7 +681,7 @@ function Tables({ me }: { me: Me }) {
         <div className="vt-floor" style={{ position: 'relative', height: 320, background: 'var(--mx-panel, #f4f6f9)', borderRadius: 6, overflow: 'hidden' }}>
           {rows.filter((x) => x.is_active).map((x) => (
             <div key={x.id} style={{ position: 'absolute', insetInlineStart: `${Math.min(x.x, 88)}%`, top: `${Math.min(x.y, 85)}%`, width: x.shape === 'long' ? 90 : 56, height: 44,
-              borderRadius: x.shape === 'round' ? 22 : 6, background: '#fff', border: '1px solid #c8d1dc', display: 'grid', placeItems: 'center', fontSize: 12 }}>
+              borderRadius: x.shape === 'round' ? 22 : 6, background: 'var(--mx-card)', border: '1px solid var(--mx-line-strong)', display: 'grid', placeItems: 'center', fontSize: 12 }}>
               <b>{x.name}</b><small>{x.seats}</small></div>))}
         </div>
       </section>

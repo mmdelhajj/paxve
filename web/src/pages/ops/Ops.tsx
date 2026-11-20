@@ -311,7 +311,7 @@ function Rules({ me }: { me: Me }) {
                 <td>{t(`op.bank.r.a.${r.action}`)} <bdi>{r.account_code ? `${r.account_code} ${r.account_name}` : r.customer_name ?? r.supplier_name ?? ''}</bdi></td>
                 <td>{edit ? <button className="mx-btn sm" onClick={() => void run(api(`${base}/bank/match-rules/${r.id}`, { method: 'PATCH', body: { is_active: !r.is_active } }))}>{r.is_active ? t('op.active') : t('op.inactive')}</button>
                   : (r.is_active ? t('op.active') : t('op.inactive'))}</td>
-                <td>{edit && <button className="mx-btn sm" style={{ color: '#b42318' }} onClick={() => { if (window.confirm(t('op.deleteQ'))) void run(api(`${base}/bank/match-rules/${r.id}`, { method: 'DELETE' })); }}>{t('op.delete')}</button>}</td>
+                <td>{edit && <button className="mx-btn sm" style={{ color: 'var(--mx-red)' }} onClick={() => { if (window.confirm(t('op.deleteQ'))) void run(api(`${base}/bank/match-rules/${r.id}`, { method: 'DELETE' })); }}>{t('op.delete')}</button>}</td>
               </tr>))}
             {rows.length === 0 && <tr><td colSpan={6} className="mx-empty">{t('op.bank.noRules')}</td></tr>}
           </tbody>
@@ -459,7 +459,7 @@ function QrOrdering({ me }: { me: Me }) {
           <h3 className="no-print">{t('op.qr.tables')}</h3>
           <div className="mx-row print-doc" style={{ gap: 10, padding: 6, flexWrap: 'wrap' }}>
             {qs.tables.map((tb) => (
-              <div key={tb.id} style={{ border: '1px solid #cfd6e0', borderRadius: 6, padding: 8, width: 170, textAlign: 'center', breakInside: 'avoid' }}>
+              <div key={tb.id} style={{ border: '1px solid var(--mx-line-strong)', borderRadius: 6, padding: 8, width: 170, textAlign: 'center', breakInside: 'avoid' }}>
                 <b><bdi>{tb.name}</bdi></b> <small>{tb.area}</small>
                 {tb.url ? <div style={{ display: 'flex', justifyContent: 'center', margin: '6px 0' }}><DocQR text={tb.url} size={120} /></div> : <div className="mx-empty">—</div>}
                 <small>{t('op.qr.scan')}</small>
@@ -596,7 +596,7 @@ function ShipmentCard({ sh, me, onChanged, onClose }: { sh: Shipment; me: Me; on
           {sh.tracking_no && sh.carrier !== 'manual' && sh.status !== 'cancelled' && <button className="mx-btn" onClick={() => act('track')}>{t('op.ship.track')}</button>}
           {sh.status !== 'draft' && sh.status !== 'delivered' && sh.status !== 'cancelled' && ['in_transit', 'delivered', 'exception'].map((s) => (
             <button key={s} className="mx-btn" onClick={() => act('status', { status: s })}>{t(`op.ship.s.${s}`)}</button>))}
-          {sh.status !== 'delivered' && sh.status !== 'cancelled' && <button className="mx-btn" style={{ color: '#b42318' }} onClick={() => { if (window.confirm(t('op.ship.cancelQ'))) act('cancel'); }}>{t('op.ship.cancel')}</button>}
+          {sh.status !== 'delivered' && sh.status !== 'cancelled' && <button className="mx-btn" style={{ color: 'var(--mx-red)' }} onClick={() => { if (window.confirm(t('op.ship.cancelQ'))) act('cancel'); }}>{t('op.ship.cancel')}</button>}
         </div>}
         <table className="mx-table">
           <tbody>{sh.events.slice().reverse().map((e, i) => (

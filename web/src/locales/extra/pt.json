@@ -3806,6 +3806,32 @@
   "submit": "Entrar",
   "title": "Faça login na sua conta"
  },
+ "look": {
+  "d": {
+   "comfy": "Confortável",
+   "compact": "Compacto (mágico)"
+  },
+  "density": "Espaçamento entre linhas",
+  "hint": "Apenas as cores e os tamanhos mudam: cada tela permanece no seu lugar. Salvo na sua conta, para que ele siga você para outros dispositivos. Automático segue o dispositivo (escuro à noite se o telefone estiver configurado assim).",
+  "hintLocal": "Apenas cores e tamanhos mudam. Salvo neste telefone.",
+  "orgHint": "Aplica-se a todos os usuários que ainda não escolheram um visual (e a novos usuários).",
+  "orgTitle": "Aparência padrão para usuários",
+  "s": {
+   "l": "Grande",
+   "n": "Normal",
+   "xl": "Extra grande"
+  },
+  "size": "Tamanho do texto",
+  "t": {
+   "auto": "Automático",
+   "classic": "Clássico",
+   "comfort": "Conforto",
+   "contrast": "Alto contraste",
+   "dark": "Escuro"
+  },
+  "theme": "Cores",
+  "title": "Aparência e conforto ocular"
+ },
  "magic": {
   "accountsCreated": "Contas adicionadas ao gráfico",
   "allOrNothing": "Tudo ou nada: uma importação falhada não altera nada.",

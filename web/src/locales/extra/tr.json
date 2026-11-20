@@ -3806,6 +3806,32 @@
   "submit": "Oturum aç",
   "title": "Hesabınızda oturum açın"
  },
+ "look": {
+  "d": {
+   "comfy": "Rahat",
+   "compact": "Kompakt (Sihirli)"
+  },
+  "density": "Satır aralığı",
+  "hint": "Yalnızca renkler ve boyutlar değişir: Her ekran yerinde kalır. Hesabınıza kaydedildiği için sizi diğer cihazlarınıza kadar takip eder. Otomatik, cihazı takip eder (telefon bu şekilde ayarlanmışsa gece karanlıktır).",
+  "hintLocal": "Yalnızca renkler ve boyutlar değişir. Bu telefona kaydedildi.",
+  "orgHint": "Henüz bir görünüm seçmemiş her kullanıcı (ve yeni kullanıcılar) için geçerlidir.",
+  "orgTitle": "Kullanıcılar için varsayılan görünüm",
+  "s": {
+   "l": "Büyük",
+   "n": "Normal",
+   "xl": "Ekstra büyük"
+  },
+  "size": "Metin boyutu",
+  "t": {
+   "auto": "Otomatik",
+   "classic": "Klasik",
+   "comfort": "Konfor",
+   "contrast": "Yüksek kontrast",
+   "dark": "Karanlık"
+  },
+  "theme": "Renkler",
+  "title": "Görünüm ve göz konforu"
+ },
  "magic": {
   "accountsCreated": "Grafiğe eklenen hesaplar",
   "allOrNothing": "Ya hep ya hiç: Başarısız bir içe aktarma hiçbir şeyi değiştirmez.",

@@ -381,7 +381,7 @@ function Risk({ me }: { me: Me }) {
                   <td><a className="mx-link" href={`#/customer/${r.customer_id}`}>{r.name}</a> <small dir="ltr">#{r.code} {r.phone}</small></td>
                   <td>{r.area_name ?? ''}</td>
                   <td className="num"><div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
-                    <span style={{ display: 'inline-block', width: 50, height: 6, background: '#eef1f5', borderRadius: 3 }}>
+                    <span style={{ display: 'inline-block', width: 50, height: 6, background: 'var(--mx-head)', borderRadius: 3 }}>
                       <span style={{ display: 'block', width: `${r.score}%`, height: 6, borderRadius: 3, background: r.band === 'high' ? '#b42318' : r.band === 'medium' ? '#a15c00' : '#0f7b4b' }} /></span>{r.score}</div></td>
                   <td><span className={`mx-pill ${bandPill[r.band]}`}>{t(`sm.rk.band.${r.band}`)}</span></td>
                   <td className="num">{r.late_score}</td><td className="num">{r.churn_score}</td>

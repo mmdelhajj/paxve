@@ -158,7 +158,7 @@ function Pipeline({ me }: { me: Me }) {
               <div style={{ padding: 4, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {list.map((a) => (
                   <div key={a.id} draggable={edit && a.stage !== 'hired'} onDragStart={() => setDrag(a.id)} onDragEnd={() => setDrag(null)} onClick={() => setSel(a.id)}
-                    style={{ border: '1px solid #dde3ea', borderRadius: 6, padding: 6, background: sel === a.id ? '#eef3ff' : '#fff', cursor: 'pointer' }}>
+                    style={{ border: '1px solid var(--mx-line)', borderRadius: 6, padding: 6, background: sel === a.id ? '#eef3ff' : '#fff', cursor: 'pointer' }}>
                     <b>{a.name}</b><div><small>{a.job_title ?? '—'}</small></div>
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}><Stars n={a.rating} />{a.files > 0 && <small>📎{a.files}</small>}
                       {a.source === 'careers' && <small>🌐</small>}{a.next_interview && <small>📅 {formatDateTime(a.next_interview)}</small>}</div>
@@ -208,7 +208,7 @@ function ApplicantPanel({ me, id, onChange, onClose }: { me: Me; id: string; onC
               <label className="mx-fld">{t('tl.start')}<input type="date" dir="ltr" value={offer.start || a.offer_start || ''} onChange={(e) => setOffer({ ...offer, start: e.currentTarget.value })} /></label>
               <button className="mx-btn" onClick={() => void run(api(`${base}/hr/applicants/${id}/offer`, { method: 'POST', body: { salary: offer.salary || a.offer_salary || '', currency: offer.currency || a.offer_currency || '', start: offer.start || a.offer_start || '' } }))}>{t('tl.sendOffer')}</button>
               {can(me, 'payroll.create') && <button className="mx-btn main" onClick={() => { if (window.confirm(t('tl.hireQ', { name: a.name }))) void run(api(`${base}/hr/applicants/${id}/hire`, { method: 'POST', body: { salary: offer.salary, currency: offer.currency, start: offer.start } })); }}>{t('tl.hire')}</button>}
-              {a.stage !== 'refused' && <button className="mx-btn" style={{ color: '#b42318' }} onClick={() => { const r = window.prompt(t('tl.refuseWhy')); if (r !== null) void run(api(`${base}/hr/applicants/${id}/refuse`, { method: 'POST', body: { reason: r } })); }}>{t('tl.refuse')}</button>}
+              {a.stage !== 'refused' && <button className="mx-btn" style={{ color: 'var(--mx-red)' }} onClick={() => { const r = window.prompt(t('tl.refuseWhy')); if (r !== null) void run(api(`${base}/hr/applicants/${id}/refuse`, { method: 'POST', body: { reason: r } })); }}>{t('tl.refuse')}</button>}
             </div>
             {a.offer_sent_at && <small>{t('tl.offerSent', { at: formatDateTime(a.offer_sent_at) })}</small>}
           </>}

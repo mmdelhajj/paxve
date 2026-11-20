@@ -26,7 +26,7 @@ export default function ForcedPassword({ onDone, onLogout }: { onDone: () => voi
     }
   }
   return (
-    <Box mih="100vh" bg="var(--mantine-color-gray-0)" px="md">
+    <Box mih="100vh" bg="var(--mx-panel)" px="md">
       <Center mih="100vh">
         <Paper withBorder shadow="sm" p="xl" w="100%" maw={420}>
           <form onSubmit={save}>

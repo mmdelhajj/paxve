@@ -440,7 +440,7 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
                 {d.lines.map((l) => (
                   <tr key={l.id}>
                     <td style={{ whiteSpace: 'pre-wrap' }}>{l.description}
-                      {isOrder && <div className="no-print" style={{ fontSize: 11, color: '#666' }}>
+                      {isOrder && <div className="no-print" style={{ fontSize: 11, color: 'var(--mx-muted)' }}>
                         {l.item_kind === 'stock' && <>{t('sales.delivered')}: {Number(l.qty_delivered)} · </>}{t('sales.invoiced')}: {Number(l.qty_invoiced)}
                       </div>}
                     </td>

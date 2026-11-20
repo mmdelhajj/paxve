@@ -73,13 +73,13 @@ export default function ShopFloor({ me, onExit }: { me: Me; onExit: () => void }
   };
 
   const big = { minHeight: 56, fontSize: 18, flex: '1 1 120px' } as const;
-  const card = { background: '#fff', border: '1px solid #dde3ea', borderRadius: 10, padding: 10 } as const;
+  const card = { background: 'var(--mx-card)', border: '1px solid var(--mx-line)', borderRadius: 10, padding: 10 } as const;
   const w = sel?.workorder;
   const elapsed = w ? Number(w.worked_min || 0) + (w.running_since ? (now - loadedAt) / 60000 : 0) : 0;
   const wcName = wcs.find((x) => x.id === wc)?.name ?? '';
 
   return (
-    <div dir={dir} style={{ minHeight: '100vh', background: '#f3f5f8', display: 'flex', flexDirection: 'column', fontSize: 16 }}>
+    <div dir={dir} style={{ minHeight: '100vh', background: 'var(--mx-panel)', display: 'flex', flexDirection: 'column', fontSize: 16 }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#4e342e', color: '#fff', paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))' }}>
         <b style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('mf.sf.title')}{wcName ? ` · ${wcName}` : ''}</b>
         {sel && <button className="mx-btn sm" onClick={() => { setSel(null); setMsg(null); }}>{t('mf.sf.back')}</button>}
@@ -116,7 +116,7 @@ export default function ShopFloor({ me, onExit }: { me: Me; onExit: () => void }
                 <b dir="ltr" style={{ fontSize: 20 }}>{moCode(w.order_number)}</b><b style={{ fontSize: 18 }}>{w.seq}. {w.name}</b><span className="mx-sp" /><span className="mx-pill">{t(`mf.st.${w.status}`)}</span>
               </div>
               <div style={{ fontSize: 18 }}>{w.item_code} · {w.item_name} × <b dir="ltr">{q(w.quantity)} {w.unit}</b></div>
-              {w.instructions && <div style={{ marginTop: 6, padding: 8, background: '#fff8e1', borderRadius: 6, whiteSpace: 'pre-wrap' }}>{w.instructions}</div>}
+              {w.instructions && <div style={{ marginTop: 6, padding: 8, background: 'var(--mx-amber-soft)', borderRadius: 6, whiteSpace: 'pre-wrap' }}>{w.instructions}</div>}
             </div>
             <div style={{ ...card, textAlign: 'center' }}>
               <div dir="ltr" aria-live="polite" style={{ fontSize: 56, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: w.status === 'progress' ? '#a15c00' : '#1f2937' }}>{clock(elapsed)}</div>

@@ -67,7 +67,7 @@ function WidgetCard({ w, d }: { w: Widget; d?: Datum }) {
   const v = d?.data;
   return (
     <section className="mx-box" style={{ gridColumn: `span ${span}`, minWidth: 0, padding: 10 }}>
-      <div style={{ fontSize: 12.5, color: '#5b6b7f', fontWeight: 600 }}>{w.title || t(`ep.m.${w.metric}`)}</div>
+      <div style={{ fontSize: 12.5, color: 'var(--mx-muted)', fontWeight: 600 }}>{w.title || t(`ep.m.${w.metric}`)}</div>
       {!d ? <div style={{ opacity: 0.5 }}>…</div> : d.denied ? <div className="mx-empty">{t('ep.dash.denied')}</div> : (
         <>
           {(d.kind === 'kpi' || d.kind === 'count') && (
@@ -128,7 +128,7 @@ export function WidgetEditor({ widgets, onChange }: { widgets: Widget[]; onChang
       </div>
       {widgets.map((w, i) => (
         <div key={w.id} draggable onDragStart={() => setDrag(i)} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (drag != null) move(drag, i); setDrag(null); }}
-          className="mx-row" style={{ gap: 6, alignItems: 'center', padding: 4, border: '1px dashed #cbd5e1', borderRadius: 6, background: drag === i ? '#eef3ff' : undefined, cursor: 'grab', flexWrap: 'wrap' }}>
+          className="mx-row" style={{ gap: 6, alignItems: 'center', padding: 4, border: '1px dashed var(--mx-line-strong)', borderRadius: 6, background: drag === i ? '#eef3ff' : undefined, cursor: 'grab', flexWrap: 'wrap' }}>
           <span aria-hidden>⠿</span>
           <span style={{ minWidth: 160 }}>{t(`ep.m.${w.metric}`)}</span>
           <input placeholder={t('ep.dash.titleOpt')} aria-label={t('ep.dash.titleOpt')} maxLength={60} value={w.title ?? ''} onChange={(e) => onChange(widgets.map((x, j) => (j === i ? { ...x, title: e.currentTarget.value || undefined } : x)))} />

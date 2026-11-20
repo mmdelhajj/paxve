@@ -136,7 +136,7 @@ export default function Scan({ me, onExit }: { me: Me; onExit: () => void }) {
 
   const dir = i18n.dir();
   return (
-    <div dir={dir} style={{ minHeight: '100vh', background: '#f3f5f8', display: 'flex', flexDirection: 'column', fontSize: 16 }}>
+    <div dir={dir} style={{ minHeight: '100vh', background: 'var(--mx-panel)', display: 'flex', flexDirection: 'column', fontSize: 16 }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#14324f', color: '#fff', paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))' }}>
         <b style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('wh.scan.title')}</b>
         <select value={wh} onChange={(e) => setWh(e.currentTarget.value)} aria-label={t('wh.warehouse')} style={{ maxWidth: 150 }}>
@@ -170,7 +170,7 @@ export default function Scan({ me, onExit }: { me: Me; onExit: () => void }) {
 type Handler = React.MutableRefObject<(r: ScanRes, raw: string) => void>;
 type Send = (path: string, body: unknown, label: string) => Promise<unknown>;
 const big: React.CSSProperties = { minHeight: 52, fontSize: 18 };
-const card: React.CSSProperties = { background: '#fff', borderRadius: 10, padding: 10, border: '1px solid #dde3ea' };
+const card: React.CSSProperties = { background: 'var(--mx-card)', borderRadius: 10, padding: 10, border: '1px solid var(--mx-line)' };
 const q = (v: string | number | null | undefined) => (v == null ? '' : String(Number(v)));
 
 function Lookup({ base, last, detail, setDetail, handler }: { base: string; last: ScanRes | null; detail: unknown; setDetail: (d: unknown) => void; handler: Handler }) {
@@ -245,7 +245,7 @@ function Tasks({ base, wh, handler, send, me }: { base: string; wh: string; hand
           {open.lines.map((l) => {
             const n = done[l.id] ?? 0; const full = n >= Number(l.quantity);
             return (
-              <div key={l.id} style={{ border: '1px solid #dde3ea', borderRadius: 8, padding: 8, background: full ? '#e8f6ec' : at && l.from_location_id === at ? '#fff8e1' : '#fff' }}>
+              <div key={l.id} style={{ border: '1px solid var(--mx-line)', borderRadius: 8, padding: 8, background: full ? '#e8f6ec' : at && l.from_location_id === at ? '#fff8e1' : '#fff' }}>
                 <div dir="ltr" style={{ fontSize: 20, fontWeight: 700 }}>{l.from_code ?? (op.kind === 'putaway' ? t('wh.arrival') : t('wh.unbinned'))} → {l.to_code ?? (op.kind === 'ship' ? t('wh.customer') : t('wh.unbinned'))}</div>
                 <div>{l.item_code} · {l.item_name}{l.lot_no ? ` [${l.lot_no}]` : ''}</div>
                 <div className="mx-row" style={{ gap: 6, alignItems: 'center' }}>
@@ -299,7 +299,7 @@ function Receive({ base, handler, send }: { base: string; handler: Handler; send
     <div style={card}>
       <h3 style={{ margin: 0 }}>PO {po.order.number} · {po.order.supplier_name}</h3>
       {po.lines.filter((l) => Number(l.to_receive) > 0).map((l) => (
-        <div key={l.id} className="mx-row" style={{ gap: 6, alignItems: 'center', borderBottom: '1px solid #eee', padding: '6px 0' }}>
+        <div key={l.id} className="mx-row" style={{ gap: 6, alignItems: 'center', borderBottom: '1px solid var(--mx-cell-line)', padding: '6px 0' }}>
           <span style={{ flex: 1 }}>{l.item_code ?? ''} {l.description}</span>
           <input dir="ltr" inputMode="decimal" style={{ width: 70, ...big }} aria-label={l.description} value={String(n[l.id] ?? 0)} onChange={(e) => setN({ ...n, [l.id]: Number(e.currentTarget.value) || 0 })} />
           <span dir="ltr">/ {q(l.to_receive)}</span>
@@ -374,7 +374,7 @@ function Count({ base, wh, handler, send }: { base: string; wh: string; handler:
     <div style={card}>
       <h3 style={{ margin: 0 }} dir="ltr">{loc.code}</h3>
       {rows.map((x) => (
-        <div key={x.item_id} className="mx-row" style={{ gap: 6, alignItems: 'center', borderBottom: '1px solid #eee', padding: '6px 0' }}>
+        <div key={x.item_id} className="mx-row" style={{ gap: 6, alignItems: 'center', borderBottom: '1px solid var(--mx-cell-line)', padding: '6px 0' }}>
           <span style={{ flex: 1 }}>{x.code} · {x.name} <small>({t('wh.scan.expected')} {x.expected})</small></span>
           <input dir="ltr" inputMode="decimal" style={{ width: 70, ...big }} aria-label={x.code} value={String(x.counted)} onChange={(e) => setRows(rows.map((y) => y.item_id === x.item_id ? { ...y, counted: Number(e.currentTarget.value) || 0 } : y))} />
         </div>))}

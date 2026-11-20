@@ -80,7 +80,7 @@ export default function Resto({ me, onExit }: { me: Me; onExit: () => void }) {
   const openSession = () => call(api(`${base}/pos/sessions`, { method: 'POST', body: { register_id: reg } }), () => loadRegs());
 
   return (
-    <div dir={dir} style={{ minHeight: '100vh', background: '#f3f5f8', display: 'flex', flexDirection: 'column', fontSize: 15 }}>
+    <div dir={dir} style={{ minHeight: '100vh', background: 'var(--mx-panel)', display: 'flex', flexDirection: 'column', fontSize: 15 }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#7c2d12', color: '#fff', paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))', flexWrap: 'wrap' }}>
         <b style={{ flex: 1, minWidth: 0 }}>{t('vt.t.resto')}{check ? ` · #${check.check.number}${check.check.table_name ? ' · ' + check.check.table_name : ''}` : ''}</b>
         {regs.length > 1 && <select value={reg} onChange={(e) => { setReg(e.currentTarget.value); setCheck(null); }} aria-label={t('vt.r.register')}>
@@ -106,7 +106,7 @@ export default function Resto({ me, onExit }: { me: Me; onExit: () => void }) {
                 <button key={k.id} className="mx-btn" style={big} onClick={() => loadCheck(k.id)}>
                   #{k.number} {t(`vt.r.k.${k.kind}`)} {k.name} · <span dir="ltr">{formatAmount(k.total, dec)}</span>{k.ready > 0 && ` · ✓${k.ready}`}</button>))}
             </div>
-            <div style={{ position: 'relative', minHeight: 420, height: '62vh', background: '#fff', border: '1px solid #dde3ea', borderRadius: 8, overflow: 'auto' }}>
+            <div style={{ position: 'relative', minHeight: 420, height: '62vh', background: 'var(--mx-card)', border: '1px solid var(--mx-line)', borderRadius: 8, overflow: 'auto' }}>
               {floor.tables.map((tb) => {
                 const k = tb.open_check;
                 const bg = !k ? '#ffffff' : k.ready > 0 ? '#dcfce7' : '#ffedd5';
@@ -225,7 +225,7 @@ function CheckView({ me, base, cat, d, session, dec, tables, onChange, onClosed,
       </section>
       {pick && (
         <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(15,27,45,.45)', display: 'grid', placeItems: 'center', zIndex: 300 }} onClick={() => setPick(null)}>
-          <div className="mx-box" style={{ background: '#fff', padding: 12, width: 'min(520px, 94vw)', maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+          <div className="mx-box" style={{ background: 'var(--mx-card)', padding: 12, width: 'min(520px, 94vw)', maxHeight: '90vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <h3>{itemName(pick.item, i18n.language)}</h3>
             {groups.map((g) => (
               <div key={g} style={{ padding: 4 }}><small>{g}</small>
@@ -293,7 +293,7 @@ function PayPanel({ base, cat, d, session, dec, lineIds, onClose, onPaid, onErro
   };
   return (
     <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(15,27,45,.45)', display: 'grid', placeItems: 'center', zIndex: 300 }} onClick={onClose}>
-      <div className="mx-box" style={{ background: '#fff', padding: 12, width: 'min(460px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
+      <div className="mx-box" style={{ background: 'var(--mx-card)', padding: 12, width: 'min(460px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
         <h3>{t('vt.r.pay')} · #{d.check.number}</h3>
         <table className="mx-table"><tbody>
           <tr><td>{t('vt.r.subtotal', { n: lines.length })}</td><td dir="ltr">{formatAmount(sub, dec)}</td></tr>

@@ -244,7 +244,7 @@ function OrderPanel({ me, d, bc, onChange, onOpen, onClose }: { me: Me; d: MODet
         {d.checks.length > 0 && <ChecksTable checks={d.checks} me={me} onDone={onChange} />}
 
         {active && manage && (
-          <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'end', borderTop: '1px solid #dde3ea', paddingTop: 6 }}>
+          <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'end', borderTop: '1px solid var(--mx-line)', paddingTop: 6 }}>
             <label className="mx-fld">{t('mf.produceQty')}<input dir="ltr" style={{ width: 70 }} value={pq} onChange={(e) => setPq(num(e.currentTarget.value))} /></label>
             <label className="mx-fld">{t('mf.scrapQty')}<input dir="ltr" style={{ width: 60 }} value={scrapQ} onChange={(e) => setScrapQ(num(e.currentTarget.value))} /></label>
             <label className="mx-fld">{t('mf.lotNo')}<input dir="ltr" style={{ width: 130 }} value={lot} placeholder={t('mf.lotHint')} onChange={(e) => setLot(e.currentTarget.value)} /></label>
@@ -312,7 +312,7 @@ export function ChecksTable({ checks, me, onDone, big }: { checks: QCheck[]; me:
                   <button className="mx-btn sm main" style={bs} disabled={!vals[c.id]} onClick={() => void rec(c, { measured: vals[c.id] })}>{t('mf.q.record')}</button>
                 </> : <>
                   <button className="mx-btn sm main" style={bs} onClick={() => void rec(c, { result: 'pass' })}>{t('mf.q.pass')}</button>
-                  <button className="mx-btn sm" style={{ ...bs, color: '#b42318' }} onClick={() => void rec(c, { result: 'fail' })}>{t('mf.q.fail')}</button>
+                  <button className="mx-btn sm" style={{ ...bs, color: 'var(--mx-red)' }} onClick={() => void rec(c, { result: 'fail' })}>{t('mf.q.fail')}</button>
                 </>}
                 <input style={{ width: 110, minHeight: bs?.minHeight }} placeholder={t('mf.q.note')} aria-label={t('mf.q.note')} value={vals[`n${c.id}`] ?? ''} onChange={(e) => setVals({ ...vals, [`n${c.id}`]: e.currentTarget.value })} />
               </span>)}</td>
@@ -426,7 +426,7 @@ function Boms({ me }: { me: Me }) {
             </div>
           )}
           {b.id && (
-            <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'end', borderTop: '1px solid #dde3ea', paddingTop: 6 }}>
+            <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'end', borderTop: '1px solid var(--mx-line)', paddingTop: 6 }}>
               <span>{t('mf.boms.versions')}:</span>
               {versions.map((v) => <button key={v.id} className={`mx-btn sm ${v.id === b.id ? 'main' : ''}`} title={v.version_note} onClick={() => void edit(v.id)}>v{v.version}{v.is_active ? ' ✓' : ''}</button>)}
               {manage && <button className="mx-btn sm" onClick={() => void run(api<{ bom: BOM }>(`${base}/mfg/boms/${b.id}/new-version`, { method: 'POST', body: { version_note: b.version_note } }), (x) => void edit((x as { bom: BOM }).bom.id))}>{t('mf.boms.newVersion')}</button>}
@@ -767,7 +767,7 @@ function Reports() {
           <table className="mx-table"><thead><tr><th>{t('mf.workcenter')}</th><th className="num">{t('mf.wos')}</th><th className="num">{t('mf.r.openMin')}</th><th className="num">{t('mf.r.capMin')}</th><th>{t('mf.r.loadCol')}</th><th className="num">{t('mf.r.done30')}</th></tr></thead>
             <tbody>{load.map((l) => { const pct = Number(l.load_pct ?? 0); return (
               <tr key={l.id}><td>{l.code} · {l.name}</td><td className="num">{l.open_workorders}</td><td className="num">{q(l.open_min)}</td><td className="num">{q(l.capacity_min)}</td>
-                <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 120, height: 10, background: '#eef1f5', borderRadius: 5, overflow: 'hidden' }}><div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pct > 100 ? '#b42318' : pct > 80 ? '#a15c00' : '#0f7b4b' }} /></div><span dir="ltr">{pct} %</span></div></td>
+                <td><div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 120, height: 10, background: 'var(--mx-head)', borderRadius: 5, overflow: 'hidden' }}><div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pct > 100 ? '#b42318' : pct > 80 ? '#a15c00' : '#0f7b4b' }} /></div><span dir="ltr">{pct} %</span></div></td>
                 <td className="num">{q(l.done_min_30d)}</td></tr>); })}
               {load.length === 0 && <tr><td colSpan={6} className="mx-empty">{t('mf.none')}</td></tr>}</tbody></table>
         </>}

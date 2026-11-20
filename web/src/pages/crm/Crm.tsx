@@ -137,7 +137,7 @@ export default function Crm({ me }: { me: Me }) {
               const list = leads.filter((l) => l.stage_id === s.id);
               const total = list.reduce((a, l) => a + Number(l.expected_revenue || 0), 0);
               return (
-                <Paper key={s.id} withBorder p="xs" w={270} bg="var(--mantine-color-gray-0)" style={{ flex: 'none', minHeight: 200 }}
+                <Paper key={s.id} withBorder p="xs" w={270} bg="var(--mx-panel)" style={{ flex: 'none', minHeight: 200 }}
                   onDragOver={(e) => e.preventDefault()} onDrop={() => { if (drag) void move(drag, s.id); setDrag(null); }}>
                   <Group justify="space-between" mb="xs">
                     <Text fw={600} size="sm">{stageLabel(s, lang)} <Text span c="dimmed" size="xs">({list.length})</Text></Text>

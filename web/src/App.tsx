@@ -1,4 +1,6 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
+import { adoptServerPrefs, chosenOnDevice, getAppearance, setThemed, useAppearance, type Appearance } from './appearance';
+import { saveAppearance } from './components/AppearanceMenu';
 import { Center, DirectionProvider, Loader, MantineProvider, createTheme, useDirection } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
@@ -40,9 +42,19 @@ const theme = createTheme({
   primaryColor: 'blue',
   fontFamily: font,
   headings: { fontFamily: font },
-  primaryShade: 7,
+  primaryShade: { light: 7, dark: 5 },
   defaultRadius: 'md',
+  // dark mode: a low-glare navy grey (not pure black), the same tones as the dark Magic theme
+  colors: {
+    dark: ['#dfe4ec', '#c3cad6', '#98a3b3', '#6f7b8e', '#465165', '#323b4b', '#252c38', '#1a1f28', '#14181f', '#0e1117'],
+  },
 });
+
+function useThemedScope(me: Me | null | undefined, route: string) {
+  // the app follows the user's look; the marketing site, shop and other public pages keep their own light design
+  const themed = !!me || route === 'p' || route === 'my' || route === 'pos-display';
+  useLayoutEffect(() => { setThemed(themed); }, [themed]);
+}
 
 function DirectionSync() {
   const { i18n } = useTranslation();
@@ -69,12 +81,14 @@ function Root() {
   const route = usePublicRoute();
   const portalToken = route === 'p' ? window.location.hash.replace(/^#\/?/, '').split('/')[1] ?? '' : '';
   const resetToken = route === 'reset' ? window.location.hash.replace(/^#\/?/, '').split('/')[1] ?? '' : '';
+  useThemedScope(me, route);
 
   useEffect(() => {
     api<Me>('/me')
       .then((m) => {
         setSignedIn(true);
         applyLang(m.locale);
+        syncAppearance(m);
         setMe(m);
       })
       .catch(() => setMe(null));
@@ -105,6 +119,7 @@ function Root() {
     const signedIn = (m: Me) => {
       setSignedIn(true, true);
       applyLang(m.locale);
+      syncAppearance(m);
       if (!APP_ROUTES.includes(route)) window.location.hash = '#/dashboard'; // an installed app keeps its own screen
       setMe(m);
     };
@@ -131,11 +146,20 @@ function Root() {
   );
 }
 
+// after sign-in: the account's look (or the organisation's default) applies; a look chosen on this device before the
+// account had one is saved to the account
+function syncAppearance(m: Me) {
+  const p = m.ui_prefs;
+  if (p && (p.theme || p.size || p.density)) adoptServerPrefs(p as Partial<Appearance>);
+  else if (chosenOnDevice()) saveAppearance(getAppearance());
+}
+
 export default function App() {
   const { i18n } = useTranslation();
+  const look = useAppearance();
   return (
     <DirectionProvider initialDirection={langInfo(i18n.language).dir} detectDirection={false}>
-      <MantineProvider theme={theme}>
+      <MantineProvider theme={theme} forceColorScheme={look.resolved === 'dark' ? 'dark' : 'light'}>
         <DirectionSync />
         <Notifications position="top-center" />
         <Root />

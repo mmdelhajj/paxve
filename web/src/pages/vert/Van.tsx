@@ -45,7 +45,7 @@ export default function Van({ onExit }: { me: Me; onExit: () => void }) {
   }, [load]);
 
   return (
-    <div dir={i18n.dir(i18n.language)} style={{ minHeight: '100vh', background: '#f3f5f8', display: 'flex', flexDirection: 'column', fontSize: 16 }}>
+    <div dir={i18n.dir(i18n.language)} style={{ minHeight: '100vh', background: 'var(--mx-panel)', display: 'flex', flexDirection: 'column', fontSize: 16 }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#14532d', color: '#fff', paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))' }}>
         <b style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('vt.t.van')}{d ? ` · ${d.van.name}` : ''}</b>
         {!online && <span className="mx-pill warn">{t('vt.v.offline')}</span>}
@@ -64,7 +64,7 @@ export default function Van({ onExit }: { me: Me; onExit: () => void }) {
             {tab === 'customers' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {d.stops.map((s) => (
-                  <button key={s.customer_id} className="mx-box" style={{ textAlign: 'start', padding: 10, display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', border: '1px solid #dde3ea' }}
+                  <button key={s.customer_id} className="mx-box" style={{ textAlign: 'start', padding: 10, display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', border: '1px solid var(--mx-line)' }}
                     onClick={() => { setCust(s); setMsg(null); }} disabled={!d.day}>
                     <div style={{ flex: 1 }}><b>{s.name}</b><br /><small>{s.route} · {s.address}</small></div>
                     <div style={{ textAlign: 'end' }}><b dir="ltr">{formatAmount(s.balance, dec)}</b>{s.credit_hold && <><br /><span className="mx-pill off">{t('vt.v.hold')}</span></>}

@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { uiZoom } from '../appearance'; // pointer moves are in screen pixels, the chart in (zoomed) CSS pixels
 
 // Phase 9: a light timeline (Gantt) — lanes on the side, bars you drag to another time (and, for hour timelines, to
 // another lane), dependency arrows, conflict / overload marks. Day unit: "YYYY-MM-DD" bars with an exclusive end;
@@ -72,11 +73,11 @@ export default function Gantt({ bars, warnings, unit, from, to, rows, load, onMo
   const ticks = Array.from({ length: days }, (_, i) => t0 + i * DAY);
   const todayX = pos(Date.now());
   return (
-    <div className="mx-gantt" style={{ display: 'flex', border: '1px solid var(--mx-line, #cfd6e0)', background: '#fff', minHeight: 60 }}>
-      <div style={{ flex: '0 0 220px', borderInlineEnd: '1px solid #cfd6e0' }}>
-        <div style={{ height: 34, borderBottom: '1px solid #cfd6e0', padding: '6px 8px', fontWeight: 600, fontSize: 12 }}>{perBar ? t('op.g.task') : t('op.g.lane')}</div>
+    <div className="mx-gantt" style={{ display: 'flex', border: '1px solid var(--mx-line, #cfd6e0)', background: 'var(--mx-card)', minHeight: 60 }}>
+      <div style={{ flex: '0 0 220px', borderInlineEnd: '1px solid var(--mx-line-strong)' }}>
+        <div style={{ height: 34, borderBottom: '1px solid var(--mx-line-strong)', padding: '6px 8px', fontWeight: 600, fontSize: 12 }}>{perBar ? t('op.g.task') : t('op.g.lane')}</div>
         {lines.map((ln) => (
-          <div key={ln.key} title={ln.label} style={{ height: rowH, borderBottom: '1px solid #eef1f5', padding: '0 8px', fontSize: 12.5, display: 'flex', alignItems: 'center', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+          <div key={ln.key} title={ln.label} style={{ height: rowH, borderBottom: '1px solid var(--mx-cell-line)', padding: '0 8px', fontSize: 12.5, display: 'flex', alignItems: 'center', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
             <bdi>{ln.label}</bdi>
           </div>
         ))}
@@ -84,19 +85,19 @@ export default function Gantt({ bars, warnings, unit, from, to, rows, load, onMo
       </div>
       <div ref={area} style={{ flex: 1, overflowX: 'auto', position: 'relative' }}>
         <div style={{ width, position: 'relative' }}>
-          <div style={{ display: 'flex', height: 34, borderBottom: '1px solid #cfd6e0', position: 'sticky', top: 0, background: '#f6f8fb' }}>
+          <div style={{ display: 'flex', height: 34, borderBottom: '1px solid var(--mx-line-strong)', position: 'sticky', top: 0, background: 'var(--mx-head)' }}>
             {ticks.map((ms) => {
               const d = new Date(ms);
               const we = d.getUTCDay() === 0;
               return (
-                <div key={ms} style={{ flex: `0 0 ${pxPerDay}px`, borderInlineStart: '1px solid #e3e8ef', fontSize: 10.5, textAlign: 'center', paddingTop: 3, background: we ? '#f0f2f6' : undefined }}>
+                <div key={ms} style={{ flex: `0 0 ${pxPerDay}px`, borderInlineStart: '1px solid var(--mx-line)', fontSize: 10.5, textAlign: 'center', paddingTop: 3, background: we ? '#f0f2f6' : undefined }}>
                   <div dir="ltr">{d.getUTCDate()}/{d.getUTCMonth() + 1}</div>
                   {unit === 'hour' && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 2px', opacity: 0.6 }} dir="ltr"><span>0</span><span>12</span><span>24</span></div>}
                 </div>);
             })}
           </div>
           <div style={{ position: 'relative', height: Math.max(1, lines.length) * rowH }}>
-            {ticks.map((ms, i) => <div key={ms} style={{ position: 'absolute', insetInlineStart: i * pxPerDay, top: 0, bottom: 0, borderInlineStart: '1px solid #f0f2f6' }} />)}
+            {ticks.map((ms, i) => <div key={ms} style={{ position: 'absolute', insetInlineStart: i * pxPerDay, top: 0, bottom: 0, borderInlineStart: '1px solid var(--mx-cell-line)' }} />)}
             {load && !perBar && lines.map((ln, i) => load.filter((l) => l.workcenter_id === ln.key).map((l) => {
               const x = pos(Date.parse(`${l.day}T00:00:00Z`));
               const hot = overloaded.has(`${ln.key}|${l.day}`);
@@ -122,7 +123,7 @@ export default function Gantt({ bars, warnings, unit, from, to, rows, load, onMo
               return (
                 <div key={b.id} role="button" tabIndex={0} aria-label={`${b.label} ${b.start} → ${b.end}`} title={`${b.label}\n${b.start.replace('T', ' ').slice(0, 16)} → ${b.end.replace('T', ' ').slice(0, 16)}${b.row_label && perBar ? `\n${b.row_label}` : ''}`}
                   onPointerDown={(e) => { if (readOnly || !onMove || done) return; (e.target as HTMLElement).setPointerCapture(e.pointerId); setDrag({ id: b.id, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 }); }}
-                  onPointerMove={(e) => { if (moving) setDrag({ ...drag!, dx: e.clientX - drag!.x0, dy: e.clientY - drag!.y0 }); }}
+                  onPointerMove={(e) => { if (moving) setDrag({ ...drag!, dx: (e.clientX - drag!.x0) / uiZoom(), dy: (e.clientY - drag!.y0) / uiZoom() }); }}
                   onPointerUp={() => moving && finish(b)}
                   style={{ position: 'absolute', insetInlineStart: box.x, top: box.y + 5, width: box.w, height: rowH - 10, borderRadius: 4, fontSize: 11, color: '#fff',
                     padding: '0 4px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', cursor: readOnly || done ? 'default' : 'grab', touchAction: 'none',

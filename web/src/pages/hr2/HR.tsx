@@ -679,8 +679,8 @@ export function PayslipSheet({ s, period, companyName }: { s: Pick<Slip, 'name' 
         {(['earning', 'deduction', 'employer'] as const).filter((k) => rows(k).length > 0).flatMap((k) => [
           <tr key={k}><td colSpan={2} style={{ paddingTop: 6 }}><b>{t(`hr2.kind.${k}`)}</b></td></tr>,
           ...rows(k).map((l, j) => (
-            <tr key={`${k}-${j}`}><td style={{ borderBottom: '1px solid #ddd' }}>{t(`hr2.ln.${l.code}`, { defaultValue: l.label })} <small dir="ltr">{l.basis}</small></td>
-              <td style={{ borderBottom: '1px solid #ddd', textAlign: 'end' }} dir="ltr">{formatAmount(l.amount, decimalsOf(l.currency))} {l.currency}</td></tr>)),
+            <tr key={`${k}-${j}`}><td style={{ borderBottom: '1px solid var(--mx-cell-line)' }}>{t(`hr2.ln.${l.code}`, { defaultValue: l.label })} <small dir="ltr">{l.basis}</small></td>
+              <td style={{ borderBottom: '1px solid var(--mx-cell-line)', textAlign: 'end' }} dir="ltr">{formatAmount(l.amount, decimalsOf(l.currency))} {l.currency}</td></tr>)),
         ])}
         <tr><td style={{ paddingTop: 8 }}><b>{t('hr2.net')}</b></td><td style={{ textAlign: 'end', paddingTop: 8 }} dir="ltr"><b>{formatAmount(s.net, decimalsOf(s.currency))} {s.currency}{s.currency2 ? ` + ${formatAmount(s.net2, decimalsOf(s.currency2))} ${s.currency2}` : ''}</b></td></tr>
       </tbody></table>
