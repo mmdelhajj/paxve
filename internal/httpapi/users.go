@@ -136,7 +136,11 @@ func checkCompanies(ctx context.Context, tx pgx.Tx, ids []string) error {
 	if ids == nil {
 		return nil
 	}
-	if len(ids) == 0 || len(ids) > 500 {
+	if len(ids) == 0 {
+		// an empty list would hide every company: say so (omit company_ids / all_companies for "all companies")
+		return badRequest("no_companies_selected")
+	}
+	if len(ids) > 500 {
 		return badRequest("bad_request")
 	}
 	for _, id := range ids {

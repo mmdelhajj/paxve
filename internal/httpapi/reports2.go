@@ -137,6 +137,17 @@ func (s *Server) agingReport(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
+		// audit B-L7: money customers paid that is not applied to any invoice yet (over-payments, advances). Shown
+		// apart, so "owed − unapplied credits" ties to the receivables account.
+		credits, err := queryJSON(ctx, tx, `SELECT p.currency, sum(p.amount - coalesce((SELECT sum(pa.amount) FROM payment_allocations pa
+				WHERE pa.payment_id = p.id), 0))::text AS credit
+			FROM payments p JOIN customers c ON c.id = p.customer_id
+			WHERE p.company_id = $1 AND p.status = 'posted' AND p.payment_date <= $2::date AND ($3 = '' OR c.area_id = $3::uuid)
+			GROUP BY p.currency HAVING sum(p.amount - coalesce((SELECT sum(pa.amount) FROM payment_allocations pa WHERE pa.payment_id = p.id), 0)) > 0
+			ORDER BY p.currency`, cid, asOf, area)
+		if err != nil {
+			return nil, err
+		}
 		var list []json.RawMessage
 		_ = json.Unmarshal(rows, &list)
 		hasMore := len(list) > limit
@@ -146,7 +157,7 @@ func (s *Server) agingReport(w http.ResponseWriter, r *http.Request) {
 		if list == nil {
 			list = []json.RawMessage{}
 		}
-		return map[string]any{"as_of": asOf, "rows": list, "totals": totals, "has_more": hasMore, "offset": offset}, nil
+		return map[string]any{"as_of": asOf, "rows": list, "totals": totals, "unapplied_credits": credits, "has_more": hasMore, "offset": offset}, nil
 	})
 }
 

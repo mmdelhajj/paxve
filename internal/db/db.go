@@ -62,6 +62,14 @@ func InTenant(ctx context.Context, pool *pgxpool.Pool, s Scope, fn func(pgx.Tx) 
 		if err != nil {
 			return err
 		}
+		if s.CompanyID != "" {
+			// current_date / now()::date follow the company's zone, not the server's UTC (audit B-M2).
+			// An unknown or foreign company leaves the zone unchanged (the request then fails on RLS anyway).
+			if _, err := tx.Exec(ctx, `SELECT set_config('TimeZone', tz, true)
+				FROM (SELECT timezone AS tz FROM companies WHERE id::text = $1) c`, s.CompanyID); err != nil {
+				return err
+			}
+		}
 		return fn(tx)
 	})
 }

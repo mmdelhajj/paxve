@@ -42,7 +42,7 @@ export default function Customers({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('customers.title')} subtitle={company.name_en}>
+      <PageHeader title={t('customers.title')} subtitle={company.display ?? company.name_en}>
         {canEdit && <Button leftSection={<IconPlus size={16} />} onClick={() => setCreating(true)}>{t('customers.new')}</Button>}
       </PageHeader>
       <Group gap="sm" wrap="wrap">

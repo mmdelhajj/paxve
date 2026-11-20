@@ -39,7 +39,7 @@ export default function Bills({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('pur.bills')} subtitle={company.name_en}>
+      <PageHeader title={t('pur.bills')} subtitle={company.display ?? company.name_en}>
         {canManage && <Button leftSection={<IconPlus size={16} />} onClick={() => setCreating(true)}>{t('pur.newBill')}</Button>}
       </PageHeader>
       <Group gap="sm" wrap="wrap">

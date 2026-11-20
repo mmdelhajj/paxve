@@ -36,11 +36,11 @@ export function VatReport() {
   const dec = decimalsOf(company.base_currency);
   return (
     <Stack gap="lg" maw={1000} className="print-area">
-      <PageHeader title={t('net.vatReport')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${from} → ${to}`}>
+      <PageHeader title={t('net.vatReport')} subtitle={`${company.display ?? company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${from} → ${to}`}>
         <TextInput type="date" size="xs" label={t('reports.from')} value={from} onChange={(e) => setFrom(e.currentTarget.value)} />
         <TextInput type="date" size="xs" label={t('reports.to')} value={to} onChange={(e) => setTo(e.currentTarget.value)} />
         <ExportMenu disabled={!d} table={() => d && ({
-          title: t('net.vatReport'), subtitle: `${company.name_en} · ${from} → ${to} · ${company.base_currency}`,
+          title: t('net.vatReport'), subtitle: `${company.display ?? company.name_en} · ${from} → ${to} · ${company.base_currency}`,
           columns: [{ label: t('net.taxName') }, { label: t('net.taxableSales'), numeric: true }, { label: t('net.collected'), numeric: true },
             { label: t('net.taxablePurchases'), numeric: true }, { label: t('net.recoverable'), numeric: true }],
           rows: d.rows.map((r) => [`${r.name} (${r.rate}%)`, r.taxable_sales, r.collected, r.taxable_purchases, r.recoverable]),
@@ -98,11 +98,11 @@ export function GeneratorReport() {
   const dec = decimalsOf(company.base_currency);
   return (
     <Stack gap="lg" maw={1200} className="print-area">
-      <PageHeader title={t('net.genReport')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${from} → ${to}`}>
+      <PageHeader title={t('net.genReport')} subtitle={`${company.display ?? company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${from} → ${to}`}>
         <TextInput type="date" size="xs" label={t('reports.from')} value={from} onChange={(e) => setFrom(e.currentTarget.value)} />
         <TextInput type="date" size="xs" label={t('reports.to')} value={to} onChange={(e) => setTo(e.currentTarget.value)} />
         <ExportMenu disabled={!d} table={() => d && ({
-          title: t('net.genReport'), subtitle: `${company.name_en} · ${from} → ${to} · ${company.base_currency}`,
+          title: t('net.genReport'), subtitle: `${company.display ?? company.name_en} · ${from} → ${to} · ${company.base_currency}`,
           columns: [{ label: t('net.name') }, { label: t('net.stations') }, { label: t('net.hours'), numeric: true }, { label: t('net.fuel'), numeric: true },
             { label: t('net.fuelCost'), numeric: true }, { label: t('net.outages'), numeric: true }, { label: t('net.kwhBilled'), numeric: true }],
           rows: [...d.generators.map((g) => [g.name, g.station_name, g.hours, g.fuel_qty, g.fuel_cost, g.outages, null]),

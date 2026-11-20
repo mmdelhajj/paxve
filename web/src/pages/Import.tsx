@@ -185,7 +185,7 @@ export default function Import() {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('import.title')} subtitle={`${company.name_en} · ${t('import.subtitle')}`} />
+      <PageHeader title={t('import.title')} subtitle={`${company.display ?? company.name_en} · ${t('import.subtitle')}`} />
       <Stepper active={step} onStepClick={(s) => { if (s < step && step < 4) setStep(s); }} size="sm">
         <Stepper.Step label={t('import.step1')}>
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} mt="md">

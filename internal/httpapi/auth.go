@@ -20,8 +20,8 @@ const mfaPendingTTL = 5 * time.Minute
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ip := clientIP(r)
-	if !s.limiter.allow(ip) {
-		writeErr(w, http.StatusTooManyRequests, "too_many_attempts")
+	if !s.loginIP.allow(ip) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too_many_attempts", "detail": "900"})
 		return
 	}
 	var in struct {
@@ -32,11 +32,24 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
-	// second limit per account, so guessing one user's password from many IPs is also slowed down
-	emailKey := "email:" + strings.ToLower(strings.TrimSpace(in.Email))
-	if !s.limiter.allow(emailKey) {
-		writeErr(w, http.StatusTooManyRequests, "too_many_attempts")
+	email := strings.ToLower(strings.TrimSpace(in.Email))
+	emailKey := "email:" + email
+	pairKey := "pair:" + email + "|" + ip
+	// the per-account lock (guessing one password from many addresses) does not hold back an address this account
+	// signed in from recently, so an attacker cannot lock the real user out (audit C-L3)
+	d := s.loginPair.wait(pairKey)
+	if !s.loginTrust.has(pairKey) {
+		d = max(d, s.loginEmail.wait(emailKey))
+	}
+	if d > 0 {
+		w.Header().Set("Retry-After", strconv.Itoa(int(d.Seconds())+1))
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too_many_attempts", "detail": strconv.Itoa(int(d.Seconds()) + 1)})
 		return
+	}
+	failed := func() {
+		s.loginIP.fail(ip)
+		s.loginPair.fail(pairKey)
+		s.loginEmail.fail(emailKey)
 	}
 
 	var uid, tid, hash string
@@ -46,8 +59,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		strings.TrimSpace(in.Email)).Scan(&uid, &tid, &hash, &active)
 	if errors.Is(err, pgx.ErrNoRows) {
 		auth.VerifyDummy(in.Password)
-		s.limiter.fail(ip)
-		s.limiter.fail(emailKey)
+		failed()
 		writeErr(w, http.StatusUnauthorized, "invalid_credentials")
 		return
 	}
@@ -56,8 +68,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !auth.Verify(in.Password, hash) {
-		s.limiter.fail(ip)
-		s.limiter.fail(emailKey)
+		failed()
 		writeErr(w, http.StatusUnauthorized, "invalid_credentials")
 		return
 	}
@@ -67,13 +78,13 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "org_blocked", "detail": reason})
 			return
 		}
-		s.limiter.fail(ip)
-		s.limiter.fail(emailKey)
+		failed()
 		writeErr(w, http.StatusUnauthorized, "invalid_credentials")
 		return
 	}
-	s.limiter.reset(ip)
-	s.limiter.reset(emailKey)
+	s.loginPair.reset(pairKey)
+	s.loginEmail.reset(emailKey)
+	s.loginTrust.add(pairKey)
 
 	sc := db.Scope{TenantID: tid, UserID: uid, IP: ip}
 	var mfaOn bool

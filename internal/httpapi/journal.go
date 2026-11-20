@@ -51,6 +51,40 @@ type entryDetail struct {
 	PostedBy     *string     `json:"posted_by"`
 	PostedAt     *time.Time  `json:"posted_at"`
 	Lines        []entryLine `json:"lines"`
+	// ControlAccounts: the entry touches receivables, payables, stock or gift/loyalty liabilities directly, so
+	// customer / supplier / stock balances will no longer match the ledger (shown as a warning; audit C-M4)
+	ControlAccounts []string `json:"control_accounts,omitempty"`
+}
+
+// controlAccountsIn lists the codes of the control accounts used by a manual entry's lines. These accounts carry
+// sub-ledgers (customer and supplier balances, stock value, gift cards, loyalty points) that only documents update.
+func controlAccountsIn(ctx context.Context, tx pgx.Tx, cid, entryID string) ([]string, error) {
+	var out []string
+	rows, err := tx.Query(ctx, `
+		WITH ctl AS (
+			SELECT unnest(ARRAY[ar_account_id, ap_account_id, inventory_account_id, gift_liability_account_id, loyalty_liability_account_id]) AS id
+			FROM companies WHERE id = $1
+			UNION SELECT DISTINCT inventory_account_id FROM items WHERE company_id = $1 AND inventory_account_id IS NOT NULL)
+		SELECT DISTINCT a.code FROM journal_lines l JOIN accounts a ON a.id = l.account_id
+		WHERE l.entry_id = $2 AND l.account_id IN (SELECT id FROM ctl WHERE id IS NOT NULL) ORDER BY 1`, cid, entryID)
+	if err != nil {
+		return nil, err
+	}
+	out, err = pgx.CollectRows(rows, pgx.RowTo[string])
+	return out, err
+}
+
+// guardControlAccounts: data-entry staff may not post manual entries to control accounts; an accountant
+// (accounting.manage) may, and sees a warning.
+func guardControlAccounts(ctx context.Context, tx pgx.Tx, r *http.Request, cid, entryID string) ([]string, error) {
+	codes, err := controlAccountsIn(ctx, tx, cid, entryID)
+	if err != nil || len(codes) == 0 {
+		return nil, err
+	}
+	if !can(r, "accounting.manage") {
+		return nil, &apiError{status: http.StatusForbidden, code: "control_account", detail: strings.Join(codes, ", ")}
+	}
+	return codes, nil
 }
 
 const entrySummaryCols = `e.id::text, e.number, e.entry_date::text, e.memo, e.reference, e.status, e.source,
@@ -324,12 +358,19 @@ func (s *Server) createEntry(w http.ResponseWriter, r *http.Request) {
 		if err := writeLines(ctx, tx, cid, base, id, in.Date, lines); err != nil {
 			return err
 		}
+		ctl, err := guardControlAccounts(ctx, tx, r, cid, id)
+		if err != nil {
+			return err
+		}
 		if in.Post {
 			if _, err := tx.Exec(ctx, `SELECT post_journal_entry($1)`, id); err != nil {
 				return err
 			}
 		}
 		e, err = loadEntry(ctx, tx, cid, id)
+		if e != nil {
+			e.ControlAccounts = ctl
+		}
 		return err
 	})
 	if err != nil {
@@ -376,12 +417,19 @@ func (s *Server) replaceEntry(w http.ResponseWriter, r *http.Request) {
 		if err := writeLines(ctx, tx, cid, cur.BaseCurrency, id, in.Date, lines); err != nil {
 			return err
 		}
+		ctl, err := guardControlAccounts(ctx, tx, r, cid, id)
+		if err != nil {
+			return err
+		}
 		if in.Post {
 			if _, err := tx.Exec(ctx, `SELECT post_journal_entry($1)`, id); err != nil {
 				return err
 			}
 		}
 		e, err = loadEntry(ctx, tx, cid, id)
+		if e != nil {
+			e.ControlAccounts = ctl
+		}
 		return err
 	})
 	if err != nil {
@@ -417,14 +465,23 @@ func (s *Server) postEntry(w http.ResponseWriter, r *http.Request) {
 	cid, id := r.PathValue("cid"), r.PathValue("id")
 	var e *entryDetail
 	err := db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
-		if _, err := loadEntry(ctx, tx, cid, id); err != nil {
+		cur, err := loadEntry(ctx, tx, cid, id)
+		if err != nil {
 			return err
+		}
+		var ctl []string
+		if cur.Source == "manual" {
+			if ctl, err = guardControlAccounts(ctx, tx, r, cid, id); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(ctx, `SELECT post_journal_entry($1)`, id); err != nil {
 			return err
 		}
-		var err error
 		e, err = loadEntry(ctx, tx, cid, id)
+		if e != nil {
+			e.ControlAccounts = ctl
+		}
 		return err
 	})
 	if err != nil {

@@ -90,7 +90,14 @@ func fail(w http.ResponseWriter, r *http.Request, err error) {
 		case "23505":
 			writeErr(w, http.StatusConflict, "duplicate")
 			return
-		case "23503", "23514", "22P02", "22003", "22007", "22008":
+		case "22003":
+			// numeric field overflow: never leak the database text (audit B-L1)
+			writeErr(w, http.StatusBadRequest, "amount_too_large")
+			return
+		case "22001":
+			writeErr(w, http.StatusBadRequest, "text_too_long")
+			return
+		case "23503", "23514", "22P02", "22007", "22008":
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad_request", "detail": pg.Message})
 			return
 		}
@@ -145,4 +152,103 @@ func (l *limiter) reset(key string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	delete(l.m, key)
+}
+
+// backoff locks a key after `free` failures for base·2^(extra) (capped), counted from the failure that
+// triggered it. Attempts made while locked are refused before fail() is called, so retrying does NOT extend
+// the lock. Failures are forgotten `forget` after the last one.
+type backoff struct {
+	mu     sync.Mutex
+	free   int
+	base   time.Duration
+	max    time.Duration
+	forget time.Duration
+	m      map[string]*boBucket
+}
+
+type boBucket struct {
+	n           int
+	last        time.Time
+	lockedUntil time.Time
+}
+
+func newBackoff(free int, base, max, forget time.Duration) *backoff {
+	return &backoff{free: free, base: base, max: max, forget: forget, m: map[string]*boBucket{}}
+}
+
+// wait returns how long the key is still locked (0 = allowed).
+func (b *backoff) wait(key string) time.Duration {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	k := b.m[key]
+	if k == nil {
+		return 0
+	}
+	if d := time.Until(k.lockedUntil); d > 0 {
+		return d
+	}
+	return 0
+}
+
+func (b *backoff) fail(key string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	now := time.Now()
+	k := b.m[key]
+	if k == nil || now.Sub(k.last) > b.forget {
+		k = &boBucket{}
+		b.m[key] = k
+	}
+	k.n++
+	k.last = now
+	if k.n >= b.free {
+		d := b.base << min(k.n-b.free, 10)
+		if d > b.max || d <= 0 {
+			d = b.max
+		}
+		k.lockedUntil = now.Add(d)
+	}
+	if len(b.m) > 20000 {
+		for key, v := range b.m {
+			if now.Sub(v.last) > b.forget {
+				delete(b.m, key)
+			}
+		}
+	}
+}
+
+func (b *backoff) reset(key string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	delete(b.m, key)
+}
+
+// trustSet remembers keys (an account + the address it signed in from) for a while.
+type trustSet struct {
+	mu  sync.Mutex
+	ttl time.Duration
+	m   map[string]time.Time
+}
+
+func newTrustSet(ttl time.Duration) *trustSet { return &trustSet{ttl: ttl, m: map[string]time.Time{}} }
+
+func (t *trustSet) add(key string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	now := time.Now()
+	t.m[key] = now
+	if len(t.m) > 50000 {
+		for k, v := range t.m {
+			if now.Sub(v) > t.ttl {
+				delete(t.m, k)
+			}
+		}
+	}
+}
+
+func (t *trustSet) has(key string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	v, ok := t.m[key]
+	return ok && time.Since(v) < t.ttl
 }

@@ -347,3 +347,10 @@ button.mx-kpi:hover { border-color: var(--mx-primary-line); background: #fbfcff;
 .mx-table thead th { background: var(--mx-grid-head); font-weight: 600; color: var(--mx-ink-2); font-size: 12.5px; border-bottom-color: var(--mx-line); }
 .mx-table tbody tr:hover td { background: var(--mx-row-hover); }
 .mx-table .num { text-align: end; }
+
+/* phone width (audit B-L4): sub-tabs wrap instead of being cut off; form fields never overflow their box */
+@media (max-width: 640px) {
+  .mx-modes { flex-wrap: wrap; overflow-x: visible; row-gap: 2px; }
+  .mx-pay input, .mx-pay select, .mx-pay textarea, .mx-box input, .mx-box select, .mx-box textarea { max-width: 100%; min-width: 0; box-sizing: border-box; }
+  .mx-row > label, .mx-pay label { min-width: 0; max-width: 100%; flex-wrap: wrap; }
+}

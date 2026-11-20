@@ -277,6 +277,10 @@ func (s *Server) saveSupplier(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
+	if code := partyFieldsErr(in.Name, in.Email, in.Phone, nil, in.Address, in.Notes); code != "" {
+		writeErr(w, http.StatusBadRequest, code)
+		return
+	}
 	status := http.StatusOK
 	if create {
 		status = http.StatusCreated
@@ -530,6 +534,10 @@ func (s *Server) saveItem(w http.ResponseWriter, r *http.Request) {
 		(in.SaleCurrency != nil && *in.SaleCurrency != "" && !currencyRe.MatchString(*in.SaleCurrency)) ||
 		!optUUID(in.InventoryAccountID) || !optUUID(in.ExpenseAccountID) || !optUUID(in.RevenueAccountID) || (!create && !isUUID(id)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	if tooLong(in.Name, maxNameLen) {
+		writeErr(w, http.StatusBadRequest, "name_too_long")
 		return
 	}
 	var i18n []byte

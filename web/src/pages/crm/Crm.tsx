@@ -107,7 +107,7 @@ export default function Crm({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg">
-      <PageHeader title={t('crm.title')} subtitle={company.name_en}>
+      <PageHeader title={t('crm.title')} subtitle={company.display ?? company.name_en}>
         <Button variant="default" component="a" href="#/activities" leftSection={<IconCalendarEvent size={16} />}>
           {t('crm.activities')}{summary && summary.activities.overdue > 0 ? ` (${summary.activities.overdue})` : ''}
         </Button>
@@ -464,7 +464,7 @@ export function ActivitiesPage({ me }: { me: Me }) {
   if (!company) return null;
   return (
     <Stack gap="lg" maw={1000}>
-      <PageHeader title={t('crm.activities')} subtitle={company.name_en}>
+      <PageHeader title={t('crm.activities')} subtitle={company.display ?? company.name_en}>
         <Button variant="default" component="a" href="#/crm">{t('crm.title')}</Button>
       </PageHeader>
       <SegmentedControl style={{ alignSelf: 'flex-start' }} value={mine ? 'me' : 'all'} onChange={(v) => setMine(v === 'me')}

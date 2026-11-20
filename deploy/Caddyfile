@@ -7,6 +7,15 @@
 }
 
 paxve.com, www.paxve.com {
+	# access log on the host (/var/log/caddy), rotated by size, 30 days kept
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 50MiB
+			roll_keep 10
+			roll_keep_for 720h
+		}
+		format json
+	}
 	encode zstd gzip
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"

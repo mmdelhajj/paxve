@@ -28,7 +28,12 @@ services:
   app:
     build: .
     restart: unless-stopped
-    logging: *logging
+    # journald keeps the app's logs on the host across deploys (the container is recreated each time);
+    # read them with: journalctl CONTAINER_TAG=paxve-app --since today
+    logging:
+      driver: journald
+      options:
+        tag: paxve-app
     depends_on:
       db:
         condition: service_healthy
@@ -59,6 +64,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - ./downloads:/srv/downloads:ro
+      - /var/log/caddy:/var/log/caddy
 
 volumes:
   pgdata:

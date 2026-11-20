@@ -46,7 +46,7 @@ export default function Expenses({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('pur.expenses')} subtitle={company.name_en}>
+      <PageHeader title={t('pur.expenses')} subtitle={company.display ?? company.name_en}>
         <TextInput type="date" size="sm" value={from} onChange={(e) => setFrom(e.currentTarget.value)} />
         <TextInput type="date" size="sm" value={to} onChange={(e) => setTo(e.currentTarget.value)} />
         {canEdit && <Button leftSection={<IconPlus size={16} />} onClick={() => setCreating(true)}>{t('pur.newExpense')}</Button>}

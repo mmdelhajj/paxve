@@ -40,7 +40,7 @@ export default function PosSetup({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1100}>
-      <PageHeader title={t('pos.setup')} subtitle={company.name_en}>
+      <PageHeader title={t('pos.setup')} subtitle={company.display ?? company.name_en}>
         <Button leftSection={<IconCashRegister size={16} />} component="a" href="#/pos">{t('pos.open')}</Button>
       </PageHeader>
       <Tabs defaultValue="registers" keepMounted={false}>
@@ -263,7 +263,7 @@ export function PosSessions() {
   if (!company) return null;
   return (
     <Stack gap="lg" maw={1100}>
-      <PageHeader title={t('pos.sessions')} subtitle={company.name_en}>
+      <PageHeader title={t('pos.sessions')} subtitle={company.display ?? company.name_en}>
         <ExportMenu disabled={!rows} table={() => rows && ({
           title: t('pos.sessions'),
           columns: [{ label: '#' }, { label: t('pos.register') }, { label: t('pos.openedAt') }, { label: t('pos.closedAt') }, { label: t('pos.cashier') },
@@ -357,7 +357,7 @@ export function PosReport() {
   const keyLabel = (k: string) => (group === 'day' ? k.slice(0, 10) : k);
   return (
     <Stack gap="lg" maw={1100} className="print-area">
-      <PageHeader title={t('pos.report')} subtitle={`${company.name_en} · ${from} – ${to}`}>
+      <PageHeader title={t('pos.report')} subtitle={`${company.display ?? company.name_en} · ${from} – ${to}`}>
         <ExportMenu disabled={!d} table={() => d && ({
           title: `${t('pos.report')} · ${t(`pos.groups.${group}`)}`, subtitle: `${from} – ${to}`,
           columns: [{ label: t(`pos.groups.${group}`) }, { label: t('pur.currency') }, ...cols.map((c) => ({ label: c, numeric: true }))],

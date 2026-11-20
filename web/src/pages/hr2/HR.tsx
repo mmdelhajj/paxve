@@ -570,7 +570,7 @@ function PayrollMode({ me }: { me: Me }) {
   }
   function whatsapp(s: Slip) {
     const lines = s.lines.filter((l) => l.kind !== 'employer').map((l) => `${l.kind === 'deduction' ? '−' : '+'} ${l.label}: ${formatAmount(l.amount, decimalsOf(l.currency))} ${l.currency}`);
-    const text = `${company?.name_en ?? ''} · ${t('hr2.payslip')} ${cur?.run.period}\n${s.name}\n${lines.join('\n')}\n= ${amt(s.net, s.currency)}${s.currency2 ? ` + ${amt(s.net2, s.currency2)}` : ''}`;
+    const text = `${company?.display ?? company?.name_en ?? ''} · ${t('hr2.payslip')} ${cur?.run.period}\n${s.name}\n${lines.join('\n')}\n= ${amt(s.net, s.currency)}${s.currency2 ? ` + ${amt(s.net2, s.currency2)}` : ''}`;
     const phone = '';
     openExternal(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`);
   }

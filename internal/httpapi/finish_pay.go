@@ -511,7 +511,7 @@ func (s *Server) payWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sc.IP = clientIP(r)
-	var token, ref, result string
+	var token, ref, result, gotCur string
 	var amount *decimal.Decimal
 	switch cfg["_kind"] {
 	case "stripe":
@@ -569,7 +569,7 @@ func (s *Server) payWebhook(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusUnauthorized, "bad_signature")
 			return
 		}
-		token, ref = f.Order, f.Ref
+		token, ref, gotCur = f.Order, f.Ref, f.Currency
 		if a, ok := money(f.Amount); ok {
 			amount = &a
 		}
@@ -578,14 +578,16 @@ func (s *Server) payWebhook(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "not_found")
 		return
 	}
-	if err := s.applyIntentResult(r.Context(), sc, cid, token, result, ref, amount); err != nil {
+	if err := s.applyIntentResult(r.Context(), sc, cid, token, result, ref, amount, gotCur); err != nil {
 		fail(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"ok": result})
 }
 
-func (s *Server) applyIntentResult(ctx context.Context, sc db.Scope, cid, token, result, ref string, amount *decimal.Decimal) error {
+// applyIntentResult records the processor's verdict. gotCur ("" = not reported) must match the intent's currency
+// (audit C-L1): a callback in another currency is refused, never booked.
+func (s *Server) applyIntentResult(ctx context.Context, sc db.Scope, cid, token, result, ref string, amount *decimal.Decimal, gotCur string) error {
 	return db.InTenant(ctx, s.Pool, sc, func(tx pgx.Tx) error {
 		var id, cur, amt string
 		err := tx.QueryRow(ctx, `SELECT id::text, currency, amount::text FROM payment_intents WHERE token = $1 AND company_id = $2`, token, cid).Scan(&id, &cur, &amt)
@@ -594,6 +596,9 @@ func (s *Server) applyIntentResult(ctx context.Context, sc db.Scope, cid, token,
 		}
 		if err != nil {
 			return err
+		}
+		if gotCur != "" && !strings.EqualFold(strings.TrimSpace(gotCur), cur) {
+			return &apiError{status: http.StatusUnprocessableEntity, code: "pay_currency_mismatch", detail: gotCur}
 		}
 		if result != "paid" {
 			_, err := tx.Exec(ctx, `UPDATE payment_intents SET status = 'failed', provider_ref = $2 WHERE id = $1 AND status = 'pending'`, id, ref)
@@ -606,7 +611,6 @@ func (s *Server) applyIntentResult(ctx context.Context, sc db.Scope, cid, token,
 			}
 		}
 		_, err = markIntentPaid(ctx, tx, cid, id, ref, amount)
-		_ = cur
 		return err
 	})
 }
@@ -641,7 +645,24 @@ func (s *Server) paySimComplete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.applyIntentResult(r.Context(), sc, cid, r.PathValue("token"), in.Result, "SIM-"+randHexStr(6), nil); err != nil {
+	// audit C-M2: a simulated payment NEVER books a receipt. Anyone holding a payment link could otherwise settle a
+	// real invoice for free while a gateway is left in test mode. It only marks the intent "test_paid", so the owner
+	// can see the round trip worked.
+	if in.Result == "paid" {
+		s.runScoped(w, r, sc, func(ctx context.Context, tx pgx.Tx) (any, error) {
+			tag, err := tx.Exec(ctx, `UPDATE payment_intents SET status = 'test_paid', provider_ref = $3, error = 'test mode: no receipt booked'
+				WHERE token = $1 AND company_id = $2 AND status IN ('pending', 'failed', 'test_paid')`, r.PathValue("token"), cid, "SIM-"+randHexStr(6))
+			if err != nil {
+				return nil, err
+			}
+			if tag.RowsAffected() == 0 {
+				return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+			}
+			return map[string]any{"result": "test_paid", "test_mode": true}, nil
+		})
+		return
+	}
+	if err := s.applyIntentResult(r.Context(), sc, cid, r.PathValue("token"), in.Result, "SIM-"+randHexStr(6), nil, ""); err != nil {
 		fail(w, r, err)
 		return
 	}

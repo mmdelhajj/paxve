@@ -44,7 +44,13 @@ type Server struct {
 	Pool     *pgxpool.Pool
 	Sessions *scs.SessionManager
 	WebDir   string
-	limiter  *limiter
+	// login limits (audit B-H3): a generous per-IP cap (an office behind one shared/CGNAT address is not locked
+	// out by one user's typos), a per account+IP back-off, and a looser per-account back-off against guessing
+	// one password from many IPs. Locks never grow while you wait.
+	loginIP    *limiter
+	loginPair  *backoff
+	loginEmail *backoff
+	loginTrust *trustSet // account+address pairs that signed in recently: not held by the per-account lock
 
 	// OwnerPool connects as the database owner. Used ONLY for self sign-up (creating a new
 	// organisation, before any tenant exists) and for the platform owner console.
@@ -77,7 +83,8 @@ func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir str
 		}
 	}
 	return &Server{Pool: pool, OwnerPool: ownerPool, Sessions: sessions, WebDir: webDir,
-		limiter: newLimiter(10, 15*time.Minute), signupLimiter: newLimiter(5, time.Hour), portalLimiter: newLimiter(120, 10*time.Minute), platformAdmins: admins,
+		loginIP: newLimiter(100, 15*time.Minute), loginPair: newBackoff(5, 30*time.Second, 15*time.Minute, time.Hour),
+		loginEmail: newBackoff(10, time.Minute, 15*time.Minute, time.Hour), loginTrust: newTrustSet(30 * 24 * time.Hour), signupLimiter: newLimiter(5, time.Hour), portalLimiter: newLimiter(120, 10*time.Minute), platformAdmins: admins,
 		apiKeyLimiter: newLimiter(30, 15*time.Minute), resetLimiter: newLimiter(5, time.Hour), mfaLimiter: newLimiter(5, 15*time.Minute),
 		platformContactPhone: strings.TrimSpace(os.Getenv("PAXVE_SALES_PHONE")), platformContactEmail: strings.TrimSpace(os.Getenv("PAXVE_SALES_EMAIL"))}
 }
@@ -605,13 +612,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+v+"/pay/webhook/{gid}", s.payWebhook)
 	mux.HandleFunc("GET "+v+"/pay/sim/{token}", s.paySimInfo)
 	mux.HandleFunc("POST "+v+"/pay/sim/{token}", s.paySimComplete)
-	for _, p := range []string{"/iclock/cdata", "/iclock/cdata.aspx"} {
-		mux.HandleFunc("GET "+p, s.iclockHandshake)
-		mux.HandleFunc("POST "+p, s.iclockPush)
-	}
-	for _, p := range []string{"/iclock/getrequest", "/iclock/getrequest.aspx", "/iclock/devicecmd", "/iclock/devicecmd.aspx"} {
-		mux.HandleFunc("GET "+p, s.iclockPoll)
-		mux.HandleFunc("POST "+p, s.iclockPoll)
+	// each device pushes either to its secret address /iclock/k/<token>/… or, from its registered IP, to /iclock/…
+	for _, pre := range []string{"/iclock", "/iclock/k/{token}"} {
+		for _, p := range []string{pre + "/cdata", pre + "/cdata.aspx"} {
+			mux.HandleFunc("GET "+p, s.iclockHandshake)
+			mux.HandleFunc("POST "+p, s.iclockPush)
+		}
+		for _, p := range []string{pre + "/getrequest", pre + "/getrequest.aspx", pre + "/devicecmd", pre + "/devicecmd.aspx"} {
+			mux.HandleFunc("GET "+p, s.iclockPoll)
+			mux.HandleFunc("POST "+p, s.iclockPoll)
+		}
 	}
 
 	// service desk and generator maintenance (app "svc")
@@ -785,7 +795,9 @@ type Principal struct {
 	MFAEnabled       bool     `json:"mfa_enabled"`
 	MFARequired      bool     `json:"mfa_required"`       // the organisation requires two-factor sign-in
 	MFASetupRequired bool     `json:"mfa_setup_required"` // required but not set up yet: only setup is allowed
-	SessionID        string   `json:"-"`
+	// platform owners without two-step sign-in: after this moment they must set it up (banner before)
+	PlatformMFADeadline *time.Time `json:"platform_mfa_deadline,omitempty"`
+	SessionID           string     `json:"-"`
 
 	perms map[string]bool
 }
@@ -841,7 +853,7 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 			       u.role_id::text, coalesce(ro.name, ''), ro.permissions, ro.is_active,
 			       u.company_ids::text[], coalesce(m.enabled_at IS NOT NULL, false), t.require_mfa,
 			       tenant_state(t), t.paid_until::text, CASE WHEN t.paid_until IS NULL THEN NULL ELSE (t.paid_until + t.grace_days)::text END,
-			       CASE WHEN pp.apps IS NULL THEN NULL ELSE pp.apps || t.grandfathered_apps END
+			       CASE WHEN pp.apps IS NULL THEN NULL ELSE pp.apps || t.grandfathered_apps END, u.platform_mfa_deadline
 			FROM users u JOIN tenants t ON t.id = u.tenant_id
 			LEFT JOIN platform_plans pp ON pp.code = t.plan
 			LEFT JOIN roles ro ON ro.id = u.role_id
@@ -849,12 +861,25 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 			WHERE u.id = $1`, sc.UserID).
 			Scan(&p.ID, &p.TenantID, &p.TenantName, &p.Email, &p.FullName, &p.Role, &p.Locale, &p.Active, &p.Plan,
 				&p.TrialEndsAt, &p.RoleID, &p.RoleName, &custom, &roleActive, &p.CompanyIDs, &p.MFAEnabled, &p.MFARequired,
-				&p.SubState, &p.PaidUntil, &p.GraceEnds, &p.PlanApps)
+				&p.SubState, &p.PaidUntil, &p.GraceEnds, &p.PlanApps, &p.PlatformMFADeadline)
 	})
 	if err != nil {
 		return p, err
 	}
 	p.IsPlatformAdmin = s.platformAdmins[strings.ToLower(p.Email)]
+	if p.IsPlatformAdmin && !p.MFAEnabled {
+		// audit C-H1: the platform owner sees every organisation, so two-step sign-in becomes mandatory. A 7-day
+		// grace (counted from the first sign-in after this rule) shows a banner; after it only the setup is allowed.
+		if p.PlatformMFADeadline == nil {
+			_ = db.InTenant(ctx, s.Pool, sc, func(tx pgx.Tx) error {
+				return tx.QueryRow(ctx, `UPDATE users SET platform_mfa_deadline = coalesce(platform_mfa_deadline, now() + interval '7 days')
+					WHERE id = $1 RETURNING platform_mfa_deadline`, p.ID).Scan(&p.PlatformMFADeadline)
+			})
+		}
+		if p.PlatformMFADeadline != nil && time.Now().After(*p.PlatformMFADeadline) {
+			p.MFARequired = true
+		}
+	}
 	if p.RoleID != nil {
 		// a custom role: its own list; a deactivated role grants nothing
 		if roleActive != nil && *roleActive {
@@ -1055,6 +1080,12 @@ func securityHeaders(next http.Handler) http.Handler {
 // send a cross-site JSON request without a CORS preflight, so this blocks CSRF.
 func jsonOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// payment gateways post their callbacks as forms (audit C-M1); those routes need no cookie and verify the
+		// gateway's signature themselves, so the JSON-only CSRF guard does not apply to them
+		if strings.HasPrefix(r.URL.Path, v1+"/pay/webhook/") {
+			next.ServeHTTP(w, r)
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.Method != http.MethodGet && r.Method != http.MethodHead &&
 			r.Method != http.MethodDelete {
 			if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {

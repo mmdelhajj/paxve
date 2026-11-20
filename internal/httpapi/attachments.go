@@ -128,6 +128,9 @@ func (s *Server) addAttachment(w http.ResponseWriter, r *http.Request) {
 		if n >= 50 {
 			return nil, badRequest("too_many_files")
 		}
+		if err := checkStorageQuota(ctx, tx, cid, len(data)); err != nil {
+			return nil, err
+		}
 		var id string
 		if err := tx.QueryRow(ctx, `INSERT INTO attachments (company_id, entity_type, entity_id, filename, mime, size, data, note)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id::text`, cid, in.Type, in.ID, name, in.Mime, len(data), data, strings.TrimSpace(in.Note)).Scan(&id); err != nil {

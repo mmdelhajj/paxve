@@ -637,7 +637,17 @@ func (s *Server) postPayrollRun(w http.ResponseWriter, r *http.Request) {
 		}
 		date := in.Date
 		if date == "" {
+			// audit B-M6: by default post on today's date (company time zone) when today falls inside the payroll
+			// month, so this month's P&L and owner summary show the salaries at once; the company can choose to
+			// always post on the period end instead. A month already over posts on its last day.
+			var mode, today string
+			if err := tx.QueryRow(ctx, `SELECT payroll_post_date, current_date::text FROM companies WHERE id = $1`, cid).Scan(&mode, &today); err != nil {
+				return nil, err
+			}
 			date = periodEnd(period)
+			if mode != "period_end" && today >= period+"-01" && today <= date {
+				date = today
+			}
 		}
 		// one group per currency and cost center: salary costs carry the employee's cost center
 		groups, err := payrollGroups(ctx, tx, id)

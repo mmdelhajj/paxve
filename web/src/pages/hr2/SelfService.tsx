@@ -42,8 +42,11 @@ export default function SelfService() {
   const [selfie, setSelfie] = useState<string>('');
   const load = useCallback(() => {
     if (!base) return;
-    api<Home>(`${base}/self`).then((h) => { setHome(h); setErr(''); }).catch((e) => setErr(e instanceof ApiError && e.code === 'no_employee_file' ? 'no_file' : errorText(t, e)));
-    api<Team[]>(`${base}/self/team-leave`).then(setTeam).catch(() => setTeam([]));
+    api<Home & { no_employee_file?: boolean }>(`${base}/self`).then((h) => {
+      if (h.no_employee_file) { setErr('no_file'); return; }
+      setHome(h); setErr('');
+      api<Team[]>(`${base}/self/team-leave`).then(setTeam).catch(() => setTeam([]));
+    }).catch((e) => setErr(e instanceof ApiError && e.code === 'no_employee_file' ? 'no_file' : errorText(t, e)));
   }, [base, t]);
   useEffect(load, [load]);
   async function act<T>(p: Promise<T>, ok: string) {

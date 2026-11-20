@@ -40,9 +40,9 @@ func ensureRetailAccount(ctx context.Context, tx pgx.Tx, cid, col string) (strin
 		codes                    []string
 	}
 	specs := map[string]spec{
-		"gift_liability_account_id":    {"liability", "ap_account_id", "Gift cards and vouchers", "ط¨ط·ط§ظ‚ط§طھ ط§ظ„ظ‡ط¯ط§ظٹط§ ظˆط§ظ„ظ‚ط³ط§ط¦ظ…", "Cartes cadeaux et bons", []string{"4196", "2410", "2450"}},
-		"loyalty_liability_account_id": {"liability", "ap_account_id", "Loyalty points to redeem", "ظ†ظ‚ط§ط· ط§ظ„ظˆظ„ط§ط، ط§ظ„ظ…ط³طھط­ظ‚ط©", "Points de fidأ©litأ© أ  utiliser", []string{"4197", "2420", "2460"}},
-		"loyalty_expense_account_id":   {"expense", "default_expense_account_id", "Loyalty and promotions", "ظ…طµط§ط±ظٹظپ ط§ظ„ظˆظ„ط§ط، ظˆط§ظ„ط¹ط±ظˆط¶", "Fidأ©litأ© et promotions", []string{"6238", "6950", "6960"}},
+		"gift_liability_account_id":    {"liability", "ap_account_id", "Gift cards and vouchers", "بطاقات الهدايا والقسائم", "Cartes cadeaux et bons", []string{"4196", "2410", "2450"}},
+		"loyalty_liability_account_id": {"liability", "ap_account_id", "Loyalty points to redeem", "نقاط الولاء المستحقة", "Points de fidélité à utiliser", []string{"4197", "2420", "2460"}},
+		"loyalty_expense_account_id":   {"expense", "default_expense_account_id", "Loyalty and promotions", "مصاريف الولاء والعروض", "Fidélité et promotions", []string{"6238", "6950", "6960"}},
 	}
 	sp, ok := specs[col]
 	if !ok {

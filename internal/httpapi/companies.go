@@ -31,10 +31,12 @@ type company struct {
 	TaxIDLabel    string `json:"tax_id_label"`
 	InvoiceTitle  string `json:"invoice_title"`
 	LegalMentions string `json:"legal_mentions"`
+	// "today", report default dates and the status bar follow this zone, not the device's (audit B-M2)
+	Timezone string `json:"timezone"`
 }
 
 const companyCols = `id::text, name_en, name_ar, base_currency::text, local_currency::text, is_active, created_at, lock_date::text,
-	apps, business_type, country, l10n, einvoice, default_locale, fiscal_year_start, tax_id_label, invoice_title, legal_mentions`
+	apps, business_type, country, l10n, einvoice, default_locale, fiscal_year_start, tax_id_label, invoice_title, legal_mentions, timezone`
 
 func (s *Server) listCompanies(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -123,10 +125,11 @@ func (s *Server) updateCompany(w http.ResponseWriter, r *http.Request) {
 		TaxIDLabel    *string `json:"tax_id_label"`
 		InvoiceTitle  *string `json:"invoice_title"`
 		LegalMentions *string `json:"legal_mentions"`
+		Timezone      *string `json:"timezone"`
 	}
 	if err := decode(w, r, &in); err != nil || (in.NameEn != nil && strings.TrimSpace(*in.NameEn) == "") ||
 		(in.LockDate != nil && *in.LockDate != "" && !validDate(*in.LockDate)) ||
-		(in.DefaultLocale != nil && !supportedLocales[*in.DefaultLocale]) {
+		(in.DefaultLocale != nil && !supportedLocales[*in.DefaultLocale]) || (in.Timezone != nil && !validTZ(*in.Timezone)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -141,10 +144,11 @@ func (s *Server) updateCompany(w http.ResponseWriter, r *http.Request) {
 			    default_locale = coalesce($6, default_locale),
 			    tax_id_label = coalesce(trim($7), tax_id_label),
 			    invoice_title = coalesce(trim($8), invoice_title),
-			    legal_mentions = coalesce(trim($9), legal_mentions)
+			    legal_mentions = coalesce(trim($9), legal_mentions),
+			    timezone = coalesce($10, timezone)
 			WHERE id = $1
 			RETURNING `+companyCols, id, in.NameEn, in.NameAr, in.IsActive, in.LockDate,
-			in.DefaultLocale, in.TaxIDLabel, in.InvoiceTitle, in.LegalMentions)
+			in.DefaultLocale, in.TaxIDLabel, in.InvoiceTitle, in.LegalMentions, in.Timezone)
 		if err != nil {
 			return err
 		}

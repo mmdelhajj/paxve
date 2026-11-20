@@ -62,7 +62,7 @@ export default function Payroll({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('hr.payroll')} subtitle={company.name_en}>
+      <PageHeader title={t('hr.payroll')} subtitle={company.display ?? company.name_en}>
         {canEdit && (
           <>
             <Button variant="default" leftSection={<IconSettings size={16} />} onClick={() => setSettings(true)}>{t('hr.settings')}</Button>

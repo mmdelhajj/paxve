@@ -58,6 +58,7 @@ const fr: Messages = {
     types: { asset: 'Actif', liability: 'Passif', equity: 'Capitaux propres', income: 'Produit', expense: 'Charge' },
   },
   journal: {
+    controlWarn: 'Attention : cette écriture touche des comptes de contrôle ({{codes}}). Les soldes clients, fournisseurs ou stock ne correspondront plus au grand livre.',
     title: 'Écritures', new: 'Nouvelle écriture', number: 'N°', date: 'Date', memo: 'Libellé', reference: 'Référence',
     status: 'Statut', draft: 'Brouillon', posted: 'Validée', reversed: 'Extournée', reversal: 'Extourne', total: 'Total',
     account: 'Compte', lineDesc: 'Note', currency: 'Devise', debit: 'Débit', credit: 'Crédit', rate: 'Taux',
@@ -154,6 +155,7 @@ const fr: Messages = {
     all: 'Tout', history: 'Virements',
   },
   collector: {
+    noAreasTitle: 'Aucun abonné à afficher', noAreasHint: 'Vous ne voyez que les abonnés des zones qui vous sont attribuées. Si la liste ne devrait pas être vide, demandez au responsable d\'attribuer vos zones (Paramètres → Zones).',
     mode: 'Mode encaisseur', offline: 'Hors ligne', printer: 'Imprimante Bluetooth', paper: 'Largeur du papier', myDay: 'Ma journée',
     today: "Aujourd'hui", myBox: 'Ma caisse', queued: "En attente d'envoi", waiting: 'En attente', syncNow: 'Envoyer',
     synced: '{{n}} encaissements hors ligne envoyés', pendingSync: 'Enregistré sur le téléphone. Envoi au retour d’internet.',
@@ -616,6 +618,11 @@ const fr: Messages = {
     },
   },
   errors: {
+    amount_too_large: 'Ce montant ou cette quantité est trop grand.', text_too_long: 'Ce texte est trop long.', name_too_long: 'Le nom est trop long (200 caractères au plus).',
+    invalid_email: 'Cette adresse e-mail n\'est pas valide.', phone_too_long: 'Le numéro de téléphone est trop long.', no_companies_selected: 'Choisissez au moins une société, ou donnez accès à toutes les sociétés.',
+    control_account: 'Seul un comptable peut passer à la main une écriture sur ces comptes ({{detail}}) : les soldes clients, fournisseurs, stock, cartes cadeaux ou points ne correspondraient plus. Utilisez le document adapté.',
+    pay_currency_mismatch: 'Le paiement est arrivé dans une autre devise ({{detail}}).', not_your_area: 'Cet abonné n\'est pas dans vos zones. Demandez au responsable de vous attribuer la zone.',
+    match_warnings: 'La facture ne correspond pas à la commande ou à la réception.', storage_full: 'L\'espace fichiers de cette société est plein ({{detail}} Mo). Supprimez d\'anciens fichiers ou demandez plus d\'espace.',
     too_many_variants: 'Trop de combinaisons (400 variantes au plus).',
     template_has_stock: 'Cet article a du stock : il ne peut pas devenir un modèle. Créez un nouvel article pour le modèle.',
     variant_cannot_be_template: 'Une variante ne peut pas être un modèle.',
@@ -769,7 +776,7 @@ const fr: Messages = {
     invalid_payment: 'Invalid payment',
     invalid_tender: 'Vérifiez les lignes de montants reçus',
     invalid_credentials: 'E-mail ou mot de passe incorrect',
-    too_many_attempts: 'Trop de tentatives. Réessayez dans 15 minutes.',
+    too_many_attempts: 'Trop de tentatives. Réessayez dans {{detail}} secondes.',
     forbidden: "Vous n'avez pas l'autorisation",
     unauthorized: 'Veuillez vous reconnecter',
     email_taken: 'Cet e-mail est déjà utilisé',
@@ -833,6 +840,7 @@ const fr: Messages = {
     wrong_account_type: 'Choisissez un compte de produit / charge et un compte de produits constatés d’avance (passif) / charges constatées d’avance (actif)',
   },
   sec: {
+    platformMfa: 'Propriétaire de la plateforme : activez la connexion en deux étapes avant le {{date}}. Ensuite seule sa configuration s\'ouvrira.', turnOn: 'L\'activer',
     mySecurity: 'Ma sécurité', roles: 'Rôles et permissions', approvals: 'Validations', consolidated: 'Rapports consolidés',
     twoFactor: 'Connexion en deux étapes', twoFactorOn: 'Activée', twoFactorOff: 'Désactivée',
     twoFactorHelp: "Après le mot de passe, Paxve demande un code d'une application d'authentification (Google Authenticator, Microsoft Authenticator, Authy…). Un mot de passe volé ne suffit plus.",
@@ -911,7 +919,7 @@ const fr: Messages = {
     menus: 'Menus', openScreens: 'Écrans ouverts', pin: 'Garder les icônes', unpin: 'Masquer les icônes', noScreens: 'Aucun écran ouvert. Choisissez-en un dans les menus.',
     appOffTitle: 'Cette application est désactivée', appOff: "L'application « {{app}} » est désactivée pour cette société.",
     notInPlanTitle: "Non inclus dans votre formule", notInPlan: "L'application « {{app}} » n'est pas incluse dans votre formule Paxve.", upgrade: "Changer de formule",
-    user: 'Utilisateur', box: 'Caisse', rate: 'Taux', today: "Encaissé aujourd'hui", keyF2: 'chercher un abonné', keyF9: 'enregistrer / imprimer', keyEsc: 'annuler', refresh: 'Actualiser',
+    company: 'Société', todayHint: 'Ce que j\'ai encaissé moi-même aujourd\'hui', user: 'Utilisateur', box: 'Caisse', rate: 'Taux', today: 'Mes encaissements du jour', keyF2: 'chercher un abonné', keyF9: 'enregistrer / imprimer', keyEsc: 'annuler', refresh: 'Actualiser',
     page: { customer: 'Client', supplier: 'Fournisseur', item: 'Article', statement: 'Relevé', journal: 'Écritures', ledger: 'Grand livre' },
     rib: {
       daily: 'Travail du jour', subs: 'Abonnements', net: 'Service réseau', col: 'Encaisseurs', acc: 'Comptabilité générale', rep: 'Rapports',
@@ -1002,7 +1010,7 @@ const fr: Messages = {
     assets: 'Actif', liabilities: 'Dettes', equity: 'Capitaux propres', currentResult: 'Résultat non clôturé', liabEquity: 'Dettes + capitaux propres',
     showMore: 'Afficher plus', collector: 'Encaisseur / utilisateur', receipts: 'Reçus', customersN: 'Clients', byCollector: 'Par encaisseur', byDay: 'Par jour',
     status: 'Statut', result: 'Résultat',
-    ag: { current: 'Non échu', d30: '1–30 jours', d60: '31–60 jours', d90: '61–90 jours', over90: 'Plus de 90 jours', total: 'Total dû', bills: 'Factures',
+    ag: { credits: 'Avoirs clients non affectés', net: 'Net dû (égal au compte clients)', creditsHint: 'Sommes payées par les clients et pas encore affectées à une facture (trop-perçus, avances).', current: 'Non échu', d30: '1–30 jours', d60: '31–60 jours', d90: '61–90 jours', over90: 'Plus de 90 jours', total: 'Total dû', bills: 'Factures',
       oldest: 'Plus ancienne échéance', hint: 'double-cliquez un client pour ouvrir son compte' },
     ch: {
       no: 'N° de chèque', bank: 'Banque', from: 'Reçu de', to: 'Payé à', due: 'Échéance', days: 'Jours restants', frozen: 'gelé',
@@ -1133,7 +1141,7 @@ const fr: Messages = {
       title: 'Pays et langue', pack: 'Pack pays', country: 'Pays', currency: 'Devise', fiscal: 'Début de l\'exercice (MM-JJ)',
       einvoice: 'Facturation électronique', zatca: 'QR code ZATCA (Arabie saoudite)', eta: 'Facture électronique égyptienne (ETA) — pas encore connectée', none: 'Aucune',
       packHint: 'Le pack a été choisi à la création de la société. Une nouvelle société peut utiliser un autre pays.',
-      docs: 'Documents et messages', defaultLang: 'Langue par défaut des clients', taxLabel: 'Libellé de votre numéro fiscal',
+      docs: 'Documents et messages', timezone: 'Fuseau horaire (date du jour, rapports)', defaultLang: 'Langue par défaut des clients', taxLabel: 'Libellé de votre numéro fiscal',
       invoiceTitle: 'Titre des factures', mentions: 'Mentions légales imprimées sur les factures',
     },
     help: {
@@ -1328,6 +1336,7 @@ const fr: Messages = {
     },
     sp: { title: 'Tarifs fournisseurs', minQty: 'À partir de', lead: 'Délai (jours)', valid: 'Validité', list: 'Prix', from: 'Du', to: 'Au' },
     match: {
+      bookAnyway: 'Enregistrer quand même',
       settings: 'Rapprochement à 3 voies (commande · réception · facture)', mode: 'Si une facture ne correspond pas', m: { off: 'Aucun contrôle', warn: 'Avertir et enregistrer', block: 'Refuser la facture' },
       tolerance: 'Tolérance de prix', hint: 'Une facture ne doit pas dépasser ce qui a été reçu, au prix commandé.', title: 'Vérifier la facture',
       not_received: '{{line}} : facturé plus que reçu', price_mismatch: '{{line}} : prix différent de la commande',
@@ -1359,20 +1368,21 @@ const fr: Messages = {
       type: 'Type de congé', adjust: 'Ajuster', kind: 'Nature', k: { accrual: 'Acquis', carry: 'Report', adjust: 'Ajustement' },
       needPhoto: 'Un selfie est obligatoire pour pointer', needPlace: 'Pointage seulement près du lieu de travail', lat: 'Latitude', lng: 'Longitude', radius: 'Rayon (m)',
       here: 'Ma position', clockHint: 'Le téléphone envoie sa position et la photo à chaque pointage ; le responsable les voit sur la feuille de présence.',
+      tokenHint: 'Chaque appareil a sa propre adresse secrète. Sur l\'appareil, réglez le chemin du serveur sur l\'adresse ci-dessous, ou enregistrez son adresse IP fixe. Un appareil sans l\'un ni l\'autre est refusé.', pushPath: 'Adresse de l\'appareil',
       admsHint: 'Sur le terminal (ZKTeco et compatibles) : Comm → Cloud server : adresse {{host}}, port 443 (HTTPS) ou 80, puis ajoutez son numéro de série ici. Les pointages arrivent seuls.',
       serial: 'N° de série', ip: 'Adresse autorisée', lastSeen: 'Dernier contact', punches: 'Pointages',
     },
     clock: { selfie: 'Selfie' },
     pay: {
       title: 'Paiements en ligne', ways: 'Moyens de paiement', attempts: 'Paiements reçus en ligne', way: 'Moyen', test: 'test', ref: 'Référence du virement', receipt: 'Reçu',
-      st: { pending: 'Commencé', review: 'À vérifier', paid: 'Payé', failed: 'Échoué', rejected: 'Refusé', expired: 'Expiré' },
+      st: { pending: 'Commencé', review: 'À vérifier', paid: 'Payé', failed: 'Échoué', rejected: 'Refusé', expired: 'Expiré', test_paid: 'Test seulement' },
       k: { stripe: 'Carte (Stripe)', hosted: 'Page de paiement bancaire', transfer: 'Virement (Whish / OMT / banque)' }, kind: 'Type', into: 'L\'argent va vers', testMode: 'Mode test',
       f: { secret_key: 'Clé secrète', webhook_secret: 'Secret de signature', publishable_key: 'Clé publique', provider: 'Prestataire', checkout_url: 'Adresse de la page de paiement',
         merchant_id: 'N° commerçant', shared_secret: 'Secret partagé', account_name: 'Titulaire', account_number: 'N° de compte', phone: 'Téléphone' },
       instructions: 'Instructions pour le client', webhook: 'Adresse de retour à donner au prestataire', confirm: 'Confirmer la réception',
       hint: 'En mode test, sans clés, une page de test remplace la page carte / banque. Les clés sont chiffrées et jamais réaffichées.',
       simGone: 'Ce lien de paiement n\'est pas valide.', simTitle: 'Page de paiement de test (pas d\'argent réel)', simHint: 'Cette page n\'existe qu\'en mode test.',
-      simDone: { paid: 'Payé. Vous pouvez fermer cette page.', failed: 'Le paiement a échoué.', error: 'Une erreur s\'est produite.' }, simPay: 'Payer', simFail: 'Échec',
+      testBanner: 'MODE TEST — aucun argent réel ne circule et aucun reçu n\'est enregistré',       simDone: { paid: 'Paiement de test enregistré. Aucun argent n\'a circulé et aucun reçu n\'a été enregistré.', failed: 'Le paiement a échoué.', error: 'Une erreur s\'est produite.' }, simPay: 'Payer', simFail: 'Échec',
       sentForReview: 'Merci. La société vérifiera votre virement et le confirmera.', online: 'Payer en ligne', phone: 'Votre téléphone', sendRef: 'Envoyer', payNow: 'Payer maintenant',
     },
     einv: {
@@ -1390,6 +1400,7 @@ const fr: Messages = {
     },
   },
   pc: {
+    showOff: 'Afficher les désactivées ({{n}})',
     rib: 'Plateforme', title: 'Console de la plateforme Paxve', refresh: 'Actualiser', all: 'Tout', allPlans: 'Toutes les formules', allCountries: 'Tous les pays',
     search: 'Chercher nom, e-mail, téléphone…', pick: 'Choisissez une organisation à gauche.', pickRequest: 'Choisissez une demande à gauche.', none: 'Rien pour le moment.',
     saved: 'Enregistré.', save: 'Enregistrer', hide: 'Masquer', from: 'Du', to: 'Au', answer: 'Réponse à l\'organisation (facultatif)', newPlan: 'Nouvelle formule',

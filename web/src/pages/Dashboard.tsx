@@ -78,7 +78,7 @@ export default function Dashboard({ me }: { me: Me }) {
       <Group justify="space-between" align="flex-end" wrap="wrap">
         <div>
           <Title order={2}>{t('dashboard.welcome', { name: me.full_name })}</Title>
-          <Text c="dimmed" size="sm">{company.name_en} · {me.tenant_name}</Text>
+          <Text c="dimmed" size="sm">{company.display ?? company.name_en} · {me.tenant_name}</Text>
         </div>
         <Group gap="xs">
           {d && d.kpis.length > 1 && (

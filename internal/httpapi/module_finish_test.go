@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -71,7 +72,12 @@ func TestGoodsReceiptThreeWayAndSupplierPrices(t *testing.T) {
 	if r := o.c.do("POST", o.p("/purchase-orders/"+id+"/receive"), map[string]any{"lines": []any{map[string]any{"po_line_id": line, "quantity": "300"}}}); r.status != 422 {
 		t.Fatalf("over receipt: %d %s", r.status, r.raw)
 	}
-	bill := o.c.ok("POST", o.p("/purchase-orders/"+id+"/bill"), map[string]any{"bill_date": "2026-11-12", "supplier_ref": "F-9",
+	// warn mode: the first try returns the warnings and books nothing; confirming books it (audit B-M5)
+	if r := o.c.do("POST", o.p("/purchase-orders/"+id+"/bill"), map[string]any{"bill_date": "2026-11-12", "supplier_ref": "F-9",
+		"lines": []any{map[string]any{"po_line_id": line, "quantity": "600", "unit_price": "0.80"}}}); r.status != 409 || !strings.Contains(r.raw, "match_warnings") {
+		t.Fatalf("unconfirmed warnings: %d %s", r.status, r.raw)
+	}
+	bill := o.c.ok("POST", o.p("/purchase-orders/"+id+"/bill"), map[string]any{"bill_date": "2026-11-12", "supplier_ref": "F-9", "confirm": true,
 		"lines": []any{map[string]any{"po_line_id": line, "quantity": "600", "unit_price": "0.80"}}}, 201)
 	codes := ""
 	for _, w := range bill.body["warnings"].([]any) {
@@ -220,7 +226,11 @@ func TestRotationAccrualClockRulesAndDevicePush(t *testing.T) {
 	o.c.ok("PUT", o.p("/hr/roster"), map[string]any{"employee_id": emp, "work_date": "2026-12-05", "schedule_id": day}, 200)
 	// fingerprint machine pushes punches (ADMS)
 	serial := "CQZ" + randHex(4)
-	o.c.ok("POST", o.p("/hr/devices"), map[string]any{"serial": serial, "name": "Gate"}, 201)
+	dev := o.c.ok("POST", o.p("/hr/devices"), map[string]any{"serial": serial, "name": "Gate"}, 201)
+	tok := str(dev.body["push_token"])
+	if len(tok) < 20 {
+		t.Fatalf("device token: %s", dev.raw)
+	}
 	push := func(method, path, body string) (int, string) {
 		req, _ := http.NewRequest(method, itServer.URL+path, strings.NewReader(body))
 		req.Header.Set("X-Client-IP", "10.9.9.9")
@@ -232,13 +242,20 @@ func TestRotationAccrualClockRulesAndDevicePush(t *testing.T) {
 		b, _ := io.ReadAll(res.Body)
 		return res.StatusCode, string(b)
 	}
-	if code, body := push("GET", "/iclock/cdata?SN="+serial+"&options=all", ""); code != 200 || !strings.Contains(body, "ATTLOGStamp") {
+	// the serial alone is refused (no token, no registered IP); a wrong token too (audit C-M3)
+	if code, _ := push("GET", "/iclock/cdata?SN="+serial+"&options=all", ""); code != 401 {
+		t.Fatalf("serial only must be refused: %d", code)
+	}
+	if code, _ := push("GET", "/iclock/k/"+strings.Repeat("a", 32)+"/cdata?SN="+serial+"&options=all", ""); code != 401 {
+		t.Fatalf("wrong token must be refused: %d", code)
+	}
+	if code, body := push("GET", "/iclock/k/"+tok+"/cdata?SN="+serial+"&options=all", ""); code != 200 || !strings.Contains(body, "ATTLOGStamp") {
 		t.Fatalf("handshake: %d %s", code, body)
 	}
-	if code, _ := push("GET", "/iclock/cdata?SN=UNKNOWN99", ""); code != 401 {
+	if code, _ := push("GET", "/iclock/k/"+tok+"/cdata?SN=UNKNOWN99", ""); code != 401 {
 		t.Fatalf("unknown device: %d", code)
 	}
-	code, body := push("POST", "/iclock/cdata?SN="+serial+"&table=ATTLOG&Stamp=1", "77\t2026-12-03 19:58:00\t0\t1\n77\t2026-12-04 00:30:00\t1\t1\n77\t2026-12-05 08:20:00\t0\t1\n77\t2026-12-05 16:05:00\t1\t1\n")
+	code, body := push("POST", "/iclock/k/"+tok+"/cdata?SN="+serial+"&table=ATTLOG&Stamp=1", "77\t2026-12-03 19:58:00\t0\t1\n77\t2026-12-04 00:30:00\t1\t1\n77\t2026-12-05 08:20:00\t0\t1\n77\t2026-12-05 16:05:00\t1\t1\n")
 	if code != 200 || !strings.HasPrefix(body, "OK") {
 		t.Fatalf("push: %d %s", code, body)
 	}
@@ -319,10 +336,13 @@ func TestOnlinePaymentsTransferSimulatorAndHostedWebhook(t *testing.T) {
 		t.Fatalf("no simulator: %s", p2.raw)
 	}
 	anon.ok("GET", "/pay/sim/"+simTok, nil, 200)
-	anon.ok("POST", "/pay/sim/"+simTok, map[string]any{"result": "paid"}, 200)
-	anon.ok("POST", "/pay/sim/"+simTok, map[string]any{"result": "paid"}, 200) // replay: still one payment
-	if st := str(obj(o.c.ok("GET", o.p("/invoices/"+inv2), nil, 200).body["invoice"])["status"]); st != "paid" {
-		t.Fatalf("invoice 2 status %s", st)
+	if sim := anon.ok("POST", "/pay/sim/"+simTok, map[string]any{"result": "paid"}, 200); str(sim.body["result"]) != "test_paid" {
+		t.Fatalf("simulator: %s", sim.raw)
+	}
+	anon.ok("POST", "/pay/sim/"+simTok, map[string]any{"result": "paid"}, 200) // replay
+	// audit C-M2: the simulator never books a receipt, so the invoice stays unpaid
+	if st := str(obj(o.c.ok("GET", o.p("/invoices/"+inv2), nil, 200).body["invoice"])["status"]); st == "paid" {
+		t.Fatalf("simulator must not settle a real invoice")
 	}
 	// 3. hosted page: signed redirect, then a signed callback (a bad signature is refused)
 	inv3 := mkInv()
@@ -338,8 +358,23 @@ func TestOnlinePaymentsTransferSimulatorAndHostedWebhook(t *testing.T) {
 	if r := anon.do("POST", "/pay/webhook/"+gid, cb); r.status != 401 {
 		t.Fatalf("bad signature accepted: %d", r.status)
 	}
-	cb["signature"] = hostedSign("s3cret", order, "paid", "40", "USD", "BANK-9")
-	anon.ok("POST", "/pay/webhook/"+gid, cb, 200)
+	// a correctly signed callback in another currency is refused (audit C-L1)
+	cbEUR := map[string]any{"order": order, "status": "paid", "amount": "40", "currency": "EUR", "ref": "BANK-9",
+		"signature": hostedSign("s3cret", order, "paid", "40", "EUR", "BANK-9")}
+	if r := anon.do("POST", "/pay/webhook/"+gid, cbEUR); r.status != 422 {
+		t.Fatalf("currency mismatch accepted: %d %s", r.status, r.raw)
+	}
+	// gateways post forms, not JSON (audit C-M1)
+	form := url.Values{"order": {order}, "status": {"paid"}, "amount": {"40"}, "currency": {"USD"}, "ref": {"BANK-9"},
+		"signature": {hostedSign("s3cret", order, "paid", "40", "USD", "BANK-9")}}
+	res, err := http.Post(itServer.URL+"/api/v1/pay/webhook/"+gid, "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 200 {
+		t.Fatalf("form callback: %d", res.StatusCode)
+	}
 	if st := str(obj(o.c.ok("GET", o.p("/invoices/"+inv3), nil, 200).body["invoice"])["status"]); st != "paid" {
 		t.Fatalf("invoice 3 status %s", st)
 	}
@@ -349,7 +384,7 @@ func TestOnlinePaymentsTransferSimulatorAndHostedWebhook(t *testing.T) {
 			n++
 		}
 	}
-	if n != 3 {
+	if n != 2 {
 		t.Fatalf("paid intents: %d", n)
 	}
 	o.trialBalanced(t)

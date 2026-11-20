@@ -85,6 +85,10 @@ func (s *Server) createCustomer(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
+	if code := partyFieldsErr(in.Name, in.Email, in.Phone, in.Phone2, in.Address, in.Notes); code != "" {
+		writeErr(w, http.StatusBadRequest, code)
+		return
+	}
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		if _, err := companyBase(ctx, tx, cid); err != nil {
@@ -121,6 +125,10 @@ func (s *Server) updateCustomer(w http.ResponseWriter, r *http.Request) {
 	cid, id := r.PathValue("cid"), r.PathValue("id")
 	if !in.valid(false) || !isUUID(id) || (in.Code != nil && strings.TrimSpace(*in.Code) == "") {
 		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	if code := partyFieldsErr(in.Name, in.Email, in.Phone, in.Phone2, in.Address, in.Notes); code != "" {
+		writeErr(w, http.StatusBadRequest, code)
 		return
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {

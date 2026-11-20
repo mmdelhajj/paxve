@@ -114,7 +114,8 @@ func receivePayment(ctx context.Context, tx pgx.Tx, cid string, in paymentIn, co
 		var mine bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM customers c JOIN areas a ON a.id = c.area_id
 			WHERE c.id = $1 AND a.collector_id = app_user())`, in.CustomerID).Scan(&mine); err != nil || !mine {
-			return "", &apiError{status: http.StatusForbidden, code: "forbidden"}
+			// a collector collects only in the areas assigned to them: say so (audit B-H2)
+			return "", &apiError{status: http.StatusForbidden, code: "not_your_area"}
 		}
 	}
 	usable := func(m method) bool {

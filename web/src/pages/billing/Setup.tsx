@@ -54,7 +54,7 @@ export default function Setup({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('setup.title')} subtitle={company.name_en} />
+      <PageHeader title={t('setup.title')} subtitle={company.display ?? company.name_en} />
       {settings && !settings.ar_account_id && <Alert color="yellow">{t('setup.notSetup')}</Alert>}
 
       <Paper withBorder p="md">

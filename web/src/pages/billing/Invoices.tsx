@@ -43,7 +43,7 @@ export default function Invoices({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('invoices.title')} subtitle={company.name_en}>
+      <PageHeader title={t('invoices.title')} subtitle={company.display ?? company.name_en}>
         <Button variant="default" leftSection={<IconPrinter size={16} />} component="a" href={`#/print-bills/${period}`}>{t('bulk.title')}</Button>
         {canManage && <Button leftSection={<IconBolt size={16} />} onClick={() => setRunOpen(true)}>{t('billing.run')}</Button>}
       </PageHeader>
@@ -114,7 +114,7 @@ export function RunBilling({ defaultPeriod, onClose, onDone }: { defaultPeriod: 
   const [period, setPeriod] = useState(defaultPeriod);
   const [issue, setIssue] = useState(today());
   const [station, setStation] = useState<string | null>(null);
-  const [due, setDue] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 10); return d.toISOString().slice(0, 10); });
+  const [due, setDue] = useState(() => today(new Date(Date.now() + 10 * 86_400_000)));
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<RunResult | null>(null);

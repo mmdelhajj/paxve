@@ -45,7 +45,7 @@ export default function Employees({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('hr.employees')} subtitle={company.name_en}>
+      <PageHeader title={t('hr.employees')} subtitle={company.display ?? company.name_en}>
         {canEdit && <Button leftSection={<IconPlus size={16} />} onClick={() => setEdit('new')}>{t('hr.newEmployee')}</Button>}
       </PageHeader>
       <Paper withBorder>

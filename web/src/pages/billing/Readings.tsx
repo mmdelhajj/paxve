@@ -62,7 +62,7 @@ export default function Readings({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('readings.title')} subtitle={company.name_en}>
+      <PageHeader title={t('readings.title')} subtitle={company.display ?? company.name_en}>
         <TextInput type="month" size="sm" value={period} onChange={(e) => setPeriod(e.currentTarget.value)} aria-label={t('readings.period')} />
         <StationSelect value={station} onChange={setStation} />
         <Select size="sm" placeholder={t('readings.allAreas')} clearable value={area} onChange={setArea} w={180}

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -731,7 +732,8 @@ func ensureLeaveTypes(ctx context.Context, tx pgx.Tx, cid string) error {
 	}
 	for _, l := range defaultLeaveTypes(country) {
 		if _, err := tx.Exec(ctx, `INSERT INTO leave_types (company_id, code, name_en, name_ar, name_fr, paid, days_per_year, accrual)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, cid, l.code, l.en, l.ar, l.fr, l.paid, l.days, l.accrual); err != nil {
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`, cid, l.code, l.en, l.ar, l.fr, l.paid, l.days, l.accrual); err != nil {
+			// two screens opened at once both seed the defaults: the second one simply finds them (audit B-M1)
 			return err
 		}
 	}
@@ -1197,6 +1199,11 @@ func (s *Server) selfHome(w http.ResponseWriter, r *http.Request) {
 	cid, me := r.PathValue("cid"), principal(r).ID
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		emp, err := selfEmployee(ctx, tx, cid, me)
+		var ae *apiError
+		if errors.As(err, &ae) && ae.code == "no_employee_file" {
+			// not an error for the page (audit B-L3): the user simply has no employee file in this company
+			return map[string]any{"no_employee_file": true}, nil
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -1460,6 +1467,10 @@ func (s *Server) selfTeamLeave(w http.ResponseWriter, r *http.Request) {
 	cid, me := r.PathValue("cid"), principal(r).ID
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		mgr, err := selfEmployee(ctx, tx, cid, me)
+		var ae *apiError
+		if errors.As(err, &ae) && ae.code == "no_employee_file" {
+			return []any{}, nil // no employee file: no team either
+		}
 		if err != nil {
 			return nil, err
 		}

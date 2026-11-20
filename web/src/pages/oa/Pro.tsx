@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { api, can, type Account, type Me } from '../../api';
+import { api, ApiError, can, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import DataGrid, { type Col } from '../../components/DataGrid';
 import Attachments from '../../components/Attachments';
@@ -79,6 +79,7 @@ export default function PurchaseOrders({ me }: { me: Me }) {
   const [billRef, setBillRef] = useState('');
   const [recvQty, setRecvQty] = useState<Record<string, string>>({});
   const [warn, setWarn] = useState<string[]>([]);
+  const [pendingConfirm, setPendingConfirm] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
   const [text, setText] = useState('');
   const canCreate = can(me, 'purchasing.create');
@@ -110,12 +111,24 @@ export default function PurchaseOrders({ me }: { me: Me }) {
       open(sel.order.id, 'message' in x ? x.message : '');
     });
   }
-  function bill() {
+  function bill(confirm = false) {
     if (!base || !sel) return;
     const lines = sel.lines.filter((l) => Number(billQty[l.id] || 0) > 0).map((l) => ({ po_line_id: l.id, quantity: billQty[l.id] }));
-    void run(api<{ warnings?: { code: string; line: string }[] }>(`${base}/purchase-orders/${sel.order.id}/bill`, { method: 'POST', body: { bill_date: today(), supplier_ref: billRef, lines } }), (x) => {
+    const body = { bill_date: today(), supplier_ref: billRef, lines, confirm };
+    // warn mode: the server lists what does not match (not received, other price) and books only after confirmation
+    api<{ warnings?: { code: string; line: string }[] }>(`${base}/purchase-orders/${sel.order.id}/bill`, { method: 'POST', body }).then((x) => {
+      setPendingConfirm(false);
       setWarn((x.warnings ?? []).map((w) => t(`fin.match.${w.code}`, { line: w.line })));
       open(sel.order.id);
+    }).catch((e) => {
+      if (e instanceof ApiError && e.code === 'match_warnings') {
+        let ws: { code: string; line: string }[] = [];
+        try { ws = JSON.parse(e.detail ?? '[]'); } catch { /* keep empty */ }
+        setWarn(ws.map((w) => t(`fin.match.${w.code}`, { line: w.line })));
+        setPendingConfirm(true);
+        return;
+      }
+      setMsg({ ok: false, text: errorText(t, e) });
     });
   }
   function receive() {
@@ -224,7 +237,11 @@ export default function PurchaseOrders({ me }: { me: Me }) {
                 </table>
                 {o.notes && <p style={{ margin: '4px 0' }}>{o.notes}</p>}
               </div>
-              {warn.length > 0 && <div className="mx-flash bad">{t('fin.match.title')}: {warn.join(' · ')}</div>}
+              {warn.length > 0 && <div className="mx-flash bad">{t('fin.match.title')}: {warn.join(' · ')}
+                {pendingConfirm && <div className="mx-row" style={{ gap: 6, marginTop: 6 }}>
+                  <button className="mx-btn danger" onClick={() => bill(true)}>{t('fin.match.bookAnyway')}</button>
+                  <button className="mx-btn" onClick={() => { setPendingConfirm(false); setWarn([]); }}>{t('common.cancel')}</button>
+                </div>}</div>}
               {(sel.receipts ?? []).length > 0 && <small>{t('fin.po.receipts')}: {(sel.receipts ?? []).map((g) => `#${g.number} (${formatDate(g.receipt_date)} · ${g.quantity}${g.status === 'cancelled' ? ` · ${t('oa.void')}` : ''})`).join(' · ')}</small>}
               {sel.bills.length > 0 && <small>{t('oa.po.billsMade')}: {sel.bills.map((b) => `#${b.number} (${formatAmount(b.total, dec)}${b.status === 'void' ? ` · ${t('oa.void')}` : ''})`).join(' · ')}</small>}
               {canCreate && (
@@ -236,7 +253,7 @@ export default function PurchaseOrders({ me }: { me: Me }) {
                   {(o.status === 'confirmed' || o.status === 'partial') && <>
                     <input placeholder={t('oa.po.supplierRef')} value={billRef} onChange={(e) => setBillRef(e.currentTarget.value)} style={{ width: 140 }} />
                     <button className="mx-btn" onClick={receive}>{t('fin.po.receive')}</button>
-                    <button className="mx-btn" onClick={bill}>{t('oa.po.bill')}</button>
+                    <button className="mx-btn" onClick={() => bill()}>{t('oa.po.bill')}</button>
                   </>}
                   {(o.status === 'rfq' || o.status === 'sent' || o.status === 'confirmed') && <button className="mx-btn sm" onClick={() => { if (window.confirm(t('oa.po.cancelQ'))) action('cancel'); }}>{t('oa.po.cancel')}</button>}
                   <button className="mx-btn sm" onClick={() => void printPage(`PO ${o.number}`)}>{t('oa.print')}</button>

@@ -66,7 +66,7 @@ export default function BankRec({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('bank.title')} subtitle={company.name_en}>
+      <PageHeader title={t('bank.title')} subtitle={company.display ?? company.name_en}>
         <Select w={240} label={t('bank.account')} value={method} onChange={setMethod} allowDeselect={false}
           data={methods.map((m) => ({ value: m.id, label: `${m.name} (${m.currency})` }))} />
         {canEdit && method && <Button leftSection={<IconFileImport size={16} />} onClick={() => setImporting(true)}>{t('bank.import')}</Button>}

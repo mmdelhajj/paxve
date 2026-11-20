@@ -13,7 +13,9 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { applyLang, languages } from '../../i18n';
-import { formatAmount, formatDateTime, notifyError, notifySaved, roundChange } from '../../util';
+import { companyName, formatAmount, formatDateTime, notifyError, notifySaved, roundChange, today } from '../../util';
+import StatusBar from '../../components/StatusBar';
+import '../../magic.css';
 import { printPage } from '../../native';
 import Logo from '../../components/Logo';
 import {
@@ -108,9 +110,10 @@ export function CustomerDisplay() {
 /** Point of sale screen (cashiers see only this; office users open it from the menu). */
 export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const { t, i18n } = useTranslation();
-  const { company, decimalsOf } = useCompany();
+  const { company, companies, setCompanyId, decimalsOf } = useCompany();
   const online = useOnline();
   const pending = usePending(company?.id);
+  const pickedCompany = useRef(false); // the cashier chose a company by hand: never jump away from it
   const [registers, setRegisters] = useState<Register[] | null>(null);
   const [regId, setRegId] = useState<string | null>(null);
   const [cat, setCat] = useState<Catalog | null>(null);
@@ -146,8 +149,17 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
   // registers
   const loadRegisters = useCallback(() => {
     if (!cid) return;
-    api<Register[]>(`/companies/${cid}/pos/registers`).then((rs) => {
+    api<Register[]>(`/companies/${cid}/pos/registers`).then(async (rs) => {
       const active = rs.filter((r) => r.is_active);
+      // audit B-H1: a cashier who can open several companies lands on the one that has a till
+      if (active.length === 0 && !pickedCompany.current && companies.length > 1) {
+        pickedCompany.current = true;
+        for (const c of companies) {
+          if (c.id === cid) continue;
+          const other = await api<Register[]>(`/companies/${c.id}/pos/registers`).catch(() => [] as Register[]);
+          if (other.some((r) => r.is_active)) { setCompanyId(c.id); return; }
+        }
+      }
       setRegisters(active);
       cacheSet(`pos.registers.${cid}`, active);
       const saved = savedRegister(cid);
@@ -162,7 +174,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
       setRegId(pick?.id ?? null);
       setSessionId(cacheGet<string>(`pos.session.${pick?.id}`)?.value ?? pick?.open_session?.id ?? null);
     });
-  }, [cid]);
+  }, [cid, companies, setCompanyId]);
   useEffect(loadRegisters, [loadRegisters]);
 
   // catalog of the chosen register (kept for offline use)
@@ -317,7 +329,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
   const chan = useMemo(() => displayChannel(), []);
   useEffect(() => () => chan?.close(), [chan]);
   useEffect(() => {
-    chan?.postMessage({ company: company?.name_en ?? '', currency, total: formatAmount(total, dec), saved: formatAmount(saved, dec),
+    chan?.postMessage({ company: company?.display ?? company?.name_en ?? '', currency, total: formatAmount(total, dec), saved: formatAmount(saved, dec),
       lines: [...priced.map((l) => ({ name: itemName(l.item, lang), qty: l.qty, amount: formatAmount(l.amount + l.tax, dec) })),
         ...giftSold.map((g) => ({ name: `${t('rt.pos.giftCard')} ${g.code}`, qty: '1', amount: formatAmount(Number(g.amount), dec) }))] });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -381,6 +393,12 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
       <Group justify="space-between" wrap="nowrap">
         <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
           <Logo />
+          {companies.length > 1 && (
+            <select aria-label={t('mx.company')} value={company.id} style={{ maxWidth: 180 }}
+              onChange={(e) => { pickedCompany.current = true; setCompanyId(e.currentTarget.value); setRegisters(null); setRegId(null); setSessionId(null); setCat(null); setCart([]); }}>
+              {companies.map((c) => <option key={c.id} value={c.id}>{companyName(c, lang)}</option>)}
+            </select>
+          )}
           {reg && <Text fw={600} size="sm" truncate>{reg.name}{sessionId && cat?.register.open_session ? ` · #${cat.register.open_session.number}` : ''}</Text>}
           {online ? (pending > 0 && <Badge color="orange" leftSection={<IconCloudUpload size={12} />}>{pending}</Badge>)
             : <Badge color="red" leftSection={<IconCloudOff size={12} />}>{t('collector.offline')}</Badge>}
@@ -395,7 +413,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
           <Menu position="bottom-end">
             <Menu.Target><ActionIcon variant="light" color="gray" size="lg" aria-label="menu"><IconMenu2 size={18} /></ActionIcon></Menu.Target>
             <Menu.Dropdown>
-              <Menu.Label>{me.full_name} · {company.name_en}</Menu.Label>
+              <Menu.Label>{me.full_name} · {companyName(company, lang)}</Menu.Label>
               {sessionId && <Menu.Item leftSection={<IconReceipt size={14} />} onClick={() => setOrdersOpen(true)}>{t('pos.orders')}</Menu.Item>}
               {sessionId && <Menu.Item leftSection={<IconCash size={14} />} disabled={!online || pending > 0} onClick={() => setCloseOpen(true)}>{t('pos.closeSession')}</Menu.Item>}
               {(registers?.length ?? 0) > 1 && <Menu.Item leftSection={<IconRefresh size={14} />} onClick={() => choose(null)}>{t('pos.changeRegister')}</Menu.Item>}
@@ -444,6 +462,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
             </>}
           </Stack>
         </Center>
+        <StatusBar me={me} keys={false} sticky />
       </Box>
     );
   }
@@ -671,6 +690,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
           onClosed={() => { setSessionId(null); cacheSet(`pos.session.${regId}`, null); loadCatalog(); loadRegisters(); }} />
       )}
       {pickerOpen && <PrinterPicker onClose={() => setPickerOpen(false)} onConnected={(n) => { setPrinter(n); setPickerOpen(false); }} />}
+      <StatusBar me={me} keys={false} sticky />
     </Box>
   );
 }
@@ -1021,7 +1041,7 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
     const local = (): PosOrderDetail => ({
       pending: true,
       order: {
-        id: ref, number: 0, kind: 'sale', order_date: new Date().toISOString().slice(0, 10), session_id: sessionId, session_number: reg.open_session?.number ?? 0,
+        id: ref, number: 0, kind: 'sale', order_date: today(), session_id: sessionId, session_number: reg.open_session?.number ?? 0,
         register_id: reg.id, register_name: reg.name, customer_id: customer?.id ?? reg.customer_id, customer_name: customer?.name ?? reg.customer_name,
         customer_code: '', walk_in: !customer, currency, total: String(total), tax_total: String(taxTotal), paid: String(Math.min(total, received)),
         on_account: String(Math.max(0, round(total - received, dec))), invoice_id: null, invoice_number: null, payment_id: null, refund_doc_id: null,

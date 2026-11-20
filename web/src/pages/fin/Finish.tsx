@@ -578,7 +578,7 @@ export function HRExtra({ me, initial }: { me: Me; initial?: string }) {
   const [clock, reloadClock] = useLoad<{ photo: boolean; geofence: boolean; lat: string | null; lng: string | null; radius_m: number }>(base && `${base}/hr/clock-settings`, { photo: false, geofence: false, lat: null, lng: null, radius_m: 200 });
   const [cl, setCl] = useState(clock);
   useEffect(() => setCl(clock), [clock]);
-  const [devs, reloadDevs] = useLoad<{ id: string; serial: string; name: string; allowed_ip: string; is_active: boolean; last_seen: string | null; last_ip: string; punches: number }[]>(base && `${base}/hr/devices`, []);
+  const [devs, reloadDevs] = useLoad<{ id: string; serial: string; name: string; allowed_ip: string; is_active: boolean; last_seen: string | null; last_ip: string; punches: number; push_token: string }[]>(base && `${base}/hr/devices`, []);
   const [dev, setDev] = useState({ serial: '', name: '', allowed_ip: '' });
   const [msg, run] = useRun(() => { reloadRots(); reloadRoster(); reloadAcc(); reloadClock(); reloadDevs(); });
   const schedName = (id: string) => (id === 'off' ? t('fin.hr.off') : scheds.find((s) => s.id === id)?.name ?? '?');
@@ -669,8 +669,9 @@ export function HRExtra({ me, initial }: { me: Me; initial?: string }) {
         <section className="mx-box"><h3>{t('fin.hr.devices')}</h3>
           <div className="mx-pay">
             <div className="mx-note"><small>{t('fin.hr.admsHint', { host: window.location.hostname })}</small></div>
-            <table className="mx-table"><thead><tr><th>{t('fin.hr.serial')}</th><th>{t('fin.name')}</th><th>{t('fin.hr.ip')}</th><th>{t('fin.hr.lastSeen')}</th><th className="num">{t('fin.hr.punches')}</th><th /></tr></thead>
-              <tbody>{devs.map((d) => <tr key={d.id}><td dir="ltr">{d.serial}</td><td>{d.name}</td><td dir="ltr">{d.allowed_ip || '*'}</td><td dir="ltr">{d.last_seen ? `${new Date(d.last_seen).toLocaleString()} · ${d.last_ip}` : '—'}</td><td className="num">{d.punches}</td>
+            <div className="mx-note"><small>{t('fin.hr.tokenHint')}</small></div>
+            <table className="mx-table"><thead><tr><th>{t('fin.hr.serial')}</th><th>{t('fin.name')}</th><th>{t('fin.hr.pushPath')}</th><th>{t('fin.hr.ip')}</th><th>{t('fin.hr.lastSeen')}</th><th className="num">{t('fin.hr.punches')}</th><th /></tr></thead>
+              <tbody>{devs.map((d) => <tr key={d.id}><td dir="ltr">{d.serial}</td><td>{d.name}</td><td dir="ltr" style={{ userSelect: 'all', fontSize: 12 }}>{d.push_token ? `/iclock/k/${d.push_token}/` : '—'}</td><td dir="ltr">{d.allowed_ip || '—'}</td><td dir="ltr">{d.last_seen ? `${new Date(d.last_seen).toLocaleString()} · ${d.last_ip}` : '—'}</td><td className="num">{d.punches}</td>
                 <td>{edit && <button className="mx-btn sm" onClick={() => void run(api(`${base}/hr/devices/${d.id}`, { method: 'PATCH', body: { name: d.name, allowed_ip: d.allowed_ip, is_active: !d.is_active } }))}>{d.is_active ? t('fin.disable') : t('fin.enable')}</button>}</td></tr>)}</tbody></table>
             {edit && <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap' }}>
               <label>{t('fin.hr.serial')}<input dir="ltr" value={dev.serial} onChange={(e) => setDev({ ...dev, serial: e.currentTarget.value.trim() })} /></label>
@@ -783,6 +784,7 @@ export function PaySim({ token }: { token: string }) {
   if (!info) return <div className="mx-pay" style={{ maxWidth: 420, margin: '40px auto' }}>{t('fin.pay.simGone')}</div>;
   return (
     <div className="mx-pay" style={{ maxWidth: 420, margin: '40px auto', border: '2px dashed #b7791f', padding: 16 }}>
+      <div style={{ background: '#b42318', color: '#fff', fontWeight: 700, textAlign: 'center', padding: '6px 8px', borderRadius: 6 }}>{t('fin.pay.testBanner')}</div>
       <b>{t('fin.pay.simTitle')}</b>
       <div>{info.company} · {t('fin.invoice')} #{info.invoice_number}</div>
       <div style={{ fontSize: 24 }} dir="ltr">{amt(info.amount)} {info.currency}</div>

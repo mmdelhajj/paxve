@@ -14,6 +14,8 @@ import { useCompany } from '../../company';
 import { applyLang, languages } from '../../i18n';
 import { autoApply, formatAmount, formatDate, notifyError, roundChange, today } from '../../util';
 import Logo from '../../components/Logo';
+import StatusBar from '../../components/StatusBar';
+import '../../magic.css';
 import type { Customer, Money, PaymentDetail, PaymentMethod } from '../../billing';
 import { MoneyList, Receipt } from '../billing/docs';
 import Readings from '../billing/Readings';
@@ -47,7 +49,7 @@ function useOutboxCount() {
 
 export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const { t } = useTranslation();
-  const { company } = useCompany();
+  const { company, companies, setCompanyId } = useCompany();
   const online = useOnline();
   const pending = useOutboxCount();
   const [customers, setCustomers] = useState<Customer[] | null>(null);
@@ -116,8 +118,14 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
     <Box bg="var(--mantine-color-gray-0)" mih="100vh">
       <Paper shadow="xs" radius={0} px="sm" py={8} style={{ position: 'sticky', top: 0, zIndex: 10 }}>
         <Group justify="space-between" wrap="nowrap">
-          <Group gap={6} wrap="nowrap">
+          <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
             <Logo />
+            {companies.length > 1 && (
+              <select aria-label={t('mx.company')} value={company.id} style={{ maxWidth: 160 }}
+                onChange={(e) => { setCustomers(null); setCompanyId(e.currentTarget.value); }}>
+                {companies.map((c) => <option key={c.id} value={c.id}>{c.display ?? c.name_en}</option>)}
+              </select>
+            )}
             {online ? (pending > 0 && <Badge color="orange" leftSection={<IconCloudUpload size={12} />}>{pending}</Badge>)
               : <Badge color="red" leftSection={<IconCloudOff size={12} />}>{t('collector.offline')}</Badge>}
           </Group>
@@ -129,7 +137,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
             <Menu position="bottom-end">
               <Menu.Target><ActionIcon variant="light" color="gray" size="lg"><IconMenu2 size={18} /></ActionIcon></Menu.Target>
               <Menu.Dropdown>
-                <Menu.Label>{me.full_name} · {company.name_en}</Menu.Label>
+                <Menu.Label>{me.full_name} · {company.display ?? company.name_en}</Menu.Label>
                 {languages.map((l) => <Menu.Item key={l.code} onClick={() => applyLang(l.code)}>{l.label}</Menu.Item>)}
                 <Menu.Divider />
                 <Menu.Label>{t('collector.paper')}</Menu.Label>
@@ -165,7 +173,9 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
                 onChange={(e) => setQ(e.currentTarget.value)} />
               <SegmentedControl fullWidth value={onlyDue} onChange={setOnlyDue}
                 data={[{ value: 'due', label: t('invoices.unpaid') }, { value: 'all', label: t('common.all') }]} />
-              {customers === null ? <Center p="xl"><Loader /></Center> : list.length === 0 ? (
+              {customers === null ? <Center p="xl"><Loader /></Center> : customers.length === 0 && me.role === 'collector' ? (
+                <Alert color="yellow" title={t('collector.noAreasTitle')}>{t('collector.noAreasHint')}</Alert>
+              ) : list.length === 0 ? (
                 <Text c="dimmed" ta="center" p="xl">{t('common.empty')}</Text>
               ) : list.slice(0, 200).map((c) => (
                 <Card key={c.id} withBorder padding="sm" onClick={() => setSelected(c)} style={{ cursor: 'pointer' }}>
@@ -193,6 +203,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
       )}
       {receipt && <ReceiptSheet d={receipt} onClose={() => setReceipt(null)} onNeedPrinter={() => setPickerOpen(true)} />}
       {pickerOpen && <PrinterPicker onClose={() => setPickerOpen(false)} onConnected={(n) => { setPrinter(n); setPickerOpen(false); }} />}
+      <StatusBar me={me} keys={false} sticky />
     </Box>
   );
 }

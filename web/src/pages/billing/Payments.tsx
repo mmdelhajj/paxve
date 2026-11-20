@@ -37,7 +37,7 @@ export default function Payments({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('payments.title')} subtitle={company.name_en}>
+      <PageHeader title={t('payments.title')} subtitle={company.display ?? company.name_en}>
         <TextInput type="date" size="sm" value={from} onChange={(e) => setFrom(e.currentTarget.value)} aria-label={t('reports.from')} />
         <TextInput type="date" size="sm" value={to} onChange={(e) => setTo(e.currentTarget.value)} aria-label={t('reports.to')} />
         <TextInput size="sm" leftSection={<IconSearch size={16} />} placeholder={t('customers.search')} value={q} onChange={(e) => setQ(e.currentTarget.value)} w={220} />

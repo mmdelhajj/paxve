@@ -214,9 +214,12 @@ function Orgs({ orgs, plans, reload, focus }: { orgs: Org[]; plans: Plan[]; relo
   const [plan, setPlan] = useState('all');
   const [country, setCountry] = useState('all');
   const [q, setQ] = useState('');
+  const [showOff, setShowOff] = useState(false); // deactivated organisations (old tests…) are hidden unless asked (audit B-L6)
   const [sel, setSel] = useState<string | null>(focus?.id || null);
   const countries = useMemo(() => [...new Set(orgs.map((o) => o.country || '').filter(Boolean))].sort(), [orgs]);
+  const hiddenOff = useMemo(() => orgs.filter((o) => !o.is_active).length, [orgs]);
   const rows = useMemo(() => orgs.filter((o) => {
+    if (!showOff && !o.is_active && state !== 'blocked' && o.id !== focus?.id) return false;
     if (state === 'expiring') {
       const d = daysLeft(o.ends_on);
       if (!((o.state === 'trial' || o.state === 'active') && d !== null && d >= 0 && d <= 7)) return false;
@@ -225,7 +228,7 @@ function Orgs({ orgs, plans, reload, focus }: { orgs: Org[]; plans: Plan[]; relo
     if (country !== 'all' && (o.country || '') !== country) return false;
     const s = q.trim().toLowerCase();
     return !s || [o.name, o.slug, o.admin_email, o.contact_email, o.contact_phone].some((x) => (x ?? '').toLowerCase().includes(s));
-  }), [orgs, state, plan, country, q]);
+  }), [orgs, state, plan, country, q, showOff, focus]);
   const planOf = (c: string) => planName(plans.find((p) => p.code === c), i18n.language, c);
   const cols: Col<Org>[] = [
     { key: 'name', title: t('pc.f.org'), get: (r) => r.name, width: 190, cls: (r) => (r.open_requests > 0 ? 'red' : '') },
@@ -262,6 +265,7 @@ function Orgs({ orgs, plans, reload, focus }: { orgs: Org[]; plans: Plan[]; relo
             {countries.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           <input placeholder={t('pc.search')} value={q} onChange={(e) => setQ(e.currentTarget.value)} />
+          {hiddenOff > 0 && <label className="mx-row" style={{ gap: 4 }}><input type="checkbox" checked={showOff} onChange={(e) => setShowOff(e.currentTarget.checked)} />{t('pc.showOff', { n: hiddenOff })}</label>}
         </div>
         <DataGrid rows={rows} cols={cols} rowKey={(r) => r.id} selected={sel} title={t('pc.m.orgs')} onSelect={(r) => setSel(r.id)} onActivate={(r) => setSel(r.id)}
           rowClass={(r) => (r.state === 'blocked' ? 'muted' : '')} />

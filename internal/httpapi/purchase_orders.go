@@ -360,7 +360,9 @@ func (s *Server) billPO(w http.ResponseWriter, r *http.Request) {
 		DueDate     string `json:"due_date"`
 		SupplierRef string `json:"supplier_ref"`
 		Notes       string `json:"notes"`
-		Lines       []struct {
+		// warn mode (audit B-M5): a bill with 3-way-match warnings is booked only once the user confirms it
+		Confirm bool `json:"confirm"`
+		Lines   []struct {
 			POLineID    string   `json:"po_line_id"`
 			Quantity    string   `json:"quantity"`
 			UnitPrice   string   `json:"unit_price"`
@@ -420,6 +422,9 @@ func (s *Server) billPO(w http.ResponseWriter, r *http.Request) {
 		byID := map[string]pol{}
 		for _, p := range pls {
 			byID[p.id] = p
+			if p.received.IsPositive() {
+				anyReceipt = true // received through the order itself (not only through a goods receipt)
+			}
 		}
 		bill := billInput{SupplierID: sup, SupplierRef: strings.TrimSpace(in.SupplierRef), BillDate: in.BillDate, DueDate: in.DueDate,
 			Currency: cur, Notes: strings.TrimSpace(in.Notes), CostCenter: cc, poID: id}
@@ -489,6 +494,10 @@ func (s *Server) billPO(w http.ResponseWriter, r *http.Request) {
 		}
 		if !bill.normalize() {
 			return nil, badRequest("bad_request")
+		}
+		if len(warnings) > 0 && !in.Confirm {
+			js, _ := json.Marshal(warnings)
+			return nil, &apiError{status: http.StatusConflict, code: "match_warnings", detail: string(js)}
 		}
 		billID, err := createBillTx(ctx, tx, cid, bill)
 		if err != nil {

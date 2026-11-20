@@ -9,15 +9,19 @@ import { Help } from '../acc/common';
 
 /** Settings → Country & language: the company's country pack, the language customers get by default,
  *  and what printed invoices say (tax number label, invoice title, legal mentions). */
+// common zones (any IANA zone the server knows is accepted)
+const ZONES = ['Asia/Beirut', 'Asia/Riyadh', 'Asia/Dubai', 'Asia/Kuwait', 'Asia/Qatar', 'Asia/Bahrain', 'Asia/Muscat', 'Asia/Amman', 'Asia/Damascus', 'Asia/Baghdad',
+  'Africa/Cairo', 'Africa/Casablanca', 'Africa/Algiers', 'Africa/Tunis', 'Europe/Istanbul', 'Europe/Paris', 'Europe/London', 'America/New_York', 'Etc/UTC'];
+
 export default function Localization({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
   const { company, reload } = useCompany();
-  const [f, setF] = useState({ default_locale: 'ar', tax_id_label: '', invoice_title: '', legal_mentions: '' });
+  const [f, setF] = useState({ default_locale: 'ar', tax_id_label: '', invoice_title: '', legal_mentions: '', timezone: 'Asia/Beirut' });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const canEdit = can(me, 'settings.manage');
   useEffect(() => {
     if (company) setF({ default_locale: company.default_locale || 'ar', tax_id_label: company.tax_id_label ?? '',
-      invoice_title: company.invoice_title ?? '', legal_mentions: company.legal_mentions ?? '' });
+      invoice_title: company.invoice_title ?? '', legal_mentions: company.legal_mentions ?? '', timezone: company.timezone || 'Asia/Beirut' });
   }, [company]);
   if (!company) return null;
   const pack = PACKS.find((p) => p.key === company.l10n);
@@ -56,6 +60,10 @@ export default function Localization({ me }: { me: Me }) {
             <label htmlFor="loc-lang">{t('t2.loc.defaultLang')}</label>
             <select id="loc-lang" disabled={!canEdit} value={f.default_locale} onChange={(e) => setF({ ...f, default_locale: e.currentTarget.value })}>
               {languages.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+            </select>
+            <label htmlFor="loc-tz">{t('t2.loc.timezone')}</label>
+            <select id="loc-tz" disabled={!canEdit} value={f.timezone} onChange={(e) => setF({ ...f, timezone: e.currentTarget.value })}>
+              {[...new Set([f.timezone, ...ZONES])].map((z) => <option key={z} value={z}>{z}</option>)}
             </select>
             <label htmlFor="loc-tax">{t('t2.loc.taxLabel')}</label>
             <input id="loc-tax" disabled={!canEdit} value={f.tax_id_label} onChange={(e) => setF({ ...f, tax_id_label: e.currentTarget.value })} />

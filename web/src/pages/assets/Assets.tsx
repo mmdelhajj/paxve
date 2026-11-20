@@ -70,7 +70,7 @@ export default function Assets({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('fa.title')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: base })}`}>
+      <PageHeader title={t('fa.title')} subtitle={`${company.display ?? company.name_en} · ${t('reports.amountsIn', { cur: base })}`}>
         {canEdit && (
           <>
             <TextInput type="month" value={period} onChange={(e) => setPeriod(e.currentTarget.value)} aria-label={t('hr.period')} />
@@ -240,10 +240,10 @@ export function AssetRegister() {
   const dec = decimalsOf(company.base_currency);
   return (
     <Stack gap="lg" maw={1100} className="print-area">
-      <PageHeader title={t('fa.register')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${to}`}>
+      <PageHeader title={t('fa.register')} subtitle={`${company.display ?? company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${to}`}>
         <TextInput type="date" size="xs" label={t('reports2.asOf')} value={to} onChange={(e) => setTo(e.currentTarget.value)} />
         <ExportMenu disabled={!d?.rows.length} table={() => d && ({
-          title: t('fa.register'), subtitle: `${company.name_en} · ${to} · ${company.base_currency}`,
+          title: t('fa.register'), subtitle: `${company.display ?? company.name_en} · ${to} · ${company.base_currency}`,
           columns: [{ label: t('fa.name') }, { label: t('fa.purchaseDate') }, { label: t('fa.cost'), numeric: true },
             { label: t('fa.accumulated'), numeric: true }, { label: t('fa.nbv'), numeric: true }],
           rows: d.rows.map((r) => [`${r.code} · ${r.name}`, r.purchase_date, r.cost, r.accumulated, r.net_book_value]),

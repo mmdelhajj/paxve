@@ -198,7 +198,7 @@ export default function Statements({ me }: { me: Me }) {
   const chosen = (rows ?? []).filter((r) => picked.has(r.customer.id));
   return (
     <Stack gap="lg" maw={1100}>
-      <PageHeader title={t('stmt.bulk')} subtitle={company.name_en}>
+      <PageHeader title={t('stmt.bulk')} subtitle={company.display ?? company.name_en}>
         <Button variant="default" leftSection={<IconPrinter size={16} />} disabled={!chosen.length} onClick={() => void printAll()}>{t('stmt.printAll', { n: chosen.length })}</Button>
       </PageHeader>
       <Paper withBorder p="md" className="no-print">

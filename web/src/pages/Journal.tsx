@@ -5,6 +5,7 @@ import {
 } from '@mantine/core';
 import { IconAlertTriangle, IconCheck, IconLock, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
+import { notifications } from '@mantine/notifications';
 import { can, api, type Account, type Entry, type EntrySummary, type Me, type Rate } from '../api';
 import { useCompany } from '../company';
 import { accountLabel, formatAmount, formatDate, fromUnits, notifyError, notifySaved, toUnits, today } from '../util';
@@ -330,6 +331,8 @@ function EntryEditor({ me, entry, onClose, onSaved }: {
         ? await api<Entry>(`/companies/${company.id}/journal/${entry.id}`, { method: 'PUT', body })
         : await api<Entry>(`/companies/${company.id}/journal`, { method: 'POST', body });
       notifySaved(t);
+      const ctl = (saved as Entry & { control_accounts?: string[] }).control_accounts;
+      if (ctl?.length) notifications.show({ color: 'orange', autoClose: 12000, message: t('journal.controlWarn', { codes: ctl.join(', ') }) });
       onSaved(saved);
     } catch (err) {
       notifyError(t, err);

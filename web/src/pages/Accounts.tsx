@@ -51,7 +51,7 @@ export default function Accounts({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('accounts.title')} subtitle={company.name_en}>
+      <PageHeader title={t('accounts.title')} subtitle={company.display ?? company.name_en}>
         {canEdit && rows && rows.length > 0 && (
           <Button leftSection={<IconPlus size={16} />} onClick={() => { setEditing(null); modal.open(); }}>
             {t('accounts.new')}

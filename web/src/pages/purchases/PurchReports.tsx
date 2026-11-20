@@ -30,10 +30,10 @@ export function APAging() {
   if (!company) return null;
   return (
     <Stack gap="lg" maw={1200} className="print-area">
-      <PageHeader title={t('pur.apAging')} subtitle={`${company.name_en} · ${asOf}`}>
+      <PageHeader title={t('pur.apAging')} subtitle={`${company.display ?? company.name_en} · ${asOf}`}>
         <TextInput type="date" size="xs" label={t('reports2.asOf')} value={asOf} onChange={(e) => setAsOf(e.currentTarget.value)} />
         <ExportMenu disabled={!d?.rows.length} table={() => d && ({
-          title: t('pur.apAging'), subtitle: `${company.name_en} · ${asOf}`,
+          title: t('pur.apAging'), subtitle: `${company.display ?? company.name_en} · ${asOf}`,
           columns: [{ label: t('pur.supplier') }, { label: t('gap.currency') }, ...buckets.map((b) => ({ label: t(`reports2.buckets.${b}`), numeric: true })),
             { label: t('pur.total'), numeric: true }],
           rows: d.rows.map((r) => [`${r.name} #${r.code}`, r.currency, ...buckets.map((b) => r[b]), r.total]),
@@ -88,9 +88,9 @@ export function StockValuation() {
   const dec = decimalsOf(company.base_currency);
   return (
     <Stack gap="lg" maw={1100} className="print-area">
-      <PageHeader title={t('pur.valuation')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })}`}>
+      <PageHeader title={t('pur.valuation')} subtitle={`${company.display ?? company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })}`}>
         <ExportMenu disabled={!d?.rows.length} table={() => d && ({
-          title: t('pur.valuation'), subtitle: `${company.name_en} · ${today()} · ${company.base_currency}`,
+          title: t('pur.valuation'), subtitle: `${company.display ?? company.name_en} · ${today()} · ${company.base_currency}`,
           columns: [{ label: t('pur.item') }, { label: t('pur.warehouse') }, { label: t('pur.quantity'), numeric: true }, { label: t('gap.unit') },
             { label: t('pur.avgCost'), numeric: true }, { label: t('pur.value'), numeric: true }],
           rows: d.rows.map((r) => [`${r.name_i18n?.[i18n.language] || r.name} #${r.code}`, r.warehouse, r.quantity, r.unit, r.avg_cost, r.value]),
@@ -151,11 +151,11 @@ export function ExpensesReport() {
   const total = Number(d?.total ?? 0);
   return (
     <Stack gap="lg" maw={900} className="print-area">
-      <PageHeader title={t('pur.expensesReport')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${from} → ${to}`}>
+      <PageHeader title={t('pur.expensesReport')} subtitle={`${company.display ?? company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${from} → ${to}`}>
         <TextInput type="date" size="xs" label={t('reports.from')} value={from} onChange={(e) => setFrom(e.currentTarget.value)} />
         <TextInput type="date" size="xs" label={t('reports.to')} value={to} onChange={(e) => setTo(e.currentTarget.value)} />
         <ExportMenu disabled={!d?.rows.length} table={() => d && ({
-          title: t('pur.expensesReport'), subtitle: `${company.name_en} · ${from} → ${to} · ${company.base_currency}`,
+          title: t('pur.expensesReport'), subtitle: `${company.display ?? company.name_en} · ${from} → ${to} · ${company.base_currency}`,
           columns: [{ label: t('reports.account') }, { label: t('pur.amount'), numeric: true }],
           rows: d.rows.map((r) => [`${r.code} · ${accountName(r)}`, r.amount]),
           footer: [[t('reports.totals'), d.total]],
@@ -209,12 +209,12 @@ export function StockMoves() {
   const src = (s: string) => t(`gap.sources.${s}`, { defaultValue: s });
   return (
     <Stack gap="lg" maw={1200} className="print-area">
-      <PageHeader title={t('gap.moves')} subtitle={`${company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${from} → ${to}`}>
+      <PageHeader title={t('gap.moves')} subtitle={`${company.display ?? company.name_en} · ${t('reports.amountsIn', { cur: company.base_currency })} · ${from} → ${to}`}>
         <Select size="xs" label={t('pur.item')} clearable searchable w={200} data={items.map((i) => ({ value: i.id, label: i.name }))} value={item} onChange={setItem} />
         <TextInput type="date" size="xs" label={t('reports.from')} value={from} onChange={(e) => setFrom(e.currentTarget.value)} />
         <TextInput type="date" size="xs" label={t('reports.to')} value={to} onChange={(e) => setTo(e.currentTarget.value)} />
         <ExportMenu disabled={!d?.rows.length} table={() => d && ({
-          title: t('gap.moves'), subtitle: `${company.name_en} · ${from} → ${to} · ${company.base_currency}`,
+          title: t('gap.moves'), subtitle: `${company.display ?? company.name_en} · ${from} → ${to} · ${company.base_currency}`,
           columns: [{ label: t('journal.date') }, { label: t('pur.item') }, { label: t('pur.warehouse') }, { label: t('gap.movement') },
             { label: t('pur.quantity'), numeric: true }, { label: t('pur.avgCost'), numeric: true }, { label: t('pur.value'), numeric: true },
             { label: t('gap.balanceQty'), numeric: true }, { label: t('gap.balanceValue'), numeric: true }, { label: t('pur.notes') }],

@@ -11,6 +11,7 @@ export interface Me {
   plan: string;
   trial_ends_at: string | null;
   is_platform_admin: boolean;
+  platform_mfa_deadline?: string; // platform owner without two-step sign-in: must turn it on before this
   /** the organisation's Paxve plan: trial, active, grace (ended, still usable), expired (read-only), blocked */
   sub_state?: 'trial' | 'active' | 'grace' | 'expired' | 'blocked';
   paid_until?: string | null;
@@ -57,6 +58,8 @@ export interface Company {
   // localization (country pack)
   country?: string; l10n?: string; einvoice?: '' | 'zatca' | 'eta'; default_locale?: string; fiscal_year_start?: string;
   tax_id_label?: string; invoice_title?: string; legal_mentions?: string;
+  timezone?: string; // "today" and report dates follow this zone
+  display?: string;  // client-side: the name in the reader's language (set by the company context)
 }
 
 export interface User {

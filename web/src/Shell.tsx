@@ -11,6 +11,7 @@ import { ALL_APPS, appOfPage, RIBBON, tileOf, type Tile } from './ribbon';
 import { openScreen, takeNewWindowRequest } from './nav';
 import type { PaymentMethod } from './billing';
 import SubBanner from './components/SubBanner';
+import StatusBar from './components/StatusBar';
 import './magic.css';
 import { PaneActive } from './paneActive';
 
@@ -328,6 +329,12 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
       )}
 
       <SubBanner me={me} />
+      {me.is_platform_admin && !me.mfa_enabled && me.platform_mfa_deadline && (
+        <div className="mx-flash bad" style={{ margin: 0, borderRadius: 0 }}>
+          {t('sec.platformMfa', { date: new Date(me.platform_mfa_deadline).toLocaleDateString() })}{' '}
+          <button className="mx-btn sm" onClick={() => openScreen('security')}>{t('sec.turnOn')}</button>
+        </div>
+      )}
 
       <div className="mx-wins" role="tablist" aria-label={t('mx.openScreens')}>
         {wins.map((w) => (
@@ -478,54 +485,6 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
   return <>{(views[page] ?? views.dashboard)()}</>;
 }
 
-interface Box { id: string; name: string; currency: string; user_id: string | null; balance: string }
-
-/** Bottom bar: user, own cash box, exchange rate, today's collections, key hints. */
-function StatusBar({ me }: { me: Me }) {
-  const { t } = useTranslation();
-  const { company, decimalsOf } = useCompany();
-  const [box, setBox] = useState<string>('');
-  const [rate, setRate] = useState<string>('');
-  const [todayCash, setToday] = useState<string>('');
-
-  const load = useCallback(() => {
-    if (!company) return;
-    const cid = company.id;
-    if (can(me, 'collections.view')) {
-      api<PaymentMethod[]>(`/companies/${cid}/payment-methods`).then((ms) => {
-        const mine = ms.filter((m) => m.is_active && m.user_id === me.id);
-        setBox(mine.map((m) => m.name).join(' / '));
-      }).catch(() => {});
-      api<{ by_method: { currency: string; received: string; change_given: string }[] }>(
-        `/companies/${cid}/payments?from=${today()}&to=${today()}&received_by=${me.id}&limit=1`).then((r) => {
-        const sums = new Map<string, number>();
-        for (const m of r.by_method ?? []) sums.set(m.currency, (sums.get(m.currency) ?? 0) + Number(m.received) - Number(m.change_given));
-        setToday([...sums].map(([c, v]) => `${formatAmount(v, decimalsOf(c))} ${c}`).join(' + ') || '0');
-      }).catch(() => {});
-    }
-    api<{ rates: Rate[] }>(`/companies/${cid}/rates/latest`).then((r) => {
-      const local = company.local_currency !== company.base_currency ? r.rates.find((x) => x.currency === company.local_currency) : undefined;
-      setRate(local ? `1 ${company.base_currency} = ${formatAmount(local.rate, 0)} ${local.currency}` : '');
-    }).catch(() => {});
-  }, [company, me, decimalsOf]);
-
-  useEffect(() => {
-    load();
-    const id = setInterval(load, 60_000);
-    window.addEventListener('paxve:paid', load);
-    return () => { clearInterval(id); window.removeEventListener('paxve:paid', load); };
-  }, [load]);
-
-  return (
-    <footer className="mx-status">
-      <span>{t('mx.user')}: <b>{me.full_name}</b></span>
-      {box && <span>{t('mx.box')}: <b>{box}</b></span>}
-      {rate && <span>{t('mx.rate')}: <b dir="ltr">{rate}</b></span>}
-      {todayCash && <span>{t('mx.today')}: <b dir="ltr">{todayCash}</b></span>}
-      <span><kbd>F2</kbd> {t('mx.keyF2')} · <kbd>F9</kbd> {t('mx.keyF9')} · <kbd>Esc</kbd> {t('mx.keyEsc')}</span>
-    </footer>
-  );
-}
 
 function ChangePassword({ opened, onClose }: { opened: boolean; onClose: () => void }) {
   const { t } = useTranslation();

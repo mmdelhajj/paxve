@@ -50,7 +50,7 @@ export default function Rates({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1100}>
-      <PageHeader title={t('rates.title')} subtitle={company.name_en} />
+      <PageHeader title={t('rates.title')} subtitle={company.display ?? company.name_en} />
       {latest.length > 0 && (
         <SimpleGrid cols={{ base: 2, sm: 4 }}>
           {latest.map((r) => (

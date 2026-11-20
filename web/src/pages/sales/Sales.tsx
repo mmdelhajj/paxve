@@ -66,7 +66,7 @@ export default function Quotes({ me, kind: initialKind }: { me: Me; kind?: strin
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('sales.title')} subtitle={company.name_en}>
+      <PageHeader title={t('sales.title')} subtitle={company.display ?? company.name_en}>
         <ExportMenu disabled={!data} table={() => data && ({
           title: t('sales.title'),
           columns: [{ label: t('sales.number') }, { label: t('invoices.date') }, { label: t('invoices.customer') }, { label: t('common.status') },
@@ -554,7 +554,7 @@ export function SalesReport() {
   if (!company) return null;
   return (
     <Stack gap="lg" maw={1100} className="print-area">
-      <PageHeader title={t('sales.report')} subtitle={company.name_en}>
+      <PageHeader title={t('sales.report')} subtitle={company.display ?? company.name_en}>
         <ExportMenu disabled={!d} table={() => d && ({
           title: t('sales.report'), subtitle: `${from} – ${to}`,
           columns: [{ label: t('sales.product') }, { label: t('pur.currency') }, { label: t('invoices.qty'), numeric: true },

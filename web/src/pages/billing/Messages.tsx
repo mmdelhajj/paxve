@@ -42,7 +42,7 @@ export default function Messages({ me }: { me: Me }) {
   if (!company) return null;
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('msg.title')} subtitle={company.name_en} />
+      <PageHeader title={t('msg.title')} subtitle={company.display ?? company.name_en} />
       <Tabs defaultValue="outbox" keepMounted={false}>
         <Tabs.List>
           <Tabs.Tab value="outbox">{t('msg.outbox')}</Tabs.Tab>

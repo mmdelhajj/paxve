@@ -83,7 +83,7 @@ export default function Stock({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('pur.stock')} subtitle={company.name_en}>
+      <PageHeader title={t('pur.stock')} subtitle={company.display ?? company.name_en}>
         <TextInput type="date" size="sm" value={from} onChange={(e) => setFrom(e.currentTarget.value)} />
         <TextInput type="date" size="sm" value={to} onChange={(e) => setTo(e.currentTarget.value)} />
         {canVoid && <Button variant="default" size="sm" onClick={() => setNewWh('')}>{t('gap.newWarehouse')}</Button>}

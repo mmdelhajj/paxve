@@ -32,7 +32,7 @@ export default function Suppliers({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('pur.suppliers')} subtitle={company.name_en}>
+      <PageHeader title={t('pur.suppliers')} subtitle={company.display ?? company.name_en}>
         {canEdit && <Button leftSection={<IconPlus size={16} />} onClick={() => setCreating(true)}>{t('pur.newSupplier')}</Button>}
       </PageHeader>
       <TextInput leftSection={<IconSearch size={16} />} placeholder={t('common.search')} value={q} onChange={(e) => setQ(e.currentTarget.value)} w={300} />

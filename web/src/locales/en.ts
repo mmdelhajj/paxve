@@ -56,6 +56,7 @@ const en = {
     types: { asset: 'Asset', liability: 'Liability', equity: 'Equity', income: 'Income', expense: 'Expense' },
   },
   journal: {
+    controlWarn: 'Careful: this entry touches control accounts ({{codes}}). Customer, supplier or stock balances will no longer match the ledger.',
     title: 'Journal entries', new: 'New entry', number: 'No.', date: 'Date', memo: 'Description', reference: 'Reference',
     status: 'Status', draft: 'Draft', posted: 'Posted', reversed: 'Reversed', reversal: 'Reversal', total: 'Total',
     account: 'Account', lineDesc: 'Line note', currency: 'Currency', debit: 'Debit', credit: 'Credit', rate: 'Rate',
@@ -152,6 +153,7 @@ const en = {
     all: 'Everything', history: 'Transfers',
   },
   collector: {
+    noAreasTitle: 'No subscribers to show', noAreasHint: 'You only see the subscribers of the areas assigned to you. If this list should not be empty, ask the manager to assign your areas (Settings → Areas).',
     mode: 'Collector mode', offline: 'Offline', printer: 'Bluetooth printer', paper: 'Paper width', myDay: 'My day',
     today: 'Today', myBox: 'My cash box', queued: 'Waiting to be sent', waiting: 'Waiting', syncNow: 'Send now',
     synced: '{{n}} offline payments sent', pendingSync: 'Saved on the phone. It will be sent when internet is back.',
@@ -614,6 +616,11 @@ const en = {
     },
   },
   errors: {
+    amount_too_large: 'This amount or quantity is too large.', text_too_long: 'This text is too long.', name_too_long: 'The name is too long (200 characters at most).',
+    invalid_email: 'This e-mail address is not valid.', phone_too_long: 'The phone number is too long.', no_companies_selected: 'Choose at least one company, or give access to all companies.',
+    control_account: 'Only an accountant may post by hand to these accounts ({{detail}}): customer, supplier, stock, gift card or points balances would no longer match. Use the matching document instead.',
+    pay_currency_mismatch: 'The payment came in another currency ({{detail}}).', not_your_area: 'This subscriber is not in your areas. Ask the manager to assign the area to you.',
+    match_warnings: 'The bill does not match the order or the receipt.', storage_full: 'The files storage of this company is full ({{detail}} MB). Delete old files or ask us for more space.',
     too_many_variants: 'Too many combinations (at most 400 variants).',
     template_has_stock: 'This item has stock: it cannot become a template. Create a new item for the template.',
     variant_cannot_be_template: 'A variant cannot be a template itself.',
@@ -767,7 +774,7 @@ const en = {
     invalid_payment: 'Invalid payment',
     invalid_tender: 'Check the money received lines',
     invalid_credentials: 'Wrong email or password',
-    too_many_attempts: 'Too many attempts. Try again in 15 minutes.',
+    too_many_attempts: 'Too many attempts. Try again in {{detail}} seconds.',
     forbidden: "You don't have permission to do this",
     unauthorized: 'Please sign in again',
     email_taken: 'This email is already used',
@@ -831,6 +838,7 @@ const en = {
     wrong_account_type: 'Choose an income / expense account and a deferred revenue (liability) / prepaid (asset) account',
   },
   sec: {
+    platformMfa: 'Platform owner: turn on two-step sign-in before {{date}}. After that date only its setup will open.', turnOn: 'Turn on now',
     mySecurity: 'My security', roles: 'Roles & permissions', approvals: 'Approvals', consolidated: 'Consolidated reports',
     twoFactor: 'Two-step sign-in', twoFactorOn: 'On', twoFactorOff: 'Off',
     twoFactorHelp: 'After the password, Paxve asks for a code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy…). A stolen password alone is then not enough.',
@@ -909,7 +917,7 @@ const en = {
     menus: 'Menus', openScreens: 'Open screens', pin: 'Keep icons open', unpin: 'Hide icons', noScreens: 'No screen is open. Choose one from the menus above.',
     appOffTitle: 'This app is switched off', appOff: 'The "{{app}}" app is switched off for this company.',
     notInPlanTitle: "Not in your Paxve plan", notInPlan: "The \"{{app}}\" app is not included in your Paxve plan.", upgrade: "Upgrade plan",
-    user: 'User', box: 'Cash box', rate: 'Rate', today: 'Collected today', keyF2: 'search subscriber', keyF9: 'save / print', keyEsc: 'cancel', refresh: 'Refresh',
+    company: 'Company', todayHint: 'What I collected myself today', user: 'User', box: 'Cash box', rate: 'Rate', today: 'My collections today', keyF2: 'search subscriber', keyF9: 'save / print', keyEsc: 'cancel', refresh: 'Refresh',
     page: { customer: 'Customer', supplier: 'Supplier', item: 'Item', statement: 'Statement', journal: 'Journal entries', ledger: 'Ledger' },
     rib: {
       daily: 'Daily work', subs: 'Subscriptions', net: 'Network service', col: 'Collectors', acc: 'General accounting', rep: 'Reports',
@@ -1000,7 +1008,7 @@ const en = {
     assets: 'Assets', liabilities: 'Liabilities', equity: 'Equity', currentResult: 'Result not yet closed', liabEquity: 'Liabilities + equity',
     showMore: 'Show more', collector: 'Collector / user', receipts: 'Receipts', customersN: 'Customers', byCollector: 'By collector', byDay: 'By day',
     status: 'Status', result: 'Result',
-    ag: { current: 'Not due yet', d30: '1–30 days', d60: '31–60 days', d90: '61–90 days', over90: 'Over 90 days', total: 'Total owed', bills: 'Bills',
+    ag: { credits: 'Unapplied customer credits', net: 'Net owed (ties to the receivables account)', creditsHint: 'Money customers paid that is not yet applied to a bill (over-payments, advances).', current: 'Not due yet', d30: '1–30 days', d60: '31–60 days', d90: '61–90 days', over90: 'Over 90 days', total: 'Total owed', bills: 'Bills',
       oldest: 'Oldest due', hint: 'double-click a customer to open their account' },
     ch: {
       no: 'Cheque no.', bank: 'Bank', from: 'Received from', to: 'Paid to', due: 'Due date', days: 'Days left', frozen: 'frozen',
@@ -1131,7 +1139,7 @@ const en = {
       title: 'Country & language', pack: 'Country pack', country: 'Country', currency: 'Currency', fiscal: 'Fiscal year starts (MM-DD)',
       einvoice: 'E-invoicing', zatca: 'ZATCA QR code (Saudi Arabia)', eta: 'Egyptian e-invoice (ETA) — not connected yet', none: 'None',
       packHint: 'The pack was chosen when the company was created. A new company can use another country.',
-      docs: 'Documents and messages', defaultLang: 'Default language for customers', taxLabel: 'Label of your tax number',
+      docs: 'Documents and messages', timezone: 'Time zone (today, report dates)', defaultLang: 'Default language for customers', taxLabel: 'Label of your tax number',
       invoiceTitle: 'Title of invoices', mentions: 'Legal mentions printed on invoices',
     },
     help: {
@@ -1326,6 +1334,7 @@ const en = {
     },
     sp: { title: 'Supplier price lists', minQty: 'From quantity', lead: 'Delivery days', valid: 'Valid', list: 'Prices', from: 'From', to: 'To' },
     match: {
+      bookAnyway: 'Book it anyway',
       settings: '3-way matching (order · receipt · bill)', mode: 'When a bill does not match', m: { off: 'No check', warn: 'Warn and book', block: 'Refuse the bill' },
       tolerance: 'Price tolerance', hint: 'A bill should not be more than what was received, at the ordered price.', title: 'Check the bill',
       not_received: '{{line}}: billed more than received', price_mismatch: '{{line}}: price differs from the order',
@@ -1357,20 +1366,21 @@ const en = {
       type: 'Leave type', adjust: 'Adjust', kind: 'Kind', k: { accrual: 'Earned', carry: 'Carried over', adjust: 'Adjustment' },
       needPhoto: 'A selfie is required to clock in', needPlace: 'Clock-in only near the workplace', lat: 'Latitude', lng: 'Longitude', radius: 'Radius (m)',
       here: 'Use my position', clockHint: 'Phones send their position and photo with each clock-in; the manager sees them on the attendance sheet.',
+      tokenHint: 'Each device has its own secret address. On the device set the server path to the address shown below, or register the fixed IP address the device uses. A device with neither is refused.', pushPath: 'Device address',
       admsHint: 'On the device (ZKTeco and compatible): Comm → Cloud server: address {{host}}, port 443 (HTTPS) or 80, then add its serial number here. Punches arrive by themselves.',
       serial: 'Serial number', ip: 'Allowed address', lastSeen: 'Last contact', punches: 'Punches',
     },
     clock: { selfie: 'Selfie' },
     pay: {
       title: 'Online payments', ways: 'Ways to pay', attempts: 'Payments received online', way: 'Way', test: 'test', ref: 'Transfer reference', receipt: 'Receipt',
-      st: { pending: 'Started', review: 'To check', paid: 'Paid', failed: 'Failed', rejected: 'Refused', expired: 'Expired' },
+      st: { pending: 'Started', review: 'To check', paid: 'Paid', failed: 'Failed', rejected: 'Refused', expired: 'Expired', test_paid: 'Test only' },
       k: { stripe: 'Card (Stripe)', hosted: 'Bank payment page', transfer: 'Transfer (Whish / OMT / bank)' }, kind: 'Kind', into: 'Money goes to', testMode: 'Test mode',
       f: { secret_key: 'Secret key', webhook_secret: 'Webhook signing secret', publishable_key: 'Publishable key', provider: 'Processor', checkout_url: 'Payment page address',
         merchant_id: 'Merchant ID', shared_secret: 'Shared secret', account_name: 'Account name', account_number: 'Account number', phone: 'Phone' },
       instructions: 'Instructions for the customer', webhook: 'Result address to give the processor', confirm: 'Confirm received',
       hint: 'In test mode, without keys, a test page stands in for the card / bank page. Keys are stored encrypted and never shown again.',
       simGone: 'This payment link is not valid.', simTitle: 'Test payment page (no real money)', simHint: 'This page only exists in test mode.',
-      simDone: { paid: 'Paid. You can close this page.', failed: 'Payment failed.', error: 'Something went wrong.' }, simPay: 'Pay', simFail: 'Fail',
+      testBanner: 'TEST MODE — no real money moves and no receipt is booked',       simDone: { paid: 'Test payment recorded. No money moved and no receipt was booked.', failed: 'Payment failed.', error: 'Something went wrong.' }, simPay: 'Pay', simFail: 'Fail',
       sentForReview: 'Thank you. The company will check your transfer and confirm.', online: 'Pay online', phone: 'Your phone', sendRef: 'Send', payNow: 'Pay now',
     },
     einv: {
@@ -1388,6 +1398,7 @@ const en = {
     },
   },
   pc: {
+    showOff: 'Show deactivated ({{n}})',
     rib: 'Platform', title: 'Paxve platform console', refresh: 'Refresh', all: 'All', allPlans: 'All plans', allCountries: 'All countries',
     search: 'Search name, e-mail, phone…', pick: 'Pick an organisation on the left.', pickRequest: 'Pick a request on the left.', none: 'Nothing yet.',
     saved: 'Saved.', save: 'Save', hide: 'Hide', from: 'From', to: 'To', answer: 'Answer to the organisation (optional)', newPlan: 'New plan',

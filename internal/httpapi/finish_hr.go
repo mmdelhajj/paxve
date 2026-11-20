@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bufio"
 	"context"
+	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -89,6 +90,9 @@ func insertClaim(ctx context.Context, tx pgx.Tx, cid, emp string, in claimIn) (j
 		name := strings.TrimSpace(in.Filename)
 		if name == "" {
 			name = fmt.Sprintf("claim-%d", n)
+		}
+		if err := checkStorageQuota(ctx, tx, cid, len(data)); err != nil {
+			return nil, err
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO attachments (company_id, entity_type, entity_id, filename, mime, size, data)
 			VALUES ($1, 'expense_claim', $2, $3, $4, $5, $6)`, cid, id, name, http.DetectContentType(data), len(data), data); err != nil {
@@ -987,7 +991,7 @@ var deviceSerialRe = regexp.MustCompile(`^[A-Za-z0-9_-]{4,40}$`)
 
 func (s *Server) listDevices(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		return queryJSON(ctx, tx, `SELECT id, serial, name, allowed_ip, is_active, last_seen, last_ip, punches, created_at FROM attendance_devices
+		return queryJSON(ctx, tx, `SELECT id, serial, name, allowed_ip, is_active, last_seen, last_ip, punches, created_at, push_token FROM attendance_devices
 			WHERE company_id = $1 ORDER BY name, serial`, r.PathValue("cid"))
 	})
 }
@@ -1030,7 +1034,7 @@ func (s *Server) saveDevice(w http.ResponseWriter, r *http.Request) {
 				return nil, notFound()
 			}
 		}
-		return queryJSONOne(ctx, tx, `SELECT id, serial, name, allowed_ip, is_active, last_seen, last_ip, punches FROM attendance_devices WHERE id = $1`, id)
+		return queryJSONOne(ctx, tx, `SELECT id, serial, name, allowed_ip, is_active, last_seen, last_ip, punches, push_token FROM attendance_devices WHERE id = $1`, id)
 	})
 }
 
@@ -1044,15 +1048,24 @@ func (s *Server) iclockDevice(r *http.Request) (db.Scope, string, bool) {
 	if pool == nil {
 		return db.Scope{}, "", false
 	}
-	var tid, cid, allowed, id string
+	var tid, cid, allowed, id, token string
 	var active bool
-	if err := pool.QueryRow(r.Context(), `SELECT tenant_id::text, company_id::text, allowed_ip, is_active, id::text FROM attendance_devices WHERE serial = $1`, sn).
-		Scan(&tid, &cid, &allowed, &active, &id); err != nil || !active {
+	if err := pool.QueryRow(r.Context(), `SELECT tenant_id::text, company_id::text, allowed_ip, is_active, id::text, push_token FROM attendance_devices WHERE serial = $1`, sn).
+		Scan(&tid, &cid, &allowed, &active, &id, &token); err != nil || !active {
 		return db.Scope{}, "", false
 	}
 	ip := clientIP(r)
-	if allowed != "" && allowed != ip {
-		slog.Warn("iclock: device from unexpected address", "serial", sn, "ip", ip)
+	// audit C-M3: the serial alone is printed on the machine, so it is not enough. The device must either push to
+	// its own secret address (/iclock/k/<token>/cdata) or come from the one IP address the company registered.
+	given := r.PathValue("token")
+	tokenOK := given != "" && token != "" && subtle.ConstantTimeCompare([]byte(given), []byte(token)) == 1
+	ipOK := allowed != "" && allowed == ip
+	if given != "" && !tokenOK {
+		slog.Warn("iclock: wrong device token", "serial", sn, "ip", ip)
+		return db.Scope{}, "", false
+	}
+	if !tokenOK && !ipOK {
+		slog.Warn("iclock: device without its token or registered address", "serial", sn, "ip", ip)
 		return db.Scope{}, "", false
 	}
 	_, _ = pool.Exec(r.Context(), `UPDATE attendance_devices SET last_seen = now(), last_ip = $2 WHERE id = $1`, id, ip)

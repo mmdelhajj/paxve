@@ -33,9 +33,28 @@ export function formatDate(iso: string): string {
   return new Intl.DateTimeFormat(intl(), { dateStyle: 'medium', numberingSystem: 'latn' }).format(d);
 }
 
-export function today(): string {
-  const d = new Date();
+// "today" follows the company's time zone, not the device's (audit B-M2): set by the company context.
+let companyTZ: string | undefined;
+export function setCompanyTZ(tz: string | undefined) {
+  companyTZ = tz || undefined;
+}
+
+/** YYYY-MM-DD of a date (default: now) in the company's time zone. */
+export function today(d: Date = new Date()): string {
+  if (companyTZ) {
+    try {
+      // en-CA formats as YYYY-MM-DD
+      return new Intl.DateTimeFormat('en-CA', { timeZone: companyTZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    } catch {
+      /* unknown zone in this browser: fall back to the device */
+    }
+  }
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** The company's name in the reader's language (Arabic name when reading Arabic and it is set). */
+export function companyName(c: { name_en: string; name_ar?: string | null }, lang: string): string {
+  return (lang.startsWith('ar') || lang === 'fa' || lang === 'ur' || lang === 'ckb') && c.name_ar ? c.name_ar : c.name_en;
 }
 
 /** Display a decimal string with grouping. Display only; values stay strings everywhere else. */

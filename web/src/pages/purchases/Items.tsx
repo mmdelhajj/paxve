@@ -33,7 +33,7 @@ export default function Items({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('pur.items')} subtitle={`${company.name_en} · ${t('pur.value')}: ${formatAmount(totalValue, bdec)} ${company.base_currency}`}>
+      <PageHeader title={t('pur.items')} subtitle={`${company.display ?? company.name_en} · ${t('pur.value')}: ${formatAmount(totalValue, bdec)} ${company.base_currency}`}>
         {canManage && <Button variant="default" leftSection={<IconSettings size={16} />} onClick={() => setModal('settings')}>{t('pur.settings')}</Button>}
         {canManage && <Button leftSection={<IconPlus size={16} />} onClick={() => setModal('new')}>{t('pur.newItem')}</Button>}
       </PageHeader>

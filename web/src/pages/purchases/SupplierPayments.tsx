@@ -42,7 +42,7 @@ export default function SupplierPayments({ me }: { me: Me }) {
 
   return (
     <Stack gap="lg" maw={1200}>
-      <PageHeader title={t('pur.supplierPayments')} subtitle={company.name_en}>
+      <PageHeader title={t('pur.supplierPayments')} subtitle={company.display ?? company.name_en}>
         <TextInput type="date" size="sm" value={from} onChange={(e) => setFrom(e.currentTarget.value)} />
         <TextInput type="date" size="sm" value={to} onChange={(e) => setTo(e.currentTarget.value)} />
         {canManage && <Button leftSection={<IconPlus size={16} />} onClick={() => setPaying(true)}>{t('pur.pay')}</Button>}

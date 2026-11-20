@@ -194,8 +194,9 @@ export function AgingGrid() {
   const [asOf, setAsOf] = useState(today());
   const [limit, setLimit] = useState(500);
   const cid = company?.id;
-  const [data, , loading] = useLoad<{ rows: AgingRow[]; has_more: boolean }>(cid ? `/companies/${cid}/reports/aging?as_of=${asOf}&limit=${limit}` : null);
+  const [data, , loading] = useLoad<{ rows: AgingRow[]; has_more: boolean; totals?: { currency: string; total: string }[]; unapplied_credits?: { currency: string; credit: string }[] }>(cid ? `/companies/${cid}/reports/aging?as_of=${asOf}&limit=${limit}` : null);
   if (!company) return null;
+  const credits = data?.unapplied_credits ?? [];
   const m = (k: keyof AgingRow, title: string, w = 120): Col<AgingRow> => ({
     key: k, title, get: (r) => r[k] as string, render: (r) => (Number(r[k]) ? formatAmount(r[k] as string, decimalsOf(r.currency)) : ''),
     num: true, filter: false, width: w, total: 'sum',
@@ -223,6 +224,16 @@ export function AgingGrid() {
           <h3>{t('mx.t.aging')} <small>{t('ax.ag.hint')}</small></h3>
           <DataGrid rows={data?.rows ?? []} cols={cols} rowKey={(r) => r.customer_id + r.currency} loading={loading} footer
             title={`${t('mx.t.aging')} ${asOf}`} onActivate={(r) => openScreen('customer', r.customer_id)} />
+          {credits.length > 0 && (
+            <div className="mx-note" style={{ margin: 8 }}>
+              {credits.map((c) => {
+                const owed = Number(data?.totals?.find((x) => x.currency === c.currency)?.total ?? 0);
+                const d = decimalsOf(c.currency);
+                return <div key={c.currency}>{t('ax.ag.credits')}: <b dir="ltr">−{formatAmount(c.credit, d)} {c.currency}</b> · {t('ax.ag.net')}: <b dir="ltr">{formatAmount(owed - Number(c.credit), d)} {c.currency}</b></div>;
+              })}
+              <small>{t('ax.ag.creditsHint')}</small>
+            </div>
+          )}
         </section>
       </div>
     </div>
