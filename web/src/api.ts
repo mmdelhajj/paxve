@@ -1,3 +1,5 @@
+import i18n from './i18n';
+
 export type Role = 'admin' | 'accountant' | 'data_entry' | 'read_only' | 'collector' | 'cashier';
 
 export interface Me {
@@ -205,10 +207,28 @@ export const UNAUTHORIZED_EVENT = 'paxve:unauthorized';
 export const APPROVAL_EVENT = 'paxve:approval';
 export const API_BASE = '/api/v1';
 
-export async function api<T>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
+interface CreditDetail {
+  policy: 'warn' | 'block'; reasons: string[]; limit: string | null; exposure: string; amount: string; after: string;
+  base_currency: string; overdue_days: number | null; max_overdue_days: number; can_override: boolean;
+}
+
+/** A sale refused by the customer's credit rules (409 credit_limit): explain, then confirm (warn), override (allowed
+ *  users) or send it for approval, by calling again with the matching header. Returns the headers to retry with. */
+function creditDecision(detail: string | undefined): Record<string, string> | null {
+  let d: CreditDetail;
+  try { d = JSON.parse(detail ?? '') as CreditDetail; } catch { return null; }
+  const t = i18n.t.bind(i18n);
+  const why = d.reasons.map((r) => t(`gp.credit.r.${r}`, { limit: d.limit ?? '—', cur: d.base_currency, days: d.overdue_days ?? 0, max: d.max_overdue_days })).join('\n');
+  const head = t('gp.credit.head', { exposure: d.exposure, after: d.after, cur: d.base_currency });
+  if (d.policy === 'warn') return window.confirm(`${head}\n${why}\n\n${t('gp.credit.confirm')}`) ? { 'X-Credit-Confirm': '1' } : null;
+  if (d.can_override) return window.confirm(`${head}\n${why}\n\n${t('gp.credit.override')}`) ? { 'X-Credit-Override': '1' } : null;
+  return window.confirm(`${head}\n${why}\n\n${t('gp.credit.ask')}`) ? { 'X-Credit-Request-Approval': '1' } : null;
+}
+
+export async function api<T>(path: string, opts: { method?: string; body?: unknown; headers?: Record<string, string> } = {}): Promise<T> {
   const res = await fetch(API_BASE + path, {
     method: opts.method ?? 'GET',
-    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'paxve' },
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'paxve', ...(opts.headers ?? {}) },
     body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
     credentials: 'same-origin',
   });
@@ -221,6 +241,10 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
   }
   if (!res.ok) {
     const err = (data as { error?: string; detail?: string } | null) ?? {};
+    if (res.status === 409 && err.error === 'credit_limit' && !opts.headers) {
+      const retry = creditDecision(err.detail);
+      if (retry) return api<T>(path, { ...opts, headers: retry });
+    }
     if (res.status === 401 && path !== '/me' && path !== '/auth/login') {
       window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
     }

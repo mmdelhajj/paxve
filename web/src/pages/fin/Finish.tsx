@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, can, API_BASE, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import DataGrid, { type Col } from '../../components/DataGrid';
-import Attachments from '../../components/Attachments';
+import Chatter from '../../components/Chatter';
 import { errorText, formatAmount, formatDate, today } from '../../util';
 
 // Finishing-stage screens: subscription changes with proration, supplier price lists and 3-way matching, expense
@@ -319,7 +319,7 @@ export function Claims({ me }: { me: Me }) {
               </div>
             )}
             {sel.status === 'approved' && sel.pay_via === 'payroll' && <small>{t('fin.claims.withSalary')}</small>}
-            <Attachments type="expense_claim" id={sel.id} readOnly={!can(me, 'payroll.create')} />
+            <Chatter type="expense_claim" id={sel.id} readOnly={!can(me, 'payroll.create')} />
             <Flash m={msg} />
           </div>
         </section>
@@ -527,7 +527,7 @@ export function Manufacturing({ me, initial }: { me: Me; initial?: string }) {
                     <button className="mx-btn sm" onClick={() => void run(api(`${base}/mfg/orders/${sel.order.id}/cancel`, { method: 'POST', body: {} }), () => void openOrder(sel.order.id))}>{t('fin.cancel')}</button>
                   </div>
                 )}
-                <Attachments type="mfg_order" id={sel.order.id} readOnly={!manage} />
+                <Chatter type="mfg_order" id={sel.order.id} readOnly={!manage} />
                 <Flash m={msg} />
               </div>
             </section>

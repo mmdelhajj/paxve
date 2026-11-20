@@ -7,7 +7,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { IconPlus, IconPrinter, IconSearch, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { can, api, ApiError, type Account, type Me } from '../../api';
-import Attachments from '../../components/Attachments';
+import Chatter from '../../components/Chatter';
 import { useCompany } from '../../company';
 import { accountLabel, formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
 import PageHeader, { Confirm } from '../../components/PageHeader';
@@ -161,7 +161,7 @@ export function BillView({ id, canVoid, onClose, onChanged }: { id: string; canV
               {d.payments.map((p, i) => <Text size="sm" key={i}>#{p.payment_number} · {formatDate(p.payment_date)} · <span dir="ltr">{formatAmount(p.amount, dec)}</span></Text>)}
             </Paper>
           )}
-          <Attachments type="bill" id={b.id} />
+          <Chatter type="bill" id={b.id} />
           {confirm && <Confirm text={t('pur.voidBillConfirm')} yesLabel={t('pur.voidBill')} noLabel={t('common.cancel')} busy={busy} onYes={doVoid} onNo={() => setConfirm(false)} />}
           {debit && (
             <Paper withBorder p="sm" className="no-print">

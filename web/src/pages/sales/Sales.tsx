@@ -17,6 +17,7 @@ import type { TaxRate } from '../../billing';
 import { InvoiceView } from '../billing/docs';
 import type { Warehouse } from '../purchases/types';
 import { CustomerPicker, DocFooter, DocHeader, itemPrice, orderColor, SendDocButton, type DocCompany, type SaleItem } from './common';
+import Chatter from '../../components/Chatter';
 
 export interface Order {
   id: string; number: number; order_number: number | null; customer_id: string; customer_code: string; customer_name: string;
@@ -137,6 +138,10 @@ export default function Quotes({ me, kind: initialKind }: { me: Me; kind?: strin
 
 interface EditLine { key: number; item_id: string | null; description: string; quantity: string; unit_price: string; discount_pct: string; tax_rate_id: string | null; warehouse_id: string | null }
 let ek = 1;
+export interface QuoteTpl {
+  id: string; name: string; currency: string | null; validity_days: number | null; terms: string; notes: string; is_active: boolean;
+  lines: { item_id: string; description: string; quantity: string; unit_price: string; discount_pct: string; tax_rate_id: string }[];
+}
 const blankLine = (): EditLine => ({ key: ek++, item_id: null, description: '', quantity: '1', unit_price: '', discount_pct: '', tax_rate_id: null, warehouse_id: null });
 
 export function OrderEditor({ detail, customer, leadId, onClose, onDone }: {
@@ -160,10 +165,12 @@ export function OrderEditor({ detail, customer, leadId, onClose, onDone }: {
   const [taxes, setTaxes] = useState<TaxRate[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [busy, setBusy] = useState(false);
+  const [tpls, setTpls] = useState<QuoteTpl[]>([]);
 
   useEffect(() => {
     if (!company) return;
     const b = `/companies/${company.id}`;
+    api<QuoteTpl[]>(`${b}/quote-templates`).then((x) => setTpls(x.filter((q) => q.is_active))).catch(() => setTpls([]));
     api<SaleItem[]>(`${b}/items`).then((x) => setItems(x.filter((i) => i.is_active && i.is_sellable !== false))).catch(() => {});
     api<TaxRate[]>(`${b}/tax-rates`).then((x) => setTaxes(x.filter((r) => r.is_active && r.applies_to !== 'purchases'))).catch(() => {});
     api<Warehouse[]>(`${b}/warehouses`).then(setWarehouses).catch(() => {});
@@ -177,6 +184,28 @@ export function OrderEditor({ detail, customer, leadId, onClose, onDone }: {
   const sub = lines.reduce((s, l) => s + lineAmt(l), 0);
   const tax = lines.reduce((s, l) => s + r(lineAmt(l) * rate(l.tax_rate_id) / 100), 0);
   const upd = (key: number, p: Partial<EditLine>) => setLines((ls) => ls.map((x) => (x.key === key ? { ...x, ...p } : x)));
+
+  // a quotation template fills the lines, terms, notes and validity
+  function applyTemplate(id: string | null) {
+    const tp = tpls.find((x) => x.id === id);
+    if (!tp) return;
+    if (tp.currency) setCurrency(tp.currency);
+    if (tp.terms) setTerms(tp.terms);
+    if (tp.notes) setNotes(tp.notes);
+    if (tp.validity_days) {
+      const dd = new Date(`${date}T00:00:00Z`);
+      dd.setUTCDate(dd.getUTCDate() + tp.validity_days);
+      setValidUntil(dd.toISOString().slice(0, 10));
+    }
+    const cur = tp.currency ?? currency;
+    const tl = tp.lines.map((l) => {
+      const it = l.item_id ? byId.get(l.item_id) : undefined;
+      return { key: ek++, item_id: l.item_id || null, description: l.description, quantity: l.quantity || '1',
+        unit_price: l.unit_price || (it ? itemPrice(it, cur, base) : ''), discount_pct: l.discount_pct ?? '',
+        tax_rate_id: l.tax_rate_id || it?.sale_tax_rate_id || null, warehouse_id: null } as EditLine;
+    });
+    if (tl.length) setLines((ls) => [...ls.filter((x) => x.item_id || x.description.trim()), ...tl]);
+  }
 
   function pickItem(key: number, id: string | null) {
     const it = id ? byId.get(id) : undefined;
@@ -241,6 +270,10 @@ export function OrderEditor({ detail, customer, leadId, onClose, onDone }: {
           <TextInput type="date" label={t('sales.validUntil')} value={validUntil} onChange={(e) => setValidUntil(e.currentTarget.value)}
             description={!validUntil ? t('sales.validDefault') : undefined} />
         </SimpleGrid>
+        {tpls.length > 0 && (
+          <Select size="xs" maw={360} clearable placeholder={t('gp.qt.apply')} data={tpls.map((x) => ({ value: x.id, label: x.name }))}
+            value={null} onChange={(v) => applyTemplate(v)} />
+        )}
         <Table.ScrollContainer minWidth={980}>
           <Table withTableBorder verticalSpacing={4}>
             <Table.Thead><Table.Tr>
@@ -316,8 +349,14 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
   const [editing, setEditing] = useState(false);
   const [step, setStep] = useState<null | 'deliver' | 'invoice' | 'cancel'>(null);
   const [invoice, setInvoice] = useState<string | null>(null);
+  const [proforma, setProforma] = useState(false);
   const canEdit = can(me, 'sales.create');
   const canInvoice = can(me, 'billing.create');
+  // pro-forma: the same document titled "Pro-forma invoice" (no accounting), printed then back to normal
+  function printProforma() {
+    setProforma(true);
+    window.setTimeout(() => { void printPage(); window.setTimeout(() => setProforma(false), 500); }, 50);
+  }
 
   const reload = useCallback(() => {
     if (company) api<OrderDetail>(`/companies/${company.id}/sales/orders/${id}`).then(setD).catch((e) => { notifyError(t, e); onClose(); });
@@ -370,8 +409,9 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
             {isOrder && <Badge variant="dot">{t(`sales.invoicing.${o.invoice_status ?? 'none'}`)}</Badge>}
           </Group>
           <div className="print-doc" dir={rtl ? 'rtl' : 'ltr'}>
-            <DocHeader c={o} title={isOrder ? t('sales.order') : t('sales.quote')} lines={[
-              <span dir="ltr" key="n">{docNumber(o)}</span>,
+            <DocHeader c={o} title={proforma ? t('gp.pf.title') : isOrder ? t('sales.order') : t('sales.quote')} lines={[
+              <span dir="ltr" key="n">{proforma ? `PF-${o.order_number ?? o.number}` : docNumber(o)}</span>,
+              ...(proforma ? [t('gp.pf.note')] : []),
               `${t('invoices.date')}: ${formatDate(o.order_date ?? o.quote_date)}`,
               ...(o.valid_until && !isOrder ? [`${t('sales.validUntil')}: ${formatDate(o.valid_until)}`] : []),
             ]} />
@@ -463,9 +503,11 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
             <Group gap="xs">
               {o.status !== 'cancelled' && <SendDocButton kind={isOrder ? 'order' : 'quote'} id={o.id} email={o.customer_email} onSent={reload} />}
               <Button variant="default" onClick={onClose}>{t('common.close')}</Button>
+              {o.status !== 'cancelled' && <Button variant="light" leftSection={<IconPrinter size={16} />} onClick={printProforma}>{t('gp.pf.print')}</Button>}
               <Button leftSection={<IconPrinter size={16} />} onClick={() => void printPage()}>{t('invoices.print')}</Button>
             </Group>
           </Group>
+          <Chatter type="sales_order" id={o.id} />
           {editing && <OrderEditor detail={d} onClose={() => setEditing(false)} onDone={() => { setEditing(false); reload(); onChanged?.(); }} />}
           {invoice && <InvoiceView id={invoice} canVoid={canInvoice} onClose={() => setInvoice(null)} onChanged={() => { reload(); onChanged?.(); }} />}
         </Stack>

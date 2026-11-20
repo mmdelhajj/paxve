@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next';
 import { api, ApiError, can, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
 import DataGrid, { type Col } from '../../components/DataGrid';
-import Attachments from '../../components/Attachments';
+import Chatter from '../../components/Chatter';
 import { errorText, formatAmount, formatDate, today } from '../../util';
 import { printPage } from '../../native';
 import { Help } from '../acc/common';
@@ -268,7 +268,7 @@ export default function PurchaseOrders({ me }: { me: Me }) {
                   </div>
                 </div>
               )}
-              <Attachments type="purchase_order" id={o.id} readOnly={!canCreate} />
+              <Chatter type="purchase_order" id={o.id} readOnly={!canCreate} />
               <Flash m={msg} />
             </div>
           ) : <div className="mx-pay"><p>{t('oa.po.pick')}</p><Flash m={msg} /></div>}

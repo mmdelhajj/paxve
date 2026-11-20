@@ -354,3 +354,25 @@ button.mx-kpi:hover { border-color: var(--mx-primary-line); background: #fbfcff;
   .mx-pay input, .mx-pay select, .mx-pay textarea, .mx-box input, .mx-box select, .mx-box textarea { max-width: 100%; min-width: 0; box-sizing: border-box; }
   .mx-row > label, .mx-pay label { min-width: 0; max-width: 100%; flex-wrap: wrap; }
 }
+/* ---- Odoo gaps: chatter, notifications bell, suggestions ---- */
+.mx-chatter { border: 1px solid var(--mx-line); border-radius: var(--mx-radius); background: var(--mx-card); display: flex; flex-direction: column; min-width: 0; margin-top: 8px; }
+.mx-chatter-tabs { display: flex; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--mx-line); background: var(--mx-head); overflow-x: auto; }
+.mx-chatter-tabs .mx-mode { display: inline-flex; align-items: center; gap: 4px; }
+.mx-chatter-body { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; max-height: 420px; overflow: auto; }
+.mx-chatter-body textarea, .mx-chatter-body input, .mx-chatter-body select { font: inherit; border: 1px solid var(--mx-line-strong); border-radius: var(--mx-radius-sm); padding: 4px 8px; background: #fff; }
+.mx-chatter-body label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--mx-muted); }
+.mx-chatter .mx-note { color: var(--mx-ink); border-bottom: 1px dashed var(--mx-line); padding-bottom: 6px; }
+.mx-act-overdue { border-inline-start: 3px solid var(--mx-red); padding-inline-start: 6px; }
+.mx-act-today { border-inline-start: 3px solid var(--mx-primary); padding-inline-start: 6px; }
+.mx-act-done { opacity: .7; }
+.mx-badge { display: inline-block; min-width: 18px; padding: 0 5px; margin-inline-start: 4px; border-radius: 9px; background: var(--mx-primary); color: #fff; font-size: 11px; line-height: 18px; text-align: center; font-weight: 600; }
+.mx-suggest { position: absolute; z-index: 30; background: #fff; box-shadow: var(--mx-shadow-lg); min-width: 220px; display: flex; flex-direction: column; align-items: stretch; }
+.mx-suggest .mx-link { text-align: start; text-decoration: none; padding: 4px 6px; }
+.mx-suggest .mx-link:hover { background: var(--mx-primary-soft); }
+.mx-bell { display: inline-flex; align-items: center; gap: 3px; color: inherit; text-decoration: none; padding: 0 8px; border-radius: 10px; }
+.mx-bell.hot { background: #f59e0b; color: #1f1300; }
+.mx-bell:hover { text-decoration: underline; }
+.mx-notif { display: block; width: 100%; border: 1px solid var(--mx-line); border-radius: var(--mx-radius-sm); background: #fff; padding: 6px 8px; font: inherit; color: var(--mx-ink); }
+.mx-notif.unread { border-color: var(--mx-primary-line); background: var(--mx-primary-soft); }
+.print-only { display: none; }
+@media print { .print-only { display: block; } }

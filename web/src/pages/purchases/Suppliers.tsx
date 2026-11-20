@@ -13,6 +13,8 @@ import { BillView, NewBill } from './Bills';
 import { PaySupplier } from './SupplierPayments';
 import { saveTerms, TermsInput } from '../../components/PartnerTerms';
 import { CustomFieldsBox } from '../fin/Finish';
+import Chatter from '../../components/Chatter';
+import { SupplierFiscal } from '../../components/CreditBox';
 
 export default function Suppliers({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
@@ -202,6 +204,8 @@ export function SupplierDetail({ me, id }: { me: Me; id: string }) {
       {modal === 'pay' && <PaySupplier supplier={s} onClose={() => setModal(null)} onDone={() => { setModal(null); load(); }} />}
       {viewBill && <BillView id={viewBill} canVoid={canManage} onClose={() => setViewBill(null)} onChanged={load} />}
       <CustomFieldsBox entity="suppliers" id={id} readOnly={!canManage} />
+      <SupplierFiscal supplierId={id} current={(s as { fiscal_position_id?: string | null }).fiscal_position_id ?? null} readOnly={!can(me, 'suppliers.edit')} />
+      <Chatter type="supplier" id={id} />
     </Stack>
   );
 }

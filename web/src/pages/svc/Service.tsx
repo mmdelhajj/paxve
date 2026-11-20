@@ -7,7 +7,7 @@ import DataGrid, { type Col } from '../../components/DataGrid';
 import { errorText, formatAmount, formatDate, formatDateTime, today } from '../../util';
 import { printPage } from '../../native';
 import { Help } from '../acc/common';
-import Attachments from '../../components/Attachments';
+import Chatter from '../../components/Chatter';
 
 type Msg = { ok: boolean; text: string } | null;
 function Flash({ m }: { m: Msg }) {
@@ -174,7 +174,7 @@ function Tickets({ me }: { me: Me }) {
                 <button className="mx-btn sm" disabled={!note.trim()} onClick={() => base && void run(api(`${base}/tickets/${sel.id}/notes`, { method: 'POST', body: { body: note } }), () => { setNote(''); open(sel); })}>{t('svc.add')}</button>
               </div>
             )}
-            <Attachments type="ticket" id={sel.id} readOnly={!canEdit} />
+            <Chatter type="ticket" id={sel.id} readOnly={!canEdit} />
             <button className="mx-btn sm" onClick={() => { setSel(null); setNotes([]); }}>{t('svc.newTicket')}</button>
             <Flash m={msg} />
           </div>

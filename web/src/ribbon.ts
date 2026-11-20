@@ -10,6 +10,7 @@ import {
   IconHeadset, IconTool, IconClipboardList, IconAlarm, IconScaleOutline, IconCalendarTime,
   IconSwitchHorizontal, IconTags, IconReceiptRefund, IconForms, IconHammer, IconFingerprint, IconCreditCard, IconFileCertificate, IconCalendarRepeat,
   IconCrown, IconInbox, IconDiscount2, IconGift, IconStar, IconTag, IconCalendarDue, IconScan, IconBuildingStore, IconColorSwatch,
+  IconBell, IconCalendarDollar, IconShieldCheck, IconTable, IconTemplate, IconDeviceMobileCog,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
@@ -50,6 +51,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'cheques', label: 'ax.t.cheques', icon: IconFileDollar, perm: 'collections.view' },
       { page: 'exchange', label: 'ax.t.exchange', icon: IconCurrencyDollar, perm: 'collections.view' },
       { page: 'dashboard', label: 'mx.t.dashboard', icon: IconLayoutDashboard, perm: 'reports.view' },
+      { page: 'gaps', param: 'inbox', label: 'gp.m.inbox', icon: IconBell, any: true },
     ],
   },
   {
@@ -78,6 +80,8 @@ export const RIBBON: RibbonTab[] = [
       { page: 'jibaya', param: 'scan', label: 'mx.t.barcode', icon: IconBarcode, perm: 'collections.create' },
       { page: 'jibaya', param: 'late', label: 'mx.t.late', icon: IconHourglass, perm: 'collections.view' },
       { page: 'dunning', label: 'oa.t.dunning', icon: IconAlarm, perm: 'billing.view' },
+      { page: 'gaps', param: 'instalments', label: 'gp.m.instalments', icon: IconCalendarDollar, perm: 'billing.view' },
+      { page: 'gaps', param: 'credit', label: 'gp.m.credit', icon: IconShieldCheck, perm: 'customers.view' },
       { page: 'online-pay', label: 'fin.t.pay', icon: IconCreditCard, perm: 'collections.view' },
       { page: 'collect', label: 'mx.t.collectorMode', icon: IconDeviceMobile, perm: 'collections.create' },
       { page: 'collections', label: 'mx.t.collectionsReport', icon: IconChartBar },
@@ -107,11 +111,13 @@ export const RIBBON: RibbonTab[] = [
       { page: 'fx-reval', label: 'oa.t.fx', icon: IconScaleOutline, perm: 'accounting.view' },
       { page: 'deferrals', label: 'oa.t.def', icon: IconCalendarTime, perm: 'accounting.view' },
       { page: 'vat-report', label: 'mx.t.vat', icon: IconReceipt2 },
+      { page: 'gaps', param: 'fiscal', label: 'gp.m.fiscal', icon: IconReceiptTax, perm: 'settings.view' },
       { page: 'consolidated', label: 'mx.t.consolidated', icon: IconBuildingSkyscraper },
     ],
   },
   {
     id: 'rep', label: 'mx.rib.rep', color: '#c0392b', tiles: [
+      { page: 'gaps', param: 'analysis', label: 'gp.m.analysis', icon: IconTable, any: true },
       { page: 'aging', label: 'mx.t.aging', icon: IconHourglass },
       { page: 'cash-flow', label: 'ax.t.cashFlow', icon: IconTimeline },
       { page: 'compare', label: 'ax.t.compare', icon: IconArrowsLeftRight },
@@ -162,6 +168,8 @@ export const RIBBON: RibbonTab[] = [
       { page: 'activities', label: 'mx.t.activities', icon: IconChecklist, perm: 'crm.view' },
       { page: 'quotes', label: 'mx.t.quotes', icon: IconFileDescription, perm: 'sales.view' },
       { page: 'orders', label: 'mx.t.orders', icon: IconShoppingCart, perm: 'sales.view' },
+      { page: 'gaps', param: 'templates', label: 'gp.m.templates', icon: IconTemplate, perm: 'sales.view' },
+      { page: 'gaps', param: 'instalments', label: 'gp.m.instalments', icon: IconCalendarDollar, perm: 'billing.view' },
     ],
   },
   {
@@ -188,6 +196,7 @@ export const RIBBON: RibbonTab[] = [
     id: 'svc', label: 'mx.rib.svc', color: '#d35400', app: 'svc', tiles: [
       { page: 'service', label: 'svc.m.tickets', icon: IconHeadset, perm: 'service.view' },
       { page: 'service', param: 'maintenance', label: 'svc.m.maintenance', icon: IconTool, perm: 'service.view' },
+      { page: 'gaps', param: 'repairs', label: 'gp.m.repairs', icon: IconDeviceMobileCog, perm: 'service.view' },
     ],
   },
   {
@@ -239,6 +248,7 @@ export const RIBBON: RibbonTab[] = [
 /** Pages that are only reached from inside another page (detail screens), with the app they need. */
 export const PAGE_APP: Record<string, AppId | undefined> = {
   supplier: 'pur', item: 'stk', statement: undefined, customer: undefined, 'hr-extra': 'hr', claims: 'hr', mfg: 'mfg', 'supplier-prices': 'pur', retail: 'pos',
+  gaps: undefined, // per screen: repairs need the service app (the server refuses them when it is off)
 };
 
 /** The app a page belongs to (from the ribbon), so a page of a switched-off app shows a notice. */
