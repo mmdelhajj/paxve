@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
 const pub = path.join(__dirname, '..', 'public');
 const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'components', 'Brand.tsx'), 'utf8');
 const pick = (n) => src.match(new RegExp(`export const ${n} = '([^']+)'`))[1];
-const A = pick('MARK_A'), B = pick('MARK_B'), X = pick('MARK_X'), WORD = pick('WORD');
+const A = pick('MARK_A'), B = pick('MARK_B'), WORD = pick('WORD');
 
 const NAVY = '#0B1F3A';
 const TONES = {
@@ -22,8 +22,8 @@ const TONES = {
 // one app = one colour on the lira square (the old letter icons used the same colours)
 const APPS = { main: '#5EEAD4', field: '#4ADE80', my: '#38BDF8', owner: '#FBBF24' };
 
-const markG = ([m1, m2, m3]) => `<path d="${A}" fill="${m1}"/><path d="${B}" fill="${m3}"/><path d="${X}" fill="${m2}"/>`;
-const monoG = (c) => `<path d="${A} ${B}" fill="${c}" fill-rule="evenodd"/>`;
+const markG = ([m1, m2, m3]) => `<path d="${A}" fill="${m1}"/><path d="${B}" fill="${m3}"/>`;
+const monoG = (c) => `<path d="${A} ${B}" fill="${c}"/>`;
 const svg = (vb, body, extra = '') => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}"${extra}>${body}</svg>\n`;
 // lockup: mark (64 units) + wordmark with cap height 34 units, caps centred on the mark
 const S = 34 / 730;
@@ -35,7 +35,7 @@ function writeSvgs() {
   const w = (f, s) => fs.writeFileSync(path.join(pub, f), s);
   // favicon: colour mark, switches to the dark-ground colours when the browser tab is dark
   w('favicon.svg', svg('0 0 64 64', `<style>.a{fill:#0B1F3A}.b{fill:#0EA5A4}.x{fill:#1D4ED8}@media (prefers-color-scheme:dark){.a{fill:#FFFFFF}.b{fill:#2DD4BF}.x{fill:#7EA2F5}}</style>` +
-    `<path class="a" d="${A}"/><path class="b" d="${B}"/><path class="x" d="${X}"/>`));
+    `<path class="a" d="${A}"/><path class="b" d="${B}"/>`));
   w('brand/paxve-mark.svg', svg('0 0 64 64', markG(TONES.light)));
   w('brand/paxve-mark-dark.svg', svg('0 0 64 64', markG(TONES.dark)));
   w('brand/paxve-mark-mono.svg', svg('0 0 64 64', monoG(NAVY)));
