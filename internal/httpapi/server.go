@@ -108,6 +108,14 @@ func (s *Server) Handler() http.Handler {
 
 	// SaaS: self sign-up and platform owner console
 	mux.HandleFunc("POST "+v+"/signup", s.signup)
+	// phase 6b: public marketing site (plans, sales contact, demo requests) and the platform's leads
+	mux.HandleFunc("GET "+v+"/public/site", s.publicSite)
+	mux.HandleFunc("POST "+v+"/public/demo-request", s.publicDemoRequest)
+	mux.Handle("GET "+v+"/platform/leads", s.auth(s.platformOnly(s.platformLeads)))
+	mux.Handle("PATCH "+v+"/platform/leads/{id}", s.auth(s.platformOnly(s.platformUpdateLead)))
+	mux.Handle("GET "+v+"/companies/{cid}/owner/today", s.auth(s.ownerToday))
+	mux.Handle("GET "+v+"/companies/{cid}/payroll-options", s.auth(s.payrollOptions))
+	mux.Handle("PUT "+v+"/companies/{cid}/payroll-options", s.auth(s.payrollOptions))
 
 	// customer portal (public, secret link) and dashboard
 	mux.HandleFunc("GET "+v+"/portal/{token}", s.portal)
@@ -115,6 +123,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET "+v+"/portal/{token}/quotes/{id}", s.portalQuote)
 	mux.HandleFunc("POST "+v+"/portal/{token}/quotes/{id}/accept", s.portalAcceptQuote)
 	mux.HandleFunc("GET "+v+"/portal/{token}/statement/{from}/{to}", s.portalStatement)
+	mux.HandleFunc("GET "+v+"/portal/{token}/more", s.portalMore)          // phase 6b: customer app
+	mux.HandleFunc("POST "+v+"/portal/{token}/tickets", s.portalNewTicket) // phase 6b: report a problem
 	mux.Handle("GET "+v+"/companies/{cid}/customers/{id}/portal", s.field(s.customerPortal))
 	mux.Handle("POST "+v+"/companies/{cid}/customers/{id}/portal", s.auth(s.customerPortal))
 	mux.Handle("GET "+v+"/companies/{cid}/dashboard", s.auth(s.dashboard))

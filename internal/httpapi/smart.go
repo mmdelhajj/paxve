@@ -31,7 +31,7 @@ import (
 // Every alert has a fingerprint (kind + subject + period) so a scan never repeats one, and an alert someone
 // resolved or dismissed is not raised again for the same period. A daily digest goes to the owner.
 
-var smartKinds = []string{"diesel", "discount", "cash_diff", "cash_repeat", "voids", "off_hours", "count_loss", "collector_drop", "dup_bill", "fleet_fuel"}
+var smartKinds = []string{"diesel", "discount", "cash_diff", "cash_repeat", "voids", "off_hours", "count_loss", "collector_drop", "dup_bill", "fleet_fuel", "price_override"}
 
 // smartDefaults are the thresholds of the checks and the reorder planner (params of smart_settings override them).
 var smartDefaults = map[string]float64{
@@ -558,12 +558,13 @@ func checkVoids(ctx context.Context, tx pgx.Tx, cid string, p smartParams) ([]al
 
 func checkOffHours(ctx context.Context, tx pgx.Tx, cid string, p smartParams) ([]alertCand, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT coalesce(p.received_by::text, ''), coalesce(u.full_name, ''), (p.created_at AT TIME ZONE c.timezone)::date::text,
+		WITH px AS (SELECT p.*, coalesce(p.client_time, p.created_at) AS taken_at FROM payments p) -- phase 6b: device time for offline payments
+		SELECT coalesce(p.received_by::text, ''), coalesce(u.full_name, ''), (p.taken_at AT TIME ZONE c.timezone)::date::text,
 		  count(*), coalesce(sum(smart_to_base($1, p.currency, p.amount)), 0)::float8,
-		  array_agg(p.number ORDER BY p.number), min(to_char(p.created_at AT TIME ZONE c.timezone, 'HH24:MI')), max(to_char(p.created_at AT TIME ZONE c.timezone, 'HH24:MI'))
-		FROM payments p JOIN companies c ON c.id = p.company_id LEFT JOIN users u ON u.id = p.received_by
+		  array_agg(p.number ORDER BY p.number), min(to_char(p.taken_at AT TIME ZONE c.timezone, 'HH24:MI')), max(to_char(p.taken_at AT TIME ZONE c.timezone, 'HH24:MI'))
+		FROM px p JOIN companies c ON c.id = p.company_id LEFT JOIN users u ON u.id = p.received_by
 		WHERE p.company_id = $1 AND p.kind = 'payment' AND p.status = 'posted' AND p.created_at > now() - interval '3 days'
-		  AND (extract(hour FROM p.created_at AT TIME ZONE c.timezone) < $2 OR extract(hour FROM p.created_at AT TIME ZONE c.timezone) >= $3)
+		  AND (extract(hour FROM p.taken_at AT TIME ZONE c.timezone) < $2 OR extract(hour FROM p.taken_at AT TIME ZONE c.timezone) >= $3)
 		GROUP BY 1, 2, 3 ORDER BY 3`, cid, p.get("work_start"), p.get("work_end"))
 	if err != nil {
 		return nil, err
@@ -761,6 +762,7 @@ func scanCompany(ctx context.Context, tx pgx.Tx, cid string) (int, error) {
 		{[]string{"collector_drop"}, func() ([]alertCand, error) { return checkCollectors(ctx, tx, cid, p) }},
 		{[]string{"dup_bill"}, func() ([]alertCand, error) { return checkDupBills(ctx, tx, cid) }},
 		{[]string{"fleet_fuel"}, func() ([]alertCand, error) { return checkFleetFuel(ctx, tx, cid) }},
+		{[]string{"price_override"}, func() ([]alertCand, error) { return checkPriceCuts(ctx, tx, cid, p) }},
 	}
 	created := 0
 	for _, c := range checks {

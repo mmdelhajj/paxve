@@ -171,6 +171,11 @@ var routePerms = map[string]string{
 	"POST /platform/tenants/{id}/{op}":             permAny,
 	"PATCH /platform/tenants/{id}/users/{uid}":     permAny,
 	"GET /platform/payments":                       permAny,
+	"GET /platform/leads":                          permAny, // phase 6b: demo requests (platform owners only)
+	"PATCH /platform/leads/{id}":                   permAny,
+	"GET /companies/{cid}/owner/today":             "reports.view",
+	"GET /companies/{cid}/payroll-options":         "payroll.view",
+	"PUT /companies/{cid}/payroll-options":         "payroll.edit",
 	"GET /platform/plans":                          permAny,
 	"POST /platform/plans":                         permAny,
 	"PATCH /platform/plans/{code}":                 permAny,

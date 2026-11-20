@@ -79,7 +79,8 @@ const methodCols = `m.id, m.name, m.kind, m.currency, m.account_id, a.code AS ac
 func (s *Server) listMethods(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		return queryJSON(ctx, tx, `SELECT `+methodCols+` FROM payment_methods m JOIN accounts a ON a.id = m.account_id
-			WHERE m.company_id = $1 AND (NOT $2 OR m.user_id IS NULL OR m.user_id = app_user())
+			WHERE m.company_id = $1 AND (NOT $2 OR m.user_id = app_user() OR (m.user_id IS NULL AND NOT EXISTS (
+			    SELECT 1 FROM payment_methods o WHERE o.company_id = $1 AND o.user_id = app_user() AND o.is_active))) -- phase 6b: own boxes only
 			  AND (m.kind NOT IN ('gift', 'loyalty', 'tradein', 'insurance') OR $3) -- the gift card / points tenders are used only by the till
 			ORDER BY m.is_active DESC, m.sort, m.name`, r.PathValue("cid"), isCollector(r), r.URL.Query().Get("all") == "1")
 	})

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
@@ -29,8 +30,9 @@ type paymentIn struct {
 	Tenders        []tenderIn `json:"tenders"`
 	ChangeMethodID string     `json:"change_method_id"`
 	Notes          string     `json:"notes"`
-	ClientRef      string     `json:"client_ref"` // set by offline devices; the same ref is stored only once
-	InvoiceID      string     `json:"invoice_id"` // optional: settle this invoice first (barcode collection)
+	ClientRef      string     `json:"client_ref"`  // set by offline devices; the same ref is stored only once
+	InvoiceID      string     `json:"invoice_id"`  // optional: settle this invoice first (barcode collection)
+	ClientTime     string     `json:"client_time"` // RFC 3339: when an offline device took the payment (kept with client_ref)
 
 	upTo        decimal.Decimal // internal (POS on-account sale): apply what was received, at most this much; the rest is change
 	allowCheque bool            // internal (cheques module): the tender may be a cheque box
@@ -118,7 +120,19 @@ func receivePayment(ctx context.Context, tx pgx.Tx, cid string, in paymentIn, co
 			return "", &apiError{status: http.StatusForbidden, code: "not_your_area"}
 		}
 	}
+	// phase 6b: a collector who has a cash box of their own collects only into their own boxes (shared office boxes
+	// are refused), so every dollar a collector takes is on their box. Collectors without a box keep the shared ones.
+	ownBox := false
+	if collector {
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM payment_methods WHERE company_id = $1 AND user_id = app_user() AND is_active)`,
+			cid).Scan(&ownBox); err != nil {
+			return "", err
+		}
+	}
 	usable := func(m method) bool {
+		if ownBox && m.UserID == nil && m.Kind != "cheque" && m.Kind != "gift" && m.Kind != "loyalty" {
+			return false
+		}
 		if m.Kind == "cheque" { // cheque boxes are used only through the cheques register
 			return in.allowCheque
 		}
@@ -253,12 +267,19 @@ func receivePayment(ctx context.Context, tx pgx.Tx, cid string, in paymentIn, co
 	if changeM != nil && changeAmt.IsPositive() {
 		changeMethod, changeCur = &changeM.ID, &changeM.Currency
 	}
+	// phase 6b: an offline device sends the time it really took the payment; the smart "off hours" alert uses it
+	// (a payment taken at 14:00 and synced at 23:00 is not a night payment). Only a plausible past time is kept.
+	var clientTime *time.Time
+	if ct, err := time.Parse(time.RFC3339, strings.TrimSpace(in.ClientTime)); err == nil && in.ClientRef != "" &&
+		ct.Before(time.Now().Add(10*time.Minute)) && ct.After(time.Now().AddDate(0, 0, -45)) {
+		clientTime = &ct
+	}
 	var id string
 	if err := tx.QueryRow(ctx, `INSERT INTO payments (company_id, number, customer_id, payment_date, currency, amount,
-		change_method_id, change_currency, change_amount, journal_entry_id, notes, client_ref, ar_rate)
-		VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, $9::numeric, $10, $11, nullif($12, ''), $13::numeric) RETURNING id::text`,
+		change_method_id, change_currency, change_amount, journal_entry_id, notes, client_ref, ar_rate, client_time)
+		VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, $9::numeric, $10, $11, nullif($12, ''), $13::numeric, $14) RETURNING id::text`,
 		cid, number, in.CustomerID, in.Date, in.Currency, applied.String(), changeMethod, changeCur, changeAmt.String(),
-		je, strings.TrimSpace(in.Notes), in.ClientRef, payRateS).Scan(&id); err != nil {
+		je, strings.TrimSpace(in.Notes), in.ClientRef, payRateS, clientTime).Scan(&id); err != nil {
 		return "", err
 	}
 	for _, t := range tenders {

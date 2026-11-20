@@ -993,6 +993,7 @@ func createPosOrderTx(ctx context.Context, tx pgx.Tx, r *http.Request, cid strin
 		}
 		canEdit := !cashier || g.CashierPriceEdit
 		lines := []invLine{}
+		priceCut, priceCutLines := decimal.Zero, 0 // phase 6b: catalog prices lowered by hand (smart alert "price_override")
 		sales := []saleLine{}
 		serialLots := map[string][]lotQty{} // item → serials sold
 		serialsJSON := []map[string]string{}
@@ -1057,6 +1058,10 @@ func createPosOrderTx(ctx context.Context, tx pgx.Tx, r *http.Request, cid strin
 				}
 				if !p.Equal(price) && !canEdit && !l.trusted {
 					return "", &apiError{status: http.StatusForbidden, code: "price_edit_forbidden"}
+				}
+				if p.LessThan(price) && !l.trusted {
+					priceCut = priceCut.Add(price.Sub(p).Mul(q))
+					priceCutLines++
 				}
 				price = p
 			}
@@ -1517,12 +1522,12 @@ func createPosOrderTx(ctx context.Context, tx pgx.Tx, r *http.Request, cid strin
 		eb, _ := json.Marshal(extras)
 		if _, err := tx.Exec(ctx, `INSERT INTO pos_orders (id, company_id, session_id, register_id, number, kind, order_date, customer_id, currency,
 			total, tax_total, paid, invoice_id, payment_id, cash, client_ref, client_time, notes, promos, loyalty, gift,
-			serials, tradein, rx, insurance, extras, check_id)
+			serials, tradein, rx, insurance, extras, check_id, price_cut, price_cut_lines)
 			VALUES ($20::uuid, $1, $2, $3, $4, 'sale', $5::date, $6, $7, $8::numeric, $9::numeric, $10::numeric, $11, $12, $13, nullif($14, ''), $15, $16, $17, $18, $19,
-			$21, $22, $23, $24, $25, nullif($26, '')::uuid)`,
+			$21, $22, $23, $24, $25, nullif($26, '')::uuid, $27::numeric, $28)`,
 			cid, in.SessionID, g.ID, number, date, customer, g.Currency, total.String(), taxTotal.String(), paid.String(),
 			invID, paymentID, cb, in.ClientRef, clientTime, strings.TrimSpace(in.Notes), promosJSON, lb, gb, id,
-			sb, tb, rb, ib, eb, in.checkID); err != nil {
+			sb, tb, rb, ib, eb, in.checkID, priceCut.Round(dec).String(), priceCutLines); err != nil {
 			return "", err
 		}
 		if promoRes != nil {

@@ -115,7 +115,7 @@ var statusWords = map[string]string{
 func (s *Server) importData(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("type")
 	switch kind {
-	case "customers", "subscriptions", "opening_balances", "readings", "accounts":
+	case "customers", "subscriptions", "opening_balances", "readings", "accounts", "supplier_openings":
 	default:
 		writeErr(w, http.StatusNotFound, "not_found")
 		return
@@ -156,6 +156,8 @@ func (s *Server) importData(w http.ResponseWriter, r *http.Request) {
 			write, err = im.readings()
 		case "accounts":
 			write, err = im.accounts()
+		case "supplier_openings":
+			write, err = im.supplierOpenings()
 		}
 		if err != nil {
 			return err
