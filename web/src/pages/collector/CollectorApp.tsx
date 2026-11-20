@@ -1,5 +1,5 @@
 import { printPage } from '../../native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon, Alert, Badge, Box, Button, Card, Center, Container, Group, Loader, Menu, Modal, Paper, SegmentedControl, Select,
   SimpleGrid, Stack, Tabs, Text, TextInput,
@@ -24,6 +24,8 @@ import {
   setPaper, paperWidth, type PairedPrinter, type PrintLine,
 } from '../../bt';
 import { cacheGet, cacheSet, enqueue, newClientRef, outbox, syncOutbox } from '../../outbox';
+
+const DriverTrips = lazy(() => import('../wh/Driver').then((m) => ({ default: m.DriverTrips })));
 
 function useOnline() {
   const [on, setOn] = useState(navigator.onLine);
@@ -165,6 +167,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
             <Tabs.Tab value="customers">{t('bill.customers')}</Tabs.Tab>
             <Tabs.Tab value="day">{t('collector.myDay')}</Tabs.Tab>
             <Tabs.Tab value="readings">{t('bill.readings')}</Tabs.Tab>
+        <Tabs.Tab value="trips">{t('wh.drv.tab')}</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="customers">
@@ -193,6 +196,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
 
           <Tabs.Panel value="day"><MyDay me={me} /></Tabs.Panel>
           <Tabs.Panel value="readings"><Readings me={me} /></Tabs.Panel>
+        <Tabs.Panel value="trips"><Suspense fallback={null}><DriverTrips /></Suspense></Tabs.Panel>
         </Tabs>
       </Container>
 

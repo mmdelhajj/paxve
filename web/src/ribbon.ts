@@ -11,6 +11,7 @@ import {
   IconSwitchHorizontal, IconTags, IconReceiptRefund, IconForms, IconHammer, IconFingerprint, IconCreditCard, IconFileCertificate, IconCalendarRepeat,
   IconCrown, IconInbox, IconDiscount2, IconGift, IconStar, IconTag, IconCalendarDue, IconScan, IconBuildingStore, IconColorSwatch,
   IconBell, IconCalendarDollar, IconShieldCheck, IconTable, IconTemplate, IconDeviceMobileCog,
+  IconBuildingWarehouse, IconTruckDelivery, IconBoxSeam, IconStack2, IconChartHistogram, IconSteeringWheel, IconSettings,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
@@ -143,6 +144,15 @@ export const RIBBON: RibbonTab[] = [
       { page: 'stock-pro', param: 'replenish', label: 't2.st.m.replenish', icon: IconHourglass, perm: 'stock.view' },
       { page: 'stock-pro', param: 'prices', label: 't2.st.m.prices', icon: IconCoins, perm: 'stock.view' },
       { page: 'stock-pro', param: 'landed', label: 't2.st.m.landed', icon: IconTruck, perm: 'purchasing.view', app: 'pur' },
+      { page: 'wh', param: 'ops', label: 'wh.m.ops', icon: IconBuildingWarehouse, perm: 'stock.view' },
+      { page: 'scan', label: 'wh.t.scan', icon: IconScan, perm: 'stock.view' },
+      { page: 'wh', param: 'bins', label: 'wh.m.bins', icon: IconStack2, perm: 'stock.view' },
+      { page: 'wh', param: 'batches', label: 'wh.m.batches', icon: IconListDetails, perm: 'stock.view' },
+      { page: 'wh', param: 'packages', label: 'wh.m.packages', icon: IconBoxSeam, perm: 'stock.view' },
+      { page: 'wh', param: 'trips', label: 'wh.m.trips', icon: IconTruckDelivery, perm: 'stock.view' },
+      { page: 'driver', label: 'wh.t.driver', icon: IconSteeringWheel, any: true },
+      { page: 'wh', param: 'reports', label: 'wh.m.reports', icon: IconChartHistogram, perm: 'stock.view' },
+      { page: 'wh', param: 'setup', label: 'wh.m.setup', icon: IconSettings, perm: 'stock.view' },
     ],
   },
   {
@@ -156,6 +166,7 @@ export const RIBBON: RibbonTab[] = [
     id: 'pur', label: 'mx.rib.pur', color: '#4b6584', app: 'pur', tiles: [
       { page: 'suppliers', label: 'mx.t.suppliers', icon: IconTruck, perm: 'suppliers.view' },
       { page: 'po', label: 'oa.t.po', icon: IconClipboardList, perm: 'purchasing.view' },
+      { page: 'wh', param: 'dropship', label: 'wh.m.dropship', icon: IconTruckDelivery, perm: 'purchasing.create' },
       { page: 'supplier-prices', label: 'fin.t.sp', icon: IconTags, perm: 'purchasing.view' },
       { page: 'bills', label: 'mx.t.bills', icon: IconReceipt, perm: 'purchasing.view' },
       { page: 'supplier-payments', label: 'mx.t.supplierPayments', icon: IconCashBanknote, perm: 'purchasing.view' },
@@ -248,6 +259,7 @@ export const RIBBON: RibbonTab[] = [
 /** Pages that are only reached from inside another page (detail screens), with the app they need. */
 export const PAGE_APP: Record<string, AppId | undefined> = {
   supplier: 'pur', item: 'stk', statement: undefined, customer: undefined, 'hr-extra': 'hr', claims: 'hr', mfg: 'mfg', 'supplier-prices': 'pur', retail: 'pos',
+  wh: 'stk', scan: 'stk', driver: undefined,
   gaps: undefined, // per screen: repairs need the service app (the server refuses them when it is off)
 };
 

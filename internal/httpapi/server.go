@@ -708,6 +708,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PATCH "+v+"/companies/{cid}/wh/trips/{id}", s.auth(s.whUpdateTrip))
 	mux.Handle("POST "+v+"/companies/{cid}/wh/stops/{id}/pod", s.field(s.whStopPOD))
 	mux.Handle("GET "+v+"/companies/{cid}/wh/stops/{id}/signature", s.auth(s.whStopSignature))
+	mux.Handle("POST "+v+"/companies/{cid}/wh/stops/{id}/photo", s.field(s.whStopPhoto))
 
 	// service desk and generator maintenance (app "svc")
 	mux.Handle("GET "+v+"/companies/{cid}/tickets", s.auth(s.listTickets))

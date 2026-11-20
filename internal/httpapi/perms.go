@@ -788,6 +788,7 @@ var routePerms = map[string]string{
 	"GET /companies/{cid}/wh/trips/{id}":            permAny, // the trip's driver, or stock.view (checked inside)
 	"PATCH /companies/{cid}/wh/trips/{id}":          "stock.create",
 	"POST /companies/{cid}/wh/stops/{id}/pod":       permAny, // the trip's driver, or stock.create (checked inside)
+	"POST /companies/{cid}/wh/stops/{id}/photo":     permAny, // the trip's driver, or stock.create (checked inside)
 	"GET /companies/{cid}/wh/stops/{id}/signature":  "stock.view",
 }
 

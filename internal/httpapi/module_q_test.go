@@ -460,6 +460,8 @@ func sweepBody(c sweepCall, ids map[string]string) any {
 		return map[string]any{"lines": []any{}}
 	case "/wh/stops/{id}/pod":
 		return map[string]any{"status": "failed", "note": "x"}
+	case "/wh/stops/{id}/photo":
+		return map[string]any{"data": "iVBORw0KGgo="}
 	case "/quote-templates/{id}", "/fiscal-positions/{id}":
 		return map[string]any{"name": "x"}
 	case "/analysis/reports/{id}":

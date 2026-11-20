@@ -20,7 +20,8 @@ const poCols = `o.id, o.number, o.supplier_id, su.name AS supplier_name, su.phon
 	o.currency, o.status, o.supplier_ref, o.notes, o.total::text AS total, o.cost_center_id, o.confirmed_at, o.created_at,
 	(SELECT count(*) FROM bills b WHERE b.purchase_order_id = o.id AND b.status <> 'void') AS bills,
 	(SELECT coalesce(sum(b.total), 0) FROM bills b WHERE b.purchase_order_id = o.id AND b.status <> 'void')::text AS billed_total,
-	(o.expected_date IS NOT NULL AND o.expected_date < current_date AND o.status IN ('confirmed', 'partial')) AS late`
+	(o.expected_date IS NOT NULL AND o.expected_date < current_date AND o.status IN ('confirmed', 'partial')) AS late,
+	o.dropship_order_id, o.ship_to`
 
 const poFrom = ` FROM purchase_orders o JOIN suppliers su ON su.id = o.supplier_id`
 

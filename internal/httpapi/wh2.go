@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -821,5 +822,74 @@ func (s *Server) whStopSignature(w http.ResponseWriter, r *http.Request) {
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		return queryJSONOne(ctx, tx, `SELECT s.id, s.pod_name, s.pod_signature, s.delivered_at FROM trip_stops s WHERE s.id = $1 AND s.company_id = $2`, id, cid)
+	})
+}
+
+// POST /wh/stops/{id}/photo {filename, data (data URL or base64)}: a photo of the delivered goods, from the trip's
+// driver (field staff may not use the general attachments) or anyone with stock rights.
+func (s *Server) whStopPhoto(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Filename string `json:"filename"`
+		Data     string `json:"data"`
+	}
+	if !decodeBody(w, r, &in) {
+		return
+	}
+	mime := ""
+	if i := strings.Index(in.Data, ";base64,"); strings.HasPrefix(in.Data, "data:") && i > 0 {
+		mime = in.Data[5:i]
+		in.Data = in.Data[i+8:]
+	}
+	data, err := base64.StdEncoding.DecodeString(in.Data)
+	name := strings.TrimSpace(in.Filename)
+	if name == "" {
+		name = "photo.jpg"
+	}
+	if err != nil || len(data) == 0 || len(data) > 10<<20 || len(name) > 200 {
+		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	if mime == "" {
+		mime = http.DetectContentType(data)
+	}
+	if !strings.HasPrefix(mime, "image/") {
+		writeErr(w, http.StatusBadRequest, "not_an_image")
+		return
+	}
+	cid, id := r.PathValue("cid"), r.PathValue("id")
+	if !isUUID(id) {
+		writeErr(w, http.StatusNotFound, "not_found")
+		return
+	}
+	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		var mine bool
+		err := tx.QueryRow(ctx, `SELECT coalesce(t.driver_id = app_user(), false) FROM trip_stops s JOIN delivery_trips t ON t.id = s.trip_id
+			WHERE s.id = $1 AND s.company_id = $2`, id, cid).Scan(&mine)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, notFound()
+		}
+		if err != nil {
+			return nil, err
+		}
+		if !mine && !can(r, "stock.create") {
+			return nil, &apiError{status: http.StatusForbidden, code: "forbidden"}
+		}
+		var n int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM attachments WHERE company_id = $1 AND entity_type = 'trip_stop' AND entity_id = $2 AND deleted_at IS NULL`,
+			cid, id).Scan(&n); err != nil {
+			return nil, err
+		}
+		if n >= 10 {
+			return nil, badRequest("too_many_files")
+		}
+		if err := checkStorageQuota(ctx, tx, cid, len(data)); err != nil {
+			return nil, err
+		}
+		var aid string
+		if err := tx.QueryRow(ctx, `INSERT INTO attachments (company_id, entity_type, entity_id, filename, mime, size, data, note)
+			VALUES ($1, 'trip_stop', $2, $3, $4, $5, $6, 'proof of delivery') RETURNING id::text`, cid, id, name, mime, len(data), data).Scan(&aid); err != nil {
+			return nil, err
+		}
+		return map[string]string{"id": aid}, nil
 	})
 }

@@ -273,6 +273,12 @@ func TestWarehouseProFlow(t *testing.T) {
 	if str(obj(pod.body["trip"])["status"]) != "done" {
 		t.Fatalf("trip after the last stop: %s", pod.raw)
 	}
-	_ = tid
+	driver.ok("POST", o.p("/wh/stops/"+stop+"/photo"), map[string]any{"filename": "door.png", "data": "data:image/png;base64,iVBORw0KGgo="}, 201)
+	if r := driver.do("POST", o.p("/wh/stops/"+stop+"/photo"), map[string]any{"data": "data:text/plain;base64,aGVsbG8="}); r.status != 400 {
+		t.Fatalf("a non-image as delivery photo: %d", r.status)
+	}
+	if n := o.c.ok("GET", o.p("/wh/trips/"+tid), nil, 200).body["stops"].([]any); str(obj(n[0])["photos"]) != "1" {
+		t.Fatalf("photo count: %v", n)
+	}
 	o.trialBalanced(t)
 }
