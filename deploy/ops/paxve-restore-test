@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Weekly proof that the latest backup restores (installed as /usr/local/bin/paxve-restore-test).
+# Decrypts the newest dump into a throw-away PostgreSQL container, restores it, checks the schema version and a few
+# counts, then removes everything. The result is appended to /var/log/paxve-restore-test.log.
+set -euo pipefail
+umask 077
+latest=$(ls -t /srv/backups/paxve-*.dump.gpg 2>/dev/null | head -1 || true)
+if [ -z "$latest" ]; then echo "$(date -Is) FAIL no encrypted backup found"; exit 1; fi
+tmp=$(mktemp -d)
+name=paxve-restore-test
+cleanup() { docker rm -f "$name" >/dev/null 2>&1 || true; rm -rf "$tmp"; }
+trap cleanup EXIT
+gpg --batch --quiet --pinentry-mode loopback --passphrase-file /srv/paxve-secrets/backup-passphrase -d "$latest" > "$tmp/db.dump"
+docker run -d --rm --name "$name" -e POSTGRES_PASSWORD=restore -v "$tmp:/in:ro" postgres:18 >/dev/null
+for i in $(seq 1 60); do docker exec "$name" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
+sleep 2
+docker exec "$name" psql -U postgres -qc "CREATE ROLE paxve_app" >/dev/null 2>&1 || true
+docker exec "$name" psql -U postgres -qc "CREATE ROLE paxve" >/dev/null 2>&1 || true
+docker exec "$name" createdb -U postgres -O paxve paxve
+start=$(date +%s)
+docker exec "$name" pg_restore -U postgres -d paxve --no-owner --exit-on-error /in/db.dump
+took=$(( $(date +%s) - start ))
+ver=$(docker exec "$name" psql -U postgres -d paxve -Atc "SELECT max(version_id) FROM goose_db_version")
+tenants=$(docker exec "$name" psql -U postgres -d paxve -Atc "SELECT count(*) FROM tenants")
+lines=$(docker exec "$name" psql -U postgres -d paxve -Atc "SELECT count(*) FROM journal_lines")
+echo "$(date -Is) OK $(basename "$latest") restored in ${took}s · migration $ver · $tenants organisations · $lines journal lines"

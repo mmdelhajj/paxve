@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Only Cloudflare may open web connections to this server (audit C-L8): paxve.com is proxied by Cloudflare, so a
+# visitor who goes straight to the server's address would skip Cloudflare's protection. Docker publishes 80/443
+# around ufw, so the rule lives in Docker's DOCKER-USER chain (installed as /usr/local/bin/paxve-cf-origin and run
+# at boot by paxve-cf-origin.service). Extra addresses that may connect directly (e.g. a fingerprint machine
+# pushing to http://<server-ip>/iclock) go one per line in /etc/paxve/origin-allow.
+#   paxve-cf-origin        apply
+#   paxve-cf-origin off    remove the restriction
+set -euo pipefail
+CF4="173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22"
+CF6="2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32"
+EXT=$(ip route show default | awk '{print $5; exit}')
+allow=$(grep -Ev '^\s*(#|$)' /etc/paxve/origin-allow 2>/dev/null || true)
+
+apply() { # $1 = iptables|ip6tables, $2 = ranges
+  local ipt=$1 ranges=$2
+  $ipt -N PAXVE-CF 2>/dev/null || $ipt -F PAXVE-CF
+  for r in $ranges; do $ipt -A PAXVE-CF -s "$r" -j RETURN; done
+  for r in $allow; do
+    if [[ $ipt == iptables && $r != *:* ]] || [[ $ipt == ip6tables && $r == *:* ]]; then $ipt -A PAXVE-CF -s "$r" -j RETURN; fi
+  done
+  $ipt -A PAXVE-CF -j DROP
+  for proto in tcp udp; do
+    local rule=(-i "$EXT" -p "$proto" -m multiport --dports 80,443 -m conntrack --ctstate NEW -j PAXVE-CF)
+    $ipt -C DOCKER-USER "${rule[@]}" 2>/dev/null || $ipt -I DOCKER-USER "${rule[@]}"
+  done
+}
+remove() {
+  local ipt=$1
+  for proto in tcp udp; do
+    while $ipt -D DOCKER-USER -i "$EXT" -p "$proto" -m multiport --dports 80,443 -m conntrack --ctstate NEW -j PAXVE-CF 2>/dev/null; do :; done
+  done
+  $ipt -F PAXVE-CF 2>/dev/null || true
+  $ipt -X PAXVE-CF 2>/dev/null || true
+}
+
+if [ "${1:-}" = off ]; then
+  remove iptables; remove ip6tables || true
+  echo "origin restriction removed"
+else
+  apply iptables "$CF4"
+  apply ip6tables "$CF6" || true
+  echo "origin restricted to Cloudflare on $EXT"
+fi
