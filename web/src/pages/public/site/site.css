@@ -54,7 +54,8 @@
 .sx::before { content: ''; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background: #fff; z-index: 51; }
 .sx-topin { display: flex; align-items: center; gap: 8px; height: 64px; }
 .sx-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); font-family: var(--display); font-weight: 600; font-size: 19px; }
-.sx-mark { width: 28px; height: 28px; border-radius: 5px; display: grid; place-items: center; font-size: 15px; color: #fff; background: var(--navy); }
+.sx-brand { gap: 4px; direction: ltr; color: var(--navy); }
+.sx-brand .nm { display: block; }
 .sx-nav { display: flex; align-items: center; gap: 2px; margin-inline-start: 22px; }
 .sx-nav > button { font: inherit; font-size: 15px; color: var(--ink2); background: none; border: 0; padding: 8px 11px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .sx-nav > button:hover, .sx-nav > button[aria-expanded=true] { color: var(--ink); background: var(--soft); }

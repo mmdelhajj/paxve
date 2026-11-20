@@ -325,8 +325,7 @@
 
 /* title bar */
 .mx-title { display: flex; align-items: center; gap: 12px; padding: 4px 14px; background: var(--mx-bar); color: var(--mx-on-bar); font-size: 13px; min-height: 36px; flex-wrap: wrap; }
-.mx-title .mx-brand { font-weight: 700; letter-spacing: .3px; color: #fff; display: inline-flex; align-items: center; gap: 8px; font-size: 14.5px; }
-.mx-title .mx-brand::before { content: "P"; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--mx-primary); color: #fff; font-size: 12.5px; }
+.mx-title .mx-brand { color: #fff; display: inline-flex; align-items: center; gap: 3px; direction: ltr; margin-inline-start: -4px; }
 .mx-title .mx-sp { flex: 1; }
 .mx-title .mx-tsel { background: var(--mx-bar-ctl); border: 1px solid var(--mx-bar-line); border-radius: var(--mx-radius-sm); color: #fff; padding: 3px 8px; font-size: 12.5px; max-width: 240px; height: 28px; font-family: inherit; color-scheme: dark; }
 .mx-title .mx-tsel:hover { border-color: var(--mx-bar-ctl-line); }

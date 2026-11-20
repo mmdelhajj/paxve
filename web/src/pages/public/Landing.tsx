@@ -9,6 +9,7 @@ import { errorText } from '../../util';
 import { isNativeApp } from '../../native';
 import InstallApp from '../../components/InstallApp';
 import { Icon } from './site/icons';
+import { Mark as BrandMark, Wordmark } from '../../components/Brand';
 
 // The public marketing site (signed-out visitors at paxve.com): home, one page per business type (#/for/<type>) and the
 // privacy / terms pages. Arabic first. Product images are real screens of a demo company (web/public/site/*.webp,
@@ -201,7 +202,7 @@ function Header({ go }: { go: (id: string) => void }) {
 function Brand() {
   return (
     <a className="sx-brand" href="#/" aria-label="Paxve">
-      <span className="sx-mark" aria-hidden="true">P</span><span className="nm">Paxve</span>
+      <BrandMark size={34} tone="light" /><span className="nm"><Wordmark height={17} /></span>
     </a>
   );
 }
@@ -429,7 +430,7 @@ function LebanonMap() {
     return (
       <g key={k}>
         <circle cx={x} cy={y} r={k === 'beirut' ? 3 : 2.3} fill={k === 'beirut' ? '#eceef1' : '#8ea3c2'} />
-        <text x={end ? x - 6 : x + 6} y={y + 4} textAnchor={end ? 'end' : 'start'} fontSize={k === 'beirut' ? 11.5 : 10.5}
+        <text x={end ? x - 10 : x + 6} y={y + 4} textAnchor={end ? 'end' : 'start'} fontSize={k === 'beirut' ? 11.5 : 10.5}
           fill={k === 'beirut' ? '#eceef1' : '#a8afba'}>{t(`site.v3.field.${k}`)}</text>
       </g>
     );

@@ -1645,8 +1645,15 @@ func spa(dir string) http.Handler {
 			st, _ := f.Stat()
 			f.Close()
 			if st != nil && !st.IsDir() {
-				if strings.HasPrefix(p, "/assets/") {
+				// hashed build files live forever; files with fixed names must not sit in the CDN (Cloudflare keeps
+				// anything without Cache-Control for 4 hours: a stale sw.js or icon after a deploy)
+				switch {
+				case strings.HasPrefix(p, "/assets/"):
 					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				case p == "/sw.js" || p == "/pwa.js" || p == "/favicon.svg" || strings.HasSuffix(p, ".webmanifest") || strings.HasPrefix(p, "/.vite/"):
+					w.Header().Set("Cache-Control", "no-cache")
+				default:
+					w.Header().Set("Cache-Control", "public, max-age=3600")
 				}
 				files.ServeHTTP(w, r)
 				return
