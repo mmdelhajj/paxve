@@ -26,6 +26,7 @@ import {
 import { cacheGet, cacheSet, enqueue, newClientRef, outbox, syncOutbox } from '../../outbox';
 
 const DriverTrips = lazy(() => import('../wh/Driver').then((m) => ({ default: m.DriverTrips })));
+const TechJobs = lazy(() => import('../fsv/Field').then((m) => ({ default: m.TechJobs })));
 
 function useOnline() {
   const [on, setOn] = useState(navigator.onLine);
@@ -167,7 +168,8 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
             <Tabs.Tab value="customers">{t('bill.customers')}</Tabs.Tab>
             <Tabs.Tab value="day">{t('collector.myDay')}</Tabs.Tab>
             <Tabs.Tab value="readings">{t('bill.readings')}</Tabs.Tab>
-        <Tabs.Tab value="trips">{t('wh.drv.tab')}</Tabs.Tab>
+            <Tabs.Tab value="trips">{t('wh.drv.tab')}</Tabs.Tab>
+            <Tabs.Tab value="jobs">{t('fsv.tech.tab')}</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="customers">
@@ -197,6 +199,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
           <Tabs.Panel value="day"><MyDay me={me} /></Tabs.Panel>
           <Tabs.Panel value="readings"><Readings me={me} /></Tabs.Panel>
         <Tabs.Panel value="trips"><Suspense fallback={null}><DriverTrips /></Suspense></Tabs.Panel>
+        <Tabs.Panel value="jobs"><Suspense fallback={null}><TechJobs me={me} /></Suspense></Tabs.Panel>
         </Tabs>
       </Container>
 

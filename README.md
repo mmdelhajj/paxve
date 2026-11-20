@@ -174,6 +174,33 @@ raises an **alert** followed to closure. **Traceability**: a lot or serial backw
 forward (what was made with it, which customer). **Reports**: order status and late orders, work center load against capacity,
 cost variance (planned vs actual vs standard), missing components. **Shop floor** (`#/shopfloor`, tablet / phone): pick a work
 center, start / pause / finish with a live timer, record the checks, scrap a component.
+## Projects, field service, SLA, automation and fleet (phase 3)
+
+**Projects** (app *prj*, ribbon tab **Projects**): each project has its own **kanban board** (columns are editable; a "done"
+column closes its tasks), **tasks** with subtasks, a checklist, deadline, priority, planned hours, milestone, comments and files
+(chatter), **milestones**, and **timesheets** typed in or from a **timer** (one running timer per employee; cost = hours ×
+the employee's hourly cost, or salary / 208). **Billing**: by time (billable hours × the project rate, grouped per task), by
+reached milestones, or a fixed price in parts (percent or amount, never more than what is left); voiding the invoice makes the
+hours / milestones billable again. Expenses (`project_id` on the expense) and supplier bills can be charged to a project.
+**Profitability** in the base currency from the journal: revenue (income lines of the project's invoices) − labour − expenses −
+bills, margin, budget used. **Field service** (app *svc*): jobs from a ticket or a customer, a **dispatch board** (technicians ×
+days, drag to plan), and the **technician phone view** (`#/tech`, also a "Jobs" tab in the collector app): start, add parts
+from the van's stock, report, customer signature, photo and location, finish; then **invoice** labour hours × rate + parts (parts
+leave stock with the invoice; the job's project gets the invoice). **Helpdesk SLA**: policies by priority and / or category
+give each ticket a response and a resolution deadline (the most specific active policy); leaving "new" or the first note is the
+first response; breaches are shown on the ticket and escalated once to the policy's manager; SLA report per policy and agent
+with ratings. **Inbound**: a secret address per company for an e-mail forwarding service (JSON or Mailgun / SendGrid form) and
+for the WhatsApp Cloud API webhook (verify handshake); a message becomes a ticket (customer matched by e-mail / phone) or a note
+on the sender's open ticket. Closing a ticket creates a **rating link** (public page `#/rate/<token>`, sent by WhatsApp).
+**Automation rules** (ribbon *Settings*): WHEN a record is created / changed (queued by database triggers) or ON A SCHEDULE
+(also stock items and vehicles), IF field conditions hold, THEN create a to-do, message the customer, notify someone, set a field,
+add a tag, call a webhook or make a purchase request. Run log, dry-run test (changes nothing), loop guard (changes made by rules
+queue nothing), a rule pauses itself above 300 runs an hour, scheduled rules act once per record (or every N days); 8 ready-made
+rules. **Fleet** (app *flt*): the delivery vehicles with make / model / VIN / papers (licence, insurance, inspection expiry), fuel
+log (litres per 100 km between full tanks, flags for a consumption jump or an odometer going back), service plans by km and / or
+days with the service log, costs posted as expenses (fuel / maintenance accounts in Fleet → Settings) plus any expense charged
+to a vehicle, alerts and a cost report (cost per km).
+
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the

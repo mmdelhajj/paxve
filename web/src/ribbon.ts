@@ -12,12 +12,13 @@ import {
   IconCrown, IconInbox, IconDiscount2, IconGift, IconStar, IconTag, IconCalendarDue, IconScan, IconBuildingStore, IconColorSwatch,
   IconBell, IconCalendarDollar, IconShieldCheck, IconTable, IconTemplate, IconDeviceMobileCog,
   IconBuildingWarehouse, IconTruckDelivery, IconBoxSeam, IconStack2, IconChartHistogram, IconSteeringWheel, IconSettings,
+  IconRobot, IconLayoutKanban, IconCar, IconMapPin, IconClock, IconAlertTriangle, IconReportAnalytics, IconCalendarEvent, IconListCheck,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
-export type AppId = 'gen' | 'acc' | 'col' | 'msg' | 'stk' | 'pur' | 'net' | 'sat' | 'pos' | 'hr' | 'crm' | 'svc' | 'mfg';
+export type AppId = 'gen' | 'acc' | 'col' | 'msg' | 'stk' | 'pur' | 'net' | 'sat' | 'pos' | 'hr' | 'crm' | 'svc' | 'mfg' | 'prj' | 'flt';
 export const CORE_APPS: AppId[] = ['gen', 'acc', 'col'];
-export const ALL_APPS: AppId[] = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg'];
+export const ALL_APPS: AppId[] = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt'];
 
 export type Icon = typeof IconCash;
 
@@ -214,6 +215,28 @@ export const RIBBON: RibbonTab[] = [
       { page: 'service', label: 'svc.m.tickets', icon: IconHeadset, perm: 'service.view' },
       { page: 'service', param: 'maintenance', label: 'svc.m.maintenance', icon: IconTool, perm: 'service.view' },
       { page: 'gaps', param: 'repairs', label: 'gp.m.repairs', icon: IconDeviceMobileCog, perm: 'service.view' },
+      { page: 'field', param: 'jobs', label: 'fsv.m.jobs', icon: IconMapPin, perm: 'service.view' },
+      { page: 'field', param: 'board', label: 'fsv.m.board', icon: IconCalendarEvent, perm: 'service.view' },
+      { page: 'tech', label: 'fsv.tech.title', icon: IconDeviceMobile, any: true },
+      { page: 'field', param: 'sla', label: 'fsv.m.sla', icon: IconAlertTriangle, perm: 'service.view' },
+    ],
+  },
+  {
+    id: 'prj', label: 'pj.rib', color: '#00897b', app: 'prj', tiles: [
+      { page: 'projects', param: 'projects', label: 'pj.m.projects', icon: IconLayoutKanban, perm: 'projects.view' },
+      { page: 'projects', param: 'tasks', label: 'pj.m.tasks', icon: IconListCheck, perm: 'projects.view' },
+      { page: 'projects', param: 'timesheets', label: 'pj.m.timesheets', icon: IconClock, perm: 'projects.view' },
+      { page: 'projects', param: 'reports', label: 'pj.m.reports', icon: IconReportAnalytics, perm: 'reports.view' },
+    ],
+  },
+  {
+    id: 'flt', label: 'fl.rib', color: '#546e7a', app: 'flt', tiles: [
+      { page: 'fleet', param: 'vehicles', label: 'fl.m.vehicles', icon: IconCar, perm: 'fleet.view' },
+      { page: 'fleet', param: 'fuel', label: 'fl.m.fuel', icon: IconGasStation, perm: 'fleet.view' },
+      { page: 'fleet', param: 'services', label: 'fl.m.services', icon: IconTool, perm: 'fleet.view' },
+      { page: 'fleet', param: 'alerts', label: 'fl.m.alerts', icon: IconAlertTriangle, perm: 'fleet.view' },
+      { page: 'fleet', param: 'costs', label: 'fl.m.costs', icon: IconChartBar, perm: 'reports.view' },
+      { page: 'fleet', param: 'settings', label: 'fl.m.settings', icon: IconSettings, perm: 'fleet.view' },
     ],
   },
   {
@@ -234,6 +257,7 @@ export const RIBBON: RibbonTab[] = [
   {
     id: 'set', label: 'mx.rib.set', color: '#57606f', tiles: [
       { page: 'apps', label: 'mx.t.apps', icon: IconLayoutGrid, perm: 'settings.view' },
+      { page: 'automation', param: 'rules', label: 'au.t', icon: IconRobot, perm: 'settings.view' },
       { page: 'localization', label: 't2.t.localization', icon: IconWorld, perm: 'settings.view' },
       { page: 'translations', label: 't2.t.translations', icon: IconLanguage, perm: 'settings.view' },
       { page: 'custom-fields', label: 'fin.t.cf', icon: IconForms, perm: 'settings.view' },
@@ -266,6 +290,7 @@ export const RIBBON: RibbonTab[] = [
 export const PAGE_APP: Record<string, AppId | undefined> = {
   supplier: 'pur', item: 'stk', statement: undefined, customer: undefined, 'hr-extra': 'hr', claims: 'hr', mfg: 'mfg', 'supplier-prices': 'pur', retail: 'pos',
   wh: 'stk', scan: 'stk', driver: undefined, shopfloor: 'mfg',
+  projects: 'prj', fleet: 'flt', field: 'svc', tech: undefined, automation: undefined,
   gaps: undefined, // per screen: repairs need the service app (the server refuses them when it is off)
 };
 

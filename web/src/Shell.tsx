@@ -117,6 +117,11 @@ const WhScan = lazy(() => import('./pages/wh/Scan'));
 const WhDriver = lazy(() => import('./pages/wh/Driver'));
 const Mfg = lazy(() => import('./pages/mfg/Mfg'));
 const ShopFloor = lazy(() => import('./pages/mfg/ShopFloor'));
+const Prj = lazy(() => import('./pages/prj/Prj'));
+const Field = lazy(() => import('./pages/fsv/Field'));
+const Tech = lazy(() => named(import('./pages/fsv/Field'), 'Tech'));
+const Automation = lazy(() => import('./pages/auto/Automation'));
+const Fleet = lazy(() => import('./pages/fleet/Fleet'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -125,7 +130,8 @@ const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'vouche
 /** Screens that use the whole work area themselves (no padding, own scrolling). */
 const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash', 'invoices', 'customers', 'print-bills', 'trial-balance', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances',
-  'localization', 'translations', 'stock-pro', 'hr', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'platform', 'retail', 'gaps', 'wh']);
+  'localization', 'translations', 'stock-pro', 'hr', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'platform', 'retail', 'gaps', 'wh',
+  'projects', 'field', 'automation', 'fleet']);
 const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
   'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
   'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
@@ -133,7 +139,8 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'print-bills', 'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec', 'crm', 'activities', 'quotes', 'orders',
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
-  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'my-sub', 'retail', 'gaps', 'wh', 'scan', 'driver', 'shopfloor']);
+  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'my-sub', 'retail', 'gaps', 'wh', 'scan', 'driver', 'shopfloor',
+  'projects', 'field', 'tech', 'automation', 'fleet']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -260,6 +267,9 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   // full-screen modes that replace the whole shell
   if (page === 'shopfloor') {
     return <Suspense fallback={pageFallback}><ShopFloor me={me} onExit={() => { window.location.hash = '#/mfg/orders'; }} /></Suspense>;
+  }
+  if (page === 'tech') {
+    return <Suspense fallback={pageFallback}><Tech me={me} onExit={() => { window.location.hash = me.role === 'collector' ? '#/collect' : '#/field/jobs'; }} /></Suspense>;
   }
   if (page === 'scan' || page === 'driver') {
     const exit = () => { window.location.hash = me.role === 'collector' ? '#/collect' : '#/wh/ops'; };
@@ -492,6 +502,10 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     retail: () => <Retail me={me} initial={param} key={param} />,
     gaps: () => <Gaps me={me} initial={param} key={param} />,
     wh: () => <Wh me={me} initial={param} key={param} />,
+    projects: () => <Prj me={me} initial={param} key={param} />,
+    field: () => <Field me={me} initial={param} key={param} />,
+    automation: () => <Automation me={me} initial={param} key={param} />,
+    fleet: () => <Fleet me={me} initial={param} key={param} />,
     'hr-extra': () => <HRExtra me={me} initial={param} key={param} />,
     'online-pay': () => <OnlinePayments me={me} />,
     einvoice: () => <EInvoice me={me} />,

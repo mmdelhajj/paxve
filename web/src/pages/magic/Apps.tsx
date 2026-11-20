@@ -7,18 +7,19 @@ import { useCompany } from '../../company';
 import { errorText } from '../../util';
 import {
   IconBook2, IconBuildingFactory2, IconCash, IconCashRegister, IconDroplet, IconId, IconMessage, IconPackage, IconReceipt,
-  IconRouter, IconSatellite, IconTargetArrow, IconUsersGroup, IconHeadset,
+  IconRouter, IconSatellite, IconTargetArrow, IconUsersGroup, IconHeadset, IconLayoutKanban, IconCar,
 } from '@tabler/icons-react';
 import { ALL_APPS, CORE_APPS, RIBBON, type AppId, type Icon } from '../../ribbon';
 
 const GLYPH: Record<AppId | 'wat' | 'mfg', Icon> = {
   gen: IconUsersGroup, acc: IconBook2, col: IconCash, msg: IconMessage, stk: IconPackage, pur: IconReceipt, net: IconRouter,
   sat: IconSatellite, pos: IconCashRegister, hr: IconId, crm: IconTargetArrow, svc: IconHeadset, wat: IconDroplet, mfg: IconBuildingFactory2,
+  prj: IconLayoutKanban, flt: IconCar,
 };
 
-const ICON_OF: Partial<Record<AppId, string>> = { gen: 'subs', acc: 'acc', col: 'col', net: 'net', stk: 'stk', pur: 'pur', crm: 'crm', pos: 'pos', hr: 'hr' };
+const ICON_OF: Partial<Record<AppId, string>> = { gen: 'subs', acc: 'acc', col: 'col', net: 'net', stk: 'stk', pur: 'pur', crm: 'crm', pos: 'pos', hr: 'hr', svc: 'svc', mfg: 'mfg', prj: 'prj', flt: 'flt' };
 const PRICE: Record<AppId | 'wat' | 'mfg', string> = {
-  gen: 'core', acc: 'core', col: 'core', msg: '8', stk: '8', pur: '5', net: '10', sat: '10', pos: '15', hr: '8', crm: '8', svc: '5', wat: '', mfg: '',
+  gen: 'core', acc: 'core', col: 'core', msg: '8', stk: '8', pur: '5', net: '10', sat: '10', pos: '15', hr: '8', crm: '8', svc: '5', wat: '', mfg: '', prj: '8', flt: '5',
 };
 
 const SOON = ['electronics', 'furniture', 'wholesale', 'factory', 'restaurant', 'pharmacy'];

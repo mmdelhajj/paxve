@@ -11,7 +11,7 @@ import type { Stop } from './Wh';
 interface Trip { id: string; number: number; trip_date: string; vehicle_name: string | null; plate: string | null; status: string; stops: number; delivered: number }
 
 /** Signature pad (finger or mouse) returning a PNG data URL. */
-function SignaturePad({ onChange }: { onChange: (dataUrl: string) => void }) {
+export function SignaturePad({ onChange }: { onChange: (dataUrl: string) => void }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
@@ -41,7 +41,7 @@ function SignaturePad({ onChange }: { onChange: (dataUrl: string) => void }) {
 }
 
 /** Shrink a photo before upload (long side 1600 px, JPEG). */
-async function shrink(file: File): Promise<string> {
+export async function shrink(file: File): Promise<string> {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = url; });

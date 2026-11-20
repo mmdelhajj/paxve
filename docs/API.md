@@ -402,3 +402,43 @@ All under `/companies/{cid}`; app **mfg**. Order states: `draft → confirmed �
 | GET | `/mfg/trace?q=` · `/mfg/trace?lot_id=` | lots matching · `{backward, forward}` trees (orders, lots, bills, deliveries, invoices, POS) |
 
 Accounts created on first use: production variance (5150 / 6089), subcontracting received not billed (2150 / 408).
+
+
+## Projects, field service, SLA, automation, fleet (migration 00043)
+
+All under `/companies/{cid}`. Apps: **prj** (`/prj/…`), **svc** (`/fs/…`, `/sla/…`), **flt** (`/fleet/…`); automation is core.
+New permission modules: `projects.view|create|edit|manage`, `fleet.view|create|manage`.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/prj/overview` | active projects, my open tasks, late tasks, hours this week, hours to invoice |
+| GET · POST · GET · PATCH | `/prj/projects[?status=open\|all\|…&q]` · `/prj/projects/{id}` | `{name, code, customer_id, manager_id, billing tm\|fixed\|milestone\|none, currency, hourly_rate, fixed_price, budget, budget_hours, start_date, end_date, status, description, color}`; detail = project, stages, milestones, summary (profitability), links |
+| PUT | `/prj/projects/{id}/stages` | `{stages: [{id?, name, is_done}]}` in order; a removed column must be empty (`stage_not_empty`) |
+| GET · POST | `/prj/projects/{id}/to-invoice` · `/prj/projects/{id}/invoice` | preview `{time, milestones, fixed}` · `{date, kind time\|milestones\|fixed, percent, amount, timesheet_ids}` → invoice (`over_fixed_price`, `nothing_to_invoice`) |
+| POST · DELETE · GET | `/prj/projects/{id}/link` · `/prj/project-links/{id}` · `/prj/linkable?doc_type=expense\|bill` | charge an expense / supplier bill to the project |
+| POST · PATCH | `/prj/milestones` · `/prj/milestones/{id}` | `{project_id, name, due_date, amount, reached}` |
+| GET · POST · GET · PATCH | `/prj/project-tasks[?project_id&mine=1&open=1&top=1&parent_id&q]` · `/prj/project-tasks/{id}` | `{project_id, stage_id, parent_id, milestone_id, ticket_id, title, description, assignee_id, priority, deadline, planned_hours, checklist [{text, done}], tags, seq, done}`; chatter / files type `project_task` |
+| GET · POST · PATCH · DELETE | `/prj/timesheets[?project_id&employee_id&from&to&mine=1]` · `/prj/timesheets/{id}` | `{project_id \| task_id, employee_id (others: projects.manage), date, hours, description, billable}`; invoiced rows are locked (`timesheet_invoiced`); no employee file → `no_employee` |
+| GET · POST | `/prj/timer` · `/prj/timer/start` · `/prj/timer/stop` | `{project_id \| task_id, description}` |
+| GET | `/prj/reports/profitability?status` | per project: hours, to invoice, labour / expenses / bills cost, revenue, margin, margin %, budget used % (base currency) |
+| GET · POST · GET · PATCH | `/fs/service-jobs[?status&technician_id&from&to&q&ticket_id]` · `/fs/service-jobs/{id}` | `{customer_id \| ticket_id, project_id, title, description, address, phone, technician_id, scheduled_start, duration_min, priority, warehouse_id, currency, labour_rate}`; the technician may read his own job |
+| POST | `/fs/service-jobs/{id}/start` · `/finish` · `/cancel` · `/reopen` | finish `{report, signature (PNG data URL), signed_by, lat, lng, labour_hours (default: since start)}` |
+| PUT · POST · GET | `/fs/service-jobs/{id}/parts` · `/photo` · `/signature` | `{parts: [{item_id, warehouse_id, quantity, unit_price}]}` (price default = sale price) |
+| POST | `/fs/service-jobs/{id}/invoice` | `{date}`; job must be done |
+| GET | `/fs/my-jobs` · `/fs/parts-catalog?q&warehouse_id` · `/fs/board?from&to` | technician's open jobs · part picker with on-hand · technicians, jobs in range, unplanned |
+| GET · POST · PATCH | `/sla/sla-policies[/{id}]` | `{name, priority, category (empty = any), response_hours, resolution_hours, escalate_to, is_active}` |
+| GET · POST | `/sla/inbound` · `/sla/inbound/rotate` | `{enabled}` → `{email_url, whatsapp_url, verify_token}` |
+| GET | `/tickets/sla-report?from&to` | totals, by policy, by agent, open tickets past their deadline; tickets now carry `sla_state none\|ok\|at_risk\|breached`, deadlines, `rating`, `rating_token` |
+| GET · POST · GET · PATCH · DELETE | `/automation/rules[/{id}]` | `{name, model invoice\|ticket\|subscription\|sales_order\|task\|service_job\|item_stock\|vehicle, trigger created\|updated\|scheduled, watch_fields, conditions [{field, op, value}], actions [{type, …}], repeat_days, is_active}` |
+| POST | `/automation/rules/{id}/test` · `/automation/rules/{id}/run` | dry run → `{checked, matched [{record_id, label, actions}]}` · run a scheduled rule now |
+| GET · POST · GET | `/automation/meta` · `/automation/templates/{key}` · `/automation/runs?rule_id&status` | fields / ops / actions / templates · add a ready-made rule · run log |
+| GET | `/record-tags?type&id` | tags set by rules |
+| GET · POST · GET · PATCH | `/fleet/vehicles[/{id}]` | `{name, plate, kind, make, model, year, vin, fuel_type, odometer, fuel_norm, purchase_date, license_expiry, insurance_expiry, inspection_expiry, capacity_kg, driver_id, cost_center_id, is_active, notes}` |
+| GET · POST · POST | `/fleet/fuel[?vehicle_id&from&to&anomalies=1]` · `/fleet/fuel/{id}/void` | `{vehicle_id, date, odometer, liters, amount, method_id (posts the expense), account_id, full_tank, station, driver_id, notes}` → `consumption`, `anomaly high_consumption\|odometer_back` |
+| GET · POST · PATCH | `/fleet/service-plans[/{id}]` | `{vehicle_id, task, every_km, every_days, last_km, last_date, is_active}` → `state due\|soon\|ok\|off` |
+| GET · POST · POST | `/fleet/service-log` · `/fleet/service-log/{id}/void` | `{vehicle_id \| plan_id, date, odometer, task, amount, method_id, account_id, vendor, notes}`; the plan's last km / date move on |
+| POST | `/fleet/vehicles/{id}/link-expense` | `{expense_id}` (tolls, washing…) |
+| GET | `/fleet/alerts` · `/fleet/reports/costs?from&to` · `/fleet/settings` (PUT) | papers / services / fuel anomalies · fuel, service, other, total, km, cost per km · `{fuel_account_id, service_account_id}` |
+
+Public (no sign-in): `POST /inbound/{token}/email`, `GET|POST /inbound/{token}/whatsapp`, `GET|POST /rate/{token}` (`{rating 1-5, comment}`).
+Expenses accept `project_id` and `vehicle_id`; employees accept `hourly_cost`.

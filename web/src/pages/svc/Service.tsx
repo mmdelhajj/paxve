@@ -8,6 +8,7 @@ import { errorText, formatAmount, formatDate, formatDateTime, today } from '../.
 import { printPage } from '../../native';
 import { Help } from '../acc/common';
 import Chatter from '../../components/Chatter';
+import { openScreen } from '../../nav';
 
 type Msg = { ok: boolean; text: string } | null;
 function Flash({ m }: { m: Msg }) {
@@ -27,7 +28,7 @@ type Mode = typeof MODES[number];
 const CATS = ['outage', 'no_internet', 'slow', 'no_signal', 'meter', 'billing', 'new_connection', 'move', 'disconnect', 'complaint', 'other'];
 const PRIOS = ['low', 'normal', 'high', 'urgent'];
 const STATUSES = ['new', 'in_progress', 'waiting', 'done', 'cancelled'];
-const CHANNELS = ['phone', 'whatsapp', 'office', 'portal', 'field', 'other'];
+const CHANNELS = ['phone', 'whatsapp', 'email', 'office', 'portal', 'field', 'other'];
 
 /** Service desk: customer requests / complaints / faults, and generator maintenance plans. */
 export default function Service({ me, initial }: { me: Me; initial?: string }) {
@@ -67,6 +68,8 @@ interface Ticket {
   priority: string; status: string; subject: string; description: string; contact_phone: string; channel: string; assigned_to: string | null;
   assigned_name: string | null; due_at: string | null; resolved_at: string | null; resolution: string; created_by_name: string | null;
   created_at: string; overdue: boolean; age_hours: string;
+  contact_email?: string; sla_name?: string | null; response_due?: string | null; resolution_due?: string | null; first_response_at?: string | null;
+  escalated_at?: string | null; sla_state?: string; rating?: number | null; rating_comment?: string; jobs?: number; rating_token?: string | null;
 }
 interface Note { id: string; body: string; created_by_name: string | null; created_at: string }
 interface Cust { id: string; name: string; code: string; phone?: string }
@@ -124,6 +127,8 @@ function Tickets({ me }: { me: Me }) {
     { key: 'cust', title: t('svc.customer'), get: (r) => (r.customer_name ? `${r.customer_code ?? ''} ${r.customer_name}` : r.contact_phone), width: 160 },
     { key: 'cat', title: t('svc.category'), get: (r) => t(`svc.cat.${r.category}`), width: 110 },
     { key: 'status', title: t('svc.status'), get: (r) => t(`svc.st.${r.status}`), width: 90, cls: (r) => (r.overdue ? 'red' : '') },
+    { key: 'sla', title: t('fsv.sla.col'), get: (r) => (r.sla_state && r.sla_state !== 'none' ? t(`fsv.sla.st.${r.sla_state}`) : ''), width: 90,
+      cls: (r) => (r.sla_state === 'breached' ? 'red' : '') },
     { key: 'who', title: t('svc.assigned'), get: (r) => r.assigned_name ?? '', width: 110 },
     { key: 'age', title: t('svc.age'), get: (r) => Number(r.age_hours), render: (r) => ageText(t, Number(r.age_hours)), width: 70 },
     { key: 'at', title: t('svc.opened'), get: (r) => r.created_at, render: (r) => formatDateTime(r.created_at), width: 130 },
@@ -148,6 +153,16 @@ function Tickets({ me }: { me: Me }) {
             <h3 style={{ margin: 0 }}>#{sel.number} · {sel.subject}</h3>
             <small>{sel.customer_name ? `${sel.customer_code ?? ''} ${sel.customer_name} · ` : ''}{sel.contact_phone} · {t(`svc.ch.${sel.channel}`)} · {formatDateTime(sel.created_at)}{sel.created_by_name ? ` · ${sel.created_by_name}` : ''}</small>
             {sel.description && <p style={{ whiteSpace: 'pre-wrap', margin: '4px 0' }}>{sel.description}</p>}
+            {sel.sla_name && (
+              <small className={sel.sla_state === 'breached' ? 'red' : ''}>
+                {t('fsv.sla.col')}: {sel.sla_name} · {t(`fsv.sla.st.${sel.sla_state ?? 'ok'}`)}
+                {sel.response_due ? ` · ${t('fsv.sla.respond')} ${formatDateTime(sel.response_due)}` : ''}
+                {sel.resolution_due ? ` · ${t('fsv.sla.resolve')} ${formatDateTime(sel.resolution_due)}` : ''}
+                {sel.escalated_at ? ` · ${t('fsv.sla.escalated')}` : ''}
+              </small>
+            )}
+            {sel.rating ? <small>{t('fsv.rate.got', { n: sel.rating })}{sel.rating_comment ? ` — ${sel.rating_comment}` : ''}</small>
+              : sel.rating_token ? <small>{t('fsv.rate.link')}: <span dir="ltr" style={{ userSelect: 'all' }}>{`${window.location.origin}/#/rate/${sel.rating_token}`}</span></small> : null}
             <label>{t('svc.status')}<select disabled={!canEdit} value={sel.status} onChange={(e) => patch({ status: e.currentTarget.value })}>
               {STATUSES.map((s) => <option key={s} value={s}>{t(`svc.st.${s}`)}</option>)}</select></label>
             <label>{t('svc.priority')}<select disabled={!canEdit} value={sel.priority} onChange={(e) => patch({ priority: e.currentTarget.value })}>
@@ -161,6 +176,10 @@ function Tickets({ me }: { me: Me }) {
             <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap' }}>
               {canEdit && sel.status !== 'done' && <button className="mx-btn" onClick={() => patch({ status: 'done' })}>{t('svc.close')}</button>}
               {sel.customer_id && <a className="mx-btn sm" href={`#/customer/${sel.customer_id}`}>{t('svc.openCustomer')}</a>}
+              {sel.customer_id && canCreate && !['done', 'cancelled'].includes(sel.status) && (
+                <button className="mx-btn sm" onClick={() => base && void run(api(`${base}/fs/service-jobs`, { method: 'POST', body: { ticket_id: sel.id } }),
+                  () => openScreen('field', 'jobs'))}>{t('fsv.jobs.fromTicket')}</button>)}
+              {(sel.jobs ?? 0) > 0 && <button className="mx-btn sm" onClick={() => openScreen('field', 'jobs')}>{t('fsv.jobs.count', { n: sel.jobs })}</button>}
               <button className="mx-btn sm" onClick={() => printPage()}>{t('svc.print')}</button>
             </div>
             <h4 style={{ margin: '8px 0 2px' }}>{t('svc.history')}</h4>
