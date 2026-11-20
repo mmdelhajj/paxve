@@ -7383,6 +7383,18 @@
   "title": "Paxve hesabınızı oluşturun"
  },
  "site": {
+  "alt": {
+   "cash": "İyi ve kötü durumu içeren 13 haftalık nakit tahmini tablosu",
+   "collect": "Paxve tahsilat ekranı: bakiyeleri ve dolar ve pound makbuzlarını içeren abone listesi",
+   "dash": "Paxve kontrol paneli",
+   "field": "Ödenmemiş bakiyesi olan aboneleri listeleyen bir telefondaki tahsilat uygulaması",
+   "items": "Miktarlar, ortalama maliyet ve değerle birlikte kalemler ve stok",
+   "late": "Her müşterinin nedenlerini içeren geç ödeme riski listesi",
+   "mfg": "Bileşenleri, miktarları, işçiliği ve genel giderleri içeren malzeme listesi",
+   "owner": "Telefonda günün koleksiyonlarını, satışlarını ve nakit parasını gösteren sahip uygulaması",
+   "pos": "Ürün parçaları, sepet ve toplamın bulunduğu satış noktası",
+   "subs": "USD ve LBP cinsinden alanları, durumu ve bakiyeleri içeren abone listesi"
+  },
   "android": "Android uygulaması (APK)",
   "biz": {
    "clothing": {
@@ -7605,7 +7617,11 @@
    "title": "Büyük bir şirketin sahip olduğu her şey küçük bir şirket için yeterince basit"
   },
   "foot": {
-   "made": "Lübnan'da üretilen iş yazılımı"
+   "company": "Şirket",
+   "made": "Lübnan'da üretilen iş yazılımı",
+   "product": "Ürün",
+   "rights": "Her hakkı saklıdır",
+   "tagline": "Arapça konuşulan işletmeler için Lübnan'da muhasebe, faturalandırma, stok, satış ve ekibinize yönelik tek bir sistem oluşturuldu."
   },
   "form": {
    "business": "İşletme türü",
@@ -7631,7 +7647,184 @@
    "t3": "Arapça, İngilizce, Fransızca",
    "title": "Tüm işinizi tek bir sistemden yönetin - Arapça"
   },
+  "ind": {
+   "back": "Tüm işletme türleri",
+   "clothing": {
+    "h": "Kaos olmadan boyutlar, renkler ve mevsimler",
+    "p1": "Her boyut ve renk, yönetilmesi gereken ayrı bir öğedir.",
+    "p2": "Kasadaki değişimler yavaştır ve hataya açıktır.",
+    "p3": "Gerçekten neyin satıldığını bilmiyorsun.",
+    "s1": "Boyut ve renge göre çeşitleri olan bir ürün.",
+    "s2": "Stok düzeltilmiş halde, birkaç dokunuşla değişim ve iade.",
+    "s3": "Boyut, renk ve sezona göre en çok satanlar ve yavaş satanlar."
+   },
+   "ctaTitle": "Kendi {{name}} çalışmanızla Paxve görün",
+   "electronics": {
+    "h": "Satın alma aşamasından garantiye kadar takip edilen her cihaz",
+    "p1": "Diziler ve IMEI'ler kağıt üzerinde yaşıyor.",
+    "p2": "Garanti talepleri tartışmalara dönüşüyor.",
+    "p3": "Takas ve taksit işlemleri elle yapılır.",
+    "s1": "Seri / IMEI satın alma ve satış sırasında kaydedilir.",
+    "s2": "Bir garanti kartı ve saniyeler içinde cihazın tüm geçmişi.",
+    "s3": "Takas kısmi ödeme sayıldı ve taksitli satışlar takip edildi."
+   },
+   "factory": {
+    "h": "Üretimi planlayın ve gerçek maliyeti öğrenin",
+    "p1": "Bu hafta ne yapacağınızı ve ne alacağınızı bilmiyorsunuz.",
+    "p2": "Ürün maliyeti bir tahmindir.",
+    "p3": "Kalite sorunları müşteride ortaya çıkar.",
+    "s1": "Tek tıklamayla siparişlerden malzeme planlaması ve minimum stok.",
+    "s2": "Malzemelerden, makine zamanından ve işçilikten gerçek maliyet.",
+    "s3": "Siparişi geçinceye kadar tutan her adımda kalite kontrolleri."
+   },
+   "features": "{{name}} için Paxve : neler dahil",
+   "furniture": {
+    "h": "Sipariş üzerine üretim, depozito ve teslimat tek akışta",
+    "p1": "Özel boyutlar ve seçenekler fiyatlandırmayı yavaşlatır.",
+    "p2": "Mevduatlar eski bakiyelere karışıyor.",
+    "p3": "Teslimat ve montaj WhatsApp üzerinden planlanmaktadır.",
+    "s1": "Seçenekler ve metrekare fiyatı sizin için belirlendi.",
+    "s2": "Her para yatırma işlemi kendi emrine bağlı kalır.",
+    "s3": "Teslimat ve tesisatçı, toplanacak bakiyeyle birlikte planlanır."
+   },
+   "generator": {
+    "h": "Jeneratör işinizi dizüstü bilgisayar olmadan yürütün",
+    "p1": "Tahsilatçılar nakit ve kağıt listeleri taşırlar ve kimse günün geceye kadar toplamını bilemez.",
+    "p2": "Dizel ortadan kayboluyor ve sayılar asla bir araya gelmiyor.",
+    "p3": "Aylık faturalar günler alıyor ve tarifeler sürekli değişiyor.",
+    "s1": "Koleksiyonerler telefonla çalışır ve makbuzları yerinde yazdırır; her ödemeyi gerçekleştiği anda görürsünüz.",
+    "s2": "Paxve dizel yakıtı çalışma saati başına takip eder ve kullanımda sıçramalar olduğunda sizi uyarır.",
+    "s3": "Telefonda yapılan okumalar, ardından her abone için amper veya metre cinsinden tek seferde faturalandırılır."
+   },
+   "internet": {
+    "h": "Abonelikler, yenilemeler ve ağ cihazları tek bir yerde",
+    "p1": "Yenilemeler kaçırılır ve süresi dolan kullanıcılar hizmetten yararlanmaya devam eder.",
+    "p2": "Destek talepleri WhatsApp sohbetlerinde kayboluyor.",
+    "p3": "Yönlendiriciler ve cihazlar bir e-tabloda izlenir.",
+    "s1": "Belirlediğiniz yetkisiz günlerin ardından askıya alma ile otomatik aylık yenileme.",
+    "s2": "Yanıt süresi hedeflerini ve yöneticiye iletmeyi içeren bildirimler.",
+    "s3": "Her aboneye bağlı cihazlar ve diziler."
+   },
+   "kicker": "Ne elde edeceksin",
+   "others": "Diğer iş türleri",
+   "pains": "Günlük baş ağrılarından sakin bir rutine",
+   "painsSub": "Sahiplerin bize en çok anlattığı sorunlar ve Paxve nelerin değiştiği.",
+   "pharmacy": {
+    "h": "Son kullanma tarihi, reçeteler ve sigortacılar doğru şekilde ele alındı",
+    "p1": "Son kullanma tarihi geçmiş ilaç tezgaha ulaşır.",
+    "p2": "Alternatif bulmak çok uzun sürüyor.",
+    "p3": "Sigortacı payları kağıt üzerinde takip edilmektedir.",
+    "s1": "İlk vade ilk önce, süresi dolmuş lotlar kasada bloke edilmiş durumda.",
+    "s2": "Alternatiflerle birlikte aktif maddeye göre arama yapın.",
+    "s3": "Sigortacının payı, ödenene kadar takip ettiğiniz bir alacak haline gelir."
+   },
+   "problem": "Önce",
+   "restaurant": {
+    "h": "Masalar, mutfak ve yemek masraflarının tümü bağlantılı",
+    "p1": "Siparişler mutfağa bağırılıyor ve kayboluyor.",
+    "p2": "Faturayı bölmek baş ağrısıdır.",
+    "p3": "Gerçek yiyecek maliyetinizi bilmiyorsunuz.",
+    "s1": "Ekstralar ve notlar içeren istasyon başına bir mutfak ekranı.",
+    "s2": "Servis ücreti ve bahşişlerle birlikte konuklara veya eşit olarak bölünür.",
+    "s3": "Tariflerde stokta olmayan malzemeler alınır ve günlük yiyecek maliyeti gösterilir."
+   },
+   "satellite": {
+    "h": "Paketler, alıcılar ve kapıdan kapıya toplama",
+    "p1": "Paket değişikliklerini ve eklentilerini takip etmek zordur.",
+    "p2": "Alıcılar ve kartlar kayboluyor.",
+    "p3": "Koleksiyoncular yanlış toplamlarla geri dönüyor.",
+    "s1": "Her abonelik paketini, eklentilerini ve geçmişini saklar.",
+    "s2": "Her alıcı ve kart serisi kendi abonesine bağlıdır.",
+    "s3": "Makbuzları ve bölgeye göre günlük teslimi içeren koleksiyoncu uygulaması."
+   },
+   "solution": "Paxve ile",
+   "supermarket": {
+    "h": "Her satışı takip eden hızlı kasa ve stok",
+    "p1": "Kasa yavaş veya çevrimdışıyken kuyruklar oluşur.",
+    "p2": "Öğeler fark edilmeden rafta sona erer.",
+    "p3": "Tahmine göre yeniden sıralarsınız.",
+    "s1": "Çevrimdışı satış yapmaya devam edene kadar bir barkod.",
+    "s2": "Lot başına son kullanma tarihleri ​​ve bunların süresi dolmadan önce uyarılar.",
+    "s3": "Her bir ürünün ne kadar hızlı satıldığına göre akıllı yeniden sıralama."
+   },
+   "water": {
+    "h": "Teslimatlar, şişeler ve aylık planlar kontrol altında",
+    "p1": "Şişe depozitoları ve iadeleri hiçbir zaman toplanmaz.",
+    "p2": "Sürücülerin rotaları ve teslimatları kaydedilmez.",
+    "p3": "Müşteriler bakiyeleri hakkında tartışıyorlar.",
+    "s1": "Müşteri başına takip edilen mevduat ve iadeler.",
+    "s2": "Telefondan teslimat kanıtı ile teslimat gezileri.",
+    "s3": "Müşteri başına WhatsApp tarafından gönderilen net bir beyan."
+   },
+   "wholesale": {
+    "h": "Fiyat kademeleri, kredi limitleri ve satılan kamyonetler",
+    "p1": "Müşteriler kredi limitlerini aşarak satın alırlar.",
+    "p2": "Van hisseleri günün sonunda asla eşleşmez.",
+    "p3": "Komisyonlar elle hesaplanır.",
+    "s1": "Satışı engelleyen kredi limitleri sadece uyarmakla kalmıyor.",
+    "s2": "Sabah yükle, telefondan sat, say ve akşam kapat.",
+    "s3": "İadeler hariç, satıcı başına komisyon raporu."
+   }
+  },
   "installWeb": "Uygulama olarak yükle",
+  "legal": {
+   "kicker": "Yasal",
+   "privacy": {
+    "s1": {
+     "h": "Biz kimiz",
+     "p": "Paxve paxve.com'da sunulan iş yönetimi yazılımıdır. Bu politika, web sitesini ve hizmeti kullandığınızda neler topladığımızı ve bunları nasıl kullandığımızı açıklamaktadır."
+    },
+    "s2": {
+     "h": "Ne topluyoruz",
+     "p": "Bize verdiğiniz hesap ayrıntıları (isim, e-posta, telefon, işletme adı), Paxve girdiğiniz iş verileri (müşteriler, faturalar, stok vb.) ve güvenlik için kullanılan oturum açma saatleri ve IP adresleri gibi temel teknik günlükler."
+    },
+    "s3": {
+     "h": "Bunu nasıl kullanıyoruz?",
+     "p": "Hizmeti sizin için çalıştırmak, güvenliğini sağlamak, isteklerinizi yanıtlamak ve size hesabınızla ilgili mesajlar göndermek. Verilerinizi satmıyoruz ve iş verilerinizi reklam amacıyla kullanmıyoruz."
+    },
+    "s4": {
+     "h": "İş verileriniz size ait kalır",
+     "p": "Her şirketin verileri diğer tüm şirketlerden ayrılır. Verilerinizi istediğiniz zaman dışa aktarabilir ve yasanın saklamamızı gerektirdiği durumlar dışında, hesabınızı kapattığınızda silmemizi isteyebilirsiniz."
+    },
+    "s5": {
+     "h": "Güvenlik ve yedeklemeler",
+     "p": "Veriler şifreli olarak seyahat eder, yedeklemeler şifrelenir ve her gün alınır ve Paxve erişim, belirlediğiniz rollere göre yapılır. Her hesap için iki adımlı oturum açma olanağı mevcuttur."
+    },
+    "s6": {
+     "h": "Temas etmek",
+     "p": "Verilerinizle ilgili her türlü sorunuz için paxve.com adresindeki iletişim formunu kullanarak bize yazın. Bu politikayı güncelleyebiliriz; Yukarıdaki tarih en son sürümü gösterir."
+    },
+    "title": "Gizlilik politikası"
+   },
+   "terms": {
+    "s1": {
+     "h": "Hizmet",
+     "p": "Paxve muhasebe, faturalandırma, stok, satış ve ilgili işler için çevrimiçi yazılım sağlar. Bir hesap oluşturarak bu şartları kabul etmiş olursunuz."
+    },
+    "s2": {
+     "h": "Hesabınız",
+     "p": "Davet ettiğiniz kişilerden ve şifrelerin güvende tutulmasından siz sorumlusunuz. Hesabınızın kötüye kullanıldığını düşünüyorsanız hemen bize bildirin."
+    },
+    "s3": {
+     "h": "Deneme ve ödeme",
+     "p": "Yeni hesaplar ücretsiz denemeyle başlar. Bundan sonra seçtiğiniz plan, paxve.com'da gösterilen fiyatlar üzerinden aylık veya yıllık olarak ABD doları cinsinden faturalandırılır. Ödenmemiş hesaplar salt okunur hale gelebilir ve daha sonra askıya alınabilir."
+    },
+    "s4": {
+     "h": "Verileriniz",
+     "p": "Girdiğiniz verilerin sahibi sizsiniz ve bunları istediğiniz zaman dışa aktarabilirsiniz. Gizlilik politikasında açıklandığı gibi güvende tutuyoruz."
+    },
+    "s5": {
+     "h": "Adil kullanım",
+     "p": "Paxve yasa dışı amaçlarla, spam göndermek veya size ait olmayan verilere ulaşmaya çalışmak için kullanmayın."
+    },
+    "s6": {
+     "h": "Değişiklikler ve iletişim",
+     "p": "Hizmeti geliştirebilir ve bu şartları güncelleyebiliriz; Önemli değişiklikler uygulamada duyuruluyor. Sorularınızı paxve.com'daki iletişim formu aracılığıyla iletebilirsiniz."
+    },
+    "title": "Kullanım koşulları"
+   },
+   "updated": "Son güncelleme: Kasım 2026"
+  },
   "metaTitle": "Paxve — işletme yönetimi: muhasebe, faturalandırma, stok, satış",
   "mock": {
    "app": "Koleksiyon",
@@ -7670,6 +7863,20 @@
    "year": "yıl",
    "yearly": "Yıllık (2 ay ücretsiz)"
   },
+  "px": {
+   "aiT": "AI ayda bir soru soruyor",
+   "appsT": "Tüm uygulamalar",
+   "backupT": "Günlük şifrelenmiş yedeklemeler",
+   "companiesT": "Şirketler",
+   "compare": "Tüm planları karşılaştır",
+   "feature": "Neler dahil",
+   "phoneT": "Telefon uygulamaları (saha, sahip, müşteri)",
+   "save": "2 ay ücretsiz",
+   "subsT": "Aboneler / müşteriler",
+   "supportT": "Arapça destek",
+   "usersT": "Kullanıcılar",
+   "yearly": "Yıllık"
+  },
   "signIn": "Oturum aç",
   "stats": {
    "s1": {
@@ -7689,7 +7896,194 @@
     "v": "11"
    }
   },
-  "trial": "Ücretsiz denemeyi başlat"
+  "trial": "Ücretsiz denemeyi başlat",
+  "trust": {
+   "i1": {
+    "d": "Her şirketin verileri veritabanının kendi içinde ayrılmıştır, böylece bir işletme yanlışlıkla bile olsa diğerinin kayıtlarını asla göremez.",
+    "t": "Bütün şirketler mühürlendi"
+   },
+   "i2": {
+    "d": "Her gün tam bir yedekleme alınır, şifrelenir ve çalıştığını kanıtlamak için her hafta bir testle geri yüklenir.",
+    "t": "Şifreli günlük yedeklemeler"
+   },
+   "i3": {
+    "d": "Hesapları bir telefon uygulamasından alınan kodla, güçlü şifre kurallarıyla ve otomatik oturum kapatmayla koruyun.",
+    "t": "İki adımlı oturum açma"
+   },
+   "i4": {
+    "d": "Kimin neyi, ne zaman değiştirdiği, her fatura, ödeme ve ayar için saklanır.",
+    "t": "Her değişikliğin günlüğü"
+   },
+   "i5": {
+    "d": "Kasiyerler, tahsildarlar, muhasebeciler ve yöneticiler, her şubeye kadar yalnızca işlerinin gerektirdiğini görür.",
+    "t": "Roller ve izinler"
+   },
+   "sub": "Bunu asla düşünmenize gerek kalmaması için yapıyoruz.",
+   "title": "Verileriniz her adımda korunuyor"
+  },
+  "v3": {
+   "api": {
+    "comment": "# 45 USD topla: 20 dolar + 2.500.000 pound, LBP kutusundan bozuk para",
+    "docs": "API belgeleri",
+    "events": "Olaylar",
+    "eyebrow": "Geliştiriciler",
+    "h": "Paxve sistemlerinize bağlamak için bir API ve web kancaları",
+    "p": "Ekranlardaki her şeye, şirket başına bir anahtarla API aracılığıyla erişilebilir. client_ref taşıyan bir ödeme, iki kez gönderilse bile asla kopyalanmaz ve olaylar size HMAC-SHA256 ile imzalanmış olarak ulaşır."
+   },
+   "card": {
+    "mBilled": "Faturalandırıldı",
+    "mCollected": "Toplanan",
+    "mDue": "Müşterilerin borçlu olduğu",
+    "mRate": "Tahsilat oranı",
+    "mT": "Bu ay · Al Hay Jeneratörler",
+    "posCheese": "Akkawi peyniri",
+    "posMilk": "Taze süt 1 L",
+    "posPay": "Ödemek",
+    "posSoap": "Bulaşık sabunu 750 ml",
+    "posT": "1'e kadar · El Arz Pazarı",
+    "posTomato": "Domates",
+    "posTotal": "Toplam",
+    "rcBill": "Kasım faturası",
+    "rcCust": "Bilal Chehab · #15 · Ana cadde",
+    "rcPaid": "Paralı",
+    "rcPrint": "Kaydet ve yazdır",
+    "rcRate": "Döviz kuru",
+    "rcRest": "Ödemek kaldı",
+    "rcT": "Makbuz #8",
+    "stBread": "Arap ekmeği",
+    "stItem": "Öğe",
+    "stQty": "Adet",
+    "stT": "Stok · Ana depo",
+    "stTotal": "Stok değeri",
+    "stVal": "Değer",
+    "stWater": "Su 1,5 L"
+   },
+   "cmp": {
+    "eyebrow": "Karşılaştırmak"
+   },
+   "contact": {
+    "c1": "Kendi işinizle ilgili bir izlenecek yol",
+    "c2": "Verilerinizi Excel veya eski programınızdan taşımaya yardımcı olun",
+    "c3": "Aynı gün cevap",
+    "eyebrow": "Temas etmek"
+   },
+   "cta": {
+    "h": "Paxve kendi iş verileriniz üzerinde deneyin",
+    "p": "Her uygulamada 14 gün ücretsiz; müşterilerinizi ve bakiyelerinizi taşımanıza yardımcı oluyoruz."
+   },
+   "faq": {
+    "eyebrow": "Sorular"
+   },
+   "field": {
+    "baalbek": "Baalbek",
+    "beirut": "Beyrut",
+    "eyebrow": "Saha uygulaması",
+    "h": "Bir koleksiyoncu çevrimdışı olarak 40 aboneden ödeme alıyor ve tekrar menzile girdiğinde bunları yüklüyor",
+    "jounieh": "Jounieh",
+    "map": "Toplayıcı rotası: yol düzeninde ücretsiz aboneler",
+    "p": "Ödenmemiş liste, koleksiyoncunun telefonunda rota sırasına göre duruyor. Bluetooth ile makbuzu topluyor, yazdırıyor ve abonenin konumunu kaydetmek için kapıda \"buradayım\"a basıyorlar. Sürücüler, teknisyenler ve kamyonet satıcıları aynı uygulamayı kullanıyor.",
+    "s1d": "Toplama ve satışlar devam ediyor ve hat geri döndüğünde her şey gönderiliyor.",
+    "s1t": "Çevrimdışı",
+    "s2d": "Telefondan Bluetooth ile yazdırılan veya WhatsApp üzerinden gönderilen bir makbuz.",
+    "s2t": "58mm",
+    "s3d": "Her iki para biriminde bugünkü kur üzerinden tutar ve değişim.",
+    "s3t": "USD + LBP",
+    "s4d": "İki kez gönderilen fiş yalnızca bir kez kaydedilir.",
+    "s4t": "Bir kere",
+    "saida": "Saida",
+    "tripoli": "Trablus",
+    "tyre": "Yorulmak",
+    "zahle": "Zahle"
+   },
+   "foot": {
+    "acc": "Muhasebe",
+    "collect": "Koleksiyon",
+    "field": "Saha uygulaması",
+    "mfg": "Üretme",
+    "pos": "Satış noktası",
+    "products": "Ürün",
+    "resources": "Kaynaklar",
+    "stock": "Stoklamak"
+   },
+   "hero": {
+    "demo": "Demo rezervasyonu yapın",
+    "f1": "14 günlük ücretsiz deneme",
+    "f2": "Kart yok",
+    "f3": "Verilerinizi Excel veya eski programınızdan taşıyoruz",
+    "h1a": "Faturalama, tahsilat, stok ve muhasebe",
+    "h1b": "dolar ve pound cinsinden",
+    "h1c": "Lübnan'daki jeneratör sahipleri, mağazalar ve fabrikalar için.",
+    "lead": "Bugünün kuru üzerinden her iki para birimindeki faturalar ve makbuzlar, çevrimdışı olsa bile telefonla ödeme alan tahsildarlar ve her satışla güncellenen kasa, stok ve kitaplar."
+   },
+   "more": "Daha fazla bilgi edin",
+   "nav": {
+    "close": "Menüyü kapat",
+    "dev": "Geliştiriciler",
+    "product": "Ürün",
+    "types": "İşletme türleri"
+   },
+   "price": {
+    "eyebrow": "Fiyatlandırma",
+    "h": "Planları ABD doları cinsinden netleştirin",
+    "p": "Her planda tam sistem ve telefon uygulamaları bulunur. Planlar abonelere, kullanıcılara ve şirketlere göre farklılık gösterir."
+   },
+   "protect": {
+    "eyebrow": "Veri koruma",
+    "h": "Verileriniz yedeklenir ve ayrı tutulur",
+    "i6d": "Lübnan'daki bir ekip iletişim formu ve WhatsApp aracılığıyla Arapça, İngilizce veya Fransızca yanıt veriyor.",
+    "i6t": "Lübnan'dan Arapça destek"
+   },
+   "rows": {
+    "cash": {
+     "cap": "Al Hay Generators'ta iyi ve kötü durumlarla 13 haftalık nakit tahmini.",
+     "eyebrow": "Nakit para ve uyarılar",
+     "h": "13 haftada geriye ne kalacak, kim geç ödeyecek",
+     "p": "Paxve açık faturaları, abonelikleri, tedarikçi faturalarını ve maaş bordrosunu haftalık tahmine ekler ve her müşteriyi geçmiş gecikmelere göre puanlar. Araç sahibi, dizeldeki artışların, kıtlıklara ve olağandışı indirimlere kadar günlük bir özetini alıyor."
+    },
+    "collect": {
+     "cap": "Al Hay Jeneratörlerde Tahsilat: Bilal Chehab'ın 25.00 ödedikten sonra Kasım faturasında 59.22 USD borcu var.",
+     "eyebrow": "Koleksiyon",
+     "h": "Dolar ve poundları alın ve makbuzu saniyeler içinde yazdırın",
+     "p": "İsme, koda veya telefona göre arama yapın, aboneyi seçin ve tutarı her iki para biriminde yazın. Para üstü 89.500 olarak hesaplanıyor ve makbuz hemen kasaya ve defterlere postalanıyor. Toplama için Enter, kaydetme ve yazdırma için F9 tuşuna basın."
+    },
+    "mfg": {
+     "cap": "Sedir Mobilya Fabrikası'ndaki metal dolap için malzeme listesi, versiyon 1.",
+     "eyebrow": "Üretme",
+     "h": "Malzeme listesi, bir ürünü siz yapmadan önce fiyatlandırır",
+     "p": "Bir metal dolap = 18 kg çelik sac + yarım kutu vida + 1,5 L boya, 8 USD işçilik ve 4 USD genel gider ile. İş emri malzemeleri ayırır ve fiili maliyeti hesaplar; standart maliyetten fark kaydedilir."
+    },
+    "pos": {
+     "cap": "Al Arz Pazarı'ndaki satış noktası: Toplam fiyatı 15,90 USD olan beş üründen oluşan bir sepet.",
+     "eyebrow": "Satış noktası",
+     "h": "Hat düştüğünde satışa devam eden bir barkod",
+     "p": "Kasiyer ürünü tarar veya dokunur, bir kupon veya hediye kartı uygular ve dolar, pound veya Whish alır. Satışlar çevrimdışı olarak devam eder ve hat geri döndüğünde senkronize edilir ve vardiya kapanışı, sayılan nakit ile beklenen parayı karşılaştırır."
+    },
+    "stock": {
+     "cap": "Al Arz Market'teki ürünler: Ana depoda 499,60 USD stok bulunmaktadır.",
+     "eyebrow": "Stoklamak",
+     "h": "Kitaplarla eşleşen her öğenin miktarı, maliyeti ve değeri",
+     "p": "Her tedarikçi faturası ve her stok hareketi ile ilgili ortalama maliyet güncellemeleri, kutular, partiler, son kullanma tarihleri ​​ve alım ve sayımlar için telefonda barkod taramasıyla birlikte otomatik olarak yayınlanır."
+    }
+   },
+   "tryIt": "Ücretsiz deneyin",
+   "types": {
+    "clothing": "Beden ve renklerde tek ürün, kasada takas ve bedene göre en çok satılanlar.",
+    "electronics": "Satın alma ve satışta seri numarası veya IMEI, bir garanti kartı ve eski cihazın takası.",
+    "eyebrow": "İşletme türleri",
+    "factory": "Versiyonlandırılmış malzeme listeleri, ne yapılıp satın alınacağına dair planlama ve ürün başına gerçek maliyet.",
+    "furniture": "Metrekare fiyatı, siparişe bağlı depozito ve tek yuvada teslimat ve montaj.",
+    "generator": "Amper veya metre bazında faturalar, alana göre tahsilat ve çalışma saati başına izlenen dizel.",
+    "h": "Her birinin kendi ekranı ve hesabı olan on iki işletme türü",
+    "internet": "Otomatik aylık yenileme, ek süre sonrasında askıya alma ve yanıt süresi olan destek biletleri.",
+    "p": "Kaydolduğunuzda işletme türünüzü seçersiniz. Paxve yalnızca ihtiyacınız olanı açar ve istediğiniz zaman daha fazla uygulamayı açabilirsiniz.",
+    "pharmacy": "İlk-son kullanma-önce, aktif maddeye göre arama ve hasar olarak sigortacının payı.",
+    "restaurant": "Masalar ve mutfak ekranı, bölünmüş faturalar ve malzemeleri stoktan çıkaran tarifler.",
+    "satellite": "Abone başına paket ve eklentiler, alıcı ve kart serileri ile kapıdan kapıya tahsilat.",
+    "supermarket": "Çevrimdışı çalışana kadar bir barkod, lot başına son kullanma tarihi ve satış hızına göre yeniden sıralama.",
+    "water": "Depozitolu şişeler, teslimat kanıtlarıyla birlikte teslimat gezileri ve WhatsApp bildirimler.",
+    "wholesale": "Fiyat kademeleri, satışı engelleyen bir kredi limiti ve telefondan satış yapan bir minibüs."
+   }
+  }
  },
  "sm": {
   "ai": {

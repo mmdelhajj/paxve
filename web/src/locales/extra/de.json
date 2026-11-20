@@ -7383,6 +7383,18 @@
   "title": "Erstellen Sie Ihr Paxve Konto"
  },
  "site": {
+  "alt": {
+   "cash": "13-wöchiges Cash-Prognosediagramm mit einem guten und einem schlechten Fall",
+   "collect": "Paxve Sammelbildschirm: Abonnentenliste mit Guthaben und einer Quittung in Dollar und Pfund",
+   "dash": "Paxve Dashboard",
+   "field": "Collector-App auf einem Telefon, die Abonnenten mit unbezahlten Beträgen auflistet",
+   "items": "Artikel und Lagerbestand mit Mengen, Durchschnittskosten und Wert",
+   "late": "Risikoliste für säumige Zahler mit Angabe der Gründe für jeden Kunden",
+   "mfg": "Stückliste mit Komponenten, Mengen, Arbeitsaufwand und Gemeinkosten",
+   "owner": "Besitzer-App auf einem Telefon, die die heutigen Sammlungen, Verkäufe und Bargeld anzeigt",
+   "pos": "Verkaufsstelle mit Produktplättchen, einem Korb und der Gesamtsumme",
+   "subs": "Abonnentenliste mit Bereichen, Status und Guthaben in USD und LBP"
+  },
   "android": "Android-App (APK)",
   "biz": {
    "clothing": {
@@ -7605,7 +7617,11 @@
    "title": "Alles, was ein großes Unternehmen hat – einfach genug für ein kleines"
   },
   "foot": {
-   "made": "Unternehmenssoftware, hergestellt im Libanon"
+   "company": "Unternehmen",
+   "made": "Unternehmenssoftware, hergestellt im Libanon",
+   "product": "Produkt",
+   "rights": "Alle Rechte vorbehalten",
+   "tagline": "Ein System für Buchhaltung, Abrechnung, Lager, Vertrieb und Ihr Team, entwickelt im Libanon für arabischsprachige Unternehmen."
   },
   "form": {
    "business": "Geschäftstyp",
@@ -7631,7 +7647,184 @@
    "t3": "Arabisch, Englisch, Französisch",
    "title": "Führen Sie Ihr gesamtes Unternehmen über ein einziges System – auf Arabisch"
   },
+  "ind": {
+   "back": "Alle Geschäftsarten",
+   "clothing": {
+    "h": "Größen, Farben und Jahreszeiten ohne Chaos",
+    "p1": "Jede Größe und Farbe ist ein separates Element, das verwaltet werden muss.",
+    "p2": "Der Umtausch an der Kasse ist langsam und fehleranfällig.",
+    "p3": "Sie wissen nicht, was sich wirklich verkauft.",
+    "s1": "Ein Artikel mit Varianten nach Größe und Farbe.",
+    "s2": "Umtausch und Rückgabe mit wenigen Fingertipps, mit korrigiertem Lagerbestand.",
+    "s3": "Bestseller und Schlussverkäufer nach Größe, Farbe und Saison."
+   },
+   "ctaTitle": "Sehen Sie Paxve mit Ihrer eigenen {{name}} -Arbeit",
+   "electronics": {
+    "h": "Jedes Gerät wird vom Kauf bis zur Garantie verfolgt",
+    "p1": "Seriennummern und IMEIs leben auf dem Papier.",
+    "p2": "Gewährleistungsansprüche werden zum Streit.",
+    "p3": "Inzahlungnahmen und Ratenzahlungen werden von Hand abgewickelt.",
+    "s1": "Seriennummer/IMEI beim Kauf und Verkauf erfasst.",
+    "s2": "Eine Garantiekarte und der vollständige Geräteverlauf in Sekundenschnelle.",
+    "s3": "Die Inzahlungnahme wurde als Teilzahlung gezählt, Ratenverkäufe folgten."
+   },
+   "factory": {
+    "h": "Planen Sie die Produktion und kennen Sie die tatsächlichen Kosten",
+    "p1": "Sie wissen nicht, was Sie diese Woche zubereiten und kaufen sollen.",
+    "p2": "Die Produktkosten sind eine Schätzung.",
+    "p3": "Qualitätsprobleme zeigen sich beim Kunden.",
+    "s1": "Materialplanung aus Bestellungen und Mindestbeständen mit einem Klick.",
+    "s2": "Tatsächliche Kosten aus Material, Maschinenzeit und Arbeit.",
+    "s3": "Qualitätskontrollen bei jedem Schritt, die die Bestellung aufrecht erhalten, bis sie bestanden werden."
+   },
+   "features": "Paxve für {{name}} : was enthalten ist",
+   "furniture": {
+    "h": "Auftragsfertigung, Anzahlung und Lieferung in einem Arbeitsgang",
+    "p1": "Benutzerdefinierte Größen und Optionen verlangsamen die Preisgestaltung.",
+    "p2": "Einzahlungen werden mit alten Guthaben verwechselt.",
+    "p3": "Lieferung und Montage werden auf WhatsApp geplant.",
+    "s1": "Optionen und Preis pro Quadratmeter für Sie ausgearbeitet.",
+    "s2": "Jede Einzahlung bleibt an ihre eigene Bestellung gebunden.",
+    "s3": "Lieferung und Monteur gemeinsam geplant, Restbetrag zur Abholung."
+   },
+   "generator": {
+    "h": "Führen Sie Ihr Generatorgeschäft ohne Notebook",
+    "p1": "Sammler tragen Bargeld und Papierlisten bei sich, und erst in der Nacht kennt niemand den Gesamtbetrag des Tages.",
+    "p2": "Diesel verschwindet und die Zahlen stimmen nie.",
+    "p3": "Monatliche Rechnungen dauern Tage und die Tarife ändern sich ständig.",
+    "s1": "Sammler arbeiten vom Telefon aus und drucken Quittungen vor Ort aus. Sie sehen jede Zahlung, während sie erfolgt.",
+    "s2": "Paxve erfasst den Dieselverbrauch pro Betriebsstunde und warnt Sie bei Verbrauchssprüngen.",
+    "s3": "Messwerte am Telefon, dann Abrechnung für jeden Teilnehmer in einem Durchgang, nach Ampere oder nach Zähler."
+   },
+   "internet": {
+    "h": "Abonnements, Verlängerungen und Netzwerkgeräte an einem Ort",
+    "p1": "Verlängerungen werden verpasst und abgelaufene Benutzer behalten den Dienst.",
+    "p2": "Supportanfragen gehen in WhatsApp Chats unter.",
+    "p3": "Router und Geräte werden in einer Tabelle verfolgt.",
+    "s1": "Automatische monatliche Verlängerung mit Aussetzung nach den von Ihnen festgelegten Kulanztagen.",
+    "s2": "Tickets mit Reaktionszeitzielen und Eskalation an einen Manager.",
+    "s3": "Mit jedem Abonnenten verknüpfte Geräte und Serien."
+   },
+   "kicker": "Was Sie bekommen",
+   "others": "Andere Geschäftsarten",
+   "pains": "Von täglichen Kopfschmerzen bis hin zu einer ruhigen Routine",
+   "painsSub": "Die meisten Probleme erzählen uns die Besitzer und was sich mit Paxve ändert.",
+   "pharmacy": {
+    "h": "Ablauf, Rezepte und Versicherer werden richtig gehandhabt",
+    "p1": "Abgelaufene Medikamente landen auf der Theke.",
+    "p2": "Es dauert zu lange, eine Alternative zu finden.",
+    "p3": "Versichereraktien werden auf dem Papier verfolgt.",
+    "s1": "First-Expiry-First, abgelaufene Chargen werden an der Kasse blockiert.",
+    "s2": "Suche nach Wirkstoff, mit Alternativen.",
+    "s3": "Der Anteil des Versicherers wird zu einem Anspruch, den Sie bis zur Auszahlung verfolgen."
+   },
+   "problem": "Vor",
+   "restaurant": {
+    "h": "Tische, Küche und Essenskosten, alles miteinander verbunden",
+    "p1": "Befehle werden in die Küche gerufen und gehen verloren.",
+    "p2": "Die Aufteilung der Rechnung bereitet Kopfschmerzen.",
+    "p3": "Sie kennen Ihre tatsächlichen Lebensmittelkosten nicht.",
+    "s1": "Ein Küchenbildschirm pro Station, mit Extras und Notizen.",
+    "s2": "Aufteilung nach Gast oder zu gleichen Teilen, mit Servicegebühr und Trinkgeldern.",
+    "s3": "Bei Rezepten sind die Zutaten nicht mehr vorrätig und die täglichen Lebensmittelkosten werden angezeigt."
+   },
+   "satellite": {
+    "h": "Pakete, Empfänger und Abholung von Tür zu Tür",
+    "p1": "Paketänderungen und Add-ons sind schwer zu verfolgen.",
+    "p2": "Empfänger und Karten gehen verloren.",
+    "p3": "Sammler kommen mit falschen Summen zurück.",
+    "s1": "Jedes Abonnement behält sein Paket, seine Add-ons und seinen Verlauf.",
+    "s2": "Jeder Empfänger und jede Kartenserie ist mit seinem Abonnenten verknüpft.",
+    "s3": "Sammler-App mit Quittungen und täglicher Übergabe nach Gebieten."
+   },
+   "solution": "Mit Paxve",
+   "supermarket": {
+    "h": "Eine schnelle Kasse und ein Lagerbestand, der jedem Verkauf folgt",
+    "p1": "Es bilden sich Warteschlangen, wenn die Kasse langsam oder offline ist.",
+    "p2": "Artikel verfallen unbemerkt im Regal.",
+    "p3": "Sie ordnen nach, indem Sie raten.",
+    "s1": "Eine Kasse mit Barcode, die weiterhin offline verkauft.",
+    "s2": "Ablaufdaten pro Los, mit Benachrichtigungen vor Ablauf.",
+    "s3": "Intelligente Nachbestellung anhand der Verkaufsgeschwindigkeit jedes Artikels."
+   },
+   "water": {
+    "h": "Lieferungen, Flaschen und Monatspläne im Griff",
+    "p1": "Flaschenpfand und -rückgabe summieren sich nie.",
+    "p2": "Fahrtrouten und Lieferungen der Fahrer werden nicht erfasst.",
+    "p3": "Kunden streiten über ihr Guthaben.",
+    "s1": "Einzahlungen und Rückgaben werden pro Kunde verfolgt.",
+    "s2": "Lieferfahrten mit Zustellnachweis per Telefon.",
+    "s3": "Eine klare Aussage pro Kunde, gesendet per WhatsApp ."
+   },
+   "wholesale": {
+    "h": "Preisstufen, Kreditlimits und Transporter, die verkauft werden",
+    "p1": "Kunden kaufen über ihr Kreditlimit hinaus.",
+    "p2": "Die Lieferwagenbestände stimmen am Ende des Tages nie überein.",
+    "p3": "Die Provisionen werden manuell berechnet.",
+    "s1": "Kreditlimits, die den Verkauf blockieren, nicht nur warnen.",
+    "s2": "Morgens laden, am Telefon verkaufen, zählen und abends schließen.",
+    "s3": "Ein Provisionsbericht pro Verkäufer, abzüglich Retouren."
+   }
+  },
   "installWeb": "Als App installieren",
+  "legal": {
+   "kicker": "Legal",
+   "privacy": {
+    "s1": {
+     "h": "Wer wir sind",
+     "p": "Paxve ist eine Unternehmensverwaltungssoftware, die auf paxve.com angeboten wird. In dieser Richtlinie wird erläutert, was wir erfassen, wenn Sie die Website und den Dienst nutzen, und wie wir es verwenden."
+    },
+    "s2": {
+     "h": "Was wir sammeln",
+     "p": "Kontodaten, die Sie uns geben (Name, E-Mail, Telefonnummer, Firmenname), die Geschäftsdaten, die Sie in Paxve eingeben (Kunden, Rechnungen, Lagerbestände usw.) und grundlegende technische Protokolle wie Anmeldezeiten und IP-Adressen, die zur Sicherheit verwendet werden."
+    },
+    "s3": {
+     "h": "Wie wir es nutzen",
+     "p": "Um den Dienst für Sie auszuführen, ihn sicher zu halten, Ihre Anfragen zu beantworten und Ihnen Nachrichten zu Ihrem Konto zu senden. Wir verkaufen Ihre Daten nicht und nutzen Ihre Geschäftsdaten nicht für Werbezwecke."
+    },
+    "s4": {
+     "h": "Ihre Geschäftsdaten bleiben Ihr Eigentum",
+     "p": "Die Daten jedes Unternehmens sind von denen aller anderen Unternehmen getrennt. Sie können Ihre Daten jederzeit exportieren und uns bitten, sie zu löschen, wenn Sie Ihr Konto schließen, sofern dies nicht gesetzlich vorgeschrieben ist."
+    },
+    "s5": {
+     "h": "Sicherheit und Backups",
+     "p": "Daten werden verschlüsselt übertragen, Backups werden verschlüsselt und jeden Tag erstellt und der Zugriff innerhalb Paxve folgt den von Ihnen festgelegten Rollen. Die Anmeldung in zwei Schritten ist für jedes Konto verfügbar."
+    },
+    "s6": {
+     "h": "Kontakt",
+     "p": "Wenn Sie Fragen zu Ihren Daten haben, schreiben Sie uns über das Kontaktformular auf paxve.com. Wir können diese Richtlinie aktualisieren; Das Datum oben zeigt die neueste Version."
+    },
+    "title": "Datenschutzrichtlinie"
+   },
+   "terms": {
+    "s1": {
+     "h": "Der Dienst",
+     "p": "Paxve bietet Online-Software für Buchhaltung, Abrechnung, Lagerhaltung, Verkauf und damit verbundene Arbeiten. Durch die Erstellung eines Kontos stimmen Sie diesen Bedingungen zu."
+    },
+    "s2": {
+     "h": "Ihr Konto",
+     "p": "Sie sind für die Personen, die Sie einladen, verantwortlich und für die sichere Aufbewahrung von Passwörtern. Informieren Sie uns umgehend, wenn Sie vermuten, dass Ihr Konto missbraucht wird."
+    },
+    "s3": {
+     "h": "Testversion und Zahlung",
+     "p": "Neue Konten beginnen mit einer kostenlosen Testversion. Danach wird der von Ihnen gewählte Plan monatlich oder jährlich in US-Dollar zu den auf paxve.com angezeigten Preisen abgerechnet. Unbezahlte Konten können schreibgeschützt werden und dann gesperrt werden."
+    },
+    "s4": {
+     "h": "Ihre Daten",
+     "p": "Die von Ihnen eingegebenen Daten sind Ihr Eigentum und können diese jederzeit exportieren. Wir bewahren die Daten sicher auf, wie in der Datenschutzrichtlinie beschrieben."
+    },
+    "s5": {
+     "h": "Faire Verwendung",
+     "p": "Verwenden Sie Paxve nicht für rechtswidrige Zwecke, zum Versenden von Spam oder für den Versuch, an Daten zu gelangen, die nicht Ihre eigenen sind."
+    },
+    "s6": {
+     "h": "Änderungen und Kontakt",
+     "p": "Wir können den Service verbessern und diese Bedingungen aktualisieren; Wichtige Änderungen werden in der App angekündigt. Fragen können gerne über das Kontaktformular auf paxve.com gestellt werden."
+    },
+    "title": "Nutzungsbedingungen"
+   },
+   "updated": "Letzte Aktualisierung: November 2026"
+  },
   "metaTitle": "Paxve – Unternehmensführung: Buchhaltung, Abrechnung, Lager, Verkauf",
   "mock": {
    "app": "Sammlung",
@@ -7670,6 +7863,20 @@
    "year": "Jahr",
    "yearly": "Jährlich (2 Monate kostenlos)"
   },
+  "px": {
+   "aiT": "AI questions a month",
+   "appsT": "All apps",
+   "backupT": "Daily encrypted backups",
+   "companiesT": "Unternehmen",
+   "compare": "Vergleichen Sie alle Pläne",
+   "feature": "Was ist enthalten",
+   "phoneT": "Telefon-Apps (Außendienst, Eigentümer, Kunde)",
+   "save": "2 months free",
+   "subsT": "Subscribers / customers",
+   "supportT": "Support in Arabic",
+   "usersT": "Benutzer",
+   "yearly": "Jährlich"
+  },
   "signIn": "anmelden",
   "stats": {
    "s1": {
@@ -7689,7 +7896,194 @@
     "v": "11"
    }
   },
-  "trial": "Kostenlose Testversion starten"
+  "trial": "Kostenlose Testversion starten",
+  "trust": {
+   "i1": {
+    "d": "Die Daten jedes Unternehmens sind in der Datenbank selbst getrennt, so dass ein Unternehmen niemals die Aufzeichnungen eines anderen sehen kann, auch nicht aus Versehen.",
+    "t": "Jedes Unternehmen wurde abgeriegelt"
+   },
+   "i2": {
+    "d": "Jeden Tag wird ein vollständiges Backup erstellt, verschlüsselt und jede Woche in einem Test wiederhergestellt, um zu beweisen, dass es funktioniert.",
+    "t": "Verschlüsselte tägliche Backups"
+   },
+   "i3": {
+    "d": "Schützen Sie Konten mit einem Code aus einer Telefon-App, starken Passwortregeln und automatischer Abmeldung.",
+    "t": "Anmeldung in zwei Schritten"
+   },
+   "i4": {
+    "d": "Wer wann was geändert hat, wird für jede Rechnung, Zahlung und Einstellung gespeichert.",
+    "t": "Ein Protokoll aller Änderungen"
+   },
+   "i5": {
+    "d": "Kassierer, Inkassobüros, Buchhalter und Manager sehen in jeder Filiale nur das, was sie für ihre Arbeit benötigen.",
+    "t": "Rollen und Berechtigungen"
+   },
+   "sub": "Was wir tun, damit Sie nie darüber nachdenken müssen.",
+   "title": "Ihre Daten werden bei jedem Schritt geschützt"
+  },
+  "v3": {
+   "api": {
+    "comment": "# 45 USD sammeln: 20 Dollar + 2.500.000 Pfund, Wechselgeld aus der LBP Box",
+    "docs": "API Dokumentation",
+    "events": "Veranstaltungen",
+    "eyebrow": "Entwickler",
+    "h": "Eine API und Webhooks, um Paxve mit Ihren Systemen zu verbinden",
+    "p": "Alles auf den Bildschirmen ist über die API mit einem Schlüssel pro Unternehmen verfügbar. Eine Zahlung mit einer client_ref wird niemals dupliziert, selbst wenn sie zweimal gesendet wird, und Ereignisse erreichen Sie signiert mit HMAC-SHA256."
+   },
+   "card": {
+    "mBilled": "In Rechnung gestellt",
+    "mCollected": "Gesammelt",
+    "mDue": "Von Kunden geschuldet",
+    "mRate": "Sammelquote",
+    "mT": "Diesen Monat · Al Hay Generators",
+    "posCheese": "Akkawi-Käse",
+    "posMilk": "Frische Milch 1 L",
+    "posPay": "Zahlen",
+    "posSoap": "Spülmittel 750 ml",
+    "posT": "Bis 1 · Al-Arz-Markt",
+    "posTomato": "Tomaten",
+    "posTotal": "Gesamt",
+    "rcBill": "November-Rechnung",
+    "rcCust": "Bilal Chehab · Nr. 15 · Hauptstraße",
+    "rcPaid": "Bezahlt",
+    "rcPrint": "Speichern und drucken",
+    "rcRate": "Wechselkurs",
+    "rcRest": "Bleibt zu zahlen",
+    "rcT": "Quittung Nr. 8",
+    "stBread": "Arabisches Brot",
+    "stItem": "Artikel",
+    "stQty": "Menge",
+    "stT": "Lagerbestand · Hauptlager",
+    "stTotal": "Lagerwert",
+    "stVal": "Wert",
+    "stWater": "Wasser 1,5 l"
+   },
+   "cmp": {
+    "eyebrow": "Vergleich"
+   },
+   "contact": {
+    "c1": "Eine exemplarische Vorgehensweise für Ihr eigenes Unternehmen",
+    "c2": "Helfen Sie beim Übertragen Ihrer Daten aus Excel oder Ihrem alten Programm",
+    "c3": "Eine Antwort noch am selben Tag",
+    "eyebrow": "Kontakt"
+   },
+   "cta": {
+    "h": "Testen Sie Paxve mit Ihren eigenen Geschäftsdaten",
+    "p": "14 Tage kostenlos mit jeder App, und wir helfen Ihnen, Ihre Kunden und Guthaben zu verschieben."
+   },
+   "faq": {
+    "eyebrow": "Fragen"
+   },
+   "field": {
+    "baalbek": "Baalbek",
+    "beirut": "Beirut",
+    "eyebrow": "Feld-App",
+    "h": "Ein Sammler nimmt die Zahlungen von 40 Abonnenten offline entgegen und lädt sie hoch, wenn sie wieder in Reichweite sind",
+    "jounieh": "Jounieh",
+    "map": "Sammlerroute: Unbezahlte Abonnenten in Straßenreihenfolge",
+    "p": "Die unbezahlte Liste liegt in der Reihenfolge der Route auf dem Telefon des Sammlers. Sie holen ab, drucken die Quittung über Bluetooth aus und tippen an der Tür auf „Ich bin hier“, um den Standort des Abonnenten zu speichern. Fahrer, Techniker und Transporterverkäufer nutzen dieselbe App.",
+    "s1d": "Die Abholung und der Verkauf laufen weiter und alles wird verschickt, wenn die Leitung wieder da ist.",
+    "s1t": "Offline",
+    "s2d": "Eine per Bluetooth vom Telefon ausgedruckte oder per WhatsApp gesendete Quittung.",
+    "s2t": "58 mm",
+    "s3d": "Betrag und Veränderung in beiden Währungen zum heutigen Kurs.",
+    "s3t": "USD + LBP",
+    "s4d": "Eine zweimal versendete Quittung wird nur einmal erfasst.",
+    "s4t": "Einmal",
+    "saida": "Saida",
+    "tripoli": "Tripolis",
+    "tyre": "Reifen",
+    "zahle": "Zahle"
+   },
+   "foot": {
+    "acc": "Buchhaltung",
+    "collect": "Sammlung",
+    "field": "Feld-App",
+    "mfg": "Herstellung",
+    "pos": "Verkaufsstelle",
+    "products": "Produkt",
+    "resources": "Ressourcen",
+    "stock": "Aktie"
+   },
+   "hero": {
+    "demo": "Buchen Sie eine Demo",
+    "f1": "14-tägige kostenlose Testversion",
+    "f2": "Keine Karte",
+    "f3": "Wir übernehmen Ihre Daten aus Excel oder Ihrem alten Programm",
+    "h1a": "Abrechnung, Inkasso, Lagerhaltung und Buchhaltung",
+    "h1b": "in Dollar und Pfund",
+    "h1c": "für Generatorbesitzer, Geschäfte und Fabriken im Libanon.",
+    "lead": "Rechnungen und Quittungen in beiden Währungen zum heutigen Kurs, Sammler, die Zahlungen am Telefon auch offline entgegennehmen, und eine Kasse, Lagerbestände und Bücher, die bei jedem Verkauf aktualisiert werden."
+   },
+   "more": "Erfahren Sie mehr",
+   "nav": {
+    "close": "Menü schließen",
+    "dev": "Entwickler",
+    "product": "Produkt",
+    "types": "Geschäftstypen"
+   },
+   "price": {
+    "eyebrow": "Preise",
+    "h": "Klare Pläne in US-Dollar",
+    "p": "Jeder Plan umfasst das vollständige System und die Telefon-Apps. Die Pläne unterscheiden sich je nach Abonnenten, Benutzern und Unternehmen."
+   },
+   "protect": {
+    "eyebrow": "Datenschutz",
+    "h": "Ihre Daten werden gesichert und getrennt aufbewahrt",
+    "i6d": "Ein Team im Libanon antwortet über das Kontaktformular und WhatsApp auf Arabisch, Englisch oder Französisch.",
+    "i6t": "Unterstützung auf Arabisch aus dem Libanon"
+   },
+   "rows": {
+    "cash": {
+     "cap": "13-wöchige Cash-Prognose bei Al Hay Generators, mit einem guten und einem schlechten Fall.",
+     "eyebrow": "Bargeld und Benachrichtigungen",
+     "h": "Was bleibt in 13 Wochen übrig und wer zahlt zu spät",
+     "p": "Paxve fügt offene Rechnungen, Abonnements, Lieferantenrechnungen und Gehaltsabrechnungen in eine wöchentliche Prognose ein und bewertet jeden Kunden hinsichtlich seiner Verspätung in der Vergangenheit. Der Eigentümer erhält täglich eine Übersicht über Dieselsprünge, Kassenengpässe und ungewöhnliche Rabatte."
+    },
+    "collect": {
+     "cap": "Abholung bei Al Hay Generators: Bilal Chehab schuldet 59,22 USD auf der Novemberrechnung, nachdem er 25,00 USD bezahlt hat.",
+     "eyebrow": "Sammlung",
+     "h": "Nehmen Sie Dollar und Pfund und drucken Sie den Beleg in Sekundenschnelle aus",
+     "p": "Suchen Sie nach Name, Vorwahl oder Telefonnummer, wählen Sie den Abonnenten aus und geben Sie den Betrag in einer der beiden Währungen ein. Das Wechselgeld wird mit 89.500 berechnet und der Beleg wird sofort in die Kasse und in die Bücher gebucht. Zum Sammeln geben Sie die Eingabetaste ein, zum Speichern und Drucken drücken Sie F9."
+    },
+    "mfg": {
+     "cap": "Stückliste für einen Metallschrank bei Cedar Furniture Factory, Version 1.",
+     "eyebrow": "Herstellung",
+     "h": "Die Stückliste gibt den Preis für ein Produkt an, bevor Sie es herstellen",
+     "p": "Ein Metallschrank = 18 kg Stahlblech + eine halbe Kiste Schrauben + 1,5 l Farbe, mit 8 USD Arbeitsaufwand und 4 USD Gemeinkosten. Der Arbeitsauftrag reserviert die Materialien und ermittelt die tatsächlichen Kosten; Die Differenz zum Standardpreis wird gebucht."
+    },
+    "pos": {
+     "cap": "Verkaufsstelle im Al Arz Market: ein Korb mit fünf Artikeln im Gesamtwert von 15,90 USD .",
+     "eyebrow": "Verkaufsstelle",
+     "h": "Eine Barcode-Kasse, die auch dann weiterverkauft, wenn die Warteschlange unterbrochen wird",
+     "p": "Der Kassierer scannt oder tippt auf den Artikel, wendet einen Coupon oder eine Geschenkkarte an und nimmt Dollar, Pfund oder Whish. Der Verkauf wird offline fortgesetzt und synchronisiert, wenn die Leitung wieder verfügbar ist, und beim Schichtabschluss wird der gezählte Bargeldbestand mit dem erwarteten Wert verglichen."
+    },
+    "stock": {
+     "cap": "Artikel im Al Arz Market: 499,60 USD Lagerbestand im Hauptlager.",
+     "eyebrow": "Aktie",
+     "h": "Menge, Kosten und Wert jedes Artikels, passend zu den Büchern",
+     "p": "Durchschnittliche Kostenaktualisierungen mit jeder Lieferantenrechnung und jeder Lagerbewegung werden automatisch gebucht, mit Behältern, Chargen, Ablaufdaten und Barcode-Scannen auf dem Telefon für Empfang und Zählungen."
+    }
+   },
+   "tryIt": "Probieren Sie es kostenlos aus",
+   "types": {
+    "clothing": "Ein Artikel in Größen und Farben, Umtausch an der Kasse und Bestseller nach Größe.",
+    "electronics": "Seriennummer oder IMEI beim Kauf und Verkauf, eine Garantiekarte und Inzahlungnahme des alten Geräts.",
+    "eyebrow": "Geschäftstypen",
+    "factory": "Versionierte Stücklisten, Planung der Herstellung und des Kaufs sowie tatsächliche Kosten pro Produkt.",
+    "furniture": "Preis pro Quadratmeter, eine an die Bestellung gebundene Anzahlung sowie Lieferung und Montage in einem Termin.",
+    "generator": "Rechnungen nach Ampere oder Zähler, Erfassung nach Gebiet und überwachter Diesel pro Betriebsstunde.",
+    "h": "Zwölf Geschäftstypen, jeder mit eigenen Bildschirmen und Konten",
+    "internet": "Automatische monatliche Verlängerung, Sperrung nach Ablauf der Kulanztage und Support-Tickets mit Reaktionszeit.",
+    "p": "Bei der Anmeldung wählen Sie Ihren Unternehmenstyp aus. Paxve öffnet nur das, was Sie brauchen, und Sie können jederzeit weitere Apps hinzufügen.",
+    "pharmacy": "First-Expiry-First, Suche nach Wirkstoff und Anteil des Versicherers als Schadensfall.",
+    "restaurant": "Tische und ein Küchenbildschirm, geteilte Rechnungen und Rezepte, bei denen die Zutaten nicht mehr vorrätig sind.",
+    "satellite": "Pakete und Add-ons pro Abonnent, Empfänger und Kartenserie sowie Tür-zu-Tür-Abholung.",
+    "supermarket": "Eine Barcode-Kassenkasse, die offline funktioniert, Ablaufdaten pro Los und Nachbestellung nach Verkaufsgeschwindigkeit.",
+    "water": "Flaschen mit Pfand, Lieferfahrten mit Zustellnachweis und Abrechnungen auf WhatsApp .",
+    "wholesale": "Preisstufen, ein Kreditlimit, das den Verkauf blockiert, und ein Lieferwagen, der über das Telefon verkauft."
+   }
+  }
  },
  "sm": {
   "ai": {

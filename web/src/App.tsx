@@ -114,6 +114,8 @@ function Root() {
   if (route === 'menu' && arg) return <Suspense fallback={fullPageLoader}><MenuPage token={arg} key={arg} /></Suspense>;
   // phase 6b: the installed customer app starts here and opens the account remembered on this phone
   if (route === 'my') return <Suspense fallback={fullPageLoader}><MyAccounts /></Suspense>;
+  // marketing pages: one page per business type and the privacy / terms pages, signed in or not
+  if (route === 'for' || route === 'privacy' || route === 'terms') return <Suspense fallback={fullPageLoader}><Landing /></Suspense>;
   if (me === undefined) return fullPageLoader;
   if (me === null) {
     const signedIn = (m: Me) => {
