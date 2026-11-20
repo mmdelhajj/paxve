@@ -380,6 +380,10 @@ func (s *Server) orderAction(w http.ResponseWriter, r *http.Request) {
 					                     ORDER BY s.seq LIMIT 1), stage_id)
 					WHERE id = (SELECT lead_id FROM sales_orders WHERE id = $1) AND status = 'open'`, id)
 			}
+			if err == nil {
+				// warehouses with 2/3-step delivery: the pick (→ pack) → ship operations are prepared now
+				err = whOnOrderConfirmed(ctx, tx, cid, id)
+			}
 		case "cancel":
 			var busy bool
 			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM sales_order_lines WHERE order_id = $1 AND (qty_delivered > 0 OR qty_invoiced > 0))`,
@@ -393,6 +397,9 @@ func (s *Server) orderAction(w http.ResponseWriter, r *http.Request) {
 				return nil, wrong
 			}
 			_, err = tx.Exec(ctx, `UPDATE sales_orders SET status = 'cancelled' WHERE id = $1`, id)
+			if err == nil {
+				err = whOnOrderCancelled(ctx, tx, cid, id)
+			}
 		case "reopen":
 			if status != "cancelled" && status != "sent" {
 				return nil, wrong
@@ -513,6 +520,25 @@ func (s *Server) deliverOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		if err := whRefuseDirectDelivery(ctx, tx, cid, id); err != nil {
+			return nil, err
+		}
+		if _, err := deliverOrderTx(ctx, tx, r, cid, id, in.Date, in.Notes, in.Lines); err != nil {
+			return nil, err
+		}
+		return loadOrder(ctx, tx, cid, id)
+	})
+}
+
+// deliverOrderTx books a delivery of an order (stock lines leave stock at average cost) inside the caller's
+// transaction and returns the delivery id. Used by the deliver route, the warehouse "ship" step and dropship.
+func deliverOrderTx(ctx context.Context, tx pgx.Tx, r *http.Request, cid, id, date, notes string, req []qtyIn) (string, error) {
+	in := struct {
+		Date, Notes string
+		Lines       []qtyIn
+	}{date, notes, req}
+	did := ""
+	_, err := func() (any, error) {
 		status, err := lockOrder(ctx, tx, cid, id)
 		if err != nil {
 			return nil, err
@@ -604,7 +630,6 @@ func (s *Server) deliverOrder(w http.ResponseWriter, r *http.Request) {
 			je = &e
 		}
 		lj, _ := json.Marshal(done)
-		var did string
 		if err := tx.QueryRow(ctx, `INSERT INTO sales_deliveries (company_id, number, order_id, delivery_date, lines, journal_entry_id, notes)
 			VALUES ($1, $2, $3, $4::date, $5, $6, $7) RETURNING id::text`, cid, number, id, in.Date, lj, je, strings.TrimSpace(in.Notes)).Scan(&did); err != nil {
 			return nil, err
@@ -623,8 +648,9 @@ func (s *Server) deliverOrder(w http.ResponseWriter, r *http.Request) {
 		if err := refreshOrderStatus(ctx, tx, id); err != nil {
 			return nil, err
 		}
-		return loadOrder(ctx, tx, cid, id)
-	})
+		return nil, nil
+	}()
+	return did, err
 }
 
 func (s *Server) voidDelivery(w http.ResponseWriter, r *http.Request) {

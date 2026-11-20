@@ -198,6 +198,32 @@ func seedEverything(t *testing.T, o *org) {
 	step(201, "POST", "/chatter", map[string]any{"type": "customer", "id": cust, "body": secretB + " note"})
 	step(201, "POST", "/record-activities", map[string]any{"entity_type": "customer", "entity_id": cust, "summary": secretB + " call"})
 	step(201, "POST", "/analysis/reports", map[string]any{"name": secretB + " pivot", "spec": map[string]any{"source": "sales", "measure": "amount"}})
+
+	// warehouse pro: bins, putaway rule, operation, package, batch, vehicle, trip and stop
+	bwh := str(obj(o.c.ok("GET", o.p("/wh/warehouses"), nil, 200).list[0])["id"])
+	step(200, "PATCH", "/wh/warehouses/"+bwh, map[string]any{"use_bins": true, "address": secretB})
+	step(201, "POST", "/wh/locations/generate", map[string]any{"warehouse_id": bwh, "zone": "S", "aisles": 1, "shelves": 1, "bins": 1})
+	var bbin string
+	for _, l := range o.c.ok("GET", o.p("/wh/locations?warehouse_id="+bwh), nil, 200).list {
+		if str(obj(l)["code"]) == "S-01-1-01" {
+			bbin = str(obj(l)["id"])
+		}
+	}
+	step(201, "POST", "/wh/putaway-rules", map[string]any{"warehouse_id": bwh, "item_id": item, "location_id": bbin})
+	bop := id(step(201, "POST", "/wh/ops", map[string]any{"warehouse_id": bwh, "notes": secretB,
+		"lines": []any{map[string]any{"item_id": item, "quantity": "1", "to_location_id": bbin}}}), "op", "id")
+	_ = bop
+	step(201, "POST", "/wh/packages", map[string]any{"warehouse_id": bwh, "kind": "pallet", "notes": secretB})
+	// a pick operation to batch: an order confirmed in a 2-step delivery warehouse
+	step(200, "PATCH", "/wh/warehouses/"+bwh, map[string]any{"delivery_steps": 2})
+	bso := id(step(201, "POST", "/sales/orders", map[string]any{"customer_id": cust, "currency": "USD",
+		"lines": []any{map[string]any{"item_id": item, "description": secretB, "quantity": "1", "unit_price": "1", "warehouse_id": bwh}}}), "order", "id")
+	step(200, "POST", "/sales/orders/"+bso+"/confirm", map[string]any{})
+	for _, op := range o.c.ok("GET", o.p("/wh/ops?kind=pick"), nil, 200).list {
+		step(201, "POST", "/wh/batches", map[string]any{"warehouse_id": bwh, "op_ids": []string{str(obj(op)["id"])}, "notes": secretB})
+	}
+	bveh := id(step(201, "POST", "/wh/vehicles", map[string]any{"name": secretB + " van"}), "id")
+	step(201, "POST", "/wh/trips", map[string]any{"vehicle_id": bveh, "notes": secretB, "stops": []any{map[string]any{"address": secretB + " street"}}})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -286,6 +312,8 @@ var idTable = map[string]string{
 	"promotions": "promotions", "gift-cards": "gift_cards", "held": "pos_held_baskets",
 	"repairs": "repair_orders", "instalments": "instalment_plans", "quote-templates": "quote_templates", "fiscal-positions": "fiscal_positions",
 	"chatter": "record_messages", "record-activities": "record_activities", "reports": "analysis_reports",
+	"warehouses": "warehouses", "locations": "wh_locations", "putaway-rules": "wh_putaway_rules", "ops": "wh_ops", "packages": "wh_packages", "batches": "wh_batches",
+	"vehicles": "vehicles", "trips": "delivery_trips", "stops": "trip_stops",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -428,8 +456,10 @@ func sweepBody(c sweepCall, ids map[string]string) any {
 		return map[string]any{"done": true}
 	case "/tickets/{id}/notes":
 		return map[string]any{"body": "x"}
-	case "/repairs/{id}/lines":
+	case "/repairs/{id}/lines", "/wh/packages/{id}/lines":
 		return map[string]any{"lines": []any{}}
+	case "/wh/stops/{id}/pod":
+		return map[string]any{"status": "failed", "note": "x"}
 	case "/quote-templates/{id}", "/fiscal-positions/{id}":
 		return map[string]any{"name": "x"}
 	case "/analysis/reports/{id}":

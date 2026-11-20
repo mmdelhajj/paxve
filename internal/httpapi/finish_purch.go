@@ -121,6 +121,10 @@ func (s *Server) receivePO(w http.ResponseWriter, r *http.Request) {
 			return nil, badRequest("invalid_line")
 		}
 		_ = known
+		// warehouses with bins: the goods land in the input area / wait for putaway (QC first in 3 steps)
+		if err := whOnReceipt(ctx, tx, cid, gid, in.Date); err != nil {
+			return nil, err
+		}
 		return loadPO(ctx, tx, cid, id)
 	})
 }
@@ -159,6 +163,9 @@ func (s *Server) cancelReceipt(w http.ResponseWriter, r *http.Request) {
 			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
 		}
 		if _, err := tx.Exec(ctx, `UPDATE goods_receipts SET status = 'cancelled' WHERE id = $1`, id); err != nil {
+			return nil, err
+		}
+		if err := whOnReceiptCancelled(ctx, tx, cid, id); err != nil {
 			return nil, err
 		}
 		return loadPO(ctx, tx, cid, order)

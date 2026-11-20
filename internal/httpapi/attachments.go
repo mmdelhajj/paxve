@@ -20,6 +20,7 @@ var attachTables = map[string]string{
 	"payment": "payments", "supplier_payment": "supplier_payments", "ticket": "tickets", "item": "items", "cheque": "cheques",
 	"expense_claim": "expense_claims", "goods_receipt": "goods_receipts", "mfg_order": "mfg_orders", "employee": "employees",
 	"subscription": "subscriptions", "repair": "repair_orders", "instalment": "instalment_plans", "lead": "crm_leads",
+	"trip_stop": "trip_stops", "wh_package": "wh_packages",
 }
 
 // attachModule: the permission module guarding the files of a document type (view to see, create to add / remove).
@@ -29,6 +30,7 @@ var attachModule = map[string]string{
 	"supplier_payment": "purchasing", "ticket": "service", "item": "stock", "cheque": "accounting",
 	"expense_claim": "payroll", "goods_receipt": "purchasing", "mfg_order": "stock", "employee": "payroll",
 	"subscription": "customers", "repair": "service", "instalment": "billing", "lead": "crm",
+	"trip_stop": "stock", "wh_package": "stock",
 }
 
 func attachAllowed(r *http.Request, typ string, write bool) bool {

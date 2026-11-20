@@ -51,6 +51,8 @@ var appRoutes = []struct {
 	{"/price-lists", "stk", true},
 	{"/warehouses", "stk", true},
 	{"/stock/", "stk", false},
+	{"/wh/dropship", "pur", false},
+	{"/wh/", "stk", false},
 	{"/reports/stock-", "stk", false},
 	{"/suppliers", "pur", true},
 	{"/bills", "pur", false},

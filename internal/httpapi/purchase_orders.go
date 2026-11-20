@@ -506,6 +506,10 @@ func (s *Server) billPO(w http.ResponseWriter, r *http.Request) {
 		if err := refreshPOBilled(ctx, tx, id); err != nil {
 			return nil, err
 		}
+		// dropship: what the supplier billed went straight to our customer — deliver it on the sales order now
+		if err := whDropshipAfterBill(ctx, tx, r, cid, id, bill.BillDate); err != nil {
+			return nil, err
+		}
 		b, err := loadBill(ctx, tx, cid, billID)
 		if err != nil {
 			return nil, err
