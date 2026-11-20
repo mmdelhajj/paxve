@@ -563,3 +563,17 @@ Company (`/companies/{cid}`):
 Smart alert kind `price_override`: per cashier and week, catalog prices lowered by hand at the till (`pos_orders.price_cut`,
 `price_cut_lines`); detail `{lines, pct, weeks}`. A collector who has a cash box of their own (`payment_methods.user_id`) can
 only use their own boxes (`invalid_tender`), and only those are listed to them.
+
+## Phase 7 audit fixes (migration 00048)
+
+- `POST /pos/orders/{id}/refund` — cash goes back only up to the real money the customer paid on the order (less earlier refunds). The insurer's share cancels the claim (`pharma_claims.status = cancelled`, `refunded`); trade-in / gift / loyalty shares stay as customer credit. `restock_dishes: true` puts a restaurant dish's ingredients back (default: wasted). Replays with the same `client_ref` wait for the first one and return it.
+- `POST /furn/orders/{id}/deposit` — the deposit is reserved for the order (never applied to older invoices); `POST /sales/orders/{id}/invoice` applies it to that order's invoice. `POST /sales/orders/{id}/cancel` with a deposit → `409 order_has_deposit` unless `{deposit: "credit"}` or `{deposit: "refund", method_id}`.
+- `POST /pharma/claims/{id}/settle` books FX at the claim's booking rate; `reject` writes off to the "Insurance claims written off" account (source `insurance_claim`).
+- `POST /import/supplier_openings` — the same opening (supplier, currency, date, amount, reference) is refused (`already_imported` / `duplicate`); control accounts are refused as the opening account. Fleet accounts and landed-cost `account_id` refuse control accounts too.
+- `GET /van/commission` — net of credit notes; collected = real payments only.
+- `POST /van/days/{id}/close` — a shortage counted by a user without `stock.manage` returns `{pending_approval: true, count_id, differences}` (draft count, managers notified, the day stays open). Acting on another salesman's van needs `stock.manage`.
+- Shop: customers matched on the full national number (`phone_key`), only when exactly one matches; auto-confirm and the WhatsApp tracking message only for known numbers; 3 orders a day per phone, 200 an hour per shop; 100 units a line, 50 lines; coupon tries 20/hour per visitor and shop. Reserved addresses (`slug_reserved`); `PUT /platform/companies/{id}/slug {slug}` (platform admins) assigns one.
+- AI: usage reserved inside the request's transaction (organisation lock); per user 10/minute and 200/day; platform daily token ceiling `PAXVE_AI_DAILY_TOKENS` (default 30 M), `PAXVE_AI_OFF=1` pauses; at most 5 model rounds; every tool needs all the rights of its screen; tool results are fenced as data.
+- Inbound: `POST /sla/inbound/rotate {whatsapp_secret, email_key, keep_address}` — with the Meta app secret set, WhatsApp posts need `X-Hub-Signature-256`; with the Mailgun key set, form posts need Mailgun's signature (15 minutes) and JSON posts `X-Paxve-Signature` (hex HMAC-SHA256 of the body).
+- E-sign: `require_otp` on create; `POST /sign/{token}/otp` (code by WhatsApp → SMS → e-mail, 10 minutes, 5 an hour) and `POST /sign/{token}/otp/verify {code}`; links stop working 30 days after the request is finished; files are served sandboxed.
+- Careers CVs: 500 MB in all, 100 a day, 30 a day per position. `fs/parts-catalog` needs service.view / stock.view or an open job. Till-order attachments (prescriptions, trade-in IDs) need `pos.void` or `reports.view`. Device `client_time` accepted up to 12 hours back.

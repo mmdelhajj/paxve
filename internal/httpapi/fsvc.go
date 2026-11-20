@@ -2,7 +2,10 @@ package httpapi
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -717,6 +720,17 @@ func (s *Server) fsPartsCatalog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		// audit P7-L8: office staff with service.view / stock.view, or a technician with an open job
+		if !can(r, "service.view") && !can(r, "stock.view") {
+			var tech bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM service_jobs WHERE company_id = $1 AND technician_id = $2
+				AND status NOT IN ('done', 'cancelled', 'invoiced'))`, r.PathValue("cid"), principal(r).ID).Scan(&tech); err != nil {
+				return nil, err
+			}
+			if !tech {
+				return nil, &apiError{status: http.StatusForbidden, code: "forbidden"}
+			}
+		}
 		return queryJSON(ctx, tx, `SELECT it.id, it.code, it.name, it.unit, it.kind, coalesce(it.sale_price, 0)::text AS sale_price, it.barcode,
 			trim_scale(coalesce((SELECT sum(s.quantity) FROM stock s WHERE s.item_id = it.id AND ($3 = '' OR s.warehouse_id = nullif($3, '')::uuid)), 0))::text AS on_hand
 			FROM items it WHERE it.company_id = $1 AND it.is_active AND it.kind IN ('stock', 'service', 'consumable')
@@ -1030,12 +1044,20 @@ func (s *Server) RunSLAEscalations(ctx context.Context) error {
 // GET /sla/inbound: the addresses an e-mail forwarding service and the WhatsApp Cloud API webhook post to.
 func (s *Server) slaInbound(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		var tok *string
-		if err := tx.QueryRow(ctx, `SELECT inbound_token FROM companies WHERE id = $1`, r.PathValue("cid")).Scan(&tok); err != nil {
-			return nil, err
-		}
-		return inboundInfo(tok), nil
+		return loadInboundInfo(ctx, tx, r.PathValue("cid"))
 	})
+}
+
+func loadInboundInfo(ctx context.Context, tx pgx.Tx, cid string) (map[string]any, error) {
+	var tok *string
+	var waSigned, mailSigned bool
+	if err := tx.QueryRow(ctx, `SELECT inbound_token, inbound_wa_secret <> '', inbound_mail_key <> '' FROM companies WHERE id = $1`, cid).
+		Scan(&tok, &waSigned, &mailSigned); err != nil {
+		return nil, err
+	}
+	out := inboundInfo(tok)
+	out["whatsapp_signed"], out["email_signed"] = waSigned, mailSigned
+	return out, nil
 }
 
 func inboundInfo(tok *string) map[string]any {
@@ -1046,25 +1068,61 @@ func inboundInfo(tok *string) map[string]any {
 	return map[string]any{"enabled": true, "email_url": base + "/email", "whatsapp_url": base + "/whatsapp", "verify_token": *tok}
 }
 
-// POST /sla/inbound/rotate {enabled}: a new secret address (the old one stops working); enabled:false switches it off.
+// POST /sla/inbound/rotate {enabled, whatsapp_secret, email_key}: a new secret address (the old one stops working);
+// enabled:false switches it off. whatsapp_secret (the Meta app secret) / email_key (the Mailgun signing key): when
+// set, messages must carry the provider's signature (audit P7-L1); "" clears, absent keeps.
 func (s *Server) slaInboundRotate(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Enabled *bool `json:"enabled"`
+		Enabled        *bool   `json:"enabled"`
+		WhatsAppSecret *string `json:"whatsapp_secret"`
+		EmailKey       *string `json:"email_key"`
+		KeepAddress    bool    `json:"keep_address"` // only change the signing secrets
 	}
 	if !decodeBody(w, r, &in) {
 		return
 	}
+	if (in.WhatsAppSecret != nil && len(*in.WhatsAppSecret) > 200) || (in.EmailKey != nil && len(*in.EmailKey) > 200) {
+		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		var tok *string
-		if in.Enabled == nil || *in.Enabled {
-			t := randToken(24)
-			tok = &t
+		if !in.KeepAddress {
+			var tok *string
+			if in.Enabled == nil || *in.Enabled {
+				t := randToken(24)
+				tok = &t
+			}
+			if _, err := tx.Exec(ctx, `UPDATE companies SET inbound_token = $2 WHERE id = $1`, cid, tok); err != nil {
+				return nil, err
+			}
 		}
-		if _, err := tx.Exec(ctx, `UPDATE companies SET inbound_token = $2 WHERE id = $1`, r.PathValue("cid"), tok); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE companies SET inbound_wa_secret = coalesce(trim($2), inbound_wa_secret),
+			inbound_mail_key = coalesce(trim($3), inbound_mail_key) WHERE id = $1`, cid, in.WhatsAppSecret, in.EmailKey); err != nil {
 			return nil, err
 		}
-		return inboundInfo(tok), nil
+		return loadInboundInfo(ctx, tx, cid)
 	})
+}
+
+// inboundKeys: the company's provider signing secrets ("" = not set: the secret address alone is trusted).
+func (s *Server) inboundKeys(r *http.Request, sc db.Scope, cid string) (wa, mail string, err error) {
+	err = db.InTenant(r.Context(), s.Pool, sc, func(tx pgx.Tx) error {
+		return tx.QueryRow(r.Context(), `SELECT inbound_wa_secret, inbound_mail_key FROM companies WHERE id = $1`, cid).Scan(&wa, &mail)
+	})
+	return
+}
+
+func hmacHex(key string, parts ...[]byte) string {
+	m := hmac.New(sha256.New, []byte(key))
+	for _, p := range parts {
+		m.Write(p)
+	}
+	return hex.EncodeToString(m.Sum(nil))
+}
+
+func sameHex(a, b string) bool {
+	return len(a) == len(b) && hmac.Equal([]byte(strings.ToLower(a)), []byte(strings.ToLower(b)))
 }
 
 var inboundLimiter = newLimiter(600, time.Minute)
@@ -1106,9 +1164,12 @@ func inboundTicket(ctx context.Context, tx pgx.Tx, cid, channel, fromName, email
 		_ = tx.QueryRow(ctx, `SELECT id::text FROM customers WHERE company_id = $1 AND lower(email) = $2 AND status <> 'closed' ORDER BY created_at LIMIT 1`, cid, email).Scan(&customer)
 	}
 	if customer == nil && len(digits) >= 7 {
-		tail := digits[len(digits)-7:]
-		_ = tx.QueryRow(ctx, `SELECT id::text FROM customers WHERE company_id = $1 AND status <> 'closed'
-			AND right(regexp_replace(phone, '[^0-9]', '', 'g'), 7) = $2 ORDER BY created_at LIMIT 1`, cid, tail).Scan(&customer)
+		// audit P7-M1: full national number, exactly one customer; otherwise the ticket stays unlinked
+		c, err := customerByPhone(ctx, tx, cid, phone)
+		if err != nil {
+			return 0, false, err
+		}
+		customer = c
 	}
 	// an existing open ticket?
 	var existing *string
@@ -1121,8 +1182,8 @@ func inboundTicket(ctx context.Context, tx pgx.Tx, cid, channel, fromName, email
 		}
 	} else if len(digits) >= 7 {
 		_ = tx.QueryRow(ctx, `SELECT id::text, number FROM tickets WHERE company_id = $1 AND channel = 'whatsapp' AND status NOT IN ('done', 'cancelled')
-			AND right(regexp_replace(contact_phone, '[^0-9]', '', 'g'), 7) = $2 AND created_at > now() - interval '7 days'
-			ORDER BY created_at DESC LIMIT 1`, cid, digits[len(digits)-7:]).Scan(&existing, &number)
+			AND phone_key(contact_phone) = phone_key($2) AND created_at > now() - interval '7 days'
+			ORDER BY created_at DESC LIMIT 1`, cid, phone).Scan(&existing, &number)
 	}
 	if len(body) > 7500 {
 		body = body[:7500]
@@ -1175,6 +1236,11 @@ func (s *Server) inboundEmail(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	_, mailKey, err := s.inboundKeys(r, sc, cid)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
 	var from, name, subject, text string
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		var in struct {
@@ -1183,8 +1249,14 @@ func (s *Server) inboundEmail(w http.ResponseWriter, r *http.Request) {
 			Subject  string `json:"subject"`
 			Text     string `json:"text"`
 		}
-		if json.NewDecoder(http.MaxBytesReader(w, r.Body, 2<<20)).Decode(&in) != nil {
+		raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 2<<20))
+		if err != nil || json.Unmarshal(raw, &in) != nil {
 			writeErr(w, http.StatusBadRequest, "bad_request")
+			return
+		}
+		// audit P7-L1: with a signing key, a JSON post carries X-Paxve-Signature = hex HMAC-SHA256(key, body)
+		if mailKey != "" && !sameHex(r.Header.Get("X-Paxve-Signature"), hmacHex(mailKey, raw)) {
+			writeErr(w, http.StatusForbidden, "bad_signature")
 			return
 		}
 		from, name, subject, text = in.From, in.FromName, in.Subject, in.Text
@@ -1196,6 +1268,17 @@ func (s *Server) inboundEmail(w http.ResponseWriter, r *http.Request) {
 		}
 		if r.Form == nil {
 			_ = r.ParseForm()
+		}
+		// audit P7-L1: with a signing key, a form post must carry Mailgun's signature (HMAC-SHA256 of timestamp +
+		// token), made in the last 15 minutes
+		if mailKey != "" {
+			ts, tk := r.FormValue("timestamp"), r.FormValue("token")
+			sec, _ := strconv.ParseInt(ts, 10, 64)
+			if d := time.Since(time.Unix(sec, 0)); sec == 0 || d > 15*time.Minute || d < -15*time.Minute ||
+				!sameHex(r.FormValue("signature"), hmacHex(mailKey, []byte(ts), []byte(tk))) {
+				writeErr(w, http.StatusForbidden, "bad_signature")
+				return
+			}
 		}
 		from = r.FormValue("sender")
 		if from == "" {
@@ -1223,7 +1306,7 @@ func (s *Server) inboundEmail(w http.ResponseWriter, r *http.Request) {
 	}
 	var number int64
 	var created bool
-	err := db.InTenant(r.Context(), s.Pool, sc, func(tx pgx.Tx) error {
+	err = db.InTenant(r.Context(), s.Pool, sc, func(tx pgx.Tx) error {
 		var err error
 		number, created, err = inboundTicket(r.Context(), tx, cid, "email", name, from, "", subject, text)
 		return err
@@ -1258,6 +1341,16 @@ func (s *Server) inboundWhatsApp(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 2<<20))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	// audit P7-L1: with the Meta app secret set, the Cloud API signature (X-Hub-Signature-256) must match
+	waSecret, _, err := s.inboundKeys(r, sc, cid)
+	if err != nil {
+		fail(w, r, err)
+		return
+	}
+	if waSecret != "" && !sameHex(strings.TrimPrefix(r.Header.Get("X-Hub-Signature-256"), "sha256="), hmacHex(waSecret, body)) {
+		writeErr(w, http.StatusForbidden, "bad_signature")
 		return
 	}
 	type msg struct{ from, name, text string }

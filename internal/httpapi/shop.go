@@ -493,7 +493,8 @@ type cartIn struct {
 }
 
 func (in *cartIn) valid() bool {
-	if len(in.Lines) == 0 || len(in.Lines) > 100 || (in.ZoneID != "" && !isUUID(in.ZoneID)) || len(in.Coupon) > 32 {
+	// audit P7-M2: an online cart is a household order, not a way to lock up the stock (100 units a line, 50 lines)
+	if len(in.Lines) == 0 || len(in.Lines) > 50 || (in.ZoneID != "" && !isUUID(in.ZoneID)) || len(in.Coupon) > 32 {
 		return false
 	}
 	if in.Delivery == "" {
@@ -504,7 +505,7 @@ func (in *cartIn) valid() bool {
 	}
 	for _, l := range in.Lines {
 		q, ok := money(l.Quantity)
-		if !isUUID(l.ItemID) || !ok || !q.IsPositive() || q.GreaterThan(decimal.NewFromInt(1000)) {
+		if !isUUID(l.ItemID) || !ok || !q.IsPositive() || q.GreaterThan(decimal.NewFromInt(100)) {
 			return false
 		}
 	}
@@ -685,6 +686,15 @@ func (s *Server) shopCart(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
+	// audit P7-L6: trying coupon codes is limited to 20 an hour per visitor and shop
+	if strings.TrimSpace(in.Coupon) != "" {
+		key := clientIP(r) + "|" + strings.ToLower(r.PathValue("slug"))
+		if !couponLimiter.allow(key) {
+			writeErr(w, http.StatusTooManyRequests, "too_many_attempts")
+			return
+		}
+		couponLimiter.fail(key)
+	}
 	sc, cid, on, _, ok := s.publicScope(w, r, false)
 	if !ok {
 		return
@@ -786,6 +796,20 @@ func (s *Server) shopPlaceOrder(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
+		// audit P7-M2: a phone number places at most 3 orders a day, a shop at most 200 an hour
+		var byPhone, byShop int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE phone_key(phone) = phone_key($2) AND created_at > now() - interval '1 day'),
+			count(*) FILTER (WHERE created_at > now() - interval '1 hour') FROM shop_orders WHERE company_id = $1 AND created_at > now() - interval '1 day'`,
+			cid, in.Phone).Scan(&byPhone, &byShop); err != nil {
+			return nil, err
+		}
+		if byPhone >= 3 || byShop >= 200 {
+			return nil, &apiError{status: http.StatusTooManyRequests, code: "too_many_orders"}
+		}
+		known, err := customerByPhone(ctx, tx, cid, in.Phone)
+		if err != nil {
+			return nil, err
+		}
 		customer, err := shopCustomer(ctx, tx, cid, in.Name, in.Phone, in.Email, in.Address)
 		if err != nil {
 			return nil, err
@@ -826,7 +850,9 @@ func (s *Server) shopPlaceOrder(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		status := "new"
-		if set.AutoConfirm {
+		// auto-confirm (which reserves stock) only for a customer the shop already knows; a first order from an
+		// unknown number waits for staff (audit P7-M2)
+		if set.AutoConfirm && known != nil {
 			if err := confirmOrderTx(ctx, tx, cid, so, today()); err != nil {
 				return nil, err
 			}
@@ -860,8 +886,10 @@ func (s *Server) shopPlaceOrder(w http.ResponseWriter, r *http.Request) {
 		if err := tx.QueryRow(ctx, `SELECT 'msg' = ANY (apps), coalesce(nullif(name_ar, ''), name_en) FROM companies WHERE id = $1`, cid).Scan(&msgApp, &company); err != nil {
 			return nil, err
 		}
-		if msgApp {
-			body := growthText(ctx, tx, cid, "shop_order", company, in.Name, strconv.FormatInt(n, 10), total+" "+set.Currency, link)
+		// audit P7-M2: no message to a number the company doesn't know (the shop must not relay text to strangers),
+		// and the visitor's free text never goes into it beyond a short, plain first name
+		if msgApp && known != nil {
+			body := growthText(ctx, tx, cid, "shop_order", company, plainName(in.Name, 30), strconv.FormatInt(n, 10), total+" "+set.Currency, link)
 			if _, _, err := queueOut(ctx, tx, cid, outMessage{CustomerID: &customer, Channel: "whatsapp", Phone: in.Phone, Body: body, Event: "shop_order"}); err != nil {
 				return nil, err
 			}
@@ -881,19 +909,15 @@ func shopCustomer(ctx context.Context, tx pgx.Tx, cid, name, phone, email, addre
 	if len(digits) < 6 {
 		return "", badRequest("invalid_phone")
 	}
-	tail := digits
-	if len(tail) > 7 {
-		tail = tail[len(tail)-7:]
-	}
-	var id string
-	err := tx.QueryRow(ctx, `SELECT id::text FROM customers WHERE company_id = $1 AND status <> 'closed'
-		AND right(regexp_replace(phone, '[^0-9]', '', 'g'), 7) = $2 ORDER BY created_at LIMIT 1`, cid, tail).Scan(&id)
-	if err == nil {
-		return id, nil
-	}
-	if err != pgx.ErrNoRows {
+	// audit P7-M1: the full national number, and only one customer with it (71 123456 ≠ 81 123456)
+	found, err := customerByPhone(ctx, tx, cid, phone)
+	if err != nil {
 		return "", err
 	}
+	if found != nil {
+		return *found, nil
+	}
+	var id string
 	var n int64
 	if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'customer')`, cid).Scan(&n); err != nil {
 		return "", err
@@ -1080,6 +1104,11 @@ func (s *Server) shopPutSettings(w http.ResponseWriter, r *http.Request) {
 		if in.Slug != nil {
 			if *in.Slug != "" && !slugRe.MatchString(*in.Slug) {
 				return nil, badRequest("invalid_slug")
+			}
+			// audit P7-L10: names of the platform and of well-known brands are kept for their owners (a platform
+			// admin assigns them, PUT /platform/tenants/{id}/slug)
+			if *in.Slug != "" && reservedSlug(*in.Slug) {
+				return nil, &apiError{status: http.StatusConflict, code: "slug_reserved"}
 			}
 			_, err := tx.Exec(ctx, `UPDATE companies SET public_slug = nullif($2, '') WHERE id = $1`, cid, *in.Slug)
 			if isUniqueViolation(err) {

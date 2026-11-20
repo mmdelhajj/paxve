@@ -160,9 +160,12 @@ function CloseDay({ base, d, online, onDone, onError }: { base: string; d: Today
   const close = async () => {
     setBusy(true);
     try {
-      const r = await api<{ summary: { sales: number; sales_total: string; collected: string; differences: unknown[] } }>(`${base}/van/days/${d.day!.id}/close`, { method: 'POST',
-        body: { unload, counted: Object.entries(counted).map(([item_id, quantity]) => ({ item_id, quantity: quantity || '0' })) } });
-      onDone(t('vt.v.closed', { n: r.summary.sales, total: r.summary.sales_total, cash: r.summary.collected, d: r.summary.differences.length }));
+      const r = await api<{ summary?: { sales: number; sales_total: string; collected: string; differences: unknown[] }; pending_approval?: boolean; differences?: unknown[] }>(
+        `${base}/van/days/${d.day!.id}/close`, { method: 'POST',
+          body: { unload, counted: Object.entries(counted).map(([item_id, quantity]) => ({ item_id, quantity: quantity || '0' })) } });
+      // a shortage is approved by a stock manager: the day stays open until then
+      if (r.pending_approval || !r.summary) onDone(t('vt.v.pendingApproval', { d: (r.differences ?? []).length }));
+      else onDone(t('vt.v.closed', { n: r.summary.sales, total: r.summary.sales_total, cash: r.summary.collected, d: r.summary.differences.length }));
     } catch (e) { onError(e); } finally { setBusy(false); }
   };
   return (

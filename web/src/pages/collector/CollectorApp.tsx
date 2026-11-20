@@ -23,7 +23,7 @@ import {
   bluetoothSupported, ChoosePrinterError, connectNativePrinter, connectPrinter, isNativeApp, listPairedPrinters, printerName, printLines,
   setPaper, paperWidth, type PairedPrinter, type PrintLine,
 } from '../../bt';
-import { cacheGet, cacheSet, enqueue, newClientRef, outbox, syncOutbox } from '../../outbox';
+import { cacheGet, cacheSet, clearDeviceCache, enqueue, newClientRef, outbox, syncOutbox } from '../../outbox';
 import InstallApp, { setBadge } from '../../components/InstallApp';
 
 const DriverTrips = lazy(() => import('../wh/Driver').then((m) => ({ default: m.DriverTrips })));
@@ -188,7 +188,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
                 )}
                 <Menu.Divider />
                 <Menu.Item color="red" leftSection={<IconLogout size={14} />} onClick={async () => {
-                  try { await api('/auth/logout', { method: 'POST' }); } finally { onLogout(); }
+                  try { await api('/auth/logout', { method: 'POST' }); } finally { clearDeviceCache(); onLogout(); }
                 }}>{t('common.logout')}</Menu.Item>
               </Menu.Dropdown>
             </Menu>

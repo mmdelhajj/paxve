@@ -21,7 +21,7 @@ import Logo from '../../components/Logo';
 import {
   bluetoothSupported, ChoosePrinterError, connectPrinter, isNativeApp, kickDrawer, paperWidth, printerName, printLines, setPaper,
 } from '../../bt';
-import { cacheGet, cacheSet, enqueue, newClientRef, outbox, syncOutbox } from '../../outbox';
+import { cacheGet, cacheSet, clearDeviceCache, enqueue, newClientRef, outbox, syncOutbox } from '../../outbox';
 import { PrinterPicker } from '../collector/CollectorApp';
 import {
   itemName, OrderReceipt, orderReceiptLines, round, SessionReport, zReportLines,
@@ -382,7 +382,7 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
 
   async function logout() {
     if (!office) {
-      try { await api('/auth/logout', { method: 'POST' }); } finally { onLogout(); }
+      try { await api('/auth/logout', { method: 'POST' }); } finally { clearDeviceCache(); onLogout(); }
     } else onLogout();
   }
 

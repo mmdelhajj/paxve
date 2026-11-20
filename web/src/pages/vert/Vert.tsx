@@ -602,7 +602,7 @@ function PharmaSettings({ me }: { me: Me }) {
   );
 }
 
-interface Claim { id: string; number: number; pos_number: number; order_date: string; insurer: string; patient: string; policy_no: string; currency: string; amount: string; status: string; note: string }
+interface Claim { id: string; number: number; pos_number: number; order_date: string; insurer: string; patient: string; policy_no: string; currency: string; amount: string; refunded?: string; status: string; note: string }
 function Claims({ me }: { me: Me }) {
   const { t } = useTranslation();
   const base = useBase();
@@ -616,7 +616,7 @@ function Claims({ me }: { me: Me }) {
     <section className="mx-box">
       <h3 className="mx-row" style={{ gap: 6 }}>{t('vt.m.claims')}
         <select value={status} onChange={(e) => setStatus(e.currentTarget.value)} aria-label={t('vt.f.status')}>
-          {['open', 'pending', 'submitted', 'paid', 'rejected', 'all'].map((s) => <option key={s} value={s}>{t(`vt.cl.${s}`)}</option>)}</select></h3>
+          {['open', 'pending', 'submitted', 'paid', 'rejected', 'cancelled', 'all'].map((s) => <option key={s} value={s}>{t(`vt.cl.${s}`)}</option>)}</select></h3>
       <Flash m={msg} />
       {(d?.open_totals ?? []).length > 0 && <div className="mx-row" style={{ gap: 6, padding: 6, flexWrap: 'wrap' }}>
         {d!.open_totals.map((x, i) => <span key={i} className="mx-pill warn">{x.insurer} · {t(`vt.cl.${x.status}`)} · {x.claims} · {amt(x.amount)} {x.currency}</span>)}</div>}
@@ -632,7 +632,7 @@ function Claims({ me }: { me: Me }) {
         <thead><tr><th>#</th><th>{t('vt.f.date')}</th><th>{t('vt.cl.insurer')}</th><th>{t('vt.p.patient')}</th><th>{t('vt.cl.policy')}</th><th>{t('vt.f.total')}</th><th>{t('vt.f.status')}</th><th /></tr></thead>
         <tbody>{(d?.claims ?? []).map((c) => (
           <tr key={c.id}><td dir="ltr">{c.number}<br /><small>POS #{c.pos_number}</small></td><td>{formatDate(c.order_date)}</td><td>{c.insurer}</td><td>{c.patient}</td><td dir="ltr">{c.policy_no}</td>
-            <td dir="ltr">{amt(c.amount)} {c.currency}</td><td>{t(`vt.cl.${c.status}`)}{c.note && <><br /><small>{c.note}</small></>}</td>
+            <td dir="ltr">{amt(c.amount)} {c.currency}{c.refunded && Number(c.refunded) > 0 && <><br /><small>{t('vt.cl.returned', { v: amt(c.refunded) })}</small></>}</td><td>{t(`vt.cl.${c.status}`)}{c.note && <><br /><small>{c.note}</small></>}</td>
             <td style={{ whiteSpace: 'nowrap' }}>{act && (c.status === 'pending' || c.status === 'submitted') && <>
               {c.status === 'pending' && <button className="mx-btn sm" onClick={() => void run(api(`${base}/pharma/claims/${c.id}/submit`, { method: 'POST', body: {} }))}>{t('vt.cl.submit')}</button>}{' '}
               <button className="mx-btn sm main" onClick={() => setSettle({ id: c.id, method: '', currency: c.currency })}>{t('vt.cl.settle')}</button>{' '}

@@ -74,7 +74,7 @@ function NewRequest({ onDone, onClose }: { onDone: (id: string) => void; onClose
   const [docType, setDocType] = useState('quote');
   const [quotes] = useLoad<{ rows: { id: string; number: number; customer_id: string; customer_name: string; customer_phone: string; customer_email: string; total: string; currency: string; status: string }[] }>(
     base && `${base}/sales/orders?kind=quotes`, { rows: [] });
-  const [f, setF] = useState({ title: '', sales_order_id: '', subscription_id: '', body: '', message: '', channel: 'whatsapp', expires_on: '', remind_days: '3', ordered: true, auto_confirm: true, send: true });
+  const [f, setF] = useState({ title: '', sales_order_id: '', subscription_id: '', body: '', message: '', channel: 'whatsapp', expires_on: '', remind_days: '3', ordered: true, auto_confirm: true, require_otp: false, send: true });
   const [cust, setCust] = useState({ id: '', text: '' });
   const [subs] = useLoad<{ subscriptions: { id: string; plan_name?: string; status: string; start_date: string }[] } | null>(base && cust.id && docType === 'subscription' ? `${base}/customers/${cust.id}` : null, null);
   const [file, setFile] = useState<{ filename: string; data: string } | null>(null);
@@ -125,6 +125,7 @@ function NewRequest({ onDone, onClose }: { onDone: (id: string) => void; onClose
           <label className="mx-fld">{t('es.remind')}<input dir="ltr" style={{ width: 60 }} value={f.remind_days} onChange={(e) => setF({ ...f, remind_days: e.currentTarget.value.replace(/[^\d]/g, '') })} /></label>
           <label className="mx-fld" style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><input type="checkbox" checked={f.ordered} onChange={(e) => setF({ ...f, ordered: e.currentTarget.checked })} />{t('es.ordered')}</label>
           {docType === 'quote' && <label className="mx-fld" style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><input type="checkbox" checked={f.auto_confirm} onChange={(e) => setF({ ...f, auto_confirm: e.currentTarget.checked })} />{t('es.autoConfirm')}</label>}
+            <label className="mx-fld" style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><input type="checkbox" checked={f.require_otp} onChange={(e) => setF({ ...f, require_otp: e.currentTarget.checked })} />{t('es.requireOtp')}</label>
           <label className="mx-fld" style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><input type="checkbox" checked={f.send} onChange={(e) => setF({ ...f, send: e.currentTarget.checked })} />{t('es.sendNow')}</label>
         </div>
         <label className="mx-fld">{t('es.message')}<textarea rows={2} value={f.message} onChange={(e) => setF({ ...f, message: e.currentTarget.value })} /></label>
@@ -132,7 +133,7 @@ function NewRequest({ onDone, onClose }: { onDone: (id: string) => void; onClose
         <button className="mx-btn main" disabled={!ok} onClick={() => void run(api<{ request: Req }>(`${base}/esign/requests`, { method: 'POST', body: {
           doc_type: docType, title: f.title, sales_order_id: docType === 'quote' ? f.sales_order_id : '', subscription_id: docType === 'subscription' ? f.subscription_id : '',
           body: docType === 'contract' || docType === 'subscription' ? f.body : '', file: docType === 'upload' ? file : undefined, message: f.message, channel: f.channel,
-          expires_on: f.expires_on, remind_days: Number(f.remind_days || 0), ordered: f.ordered, auto_confirm: docType === 'quote' && f.auto_confirm, send: f.send,
+          expires_on: f.expires_on, remind_days: Number(f.remind_days || 0), ordered: f.ordered, auto_confirm: docType === 'quote' && f.auto_confirm, require_otp: f.require_otp, send: f.send,
           signers: signers.map((s) => ({ name: s.name, phone: s.phone, email: s.email, customer_id: s.customer_id })) } }), (x) => onDone((x as { request: Req }).request.id))}>
           {f.send ? t('es.createSend') : t('es.createDraft')}</button>
       </div>

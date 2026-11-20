@@ -195,6 +195,7 @@ func (s *Server) esignCreate(w http.ResponseWriter, r *http.Request) {
 		Channel     string     `json:"channel"`
 		ExpiresOn   string     `json:"expires_on"`
 		AutoConfirm bool       `json:"auto_confirm"`
+		RequireOTP  bool       `json:"require_otp"` // the signer types a code sent to their phone / e-mail first (audit P7-L7)
 		RemindDays  *int       `json:"remind_days"`
 		Signers     []signerIn `json:"signers"`
 		Send        bool       `json:"send"`
@@ -336,8 +337,8 @@ func (s *Server) esignCreate(w http.ResponseWriter, r *http.Request) {
 		}
 		var id string
 		if err := tx.QueryRow(ctx, `INSERT INTO sign_requests (company_id, number, title, doc_type, sales_order_id, subscription_id, body, doc_hash, message, ordered,
-			channel, expires_on, auto_confirm, remind_days) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, trim($9), $10, $11, nullif($12, '')::date, $13, $14) RETURNING id::text`,
-			cid, n, in.Title, in.DocType, so, sub, body, hash, in.Message, ordered, in.Channel, in.ExpiresOn, in.AutoConfirm && in.DocType == "quote", remind).Scan(&id); err != nil {
+			channel, expires_on, auto_confirm, remind_days, require_otp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, trim($9), $10, $11, nullif($12, '')::date, $13, $14, $15) RETURNING id::text`,
+			cid, n, in.Title, in.DocType, so, sub, body, hash, in.Message, ordered, in.Channel, in.ExpiresOn, in.AutoConfirm && in.DocType == "quote", remind, in.RequireOTP).Scan(&id); err != nil {
 			return nil, err
 		}
 		if len(file) > 0 {
@@ -670,6 +671,7 @@ func (s *Server) signInfo(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		me, err := queryJSONOne(ctx, tx, `SELECT g.name, g.status, g.signed_at, g.sign_method, g.typed_name, g.signature,
+			q.require_otp AS otp_required, (g.otp_verified_at IS NOT NULL) AS otp_verified,
 			(q.status = 'sent' AND g.status IN ('pending', 'viewed') AND (q.expires_on IS NULL OR q.expires_on >= current_date)) AS can_sign
 			FROM sign_signers g JOIN sign_requests q ON q.id = g.request_id WHERE g.id = $1`, signer)
 		if err != nil {
@@ -711,6 +713,7 @@ func (s *Server) signFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, strings.ReplaceAll(name, `"`, "")))
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox") // audit P7-L7, as attachments
 	_, _ = w.Write(data)
 }
 
@@ -753,14 +756,18 @@ func (s *Server) signSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	s.runScoped(w, r, sc, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		var qst, gst, docType, hash, body string
-		var ordered, autoConfirm bool
+		var ordered, autoConfirm, needOTP, otpOK bool
 		var expires *string
 		var so *string
 		var seq int
-		if err := tx.QueryRow(ctx, `SELECT q.status, g.status, q.doc_type, q.doc_hash, q.body, q.ordered, q.auto_confirm, q.expires_on::text, q.sales_order_id::text, g.seq
+		if err := tx.QueryRow(ctx, `SELECT q.status, g.status, q.doc_type, q.doc_hash, q.body, q.ordered, q.auto_confirm, q.expires_on::text, q.sales_order_id::text, g.seq,
+			q.require_otp, coalesce(g.otp_verified_at > now() - interval '30 minutes', false)
 			FROM sign_signers g JOIN sign_requests q ON q.id = g.request_id WHERE g.id = $1 FOR UPDATE OF q, g`, signer).
-			Scan(&qst, &gst, &docType, &hash, &body, &ordered, &autoConfirm, &expires, &so, &seq); err != nil {
+			Scan(&qst, &gst, &docType, &hash, &body, &ordered, &autoConfirm, &expires, &so, &seq, &needOTP, &otpOK); err != nil {
 			return nil, err
+		}
+		if needOTP && !otpOK {
+			return nil, &apiError{status: http.StatusForbidden, code: "otp_required"}
 		}
 		if qst != "sent" || (gst != "pending" && gst != "viewed") {
 			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
@@ -1002,4 +1009,122 @@ func signMaintenance(ctx context.Context, tx pgx.Tx) (int, error) {
 		}
 	}
 	return len(exp) + len(list), nil
+}
+
+// ======================= signing code (audit P7-L7) =======================
+
+// POST /api/v1/sign/{token}/otp: when the request asks for it, a 6-digit code goes to the signer's phone (WhatsApp,
+// then SMS) or e-mail; it is valid 10 minutes. At most 5 codes / checks an hour per signer link.
+func (s *Server) signOTPSend(w http.ResponseWriter, r *http.Request) {
+	if !otpLimiter.allow("send:" + r.PathValue("token")) {
+		writeErr(w, http.StatusTooManyRequests, "too_many_attempts")
+		return
+	}
+	otpLimiter.fail("send:" + r.PathValue("token"))
+	sc, cid, signer, _, ok := s.tokenScope(w, r, "sign")
+	if !ok {
+		return
+	}
+	s.runScoped(w, r, sc, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		var need bool
+		var gst, qst, name, email, phone, title, company string
+		var cust *string
+		if err := tx.QueryRow(ctx, `SELECT q.require_otp, g.status, q.status, g.name, g.email, g.phone, g.customer_id::text, q.title,
+			coalesce(nullif(c.name_ar, ''), c.name_en)
+			FROM sign_signers g JOIN sign_requests q ON q.id = g.request_id JOIN companies c ON c.id = q.company_id WHERE g.id = $1 FOR UPDATE OF g`, signer).
+			Scan(&need, &gst, &qst, &name, &email, &phone, &cust, &title, &company); err != nil {
+			return nil, err
+		}
+		if !need || qst != "sent" || (gst != "pending" && gst != "viewed") {
+			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+		}
+		code := fmt.Sprintf("%06d", randIntn(1000000))
+		if _, err := tx.Exec(ctx, `UPDATE sign_signers SET otp_hash = $2, otp_expires = now() + interval '10 minutes', otp_tries = 0 WHERE id = $1`,
+			signer, sha256Hex([]byte(signer+":"+code))); err != nil {
+			return nil, err
+		}
+		body := fmt.Sprintf("%s · %s\nرمز التوقيع / Signing code / Code de signature: %s", company, title, code)
+		sentTo := ""
+		for _, ch := range []string{"whatsapp", "sms", "email"} {
+			id, _, err := queueOut(ctx, tx, cid, outMessage{CustomerID: cust, Channel: ch, Phone: phone, Email: email, Subject: company + " · " + title,
+				Body: body, Event: "esign"})
+			if err != nil {
+				return nil, err
+			}
+			if id != "" {
+				sentTo = ch
+				break
+			}
+		}
+		if sentTo == "" {
+			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "no_contact"}
+		}
+		return map[string]any{"sent": true, "channel": sentTo, "to": maskContact(sentTo, phone, email)}, nil
+	})
+}
+
+// POST /api/v1/sign/{token}/otp/verify {code}: right code (within 10 minutes, 5 tries) → the signer may sign for
+// the next 30 minutes.
+func (s *Server) signOTPVerify(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Code string `json:"code"`
+	}
+	if !decodeBody(w, r, &in) {
+		return
+	}
+	in.Code = strings.TrimSpace(in.Code)
+	if len(in.Code) != 6 {
+		writeErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	if !otpLimiter.allow("check:" + r.PathValue("token")) {
+		writeErr(w, http.StatusTooManyRequests, "too_many_attempts")
+		return
+	}
+	otpLimiter.fail("check:" + r.PathValue("token"))
+	sc, cid, signer, req, ok := s.tokenScope(w, r, "sign")
+	if !ok {
+		return
+	}
+	s.runScoped(w, r, sc, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		var hash string
+		var tries int
+		var fresh bool
+		if err := tx.QueryRow(ctx, `SELECT otp_hash, otp_tries, coalesce(otp_expires > now(), false) FROM sign_signers WHERE id = $1 FOR UPDATE`, signer).
+			Scan(&hash, &tries, &fresh); err != nil {
+			return nil, err
+		}
+		if hash == "" || !fresh || tries >= 5 {
+			return map[string]any{"ok": false, "reason": "expired"}, nil
+		}
+		if !sameHex(hash, sha256Hex([]byte(signer+":"+in.Code))) {
+			if _, err := tx.Exec(ctx, `UPDATE sign_signers SET otp_tries = otp_tries + 1 WHERE id = $1`, signer); err != nil {
+				return nil, err
+			}
+			return map[string]any{"ok": false, "reason": "wrong_code"}, nil
+		}
+		if _, err := tx.Exec(ctx, `UPDATE sign_signers SET otp_verified_at = now(), otp_hash = '' WHERE id = $1`, signer); err != nil {
+			return nil, err
+		}
+		if err := signEvent(ctx, tx, cid, req, &signer, "verified", clientIP(r), r.UserAgent(), "signing code"); err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true}, nil
+	})
+}
+
+// maskContact shows where a code went without revealing the whole number / address (+961 71 ••• 456).
+func maskContact(channel, phone, email string) string {
+	if channel == "email" {
+		at := strings.Index(email, "@")
+		if at <= 1 {
+			return "•••" + email[max(at, 0):]
+		}
+		return email[:1] + "•••" + email[at:]
+	}
+	d := []rune(strings.TrimSpace(phone))
+	if len(d) <= 4 {
+		return "•••"
+	}
+	return string(d[:min(4, len(d)-3)]) + " ••• " + string(d[len(d)-3:])
 }

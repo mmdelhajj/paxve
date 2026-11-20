@@ -331,13 +331,15 @@ func (s *Server) listOrders(w http.ResponseWriter, r *http.Request) {
 // orderAction: send / confirm / cancel / reopen (back to draft) / done.
 func (s *Server) orderAction(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Date string `json:"date"`
+		Date     string `json:"date"`
+		Deposit  string `json:"deposit"`   // cancel with a deposit: refund | credit
+		MethodID string `json:"method_id"` // refund: the box the deposit is paid back from
 	}
 	if !decodeBody(w, r, &in) {
 		return
 	}
 	cid, id, action := r.PathValue("cid"), r.PathValue("id"), r.PathValue("action")
-	if !isUUID(id) || (in.Date != "" && !validDate(in.Date)) {
+	if !isUUID(id) || (in.Date != "" && !validDate(in.Date)) || (in.MethodID != "" && !isUUID(in.MethodID)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -396,6 +398,10 @@ func (s *Server) orderAction(w http.ResponseWriter, r *http.Request) {
 			if status == "cancelled" || status == "done" {
 				return nil, wrong
 			}
+			// a deposit is never left behind silently (audit P7-L4): refund it or keep it as customer credit
+			if err := cancelOrderDeposits(ctx, tx, cid, id, in.Deposit, in.MethodID); err != nil {
+				return nil, err
+			}
 			_, err = tx.Exec(ctx, `UPDATE sales_orders SET status = 'cancelled' WHERE id = $1`, id)
 			if err == nil {
 				err = whOnOrderCancelled(ctx, tx, cid, id)
@@ -410,6 +416,15 @@ func (s *Server) orderAction(w http.ResponseWriter, r *http.Request) {
 				return nil, wrong
 			}
 			_, err = tx.Exec(ctx, `UPDATE sales_orders SET status = 'done' WHERE id = $1`, id)
+			if err == nil { // a finished order's unused deposit becomes ordinary customer credit
+				var set *billingSettings
+				var cust string
+				if set, err = loadBillingSettings(ctx, tx, cid); err == nil {
+					if err = tx.QueryRow(ctx, `SELECT customer_id::text FROM sales_orders WHERE id = $1`, id).Scan(&cust); err == nil {
+						_, err = releaseOrderDeposits(ctx, tx, cid, set, id, cust, "credit")
+					}
+				}
+			}
 		default:
 			return nil, notFound()
 		}
@@ -840,6 +855,10 @@ func (s *Server) invoiceOrder(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if err := refreshOrderStatus(ctx, tx, id); err != nil {
+			return nil, err
+		}
+		// the order's own deposits settle its invoice (audit P7-H2), never the customer's older invoices
+		if err := applyOrderDeposits(ctx, tx, cid, set, id); err != nil {
 			return nil, err
 		}
 		return map[string]any{"invoice_id": invID}, nil

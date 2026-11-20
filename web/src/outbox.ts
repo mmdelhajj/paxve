@@ -93,3 +93,18 @@ export function cacheGet<T>(key: string): { at: number; value: T } | null {
     return null;
   }
 }
+
+/** audit P7-L4: on sign-out the phone forgets cached customers, methods, catalogs and queued scans (unsent payments
+ *  and sales stay in the outbox: they are money already taken). */
+export function clearDeviceCache() {
+  try {
+    const drop: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('paxve.cache.') || k === 'paxve-wh-queue')) drop.push(k);
+    }
+    drop.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* storage unavailable */
+  }
+}

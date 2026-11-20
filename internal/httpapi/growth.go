@@ -22,6 +22,8 @@ import (
 var (
 	publicReadLimiter  = newLimiter(600, 10*time.Minute) // page views per IP
 	publicWriteLimiter = newLimiter(30, time.Hour)       // orders / applications / signatures per IP
+	couponLimiter      = newLimiter(20, time.Hour)       // cart prices carrying a coupon code, per IP and shop (audit P7-L6)
+	otpLimiter         = newLimiter(5, time.Hour)        // signing codes sent / tried per signer link (audit P7-L7)
 )
 
 // publicScope resolves /{slug} to the company (404 when unknown, shop and careers flags for the caller).

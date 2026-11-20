@@ -242,6 +242,7 @@ const fr: Messages = {
       description: 'Libellé', period: 'Mois', reading: 'Index', type: 'Type', parent_code: 'Compte parent', is_postable: 'Imputable',
     },
     codes: {
+      already_imported: "Déjà importé", duplicate: "Même ligne deux fois",
       required: 'Obligatoire', too_long: 'Trop long', duplicate_in_file: 'Doublon dans le fichier', code_exists: 'Code déjà existant',
       invalid: 'Valeur invalide', not_found: 'Introuvable', invalid_date: 'Date invalide', invalid_number: 'Nombre invalide',
       invalid_period: 'Mois invalide', no_rate: 'Pas de taux de change', already_invoiced: 'Déjà facturé',
@@ -416,6 +417,7 @@ const fr: Messages = {
     billingRunningHint: 'C\'est une grande facturation qui continue en arrière-plan. Vous pouvez fermer cette fenêtre.',
   },
   sales: {
+    depositKeepQ: "Cette commande a un acompte ({{detail}}). Annuler la commande et garder l'acompte en avoir du client ? (Pour rendre l'argent, remboursez l'avoir depuis la fiche client.)",
     freeLine: 'Ligne libre',
     nav: 'Ventes & CRM', title: 'Devis & commandes', quotes: 'Devis', orders: 'Commandes clients', quote: 'Devis', order: 'Commande',
     newQuote: 'Nouveau devis', number: 'Numéro', total: 'Total', progress: 'Livraison / facturation',
@@ -620,6 +622,7 @@ const fr: Messages = {
     },
   },
   errors: {
+    order_has_deposit: "Cette commande a un acompte ({{detail}}). Choisissez : le rembourser ou le garder en avoir du client.", insurance_claim_settled: "La demande d'assurance {{detail}} est déjà close : cette vente ne peut pas être remboursée en caisse. Demandez à un responsable.", too_many_orders: "Trop de commandes depuis ce numéro aujourd'hui. Appelez la boutique.", ai_user_limit: "Trop de questions en peu de temps. Attendez une minute et réessayez.", ai_paused: "L'assistant est en pause pour aujourd'hui. Réessayez demain.", otp_required: "Saisissez d'abord le code reçu.", no_contact: "Aucun téléphone ni e-mail pour envoyer le code. Demandez à l'expéditeur d'en ajouter un.", too_many_applications: "Cette page a reçu trop de candidatures aujourd'hui. Réessayez demain.", slug_reserved: "Cette adresse est réservée. Contactez le support Paxve si c'est votre marque.",
     ai_not_configured: 'Les fonctions d\'IA ne sont pas encore activées (le propriétaire de Paxve ajoute la clé API)',
     ai_limit_reached: 'Les requêtes IA de votre formule sont épuisées ce mois-ci ({{detail}})',
     ai_key_invalid: 'Le service d\'IA a refusé la clé : le propriétaire de Paxve doit la vérifier',
@@ -1995,6 +1998,7 @@ const fr: Messages = {
       st: { ok: 'Dans les délais', at_risk: 'À risque', breached: 'En retard', none: '—' }, respond: 'répondre avant', resolve: 'résoudre avant', escalated: 'escaladée',
     },
     in: {
+      sigHelp: "Facultatif, plus sûr : collez le secret de l'app Meta (WhatsApp) et la clé de signature Mailgun. Seuls leurs vrais messages seront alors acceptés.", waSecret: "Secret de l'app WhatsApp", mailKey: "Clé de signature Mailgun", saveSig: "Enregistrer les clés", clearSig: "Retirer les clés",
       title: 'Demandes par e-mail et WhatsApp', help: 'Donnez ces adresses à votre service de réception d\'e-mails (Mailgun, SendGrid…) et au webhook de WhatsApp Cloud API. Chaque message devient une demande ou s\'ajoute à la demande ouverte de l\'expéditeur.',
       email: 'Adresse de réception e-mail', whatsapp: 'Webhook WhatsApp', verify: 'Jeton de vérification WhatsApp', off: 'Désactivé.', rotate: 'Nouvelle adresse',
       enable: 'Activer', disable: 'Désactiver',
@@ -2163,6 +2167,7 @@ const fr: Messages = {
     selfNone: 'Vous n\'avez pas encore d\'évaluation.', dueBy: 'À remplir avant le {{d}}', myScore: 'Ma note', submitSelf: 'Envoyer mon auto-évaluation',
   },
   es: {
+    requireOtp: "Demander un code au signataire (envoyé par téléphone / e-mail)",
     t: 'Signature électronique',
     title: 'Signature électronique', help: 'Faites signer devis, contrats, conventions d\'abonnement ou tout PDF depuis le téléphone — avec piste d\'audit et certificat.',
     requests: 'Demandes de signature', new: 'Nouvelle demande', none: 'Rien pour l\'instant', close: 'Fermer',
@@ -2201,6 +2206,7 @@ const fr: Messages = {
       thanks: 'Merci ! Votre candidature est reçue. Nous vous contacterons.', tooBig: 'Le fichier dépasse 5 Mo.', shop: 'Visiter notre boutique',
     },
     sign: {
+      otp: { title: "Confirmez votre identité", hint: "L'expéditeur demande d'abord un code. Nous l'envoyons à votre téléphone ou e-mail.", send: "M'envoyer le code", sent: "Code envoyé à {{to}}. Valable 10 minutes.", code: "Code", check: "Confirmer", again: "Renvoyer", wrong: "Code incorrect. Réessayez.", expired: "Le code a expiré. Demandez-en un nouveau." },
       notFound: 'Ce lien n\'est pas valable.', title: 'Demande de signature', completed: 'Signé par tous.', declined: 'Cette demande a été refusée.',
       st: { cancelled: 'Cette demande a été annulée.', expired: 'Cette demande a expiré.' },
       document: 'Le document', openFile: 'Ouvrir le fichier', signers: 'Signataires', yourSignature: 'Votre signature, {{name}}', draw: 'Dessiner', type: 'Saisir mon nom',
@@ -2415,6 +2421,7 @@ const fr: Messages = {
       ingredient: 'Principe actif', form: 'Forme', needLots: 'Suivez cet article par lot (Articles → paramètres de stock) pour gérer la péremption.',
     },
     cl: {
+      cancelled: "Annulée (retour)", returned: "{{v}} retourné",
       open: 'Ouvertes', pending: 'À envoyer', submitted: 'Envoyées', paid: 'Payées', rejected: 'Rejetées', all: 'Toutes', paidInto: 'Payé sur', settle: 'Payée',
       insurer: 'Assureur', policy: 'N° de police', submit: 'Envoyée', reject: 'Rejeter',
       note: 'La part de l\'assureur est comptabilisée en « Créances sur assurances ». Payée : passe en caisse. Rejetée : passée en charge.',
@@ -2444,6 +2451,7 @@ const fr: Messages = {
       insurer: 'Assureur', usedItem: 'Appareil repris', serial: 'N° de série', tradeValue: 'Valeur ({{cur}})', condition: 'État…', insPct: 'Part assureur %', policy: 'N° de police',
     },
     v: {
+      pendingApproval: "Le comptage a {{d}} écarts avec un manque : un responsable de stock l'approuve, puis clôture la journée.",
       offline: 'hors ligne', back: 'Retour', noDay: 'La journée n\'est pas encore ouverte : l\'entrepôt charge d\'abord la camionnette.', customers: 'Clients', stock: 'Stock de la camionnette',
       close: 'Clôturer la journée', hold: 'bloqué', limit: 'plafond {{v}}', noStops: 'Aucun client sur la tournée du jour.', empty: 'La camionnette est vide.',
       balance: 'Solde', find: 'Chercher un article ou scanner…', left: '{{n}} dans la camionnette', estimate: 'Environ', priceNote: 'Le prix final applique la liste de prix du client.',
@@ -2464,6 +2472,7 @@ const fr: Messages = {
       t: { today: "Aujourd'hui", alerts: "Alertes", ask: "Question", news: "Notifications" },
     },
     my: {
+      remember: "Retenir sur ce téléphone",
       title: "Mon compte", none: "Ouvrez une fois le lien de votre facture ou du message WhatsApp ; cette application s'en souviendra.", forget: "Oublier les comptes sur ce téléphone",
       consumption: "Consommation", meter: "Compteur {{m}}", tickets: "Demandes et pannes", report: "Signaler un problème", cat: "Type", subject: "Objet", details: "Détails",
       send: "Envoyer", sent: "Demande n° {{n}} envoyée. Nous vous appellerons.", rate: "Noter", orders: "Mes commandes en ligne", track: "Suivre",

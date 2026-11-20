@@ -1061,6 +1061,9 @@ func (s *Server) createLandedCost(w http.ResponseWriter, r *http.Request) {
 			credit = *ps.AP
 		} else if err := requirePostable(ctx, tx, cid, credit); err != nil {
 			return nil, err
+		} else if err := rejectControlAccount(ctx, tx, cid, credit); err != nil {
+			// audit P7-L6: payables (or any sub-ledger account) only through a supplier bill (supplier_id)
+			return nil, err
 		}
 		rateS, err := resolveRate(ctx, tx, cid, set.Base, in.Currency, in.Date, "")
 		if err != nil {

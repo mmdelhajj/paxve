@@ -11,7 +11,8 @@ interface SignData {
   request: { number: number; title: string; doc_type: string; body: string; doc_hash: string; message: string; status: string; expires_on: string | null;
     has_file: boolean; file_mime: string | null; file_name: string | null; completed_at: string | null; has_certificate: boolean; company: string; company_ar: string;
     logo: string; locale: string };
-  me: { name: string; status: string; signed_at: string | null; sign_method: string; typed_name: string; signature: string; can_sign: boolean };
+  me: { name: string; status: string; signed_at: string | null; sign_method: string; typed_name: string; signature: string; can_sign: boolean;
+    otp_required?: boolean; otp_verified?: boolean };
   signers: { seq: number; name: string; status: string; signed_at: string | null; signature: string }[];
 }
 
@@ -79,6 +80,8 @@ export default function Sign({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState('');
+  const [otpSent, setOtpSent] = useState('');
+  const [code, setCode] = useState('');
   const load = () => api<SignData>(`/sign/${token}`).then((x) => {
     setD(x);
     if (x.request.locale && !localStorage.getItem('paxve.lang')) applyLang(x.request.locale);
@@ -99,6 +102,25 @@ export default function Sign({ token }: { token: string }) {
       await load();
     } catch (e) { setErr(errorText(t, e)); } finally { setBusy(false); }
   }
+  // the sender asked for a signing code: it goes to the signer's phone / e-mail first
+  async function sendCode() {
+    setErr('');
+    setBusy(true);
+    try {
+      const r = await api<{ to: string }>(`/sign/${token}/otp`, { method: 'POST', body: {} });
+      setOtpSent(r.to || '…');
+    } catch (e) { setErr(errorText(t, e)); } finally { setBusy(false); }
+  }
+  async function checkCode() {
+    setErr('');
+    setBusy(true);
+    try {
+      const r = await api<{ ok: boolean; reason?: string }>(`/sign/${token}/otp/verify`, { method: 'POST', body: { code: code.trim() } });
+      if (r.ok) await load();
+      else setErr(t(`pub.sign.otp.${r.reason === 'expired' ? 'expired' : 'wrong'}`));
+    } catch (e) { setErr(errorText(t, e)); } finally { setBusy(false); }
+  }
+  const needCode = !!d?.me.otp_required && !d?.me.otp_verified;
   async function decline() {
     setErr('');
     try { await api(`/sign/${token}/decline`, { method: 'POST', body: { reason } }); setDeclining(false); await load(); } catch (e) { setErr(errorText(t, e)); }
@@ -136,7 +158,21 @@ export default function Sign({ token }: { token: string }) {
               <span style={{ color: stColor[s.status] ?? '#333', fontWeight: 600 }}>{t(`es.sst.${s.status}`)}{s.signed_at ? ` · ${formatDateTime(s.signed_at)}` : ''}</span>
             </div>))}
         </div>
-        {d.me.can_sign && !declining && (
+        {d.me.can_sign && !declining && needCode && (
+          <div style={box}>
+            <b>{t('pub.sign.otp.title')}</b>
+            <span>{otpSent ? t('pub.sign.otp.sent', { to: otpSent }) : t('pub.sign.otp.hint')}</span>
+            {!otpSent ? <button className="mx-btn main" style={{ minHeight: 46 }} disabled={busy} onClick={() => void sendCode()}>{t('pub.sign.otp.send')}</button> : <>
+              <input aria-label={t('pub.sign.otp.code')} inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
+                onChange={(e) => setCode(e.currentTarget.value.replace(/\D/g, ''))}
+                style={{ font: 'inherit', fontSize: 24, letterSpacing: 6, textAlign: 'center', padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', direction: 'ltr' }} />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="mx-btn main" disabled={busy || code.length !== 6} onClick={() => void checkCode()}>{t('pub.sign.otp.check')}</button>
+                <button className="mx-btn" disabled={busy} onClick={() => void sendCode()}>{t('pub.sign.otp.again')}</button>
+              </div></>}
+            {err && <div className="mx-flash bad">{err}</div>}
+          </div>)}
+        {d.me.can_sign && !declining && !needCode && (
           <div style={box}>
             <b>{t('pub.sign.yourSignature', { name: d.me.name })}</b>
             <div role="tablist" style={{ display: 'flex', gap: 8 }}>

@@ -227,6 +227,9 @@ func fleetExpense(ctx context.Context, tx pgx.Tx, cid, which, account, method, d
 		}
 		account = *a
 	}
+	if err := rejectControlAccount(ctx, tx, cid, account); err != nil {
+		return nil, "", err
+	}
 	id, err := createExpenseTx(ctx, tx, cid, expenseIn{Date: date, AccountID: account, MethodID: method, Amount: amount, Description: desc})
 	if err != nil {
 		return nil, "", err
@@ -795,6 +798,9 @@ func (s *Server) fleetSettings(w http.ResponseWriter, r *http.Request) {
 			for _, a := range []*string{in.FuelAccountID, in.ServiceAccountID} {
 				if a != nil && *a != "" {
 					if err := requirePostable(ctx, tx, cid, *a); err != nil {
+						return nil, err
+					}
+					if err := rejectControlAccount(ctx, tx, cid, *a); err != nil {
 						return nil, err
 					}
 				}

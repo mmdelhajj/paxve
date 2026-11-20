@@ -374,6 +374,17 @@ func creditInvoice(ctx context.Context, tx pgx.Tx, cid string, set *billingSetti
 				k := *c.item + "|" + *c.wh
 				back[k] = back[k].Add(c.qty)
 			}
+			if c.kit && !restockDishes(ctx) {
+				// audit P7-L3: a restaurant dish (kitchen station set) was cooked; its ingredients are not put back on
+				// the shelf. Their cost stays in cost of sales (wasted food), unless the refund asks to restock them.
+				var dish bool
+				if err := tx.QueryRow(ctx, `SELECT kitchen_station <> '' FROM items WHERE id = $1`, *c.item).Scan(&dish); err != nil {
+					return nil, err
+				}
+				if dish {
+					continue
+				}
+			}
 			if c.kit { // a kit line gives back its components
 				parts, err := expandKits(ctx, tx, cid, []saleLine{{ItemID: *c.item, WarehouseID: *c.wh, Qty: c.qty}})
 				if err != nil {
@@ -556,7 +567,8 @@ func voidCreditNoteStock(ctx context.Context, tx pgx.Tx, cid, cnID string, numbe
 func customerCredit(ctx context.Context, tx pgx.Tx, customer, currency string) (decimal.Decimal, error) {
 	var s string
 	err := tx.QueryRow(ctx, `SELECT coalesce(sum(p.amount - coalesce((SELECT sum(a.amount) FROM payment_allocations a WHERE a.payment_id = p.id), 0)), 0)::text
-		FROM payments p WHERE p.customer_id = $1 AND p.currency = $2 AND p.status = 'posted'`, customer, currency).Scan(&s)
+		FROM payments p WHERE p.customer_id = $1 AND p.currency = $2 AND p.status = 'posted'
+		  AND NOT EXISTS (SELECT 1 FROM so_deposits d WHERE d.payment_id = p.id AND d.released_at IS NULL)`, customer, currency).Scan(&s)
 	d, _ := decimal.NewFromString(s)
 	return d, err
 }
@@ -564,6 +576,13 @@ func customerCredit(ctx context.Context, tx pgx.Tx, customer, currency string) (
 // issueRefund pays amount of the customer's credit (in currency) out of a cash box / bank.
 func issueRefund(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings, customer, name, currency string, amount decimal.Decimal,
 	methodID, date, notes string) (string, decimal.Decimal, string, error) {
+	return issueRefundAt(ctx, tx, cid, set, customer, name, currency, amount, methodID, date, notes, "")
+}
+
+// issueRefundAt: issueRefund with the method side booked at a given rate (an insurance claim cancelled at the rate it
+// was booked at, so the receivable clears in base currency too; "" = the day's rate).
+func issueRefundAt(ctx context.Context, tx pgx.Tx, cid string, set *billingSettings, customer, name, currency string, amount decimal.Decimal,
+	methodID, date, notes, methodRate string) (string, decimal.Decimal, string, error) {
 	credit, err := customerCredit(ctx, tx, customer, currency)
 	if err != nil {
 		return "", decimal.Zero, "", err
@@ -587,6 +606,10 @@ func issueRefund(ctx context.Context, tx pgx.Tx, cid string, set *billingSetting
 	if err != nil {
 		return "", decimal.Zero, "", err
 	}
+	lineRate := mRateS
+	if methodRate != "" && m.Currency == currency {
+		lineRate = methodRate
+	}
 	mDec, err := currencyDecimals(ctx, tx, m.Currency)
 	if err != nil {
 		return "", decimal.Zero, "", err
@@ -601,7 +624,7 @@ func issueRefund(ctx context.Context, tx pgx.Tx, cid string, set *billingSetting
 	je, err := postJournal(ctx, tx, cid, set, date, fmt.Sprintf("Refund #%d · %s", number, name), fmt.Sprintf("REF-%d", number), "refund",
 		[]jline{
 			{Account: *set.AR, Desc: name, Currency: currency, Debit: amount, Rate: cRateS},
-			{Account: m.Account, Desc: "Refund · " + m.Name, Currency: m.Currency, Credit: paid, Rate: mRateS},
+			{Account: m.Account, Desc: "Refund · " + m.Name, Currency: m.Currency, Credit: paid, Rate: lineRate},
 		})
 	if err != nil {
 		return "", decimal.Zero, "", err

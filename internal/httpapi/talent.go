@@ -608,6 +608,20 @@ func (s *Server) careersApply(w http.ResponseWriter, r *http.Request) {
 			if err := checkStorageQuota(ctx, tx, cid, len(cv)); err != nil {
 				return nil, err
 			}
+			// audit P7-L3: CVs from the public page have their own room (500 MB in all, 100 a day, 30 a day per
+			// position), so strangers can't fill the company's storage
+			var total int64
+			var day, perJob int
+			if err := tx.QueryRow(ctx, `SELECT coalesce(sum(a.size), 0)::bigint,
+				count(*) FILTER (WHERE a.created_at > now() - interval '1 day')::int,
+				count(*) FILTER (WHERE a.created_at > now() - interval '1 day' AND j.job_id = $2)::int
+				FROM attachments a JOIN job_applicants j ON j.id = a.entity_id
+				WHERE a.company_id = $1 AND a.entity_type = 'applicant' AND a.created_by IS NULL`, cid, job).Scan(&total, &day, &perJob); err != nil {
+				return nil, err
+			}
+			if total+int64(len(cv)) > 500<<20 || day >= 100 || perJob >= 30 {
+				return nil, &apiError{status: http.StatusTooManyRequests, code: "too_many_applications"}
+			}
 		}
 		var n int64
 		if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'applicant')`, cid).Scan(&n); err != nil {
@@ -625,7 +639,7 @@ func (s *Server) careersApply(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 		}
-		if err := notifyStaff(ctx, tx, cid, "talent.view", "recruit", fmt.Sprintf("New application آ· %s", title), in.Name, "applicant", id); err != nil {
+		if err := notifyStaff(ctx, tx, cid, "talent.view", "recruit", fmt.Sprintf("New application · %s", title), in.Name, "applicant", id); err != nil {
 			return nil, err
 		}
 		var company string

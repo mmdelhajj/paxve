@@ -47,6 +47,10 @@ func attachAllowed(r *http.Request, typ string, write bool) bool {
 	if write {
 		return can(r, m+".create") || can(r, m+".edit")
 	}
+	if typ == "pos_order" {
+		// audit P7-L9: prescriptions (medical data) and trade-in ID photos: managers only, not every cashier
+		return can(r, "pos.void") || can(r, "reports.view")
+	}
 	return can(r, m+".view")
 }
 

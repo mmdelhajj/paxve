@@ -339,3 +339,6 @@ optional demo data, all through the normal handlers. Ribbon tab **Business** sho
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the
 honest list of what is still open (purchase orders, late fees / dunning levels, FX revaluation, deferred revenue, online
 portal payment, ZATCA phase 2 / Egypt ETA, expense claims, custom fields).
+### Phase 7 audit fixes
+
+Security and accounting audit findings fixed (migration 00048): money-only POS refunds (insurance / trade-in), deposits reserved for their order, commission net of returns, idempotent supplier openings, LBP claim FX, control-account guards, full-number phone matching, shop abuse limits, atomic AI quotas, van shortage approval, inbound webhook signatures, e-sign codes and link expiry, CV quota, cache cleared at sign-out, reserved shop addresses. See `docs/API.md` → "Phase 7 audit fixes".

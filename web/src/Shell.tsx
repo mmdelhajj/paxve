@@ -14,6 +14,7 @@ import SubBanner from './components/SubBanner';
 import StatusBar from './components/StatusBar';
 import './magic.css';
 import { PaneActive } from './paneActive';
+import { clearDeviceCache } from './outbox';
 
 // Pages are loaded on demand (code splitting) so the first screen downloads only what it needs.
 const named = <T extends Record<string, unknown>>(p: Promise<T>, k: keyof T) =>
@@ -302,7 +303,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   }
 
   async function logout() {
-    try { await api('/auth/logout', { method: 'POST' }); } finally { onLogout(); }
+    try { await api('/auth/logout', { method: 'POST' }); } finally { clearDeviceCache(); onLogout(); }
   }
   function saveLocale(locale: string) {
     api<Me>('/me', { method: 'PATCH', body: { locale } }).then(onMe).catch(() => {});

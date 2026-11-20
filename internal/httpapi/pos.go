@@ -945,6 +945,9 @@ func createPosOrderTx(ctx context.Context, tx pgx.Tx, r *http.Request, cid strin
 	{
 		if in.ClientRef != "" {
 			var existing string
+			if err := lockClientRef(ctx, tx, cid, in.ClientRef); err != nil {
+				return "", err
+			}
 			err := tx.QueryRow(ctx, `SELECT id::text FROM pos_orders WHERE company_id = $1 AND client_ref = $2`, cid, in.ClientRef).Scan(&existing)
 			if err == nil {
 				return existing, nil // sent again by a till that was offline
@@ -1593,9 +1596,14 @@ func createPosOrderTx(ctx context.Context, tx pgx.Tx, r *http.Request, cid strin
 			if patient == "" && in.Rx != nil {
 				patient = strings.TrimSpace(in.Rx.Patient)
 			}
-			if _, err := tx.Exec(ctx, `INSERT INTO pharma_claims (id, company_id, number, pos_order_id, insurer_id, patient, policy_no, currency, amount)
-				VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::numeric)`, claimID, cid, claimNo, id, insurer, patient,
-				strings.TrimSpace(in.Insurance.PolicyNo), g.Currency, insAmt.String()); err != nil {
+			// the rate the receivable was booked at: settling later at another rate books the FX difference (audit P7-M3)
+			claimRate, err := resolveRate(ctx, tx, cid, set.Base, g.Currency, date, "")
+			if err != nil {
+				return "", err
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO pharma_claims (id, company_id, number, pos_order_id, insurer_id, patient, policy_no, currency, amount, rate)
+				VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::numeric, $10::numeric)`, claimID, cid, claimNo, id, insurer, patient,
+				strings.TrimSpace(in.Insurance.PolicyNo), g.Currency, insAmt.String(), claimRate); err != nil {
 				return "", err
 			}
 		}
@@ -1627,6 +1635,8 @@ func (s *Server) refundPosOrder(w http.ResponseWriter, r *http.Request) {
 		Lines     []creditLineIn `json:"lines"`     // empty = the whole order
 		MethodID  string         `json:"method_id"` // box the money is paid back from ("" = keep as customer credit)
 		Reason    string         `json:"reason"`
+		// restaurant: put the dishes' ingredients back in stock (not cooked yet); by default they are wasted
+		RestockDishes bool `json:"restock_dishes"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -1642,6 +1652,9 @@ func (s *Server) refundPosOrder(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		if in.ClientRef != "" {
 			var existing string
+			if err := lockClientRef(ctx, tx, cid, in.ClientRef); err != nil {
+				return nil, err
+			}
 			err := tx.QueryRow(ctx, `SELECT id::text FROM pos_orders WHERE company_id = $1 AND client_ref = $2`, cid, in.ClientRef).Scan(&existing)
 			if err == nil {
 				return loadPosOrder(ctx, tx, cid, existing)
@@ -1682,9 +1695,55 @@ func (s *Server) refundPosOrder(w http.ResponseWriter, r *http.Request) {
 		if reason == "" {
 			reason = fmt.Sprintf("POS return · order #%d", number)
 		}
-		cn, err := creditInvoice(quietCtx(ctx), tx, cid, set, *invID, today(), reason, "", in.Lines, in.MethodID)
+		var invTotalS, creditedS string
+		if err := tx.QueryRow(ctx, `SELECT total::text, (SELECT coalesce(sum(amount), 0) FROM payments WHERE invoice_id = $1 AND kind = 'credit_note'
+			AND status = 'posted')::text FROM invoices WHERE id = $1`, *invID).Scan(&invTotalS, &creditedS); err != nil {
+			return nil, err
+		}
+		cctx := quietCtx(ctx)
+		if in.RestockDishes {
+			cctx = withRestockDishes(cctx)
+		} else if len(in.Lines) == 0 {
+			// a whole restaurant order: credit it line by line, so cooked dishes don't put their ingredients back
+			// (audit P7-L3)
+			rows, err := tx.Query(ctx, `SELECT l.line_no, (l.quantity - coalesce((SELECT sum(cl.quantity) FROM credit_note_lines cl
+				JOIN payments p ON p.id = cl.payment_id AND p.status = 'posted' WHERE cl.invoice_line_id = l.id), 0))::text
+				FROM invoice_lines l WHERE l.invoice_id = $1 AND EXISTS (SELECT 1 FROM invoice_lines d JOIN items it ON it.id = d.item_id
+				  WHERE d.invoice_id = $1 AND it.kitchen_station <> '') ORDER BY l.line_no`, *invID)
+			if err != nil {
+				return nil, err
+			}
+			for rows.Next() {
+				var no int
+				var q string
+				if err := rows.Scan(&no, &q); err != nil {
+					rows.Close()
+					return nil, err
+				}
+				if d, _ := decimal.NewFromString(q); d.IsPositive() {
+					in.Lines = append(in.Lines, creditLineIn{LineNo: no, Quantity: q})
+				}
+			}
+			rows.Close()
+			if err := rows.Err(); err != nil {
+				return nil, err
+			}
+		}
+		// the credit note keeps the money as customer credit; posRefundSettle then pays back only real money
+		// (audit P7-H1 / M4: never the insurer's share or a trade-in in cash)
+		cn, err := creditInvoice(cctx, tx, cid, set, *invID, today(), reason, "", in.Lines, "")
 		if err != nil {
 			return nil, err
+		}
+		invTotal, _ := decimal.NewFromString(invTotalS)
+		credited, _ := decimal.NewFromString(creditedS)
+		kept, err := posRefundSettle(ctx, tx, cid, set, id, customer, currency, cn, invTotal, credited.Add(cn.amount).GreaterThanOrEqual(invTotal),
+			in.MethodID, today())
+		if err != nil {
+			return nil, err
+		}
+		if kept.IsPositive() && in.MethodID != "" {
+			reason += fmt.Sprintf(" · %s %s kept as customer credit", kept.String(), currency)
 		}
 		cash := []map[string]string{}
 		paid := decimal.Zero

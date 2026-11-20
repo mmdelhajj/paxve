@@ -45,6 +45,7 @@ func ensureRetailAccount(ctx context.Context, tx pgx.Tx, cid, col string) (strin
 		"loyalty_expense_account_id":   {"expense", "default_expense_account_id", "Loyalty and promotions", "مصاريف الولاء والعروض", "Fidélité et promotions", []string{"6238", "6950", "6960"}},
 		"tips_liability_account_id":    {"liability", "ap_account_id", "Tips owed to staff", "إكراميات مستحقة للموظفين", "Pourboires dus au personnel", []string{"4198", "2430", "2470"}},
 		"tradein_account_id":           {"liability", "ap_account_id", "Trade-ins clearing", "حساب وسيط للأجهزة المستبدلة", "Reprises (compte d'attente)", []string{"4199", "2440", "2480"}},
+		"claims_writeoff_account_id":   {"expense", "default_expense_account_id", "Insurance claims written off", "مطالبات تأمين مشطوبة", "Créances d'assurance passées en perte", []string{"6541", "6970", "6980"}},
 		"insurance_account_id":         {"asset", "ar_account_id", "Insurance claims receivable", "مطالبات التأمين المستحقة", "Créances sur assurances", []string{"4118", "1250", "1260"}},
 	}
 	sp, ok := specs[col]

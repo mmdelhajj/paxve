@@ -126,10 +126,15 @@ func TestPhase6b(t *testing.T) {
 			t.Error("the shared box is still listed to the collector")
 		}
 	}
-	// offline payment: the device took it yesterday at 03:00 (Beirut); synced now
+	// offline payment: the device took it 3 hours ago (Beirut); synced now. Device times are kept at most 12 hours back
+	// (audit P7-L2), so the working hours below are set around it: taken outside them, synced inside
 	loc, _ := time.LoadLocation("Asia/Beirut")
-	y := time.Now().In(loc).AddDate(0, 0, -1)
-	taken := time.Date(y.Year(), y.Month(), y.Day(), 3, 0, 0, 0, loc)
+	nowB := time.Now().In(loc)
+	taken := nowB.Add(-3 * time.Hour).Truncate(time.Minute)
+	ws, we := taken.Hour()+1, 24
+	if nowB.Hour() < 3 {
+		ws, we = 0, taken.Hour()
+	}
 	cc.ok("POST", o.p("/payments"), map[string]any{"customer_id": cust, "date": today(), "currency": "USD", "client_ref": "pxv-" + randHex(8),
 		"client_time": taken.Format(time.RFC3339), "tenders": []any{map[string]any{"method_id": own, "amount": "20"}}}, 201)
 	if n := ownerQuery(t, `SELECT count(*)::text FROM payments WHERE customer_id = $1 AND client_time IS NOT NULL`, cust); n != "1" {
@@ -167,12 +172,12 @@ func TestPhase6b(t *testing.T) {
 	if str(obj(pc["detail"])["lines"]) != "3" || str(pc["subject_label"]) != "Cashier Lina" {
 		t.Errorf("price_override alert: %v", pc)
 	}
-	// off hours: 03:00 is outside 8:00–20:00 although the payment was synced during the day
-	o.c.ok("PUT", o.p("/smart/settings"), map[string]any{"params": map[string]any{"work_start": 8, "work_end": 20}}, 200)
+	// off hours: the device time is outside the working hours although the payment was synced inside them
+	o.c.ok("PUT", o.p("/smart/settings"), map[string]any{"params": map[string]any{"work_start": ws, "work_end": we}}, 200)
 	o.c.ok("POST", o.p("/smart/alerts/scan"), map[string]any{}, 200)
 	found := false
 	for _, a := range alertsOf(t, o, "") {
-		if str(a["kind"]) == "off_hours" && str(a["subject_id"]) == col && str(obj(a["detail"])["first"]) == "03:00" {
+		if str(a["kind"]) == "off_hours" && str(a["subject_id"]) == col && str(obj(a["detail"])["first"]) == taken.Format("15:04") {
 			found = true
 		}
 	}

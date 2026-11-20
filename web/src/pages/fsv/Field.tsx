@@ -363,7 +363,9 @@ function Sla({ me }: { me: Me }) {
 function Inbound() {
   const { t } = useTranslation();
   const base = useBase();
-  const [d, setD] = useState<{ enabled: boolean; email_url?: string; whatsapp_url?: string; verify_token?: string } | null>(null);
+  const [d, setD] = useState<{ enabled: boolean; email_url?: string; whatsapp_url?: string; verify_token?: string; whatsapp_signed?: boolean; email_signed?: boolean } | null>(null);
+  const [wa, setWa] = useState('');
+  const [mk, setMk] = useState('');
   const [msg, run] = useRun();
   useEffect(() => { if (base) api<typeof d>(`${base}/sla/inbound`).then(setD).catch(() => setD(null)); }, [base]);
   if (!d) return null;
@@ -376,6 +378,16 @@ function Inbound() {
           <label className="mx-fld">{t('fsv.in.email')}<input dir="ltr" readOnly value={d.email_url} onFocus={(e) => e.currentTarget.select()} /></label>
           <label className="mx-fld">{t('fsv.in.whatsapp')}<input dir="ltr" readOnly value={d.whatsapp_url} onFocus={(e) => e.currentTarget.select()} /></label>
           <label className="mx-fld">{t('fsv.in.verify')}<input dir="ltr" readOnly value={d.verify_token} onFocus={(e) => e.currentTarget.select()} /></label>
+          {/* audit P7-L1: with the provider's signing secret, only messages really sent by the provider are accepted */}
+          <small>{t('fsv.in.sigHelp')}</small>
+          <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <label className="mx-fld">{t('fsv.in.waSecret')} {d.whatsapp_signed ? '✅' : ''}<input dir="ltr" type="password" autoComplete="off" value={wa} onChange={(e) => setWa(e.currentTarget.value)} /></label>
+            <label className="mx-fld">{t('fsv.in.mailKey')} {d.email_signed ? '✅' : ''}<input dir="ltr" type="password" autoComplete="off" value={mk} onChange={(e) => setMk(e.currentTarget.value)} /></label>
+            <button className="mx-btn sm" disabled={!wa && !mk} onClick={() => void run(api(`${base}/sla/inbound/rotate`, { method: 'POST',
+              body: { keep_address: true, ...(wa ? { whatsapp_secret: wa } : {}), ...(mk ? { email_key: mk } : {}) } }), (x) => { setD(x as typeof d); setWa(''); setMk(''); })}>{t('fsv.in.saveSig')}</button>
+            {(d.whatsapp_signed || d.email_signed) && <button className="mx-btn sm" onClick={() => void run(api(`${base}/sla/inbound/rotate`, { method: 'POST',
+              body: { keep_address: true, whatsapp_secret: '', email_key: '' } }), (x) => setD(x as typeof d))}>{t('fsv.in.clearSig')}</button>}
+          </div>
         </> : <small>{t('fsv.in.off')}</small>}
         <div className="mx-row" style={{ gap: 6 }}>
           <button className="mx-btn" onClick={() => void run(api(`${base}/sla/inbound/rotate`, { method: 'POST', body: { enabled: true } }), (x) => setD(x as typeof d))}>{d.enabled ? t('fsv.in.rotate') : t('fsv.in.enable')}</button>

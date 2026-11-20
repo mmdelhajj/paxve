@@ -177,6 +177,7 @@ func unappliedCredits(ctx context.Context, tx pgx.Tx, customerID, currency strin
 		(p.amount - coalesce((SELECT sum(a.amount) FROM payment_allocations a WHERE a.payment_id = p.id), 0))::text
 		FROM payments p WHERE p.customer_id = $1 AND p.currency = $2 AND p.status = 'posted'
 		  AND p.amount - coalesce((SELECT sum(a.amount) FROM payment_allocations a WHERE a.payment_id = p.id), 0) > 0
+		  AND NOT EXISTS (SELECT 1 FROM so_deposits d WHERE d.payment_id = p.id AND d.released_at IS NULL) -- reserved for its order (audit P7-H2)
 		ORDER BY p.payment_date, p.created_at`, customerID, currency)
 	if err != nil {
 		return nil, err

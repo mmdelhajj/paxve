@@ -7,7 +7,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { IconCheck, IconFileInvoice, IconPencil, IconPlus, IconPrinter, IconSearch, IconTrash, IconTruckDelivery, IconX } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
-import { can, api, type Me } from '../../api';
+import { can, api, ApiError, type Me } from '../../api';
 import { useCompany } from '../../company';
 import { printPage } from '../../native';
 import { formatAmount, formatDate, notifyError, notifySaved, today } from '../../util';
@@ -364,15 +364,21 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
   }, [company, id]);
   useEffect(reload, [reload]);
 
-  async function act(action: string) {
+  async function act(action: string, body: Record<string, string> = {}) {
     if (!company) return;
     setBusy(true);
     try {
-      setD(await api<OrderDetail>(`/companies/${company.id}/sales/orders/${id}/${action}`, { method: 'POST', body: {} }));
+      setD(await api<OrderDetail>(`/companies/${company.id}/sales/orders/${id}/${action}`, { method: 'POST', body }));
       notifySaved(t);
       setStep(null);
       onChanged?.();
     } catch (e) {
+      // audit P7-L4: an order with a deposit: keep it as the customer's credit (refund it from the customer's account)
+      if (action === 'cancel' && e instanceof ApiError && e.code === 'order_has_deposit') {
+        setBusy(false);
+        if (window.confirm(t('sales.depositKeepQ', { detail: e.detail ?? '' }))) return act('cancel', { deposit: 'credit' });
+        return;
+      }
       notifyError(t, e);
     } finally {
       setBusy(false);

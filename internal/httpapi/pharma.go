@@ -151,12 +151,12 @@ func (s *Server) pharmaControlled(w http.ResponseWriter, r *http.Request) {
 }
 
 const rxClaimCols = `k.id, k.number, k.pos_order_id, po.number AS pos_number, po.order_date, k.insurer_id, c.name AS insurer, k.patient, k.policy_no,
-	k.currency, k.amount::text AS amount, k.status, k.settled_at, k.note, k.created_at`
+	k.currency, k.amount::text AS amount, k.refunded::text AS refunded, k.status, k.settled_at, k.note, k.created_at`
 
 // GET /pharma/claims?status=&insurer_id=
 func (s *Server) pharmaClaims(w http.ResponseWriter, r *http.Request) {
 	status, ins := r.URL.Query().Get("status"), r.URL.Query().Get("insurer_id")
-	if (status != "" && !contains([]string{"open", "pending", "submitted", "paid", "rejected"}, status)) || (ins != "" && !isUUID(ins)) {
+	if (status != "" && !contains([]string{"open", "pending", "submitted", "paid", "rejected", "cancelled"}, status)) || (ins != "" && !isUUID(ins)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -167,7 +167,7 @@ func (s *Server) pharmaClaims(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		totals, err := queryJSON(ctx, tx, `SELECT c.name AS insurer, k.currency, k.status, count(*) AS claims, sum(k.amount)::text AS amount
+		totals, err := queryJSON(ctx, tx, `SELECT c.name AS insurer, k.currency, k.status, count(*) AS claims, sum(k.amount - k.refunded)::text AS amount
 			FROM pharma_claims k JOIN customers c ON c.id = k.insurer_id WHERE k.company_id = $1 AND k.status IN ('pending', 'submitted')
 			GROUP BY c.name, k.currency, k.status ORDER BY c.name`, r.PathValue("cid"))
 		if err != nil {
@@ -197,10 +197,11 @@ func (s *Server) pharmaClaimAction(w http.ResponseWriter, r *http.Request) {
 	}
 	cid, id := r.PathValue("cid"), r.PathValue("id")
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		var status, cur, amount, insurer string
+		var status, cur, amount, insurer, claimRate string
 		var number int64
-		err := tx.QueryRow(ctx, `SELECT k.status, k.currency::text, k.amount::text, c.name, k.number FROM pharma_claims k JOIN customers c ON c.id = k.insurer_id
-			WHERE k.id = $1 AND k.company_id = $2 FOR UPDATE OF k`, id, cid).Scan(&status, &cur, &amount, &insurer, &number)
+		err := tx.QueryRow(ctx, `SELECT k.status, k.currency::text, (k.amount - k.refunded)::text, c.name, k.number, coalesce(trim_scale(k.rate)::text, '')
+			FROM pharma_claims k JOIN customers c ON c.id = k.insurer_id
+			WHERE k.id = $1 AND k.company_id = $2 FOR UPDATE OF k`, id, cid).Scan(&status, &cur, &amount, &insurer, &number, &claimRate)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, notFound()
 		}
@@ -241,18 +242,22 @@ func (s *Server) pharmaClaimAction(w http.ResponseWriter, r *http.Request) {
 				}
 				other, memo = m.Account, fmt.Sprintf("Insurance claim #%d paid · %s", number, insurer)
 			} else {
-				ps, err := loadPurchSettings(ctx, tx, cid)
+				// audit P7-L2: a rejected claim is written off to its own account, not to purchases
+				wo, err := ensureRetailAccount(ctx, tx, cid, "claims_writeoff_account_id")
 				if err != nil {
 					return nil, err
 				}
-				if ps.Expense == nil {
-					return nil, notSetup("expense")
-				}
-				other, memo = *ps.Expense, fmt.Sprintf("Insurance claim #%d rejected · %s", number, insurer)
+				other, memo = wo, fmt.Sprintf("Insurance claim #%d rejected · %s", number, insurer)
 			}
-			je, err := postJournal(ctx, tx, cid, set, in.Date, memo, fmt.Sprintf("CLM-%d", number), "manual", []jline{
-				{Account: other, Desc: memo, Currency: cur, Debit: amt},
-				{Account: acc, Desc: memo, Currency: cur, Credit: amt}})
+			// the receivable leaves at the rate it was booked at; a cash settlement at today's rate books the FX
+			// difference (audit P7-M3). A write-off stays at the booking rate (no FX).
+			debitRate := ""
+			if action == "reject" {
+				debitRate = claimRate
+			}
+			je, err := postJournal(ctx, tx, cid, set, in.Date, memo, fmt.Sprintf("CLM-%d", number), "insurance_claim", []jline{
+				{Account: other, Desc: memo, Currency: cur, Debit: amt, Rate: debitRate},
+				{Account: acc, Desc: memo, Currency: cur, Credit: amt, Rate: claimRate}})
 			if err != nil {
 				return nil, err
 			}

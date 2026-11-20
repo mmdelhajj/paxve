@@ -307,6 +307,9 @@ func (im *importer) supplierOpenings() (func() error, error) {
 	if err := requirePostable(im.ctx, im.tx, im.cid, account); err != nil {
 		return nil, err
 	}
+	if err := rejectControlAccount(im.ctx, im.tx, im.cid, account); err != nil {
+		return nil, err
+	}
 	sups, err := im.lookup(`SELECT code, id::text FROM suppliers WHERE company_id = $1`, im.cid)
 	if err != nil {
 		return nil, err
@@ -329,6 +332,7 @@ func (im *importer) supplierOpenings() (func() error, error) {
 	}
 	bills := make([]billInput, len(im.req.Rows))
 	needRate := map[string]string{}
+	seen := map[string]bool{}
 	for i, row := range im.req.Rows {
 		n := i + 1
 		sid, ok := sups[strings.ToLower(cell(row, "supplier_code"))]
@@ -370,6 +374,24 @@ func (im *importer) supplierOpenings() (func() error, error) {
 		if cur != base {
 			if old, ok := needRate[cur]; !ok || bd < old {
 				needRate[cur] = bd
+			}
+		}
+		// audit P7-M2: the same opening (supplier, currency, date, amount, reference) is never booked twice, whether it
+		// repeats inside the file or was already imported (retry / double click)
+		if sid != "" {
+			key := strings.Join([]string{sid, cur, bd, amt.Round(int32(d)).String(), cell(row, "reference")}, "|")
+			if seen[key] {
+				im.fail(n, "amount", "duplicate", key[len(sid)+1:])
+			}
+			seen[key] = true
+			var dup bool
+			if err := im.tx.QueryRow(im.ctx, `SELECT EXISTS (SELECT 1 FROM bills WHERE company_id = $1 AND supplier_id = $2 AND currency = $3
+				AND bill_date = $4::date AND total = $5::numeric AND coalesce(supplier_ref, '') = $6 AND status <> 'void'
+				AND notes = 'Opening balance (import)')`, im.cid, sid, cur, bd, amt.Round(int32(d)).String(), cell(row, "reference")).Scan(&dup); err != nil {
+				return nil, err
+			}
+			if dup {
+				im.fail(n, "amount", "already_imported", cell(row, "reference"))
 			}
 		}
 		bills[i] = billInput{SupplierID: sid, SupplierRef: cell(row, "reference"), BillDate: bd, DueDate: due, Currency: cur,
@@ -416,8 +438,10 @@ func (s *Server) portalMore(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		orders, err := queryJSON(ctx, tx, `SELECT o.number, o.created_at, o.currency, o.total::text AS total, o.status, o.token,
-			so.status AS order_status FROM shop_orders o LEFT JOIN sales_orders so ON so.id = o.sales_order_id
+		// audit P7-M1: the tracking link (name, phone, address) only for orders placed from the customer's own number
+		orders, err := queryJSON(ctx, tx, `SELECT o.number, o.created_at, o.currency, o.total::text AS total, o.status,
+			CASE WHEN phone_key(o.phone) = phone_key(c.phone) THEN o.token END AS token,
+			so.status AS order_status FROM shop_orders o JOIN customers c ON c.id = o.customer_id LEFT JOIN sales_orders so ON so.id = o.sales_order_id
 			WHERE o.customer_id = $1 AND o.company_id = $2 ORDER BY o.created_at DESC LIMIT 20`, customer, cid)
 		if err != nil {
 			return nil, err

@@ -240,6 +240,7 @@ const en = {
       description: 'Description', period: 'Month', reading: 'Reading', type: 'Type', parent_code: 'Parent code', is_postable: 'Postable',
     },
     codes: {
+      already_imported: "Already imported", duplicate: "Same line twice",
       required: 'Required', too_long: 'Too long', duplicate_in_file: 'Duplicate in the file', code_exists: 'Code already exists',
       invalid: 'Invalid value', not_found: 'Not found', invalid_date: 'Invalid date', invalid_number: 'Invalid number',
       invalid_period: 'Invalid month', no_rate: 'No exchange rate', already_invoiced: 'Already billed',
@@ -414,6 +415,7 @@ const en = {
     billingRunningHint: 'This is a large run and continues in the background. You can close this window; the invoices keep coming.',
   },
   sales: {
+    depositKeepQ: "This order has a deposit ({{detail}}). Cancel the order and keep the deposit as the customer's credit? (To give the money back, refund the credit from the customer's account.)",
     freeLine: 'Free text line',
     nav: 'Sales & CRM', title: 'Quotations & orders', quotes: 'Quotations', orders: 'Sales orders', quote: 'Quotation', order: 'Sales order',
     newQuote: 'New quotation', number: 'Number', total: 'Total', progress: 'Delivery / invoicing',
@@ -618,6 +620,7 @@ const en = {
     },
   },
   errors: {
+    order_has_deposit: "This order has a deposit ({{detail}}). Say whether to refund it or keep it as the customer's credit.", insurance_claim_settled: "The insurer's claim {{detail}} is already closed: this sale can't be refunded at the till. Ask a manager.", too_many_orders: "Too many orders from this number today. Please call the shop.", ai_user_limit: "Too many questions in a short time. Wait a minute and try again.", ai_paused: "The assistant is paused for today. Try again tomorrow.", otp_required: "Enter the code sent to you first.", no_contact: "No phone or e-mail to send the code to. Ask the sender to add one.", too_many_applications: "This page received too many applications today. Try again tomorrow.", slug_reserved: "This address is reserved. Ask Paxve support if it is your brand.",
     ai_not_configured: 'The AI features are not switched on yet (the Paxve owner adds the API key)',
     ai_limit_reached: 'Your plan\'s AI requests for this month are used up ({{detail}})',
     ai_key_invalid: 'The AI service refused the key: the Paxve owner must check it',
@@ -1993,6 +1996,7 @@ const en = {
       st: { ok: 'On time', at_risk: 'At risk', breached: 'Late', none: '—' }, respond: 'respond by', resolve: 'solve by', escalated: 'escalated',
     },
     in: {
+      sigHelp: "Optional, safer: paste the Meta app secret (WhatsApp) and the Mailgun signing key. Then only messages really sent by them are accepted.", waSecret: "WhatsApp app secret", mailKey: "Mailgun signing key", saveSig: "Save the keys", clearSig: "Remove the keys",
       title: 'Requests by e-mail and WhatsApp', help: 'Give these addresses to your e-mail forwarding service (Mailgun, SendGrid…) and to the WhatsApp Cloud API webhook. Each message becomes a request, or is added to the sender\'s open one.',
       email: 'E-mail address to post to', whatsapp: 'WhatsApp webhook', verify: 'WhatsApp verify token', off: 'Switched off.', rotate: 'New address',
       enable: 'Switch on', disable: 'Switch off',
@@ -2161,6 +2165,7 @@ const en = {
     selfNone: 'You have no appraisal yet.', dueBy: 'To fill by {{d}}', myScore: 'My score', submitSelf: 'Submit my self-review',
   },
   es: {
+    requireOtp: "Ask the signer for a code (sent to their phone / e-mail)",
     t: 'E-signature',
     title: 'E-signature', help: 'Send quotations, agreements, contracts or any PDF to sign from the phone — with the audit trail and a certificate.',
     requests: 'Signature requests', new: 'New request', none: 'Nothing here yet', close: 'Close',
@@ -2199,6 +2204,7 @@ const en = {
       thanks: 'Thank you! Your application is received. We will contact you.', tooBig: 'The file is larger than 5 MB.', shop: 'Visit our shop',
     },
     sign: {
+      otp: { title: "Confirm it's you", hint: "The sender asks for a code first. We send it to your phone or e-mail.", send: "Send me the code", sent: "Code sent to {{to}}. It works for 10 minutes.", code: "Code", check: "Confirm", again: "Send again", wrong: "Wrong code. Try again.", expired: "The code expired. Send a new one." },
       notFound: 'This link is not valid.', title: 'Signature request', completed: 'Signed by everyone.', declined: 'This request was declined.',
       st: { cancelled: 'This request was cancelled.', expired: 'This request has expired.' },
       document: 'The document', openFile: 'Open the file', signers: 'Signers', yourSignature: 'Your signature, {{name}}', draw: 'Draw', type: 'Type my name',
@@ -2413,6 +2419,7 @@ const en = {
       ingredient: 'Active ingredient', form: 'Form', needLots: 'Track this item by lot (Items → stock settings) to follow expiry.',
     },
     cl: {
+      cancelled: "Cancelled (returned)", returned: "{{v}} returned",
       open: 'Open', pending: 'To submit', submitted: 'Submitted', paid: 'Paid', rejected: 'Rejected', all: 'All', paidInto: 'Paid into', settle: 'Paid',
       insurer: 'Insurer', policy: 'Policy #', submit: 'Submitted', reject: 'Reject',
       note: 'The insurer\'s share is booked to "Insurance claims receivable". Paid: moves to the box. Rejected: written off as an expense.',
@@ -2442,6 +2449,7 @@ const en = {
       insurer: 'Insurer', usedItem: 'Used item', serial: 'Serial', tradeValue: 'Value ({{cur}})', condition: 'Condition…', insPct: 'Insurer %', policy: 'Policy #',
     },
     v: {
+      pendingApproval: "The count has {{d}} differences with a shortage: a stock manager approves it, then closes the day.",
       offline: 'offline', back: 'Back', noDay: 'The van\'s day is not open yet: the warehouse loads the van first.', customers: 'Customers', stock: 'Van stock',
       close: 'Close the day', hold: 'on hold', limit: 'limit {{v}}', noStops: 'No customer on today\'s route.', empty: 'The van is empty.',
       balance: 'Balance', find: 'Find an item or scan…', left: '{{n}} in the van', estimate: 'About', priceNote: 'The final price uses the customer\'s price list.',
@@ -2462,6 +2470,7 @@ const en = {
       t: { today: "Today", alerts: "Alerts", ask: "Ask", news: "Notifications" },
     },
     my: {
+      remember: "Remember on this phone",
       title: "My account", none: "Open the link from your bill or WhatsApp message once; this app will remember it.", forget: "Forget the accounts on this phone",
       consumption: "Consumption", meter: "Meter {{m}}", tickets: "Requests and problems", report: "Report a problem", cat: "Type", subject: "Subject", details: "Details",
       send: "Send", sent: "Request #{{n}} sent. We will call you.", rate: "Rate", orders: "My online orders", track: "Track",

@@ -166,7 +166,7 @@ func (s *Server) runRevaluation(w http.ResponseWriter, r *http.Request) {
 		gain, loss := decimal.Zero, decimal.Zero
 		for _, x := range rows {
 			d, _ := decimal.NewFromString(x.Difference)
-			desc := "Unrealised FX آ· " + x.Currency + " @ " + x.Rate
+			desc := "Unrealised FX · " + x.Currency + " @ " + x.Rate
 			if d.IsPositive() { // the account is worth more in base currency
 				lines = append(lines, jline{Account: x.AccountID, Desc: desc, Currency: base, Debit: d, Rate: "1"})
 				gain = gain.Add(d)

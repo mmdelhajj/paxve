@@ -34,6 +34,7 @@ type paymentIn struct {
 	InvoiceID      string     `json:"invoice_id"`  // optional: settle this invoice first (barcode collection)
 	ClientTime     string     `json:"client_time"` // RFC 3339: when an offline device took the payment (kept with client_ref)
 
+	reserve     bool            // internal (sales-order deposit): kept as an advance for its order, never auto-allocated (audit P7-H2)
 	upTo        decimal.Decimal // internal (POS on-account sale): apply what was received, at most this much; the rest is change
 	allowCheque bool            // internal (cheques module): the tender may be a cheque box
 	allowRetail bool            // internal (POS): gift card / loyalty points tenders checked by the till
@@ -104,6 +105,9 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) {
 func receivePayment(ctx context.Context, tx pgx.Tx, cid string, in paymentIn, collector bool, me string) (string, error) {
 	if in.ClientRef != "" {
 		var existing string
+		if err := lockClientRef(ctx, tx, cid, in.ClientRef); err != nil {
+			return "", err
+		}
 		err := tx.QueryRow(ctx, `SELECT id::text FROM payments WHERE client_ref = $1 AND company_id = $2`, in.ClientRef, cid).Scan(&existing)
 		if err == nil {
 			return existing, nil // already received (phone retried after going offline)
@@ -256,6 +260,9 @@ func receivePayment(ctx context.Context, tx pgx.Tx, cid string, in paymentIn, co
 	if err != nil {
 		return "", err
 	}
+	if in.reserve {
+		arLines = []jline{{Account: *set.AR, Desc: name, Currency: in.Currency, Credit: applied, Rate: payRateS}}
+	}
 	lines = append(lines, arLines...)
 	je, err := postJournal(ctx, tx, cid, set, in.Date, fmt.Sprintf("Payment #%d · %s", number, name),
 		fmt.Sprintf("PAY-%d", number), "payment", lines)
@@ -271,7 +278,9 @@ func receivePayment(ctx context.Context, tx pgx.Tx, cid string, in paymentIn, co
 	// (a payment taken at 14:00 and synced at 23:00 is not a night payment). Only a plausible past time is kept.
 	var clientTime *time.Time
 	if ct, err := time.Parse(time.RFC3339, strings.TrimSpace(in.ClientTime)); err == nil && in.ClientRef != "" &&
-		ct.Before(time.Now().Add(10*time.Minute)) && ct.After(time.Now().AddDate(0, 0, -45)) {
+		ct.Before(time.Now().Add(10*time.Minute)) && ct.After(time.Now().Add(-12*time.Hour)) {
+		// audit P7-L2: at most 12 hours back (a phone offline for a shift); older claims keep the server time, so a
+		// device can't move a payment far from when it really reached Paxve
 		clientTime = &ct
 	}
 	var id string
@@ -288,8 +297,10 @@ func receivePayment(ctx context.Context, tx pgx.Tx, cid string, in paymentIn, co
 			return "", err
 		}
 	}
-	if err := autoAllocate(ctx, tx, cid, set, in.CustomerID, in.Currency, id); err != nil {
-		return "", err
+	if !in.reserve {
+		if err := autoAllocate(ctx, tx, cid, set, in.CustomerID, in.Currency, id); err != nil {
+			return "", err
+		}
 	}
 	if !isQuiet(ctx) {
 		if err := autoMessage(ctx, tx, cid, "payment_received", in.CustomerID, nil, &id); err != nil {

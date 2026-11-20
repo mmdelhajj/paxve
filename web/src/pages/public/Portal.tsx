@@ -14,7 +14,7 @@ import LangSwitch from '../../components/LangSwitch';
 import { applyLang } from '../../i18n';
 import Logo from '../../components/Logo';
 import InstallApp from '../../components/InstallApp';
-import PortalMore, { rememberPortal } from './PortalMore';
+import PortalMore, { rememberPortal, savedPortals } from './PortalMore';
 import { invoiceColor, type InvoiceDetail, type Money } from '../../billing';
 
 interface PInvoice {
@@ -40,13 +40,19 @@ export default function Portal({ token }: { token: string }) {
   const [view, setView] = useState<string | null>(null);
   const [quote, setQuote] = useState<string | null>(null);
   const [stmt, setStmt] = useState<[string, string] | null>(null);
+  const [kept, setKept] = useState(true);
 
   const load = () => api<PortalData>(`/portal/${token}`).then((x) => {
     // first visit: the customer's own language (a choice made on this page is kept afterwards)
     let chosen = false;
     try { chosen = localStorage.getItem('paxve.portal.lang') === '1'; } catch { /* storage unavailable */ }
     if (!chosen && x.customer.locale) applyLang(x.customer.locale);
-    rememberPortal({ token, company: x.company.name_ar || x.company.name_en, name: x.customer.name }); // the installed "My account" app opens it
+    // audit P7-L4: the link is kept on the phone only inside the installed "My account" app, or when the customer
+    // asks for it ("Remember on this phone"): a shared phone does not keep someone's account open by itself
+    let standalone = false;
+    try { standalone = window.matchMedia('(display-mode: standalone)').matches; } catch { /* old browser */ }
+    if (standalone) rememberPortal({ token, company: x.company.name_ar || x.company.name_en, name: x.customer.name });
+    setKept(standalone || savedPortals().some((p) => p.token === token));
     setD(x);
   }).catch(() => setD('missing'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,6 +99,12 @@ export default function Portal({ token }: { token: string }) {
         <Group justify="space-between" wrap="nowrap">
           <Text fw={700} truncate>{company}</Text>
           <Group gap={6} wrap="nowrap">
+            {!kept && (
+              <button type="button" style={{ font: 'inherit', fontSize: 13, fontWeight: 600, border: '1px solid #D5DCE6', background: '#fff', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' }}
+                onClick={() => { rememberPortal({ token, company: d.company.name_ar || d.company.name_en, name: d.customer.name }); setKept(true); }}>
+                {t('pwa.my.remember')}
+              </button>
+            )}
             <InstallApp className="" label={t('pwa.short')} style={{ font: 'inherit', fontSize: 13, fontWeight: 600, border: '1px solid #D5DCE6', background: '#fff', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' }} />
             <LangSwitch onChange={() => { try { localStorage.setItem('paxve.portal.lang', '1'); } catch { /* storage unavailable */ } }} />
           </Group>

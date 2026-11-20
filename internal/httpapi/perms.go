@@ -173,6 +173,7 @@ var routePerms = map[string]string{
 	"GET /platform/payments":                       permAny,
 	"GET /platform/leads":                          permAny, // phase 6b: demo requests (platform owners only)
 	"PATCH /platform/leads/{id}":                   permAny,
+	"PUT /platform/companies/{id}/slug":            permAny, // audit P7-L10: platform owners assign reserved shop addresses
 	"GET /companies/{cid}/owner/today":             "reports.view",
 	"GET /companies/{cid}/payroll-options":         "payroll.view",
 	"PUT /companies/{cid}/payroll-options":         "payroll.edit",

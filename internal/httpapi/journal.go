@@ -60,11 +60,7 @@ type entryDetail struct {
 // sub-ledgers (customer and supplier balances, stock value, gift cards, loyalty points) that only documents update.
 func controlAccountsIn(ctx context.Context, tx pgx.Tx, cid, entryID string) ([]string, error) {
 	var out []string
-	rows, err := tx.Query(ctx, `
-		WITH ctl AS (
-			SELECT unnest(ARRAY[ar_account_id, ap_account_id, inventory_account_id, gift_liability_account_id, loyalty_liability_account_id]) AS id
-			FROM companies WHERE id = $1
-			UNION SELECT DISTINCT inventory_account_id FROM items WHERE company_id = $1 AND inventory_account_id IS NOT NULL)
+	rows, err := tx.Query(ctx, `WITH `+controlAccountsCTE+`
 		SELECT DISTINCT a.code FROM journal_lines l JOIN accounts a ON a.id = l.account_id
 		WHERE l.entry_id = $2 AND l.account_id IN (SELECT id FROM ctl WHERE id IS NOT NULL) ORDER BY 1`, cid, entryID)
 	if err != nil {

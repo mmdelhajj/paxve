@@ -446,7 +446,7 @@ func (s *Server) furnDeposit(w http.ResponseWriter, r *http.Request) {
 		}
 		pid, err := receivePayment(ctx, tx, cid, paymentIn{CustomerID: customer, Date: today(), Currency: cur,
 			Tenders: []tenderIn{{MethodID: in.MethodID, Amount: amt.String()}}, Notes: fmt.Sprintf("Deposit · order #%d", number),
-			ClientRef: strings.TrimSpace(in.ClientRef)}, false, me)
+			ClientRef: strings.TrimSpace(in.ClientRef), reserve: true}, false, me)
 		if err != nil {
 			return nil, err
 		}
@@ -772,7 +772,13 @@ func resolveVan(ctx context.Context, tx pgx.Tx, r *http.Request, cid, given stri
 		if err != nil {
 			return "", "", err
 		}
-		if (user == nil || *user != me) && !can(r, "stock.view") {
+		// audit P7-M5: another salesman's van may be looked at with stock.view, but selling from it or closing its
+		// day needs stock.manage
+		need := "stock.view"
+		if r.Method != http.MethodGet {
+			need = "stock.manage"
+		}
+		if (user == nil || *user != me) && !can(r, need) {
 			return "", "", &apiError{status: http.StatusForbidden, code: "not_your_van"}
 		}
 		return given, name, nil
@@ -1029,6 +1035,9 @@ func (s *Server) vanSale(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		if in.ClientRef != "" {
 			var existing string
+			if err := lockClientRef(ctx, tx, cid, in.ClientRef); err != nil {
+				return nil, err
+			}
 			err := tx.QueryRow(ctx, `SELECT id::text FROM invoices WHERE company_id = $1 AND external_ref = $2`, cid, "van:"+in.ClientRef).Scan(&existing)
 			if err == nil {
 				return vanSaleResult(ctx, tx, cid, existing)
@@ -1135,6 +1144,10 @@ func (s *Server) vanCloseDay(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		date := today()
+		// a count left waiting for approval at an earlier attempt is replaced by this one
+		if _, err := tx.Exec(ctx, `UPDATE stock_counts SET status = 'cancelled' WHERE id = (SELECT count_id FROM van_days WHERE id = $1) AND status = 'draft'`, id); err != nil {
+			return nil, err
+		}
 		var cn int64
 		if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'stock_count')`, cid).Scan(&cn); err != nil {
 			return nil, err
@@ -1171,6 +1184,27 @@ func (s *Server) vanCloseDay(w http.ResponseWriter, r *http.Request) {
 			WHERE l.count_id = $1 AND l.counted IS NOT NULL AND l.counted <> l.expected ORDER BY it.name`, count)
 		if err != nil {
 			return nil, err
+		}
+		// audit P7-M5: a shortage the salesman counted himself is not written off by him. The count stays a draft
+		// for a stock manager (notified), and the day stays open until a manager closes it.
+		var short bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM stock_count_lines WHERE count_id = $1 AND counted IS NOT NULL AND counted < expected)`,
+			count).Scan(&short); err != nil {
+			return nil, err
+		}
+		if short && !can(r, "stock.manage") {
+			if err := notifyStaff(ctx, tx, cid, "stock.manage", "system", fmt.Sprintf("Van day #%d: shortage to approve", number),
+				fmt.Sprintf("Stock count #%d", cn), "stock_count", count); err != nil {
+				return nil, err
+			}
+			if _, err := tx.Exec(ctx, `UPDATE van_days SET count_id = $2 WHERE id = $1`, id, count); err != nil {
+				return nil, err
+			}
+			day, err := loadVanDay(ctx, tx, cid, id)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"day": day, "pending_approval": true, "count_id": count, "differences": diffs}, nil
 		}
 		if err := postCountTx(ctx, tx, cid, count, van, date, cn); err != nil {
 			return nil, err
@@ -1225,11 +1259,18 @@ func (s *Server) vanCommission(w http.ResponseWriter, r *http.Request) {
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		return queryJSON(ctx, tx, `WITH x AS (
-			  SELECT coalesce(i.salesman_id, so.salesperson_id) AS user_id, i.currency, i.total, i.paid,
-			    (SELECT coalesce(sum(l.tax_amount), 0) FROM invoice_lines l WHERE l.invoice_id = i.id) AS tax
-			  FROM invoices i LEFT JOIN sales_orders so ON so.id = i.sales_order_id
-			  WHERE i.company_id = $1 AND i.status <> 'void' AND i.issue_date BETWEEN $2::date AND $3::date
-			    AND coalesce(i.salesman_id, so.salesperson_id) IS NOT NULL)
+			  -- audit P7-M1: returns (credit notes) come off the sale, and only real payments count as collected
+			  SELECT y.user_id, y.currency, y.total - y.credited AS total, greatest(least(y.paid, y.total - y.credited), 0) AS paid,
+			    CASE WHEN y.total > 0 THEN y.tax * (y.total - y.credited) / y.total ELSE 0 END AS tax
+			  FROM (
+			    SELECT coalesce(i.salesman_id, so.salesperson_id) AS user_id, i.currency, i.total,
+			      (SELECT coalesce(sum(l.tax_amount), 0) FROM invoice_lines l WHERE l.invoice_id = i.id) AS tax,
+			      (SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = i.id AND p.kind = 'credit_note' AND p.status = 'posted') AS credited,
+			      (SELECT coalesce(sum(a.amount), 0) FROM payment_allocations a JOIN payments p ON p.id = a.payment_id
+			        WHERE a.invoice_id = i.id AND p.kind = 'payment' AND p.status = 'posted') AS paid
+			    FROM invoices i LEFT JOIN sales_orders so ON so.id = i.sales_order_id
+			    WHERE i.company_id = $1 AND i.kind = 'invoice' AND i.status <> 'void' AND i.issue_date BETWEEN $2::date AND $3::date
+			      AND coalesce(i.salesman_id, so.salesperson_id) IS NOT NULL) y)
 			SELECT u.id AS user_id, u.full_name, x.currency, count(*) AS invoices, sum(x.total - x.tax)::text AS net, sum(x.paid)::text AS collected,
 			  coalesce((SELECT e.commission_pct FROM employees e WHERE e.user_id = u.id AND e.company_id = $1 ORDER BY e.status = 'active' DESC LIMIT 1), 0)::text AS commission_pct,
 			  round(sum(x.total - x.tax) * coalesce((SELECT e.commission_pct FROM employees e WHERE e.user_id = u.id AND e.company_id = $1

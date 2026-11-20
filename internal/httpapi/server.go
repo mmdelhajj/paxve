@@ -113,6 +113,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+v+"/public/demo-request", s.publicDemoRequest)
 	mux.Handle("GET "+v+"/platform/leads", s.auth(s.platformOnly(s.platformLeads)))
 	mux.Handle("PATCH "+v+"/platform/leads/{id}", s.auth(s.platformOnly(s.platformUpdateLead)))
+	mux.Handle("PUT "+v+"/platform/companies/{id}/slug", s.auth(s.platformOnly(s.platformSetSlug)))
 	mux.Handle("GET "+v+"/companies/{cid}/owner/today", s.auth(s.ownerToday))
 	mux.Handle("GET "+v+"/companies/{cid}/payroll-options", s.auth(s.payrollOptions))
 	mux.Handle("PUT "+v+"/companies/{cid}/payroll-options", s.auth(s.payrollOptions))
@@ -921,6 +922,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET "+v+"/sign/{token}/certificate", s.signFile)
 	mux.HandleFunc("POST "+v+"/sign/{token}", s.signSubmit)
 	mux.HandleFunc("POST "+v+"/sign/{token}/decline", s.signDecline)
+	mux.HandleFunc("POST "+v+"/sign/{token}/otp", s.signOTPSend)
+	mux.HandleFunc("POST "+v+"/sign/{token}/otp/verify", s.signOTPVerify)
 
 	// smart features (phase 5, app "ai"): alerts center, forecast, risk, reorder, AI assistant, bill reading
 	mux.Handle("GET "+v+"/companies/{cid}/smart/settings", s.auth(s.smartSettings))

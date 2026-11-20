@@ -148,6 +148,8 @@ func TestGrowthFlow(t *testing.T) {
 	}
 	bot["website"] = "http://spam"
 	anon.ok("POST", "/shop/"+slug+"/orders", bot, 200)
+	// auto-confirm only for a number the shop already knows (audit P7-M2): Lina is a customer
+	o.c.ok("POST", o.p("/customers"), map[string]any{"name": "Lina Saad", "phone": "03 123456"}, 201)
 	placed := anon.ok("POST", "/shop/"+slug+"/orders", order, 200)
 	if str(placed.body["status"]) != "confirmed" {
 		t.Fatalf("auto-confirmed: %s", placed.raw)
