@@ -452,13 +452,8 @@ func (s *Server) restUpdateCheck(w http.ResponseWriter, r *http.Request) {
 // POST /rest/checks/{id}/lines {lines: [{item_id, quantity, modifier_ids, note}], send}
 func (s *Server) restAddLines(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Lines []struct {
-			ItemID      string   `json:"item_id"`
-			Quantity    string   `json:"quantity"`
-			ModifierIDs []string `json:"modifier_ids"`
-			Note        string   `json:"note"`
-		} `json:"lines"`
-		Send bool `json:"send"`
+		Lines []checkLineIn `json:"lines"`
+		Send  bool          `json:"send"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -469,23 +464,41 @@ func (s *Server) restAddLines(w http.ResponseWriter, r *http.Request) {
 	}
 	cid, id := r.PathValue("cid"), r.PathValue("id")
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		if err := addCheckLines(ctx, tx, cid, id, in.Lines, in.Send); err != nil {
+			return nil, err
+		}
+		return loadCheck(ctx, tx, cid, id)
+	})
+}
+
+// checkLineIn: one dish ordered on a check (modifiers are rest_modifiers ids).
+type checkLineIn struct {
+	ItemID      string   `json:"item_id"`
+	Quantity    string   `json:"quantity"`
+	ModifierIDs []string `json:"modifier_ids"`
+	Note        string   `json:"note"`
+}
+
+// addCheckLines puts dishes on an open check (priced from the item, modifiers added), sent to the kitchen when send.
+func addCheckLines(ctx context.Context, tx pgx.Tx, cid, id string, lines []checkLineIn, send bool) error {
+	{
 		_, cur, _, _, err := lockOpenCheck(ctx, tx, cid, id)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		set, err := loadBillingSettings(ctx, tx, cid)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		rc := newRateCache(ctx, tx, cid, set.Base, today())
 		dec, err := rc.decimals(cur)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		for _, l := range in.Lines {
+		for _, l := range lines {
 			q, ok := money(l.Quantity)
 			if !ok || !q.IsPositive() || !isUUID(l.ItemID) || len(l.Note) > 200 || len(l.ModifierIDs) > 20 || !allUUID(l.ModifierIDs) {
-				return nil, badRequest("invalid_line")
+				return badRequest("invalid_line")
 			}
 			var listPrice *string
 			var salePrice, saleCur, station string
@@ -494,14 +507,14 @@ func (s *Server) restAddLines(w http.ResponseWriter, r *http.Request) {
 				FROM items it LEFT JOIN item_prices ip ON ip.item_id = it.id AND ip.currency = $4 WHERE it.id = $1 AND it.company_id = $2`,
 				l.ItemID, cid, set.Base, cur).Scan(&listPrice, &salePrice, &saleCur, &station, &sellable)
 			if errors.Is(err, pgx.ErrNoRows) || (err == nil && !sellable) {
-				return nil, badRequest("invalid_item")
+				return badRequest("invalid_item")
 			}
 			if err != nil {
-				return nil, err
+				return err
 			}
 			price, err := itemPriceIn(rc, listPrice, salePrice, saleCur, cur)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			mods := []map[string]string{}
 			for _, mid := range l.ModifierIDs {
@@ -510,15 +523,15 @@ func (s *Server) restAddLines(w http.ResponseWriter, r *http.Request) {
 					AND ((cardinality(m.item_ids) = 0 AND cardinality(m.category_ids) = 0) OR $3::uuid = ANY (m.item_ids)
 					  OR (SELECT category_id FROM items WHERE id = $3::uuid) = ANY (m.category_ids))`, mid, cid, l.ItemID).Scan(&name, &mp)
 				if errors.Is(err, pgx.ErrNoRows) {
-					return nil, badRequest("invalid_modifier")
+					return badRequest("invalid_modifier")
 				}
 				if err != nil {
-					return nil, err
+					return err
 				}
 				p, _ := decimal.NewFromString(mp)
 				pc, err := rc.convert(p, set.Base, cur)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				pc = pc.Round(dec)
 				price = price.Add(pc)
@@ -529,17 +542,17 @@ func (s *Server) restAddLines(w http.ResponseWriter, r *http.Request) {
 			}
 			mb, _ := json.Marshal(mods)
 			kst := "new"
-			if in.Send {
+			if send {
 				kst = "sent"
 			}
 			if _, err := tx.Exec(ctx, `INSERT INTO rest_check_lines (company_id, check_id, item_id, quantity, unit_price, modifiers, note, station, kstatus, sent_at)
 				VALUES ($1, $2, $3, $4::numeric, $5::numeric, $6, $7, $8, $9, CASE WHEN $9 = 'sent' THEN now() END)`,
 				cid, id, l.ItemID, q.String(), price.Round(dec).String(), mb, strings.TrimSpace(l.Note), station, kst); err != nil {
-				return nil, err
+				return err
 			}
 		}
-		return loadCheck(ctx, tx, cid, id)
-	})
+	}
+	return nil
 }
 
 // POST /rest/checks/{id}/send : the new lines go to the kitchen.
@@ -710,6 +723,7 @@ func (s *Server) restPay(w http.ResponseWriter, r *http.Request) {
 		Tip            string     `json:"tip"`
 		ClientRef      string     `json:"client_ref"`
 		ApplyPromos    bool       `json:"apply_promos"`
+		CardTxns       []string   `json:"card_txns"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
@@ -792,7 +806,7 @@ func (s *Server) restPay(w http.ResponseWriter, r *http.Request) {
 			tbl = *table
 		}
 		po := posOrderIn{ClientRef: in.ClientRef, SessionID: in.SessionID, CustomerID: cust, Tenders: in.Tenders, ChangeMethodID: in.ChangeMethodID,
-			OnAccount: in.OnAccount, ServiceCharge: in.ServiceCharge, Tip: in.Tip, ApplyPromos: in.ApplyPromos,
+			OnAccount: in.OnAccount, ServiceCharge: in.ServiceCharge, Tip: in.Tip, ApplyPromos: in.ApplyPromos, CardTxns: in.CardTxns,
 			Notes: strings.TrimSpace(fmt.Sprintf("Check #%d %s", number, tbl)), checkID: id, table: tbl}
 		ids := []string{}
 		for _, x := range pls {

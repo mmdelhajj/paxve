@@ -1241,10 +1241,11 @@ func (s *Server) inboundEmail(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, err)
 		return
 	}
-	var from, name, subject, text string
+	var from, name, subject, text, to string
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		var in struct {
 			From     string `json:"from"`
+			To       string `json:"to"`
 			FromName string `json:"from_name"`
 			Subject  string `json:"subject"`
 			Text     string `json:"text"`
@@ -1259,7 +1260,7 @@ func (s *Server) inboundEmail(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusForbidden, "bad_signature")
 			return
 		}
-		from, name, subject, text = in.From, in.FromName, in.Subject, in.Text
+		from, name, subject, text, to = in.From, in.FromName, in.Subject, in.Text, in.To
 	} else {
 		r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 		if err := r.ParseMultipartForm(10 << 20); err != nil && !errors.Is(err, http.ErrNotMultipart) {
@@ -1285,6 +1286,7 @@ func (s *Server) inboundEmail(w http.ResponseWriter, r *http.Request) {
 			from = r.FormValue("from")
 		}
 		subject = r.FormValue("subject")
+		to = firstNonEmpty(r.FormValue("recipient"), r.FormValue("to"))
 		text = r.FormValue("body-plain")
 		if text == "" {
 			text = r.FormValue("stripped-text")
@@ -1306,13 +1308,22 @@ func (s *Server) inboundEmail(w http.ResponseWriter, r *http.Request) {
 	}
 	var number int64
 	var created bool
+	var recType, recID string
 	err = db.InTenant(r.Context(), s.Pool, sc, func(tx pgx.Tx) error {
 		var err error
+		// phase 9: a reply to an e-mail sent from a record goes back to that record
+		if recType, recID, err = inboundRecordReply(r.Context(), tx, cid, strings.ToLower(strings.TrimSpace(from)), name, to, subject, text); err != nil || recType != "" {
+			return err
+		}
 		number, created, err = inboundTicket(r.Context(), tx, cid, "email", name, from, "", subject, text)
 		return err
 	})
 	if err != nil {
 		fail(w, r, err)
+		return
+	}
+	if recType != "" {
+		writeJSON(w, http.StatusOK, map[string]any{"record": recType, "id": recID})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ticket": number, "created": created})

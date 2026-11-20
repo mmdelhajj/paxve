@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -31,35 +32,45 @@ func loadBankMethod(ctx context.Context, tx pgx.Tx, cid, methodID string) (*meth
 
 // importStatement stores a bank statement (lines: date, description, amount signed, reference).
 func (s *Server) importStatement(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 12<<20)
 	var in struct {
-		MethodID string `json:"method_id"`
-		Name     string `json:"name"`
-		Lines    []struct {
-			Date        string `json:"date"`
-			Description string `json:"description"`
-			Amount      string `json:"amount"`
-			Reference   string `json:"reference"`
-		} `json:"lines"`
+		MethodID string         `json:"method_id"`
+		Name     string         `json:"name"`
+		Format   string         `json:"format"` // phase 9: csv | ofx | mt940 | camt (lines parsed from a bank file) | manual
+		Lines    []stmtFileLine `json:"lines"`
 	}
 	if !decodeBody(w, r, &in) {
 		return
 	}
-	if len(in.Lines) == 0 || len(in.Lines) > 5000 {
+	if in.Format == "" {
+		in.Format = "manual"
+	}
+	if len(in.Lines) == 0 || len(in.Lines) > 5000 || !contains([]string{"manual", "csv", "ofx", "mt940", "camt"}, in.Format) || len(in.Name) > 200 {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
 	type parsed struct {
-		date, desc, ref string
-		amount          decimal.Decimal
+		date, desc, ref, partner, fp string
+		amount                       decimal.Decimal
 	}
-	lines := make([]parsed, 0, len(in.Lines))
-	for i, l := range in.Lines {
-		a, err := decimal.NewFromString(strings.ReplaceAll(strings.TrimSpace(l.Amount), ",", ""))
-		if err != nil || a.IsZero() || a.Exponent() < -4 || !validDate(strings.TrimSpace(l.Date)) {
+	for i := range in.Lines {
+		in.Lines[i].Fingerprint = "" // computed here, never trusted from the client
+		in.Lines[i].Amount = strings.ReplaceAll(strings.TrimSpace(in.Lines[i].Amount), ",", "")
+		in.Lines[i].Date = strings.TrimSpace(in.Lines[i].Date)
+		if len(in.Lines[i].BankID) > 100 || len(in.Lines[i].Description) > 2000 || len(in.Lines[i].Reference) > 200 || len(in.Lines[i].Partner) > 200 {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "bad_request", "detail": i + 1})
 			return
 		}
-		lines = append(lines, parsed{strings.TrimSpace(l.Date), strings.TrimSpace(l.Description), strings.TrimSpace(l.Reference), a})
+	}
+	fingerprints(in.Lines)
+	lines := make([]parsed, 0, len(in.Lines))
+	for i, l := range in.Lines {
+		a, err := decimal.NewFromString(l.Amount)
+		if err != nil || a.IsZero() || a.Exponent() < -4 || !validDate(l.Date) {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "bad_request", "detail": i + 1})
+			return
+		}
+		lines = append(lines, parsed{l.Date, strings.TrimSpace(l.Description), strings.TrimSpace(l.Reference), strings.TrimSpace(l.Partner), l.Fingerprint, a})
 	}
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
@@ -67,16 +78,32 @@ func (s *Server) importStatement(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO bank_statements (company_id, method_id, name) VALUES ($1, $2, $3) RETURNING id::text`,
-			cid, m.ID, strings.TrimSpace(in.Name)).Scan(&id); err != nil {
+		// one import of a bank box at a time (two people importing the same file at once)
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('bankimport:' || $1))`, m.ID); err != nil {
 			return nil, err
 		}
+		var id string
+		if err := tx.QueryRow(ctx, `INSERT INTO bank_statements (company_id, method_id, name, format) VALUES ($1, $2, $3, $4) RETURNING id::text`,
+			cid, m.ID, strings.TrimSpace(in.Name), in.Format).Scan(&id); err != nil {
+			return nil, err
+		}
+		skipped := 0
 		for _, l := range lines {
-			if _, err := tx.Exec(ctx, `INSERT INTO bank_statement_lines (statement_id, method_id, line_date, description, reference, amount)
-				VALUES ($1, $2, $3::date, $4, $5, $6::numeric)`, id, m.ID, l.date, l.desc, l.ref, l.amount.String()); err != nil {
+			tag, err := tx.Exec(ctx, `INSERT INTO bank_statement_lines (statement_id, method_id, line_date, description, reference, amount, partner, fingerprint)
+				VALUES ($1, $2, $3::date, $4, $5, $6::numeric, $7, $8) ON CONFLICT (method_id, fingerprint) WHERE fingerprint IS NOT NULL DO NOTHING`,
+				id, m.ID, l.date, l.desc, l.ref, l.amount.String(), l.partner, l.fp)
+			if err != nil {
 				return nil, err
 			}
+			if tag.RowsAffected() == 0 {
+				skipped++ // already imported (same bank id, or same date / amount / text)
+			}
+		}
+		if skipped == len(lines) {
+			return nil, &apiError{status: http.StatusConflict, code: "already_imported", detail: strconv.Itoa(skipped)}
+		}
+		if _, err := tx.Exec(ctx, `UPDATE bank_statements SET skipped = $2 WHERE id = $1`, id, skipped); err != nil {
+			return nil, err
 		}
 		return loadStatement(ctx, tx, cid, id)
 	})
@@ -89,7 +116,7 @@ func (s *Server) listStatements(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		return queryJSON(ctx, tx, `SELECT s.id, s.name, s.method_id, m.name AS method, m.currency, s.created_at,
+		return queryJSON(ctx, tx, `SELECT s.id, s.name, s.method_id, m.name AS method, m.currency, s.created_at, s.format, s.skipped,
 			(SELECT count(*) FROM bank_statement_lines l WHERE l.statement_id = s.id) AS lines,
 			(SELECT count(*) FROM bank_statement_lines l WHERE l.statement_id = s.id AND l.status = 'unmatched') AS unmatched,
 			(SELECT min(line_date) FROM bank_statement_lines l WHERE l.statement_id = s.id) AS date_from,
@@ -115,13 +142,14 @@ func loadStatement(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) 
 	if !isUUID(id) {
 		return nil, notFound()
 	}
-	st, err := queryJSONOne(ctx, tx, `SELECT s.id, s.name, s.method_id, m.name AS method, m.currency, s.created_at
+	st, err := queryJSONOne(ctx, tx, `SELECT s.id, s.name, s.method_id, m.name AS method, m.currency, s.created_at, s.format, s.skipped
 		FROM bank_statements s JOIN payment_methods m ON m.id = s.method_id WHERE s.id = $1 AND s.company_id = $2`, id, cid)
 	if err != nil {
 		return nil, err
 	}
 	lines, err := queryJSON(ctx, tx, `
-		SELECT l.id, l.line_date, l.description, l.reference, l.amount::text AS amount, l.status, l.journal_line_id,
+		SELECT l.id, l.line_date, l.description, l.reference, l.partner, l.amount::text AS amount, l.status, l.journal_line_id, l.payment_id, l.supplier_payment_id,
+		       (SELECT name FROM bank_rules br WHERE br.id = l.rule_id) AS rule,
 		       me.number AS matched_number, me.memo AS matched_memo, l.created_entry_id,
 		       CASE WHEN l.status = 'unmatched' THEN coalesce((SELECT json_agg(c) FROM (`+candidatesSQL+`) c), '[]'::json) ELSE '[]'::json END AS suggestions
 		FROM bank_statement_lines l

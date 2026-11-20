@@ -992,7 +992,13 @@ func (s *Server) shopTrack(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]json.RawMessage{"order": o, "lines": lines}, nil
+		// phase 9: the parcel with the carrier, when the order went by Aramex / DHL / a courier
+		ships, err := queryJSON(ctx, tx, `SELECT sh.carrier, sh.tracking_no, sh.status, sh.events, sh.updated_at FROM shipments sh
+			WHERE sh.shop_order_id = $1 AND sh.status <> 'cancelled' AND sh.tracking_no <> '' ORDER BY sh.created_at`, oid)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]json.RawMessage{"order": o, "lines": lines, "shipments": ships}, nil
 	})
 }
 
@@ -1293,7 +1299,9 @@ const shopOrderCols = `o.id, o.number, o.token, o.sales_order_id, so.number AS q
 	o.name, o.phone, o.email, o.address, o.zone_id, z.name AS zone, o.delivery, o.payment, o.coupon, o.currency, o.subtotal::text AS subtotal,
 	o.discount::text AS discount, o.fee::text AS fee, so.total::text AS total, o.notes, o.status, o.created_at, ` + shopTrackState + ` AS state,
 	(SELECT t.number FROM trip_stops ts JOIN delivery_trips t ON t.id = ts.trip_id WHERE ts.sales_order_id = so.id AND t.status <> 'cancelled' ORDER BY t.created_at DESC LIMIT 1) AS trip_number,
-	(SELECT i.number FROM invoices i WHERE i.sales_order_id = so.id AND i.status <> 'void' ORDER BY i.created_at LIMIT 1) AS invoice_number`
+	(SELECT i.number FROM invoices i WHERE i.sales_order_id = so.id AND i.status <> 'void' ORDER BY i.created_at LIMIT 1) AS invoice_number,
+	(SELECT json_build_object('id', sh.id, 'carrier', sh.carrier, 'tracking_no', sh.tracking_no, 'status', sh.status) FROM shipments sh
+	  WHERE sh.shop_order_id = o.id AND sh.status <> 'cancelled' ORDER BY sh.created_at DESC LIMIT 1) AS shipment`
 
 const shopOrderFrom = ` FROM shop_orders o JOIN sales_orders so ON so.id = o.sales_order_id LEFT JOIN shop_zones z ON z.id = o.zone_id`
 

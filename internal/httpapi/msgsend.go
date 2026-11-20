@@ -62,7 +62,7 @@ func normalizePhone(raw, country string) string {
 
 // ---- secrets in provider config ----
 
-var secretKeys = map[string]bool{"token": true, "auth_token": true, "api_key": true, "bearer": true, "password": true, "secret": true}
+var secretKeys = map[string]bool{"token": true, "auth_token": true, "api_key": true, "bearer": true, "password": true, "secret": true, "account_pin": true}
 
 const maskPrefix = "••••"
 
@@ -277,6 +277,8 @@ type queuedMsg struct {
 	Kind                           *string
 	Config, Params                 []byte
 	WATemplate, Locale             *string
+	Files                          []string // phase 9: attachment ids (e-mail)
+	ReplyTo                        string
 }
 
 func (s *Server) sendBatch(ctx context.Context) (int, error) {
@@ -284,7 +286,7 @@ func (s *Server) sendBatch(ctx context.Context) (int, error) {
 	err := pgx.BeginFunc(ctx, s.OwnerPool, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `
 			SELECT m.id::text, m.tenant_id::text, m.phone, m.body, m.event, m.attempts, p.kind, p.config, m.params, t.wa_template, t.locale,
-			       m.channel, m.email, m.subject
+			       m.channel, m.email, m.subject, m.attachment_ids::text[], m.reply_to
 			FROM messages m
 			LEFT JOIN message_providers p ON p.id = m.provider_id AND p.is_active
 			LEFT JOIN message_templates t ON t.id = m.template_id
@@ -298,7 +300,7 @@ func (s *Server) sendBatch(ctx context.Context) (int, error) {
 		batch, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (queuedMsg, error) {
 			var q queuedMsg
 			err := row.Scan(&q.ID, &q.Tenant, &q.Phone, &q.Body, &q.Event, &q.Attempts, &q.Kind, &q.Config, &q.Params, &q.WATemplate, &q.Locale,
-				&q.Channel, &q.Email, &q.Subject)
+				&q.Channel, &q.Email, &q.Subject, &q.Files, &q.ReplyTo)
 			return q, err
 		})
 		if err != nil || len(batch) == 0 {
@@ -332,9 +334,15 @@ func (s *Server) deliver(ctx context.Context, q queuedMsg) {
 			cfg := map[string]any{}
 			_ = json.Unmarshal(q.Config, &cfg)
 			cfg = openConfig(cfg)
-			sctx, cancel := context.WithTimeout(ctx, 25*time.Second)
-			providerID, sendErr = sendSMTP(sctx, cfg, mailMsg{To: q.Email, Subject: q.Subject, Body: q.Body}, s.AllowPrivateRouters)
-			cancel()
+			var files []mailFile
+			if len(q.Files) > 0 {
+				files, sendErr = s.mailFiles(ctx, q.Tenant, q.Files)
+			}
+			if sendErr == nil {
+				sctx, cancel := context.WithTimeout(ctx, 40*time.Second)
+				providerID, sendErr = sendSMTP(sctx, cfg, mailMsg{To: q.Email, Subject: q.Subject, Body: q.Body, ReplyTo: q.ReplyTo, Files: files}, s.AllowPrivateRouters)
+				cancel()
+			}
 		}
 	} else {
 		cfg := map[string]any{}
@@ -378,4 +386,29 @@ func (s *Server) deliver(ctx context.Context, q queuedMsg) {
 	if err != nil {
 		slog.Error("message worker update", "id", q.ID, "err", err)
 	}
+}
+
+// mailFiles loads the attachments of an e-mail (the tenant's own files only).
+func (s *Server) mailFiles(ctx context.Context, tenant string, ids []string) ([]mailFile, error) {
+	var out []mailFile
+	err := pgx.BeginFunc(ctx, s.OwnerPool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SELECT set_config('app.tenant_id', $1, true)`, tenant); err != nil {
+			return err
+		}
+		rows, err := tx.Query(ctx, `SELECT filename, mime, data FROM attachments WHERE tenant_id = $1::uuid AND id = ANY ($2::uuid[]) AND deleted_at IS NULL
+			ORDER BY array_position($2::uuid[], id)`, tenant, ids)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var f mailFile
+			if err := rows.Scan(&f.Name, &f.Mime, &f.Data); err != nil {
+				return err
+			}
+			out = append(out, f)
+		}
+		return rows.Err()
+	})
+	return out, err
 }

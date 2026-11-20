@@ -20,6 +20,13 @@ import (
 
 type mailMsg struct {
 	To, Subject, Body string
+	ReplyTo           string     // phase 9: replies come back to the record (plus address)
+	Files             []mailFile // phase 9: attachments
+}
+
+type mailFile struct {
+	Name, Mime string
+	Data       []byte
 }
 
 func sendSMTP(ctx context.Context, cfg map[string]any, m mailMsg, allowPrivate bool) (string, error) {
@@ -121,13 +128,37 @@ func sendSMTP(ctx context.Context, cfg map[string]any, m mailMsg, allowPrivate b
 	b.WriteString("Subject: " + mime.QEncoding.Encode("utf-8", strings.ReplaceAll(m.Subject, "\n", " ")) + "\r\n")
 	b.WriteString("Date: " + time.Now().Format(time.RFC1123Z) + "\r\n")
 	b.WriteString("Message-ID: " + msgID + "\r\n")
-	b.WriteString("MIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n")
-	enc := base64.StdEncoding.EncodeToString([]byte(m.Body))
-	for len(enc) > 76 {
-		b.WriteString(enc[:76] + "\r\n")
-		enc = enc[76:]
+	if m.ReplyTo != "" && emailRe.MatchString(m.ReplyTo) && !strings.ContainsAny(m.ReplyTo, "\r\n") {
+		b.WriteString("Reply-To: " + m.ReplyTo + "\r\n")
 	}
-	b.WriteString(enc + "\r\n")
+	b64 := func(data []byte) {
+		enc := base64.StdEncoding.EncodeToString(data)
+		for len(enc) > 76 {
+			b.WriteString(enc[:76] + "\r\n")
+			enc = enc[76:]
+		}
+		b.WriteString(enc + "\r\n")
+	}
+	if len(m.Files) == 0 {
+		b.WriteString("MIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n")
+		b64([]byte(m.Body))
+	} else {
+		boundary := fmt.Sprintf("px-%d", time.Now().UnixNano())
+		b.WriteString("MIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"" + boundary + "\"\r\n\r\n")
+		b.WriteString("--" + boundary + "\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n")
+		b64([]byte(m.Body))
+		for _, f := range m.Files {
+			mt := f.Mime
+			if mt == "" || strings.ContainsAny(mt, "\r\n\"") {
+				mt = "application/octet-stream"
+			}
+			name := mime.QEncoding.Encode("utf-8", strings.NewReplacer("\r", "", "\n", "", "\"", "").Replace(f.Name))
+			b.WriteString("--" + boundary + "\r\nContent-Type: " + mt + "; name=\"" + name + "\"\r\nContent-Transfer-Encoding: base64\r\n")
+			b.WriteString("Content-Disposition: attachment; filename=\"" + name + "\"\r\n\r\n")
+			b64(f.Data)
+		}
+		b.WriteString("--" + boundary + "--\r\n")
+	}
 	if _, err := wc.Write([]byte(b.String())); err != nil {
 		return "", fmt.Errorf("smtp: %v", err)
 	}

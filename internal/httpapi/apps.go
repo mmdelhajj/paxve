@@ -28,6 +28,14 @@ var appRoutes = []struct {
 	app    string
 	getsOK bool // GET stays allowed when the app is off (shared reference data)
 }{
+	{"/ship/", "stk", false},
+	{"/gantt/projects", "prj", false},
+	{"/gantt/project-tasks", "prj", false},
+	{"/gantt/deps", "prj", false},
+	{"/gantt/mfg", "mfg", false},
+	{"/gantt/workorders", "mfg", false},
+	{"/gantt/field", "svc", false},
+	{"/gantt/service-jobs", "svc", false},
 	{"/pos/", "pos", false},
 	{"/reports/pos", "pos", false},
 	{"/retail/packs", "", false}, // choosing a business pack switches apps on itself

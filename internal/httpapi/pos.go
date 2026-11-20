@@ -467,7 +467,7 @@ func (s *Server) posCatalog(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
-		methods, err := queryJSON(ctx, tx, `SELECT m.id, m.name, m.kind, m.currency, m.change_rounding
+		methods, err := queryJSON(ctx, tx, `SELECT m.id, m.name, m.kind, m.currency, m.change_rounding, m.terminal_driver
 			FROM payment_methods m WHERE m.company_id = $1 AND m.id = ANY($2::uuid[]) AND m.is_active
 			ORDER BY array_position($2::uuid[], m.id)`, cid, g.Methods)
 		if err != nil {
@@ -890,6 +890,7 @@ type posOrderIn struct {
 	Insurance      *insuranceIn `json:"insurance"`      // insurer's share (pharmacy): booked as an insurance receivable + claim
 	ServiceCharge  bool         `json:"service_charge"` // add the company's service charge % (restaurant)
 	Tip            string       `json:"tip"`            // tip for the staff (a liability, not revenue)
+	CardTxns       []string     `json:"card_txns"`      // phase 9: approved terminal charges paying the card tenders
 	checkID, table string       // restaurant check paid by this sale
 }
 
@@ -1531,6 +1532,9 @@ func createPosOrderTx(ctx context.Context, tx pgx.Tx, r *http.Request, cid strin
 			cid, in.SessionID, g.ID, number, date, customer, g.Currency, total.String(), taxTotal.String(), paid.String(),
 			invID, paymentID, cb, in.ClientRef, clientTime, strings.TrimSpace(in.Notes), promosJSON, lb, gb, id,
 			sb, tb, rb, ib, eb, in.checkID, priceCut.Round(dec).String(), priceCutLines); err != nil {
+			return "", err
+		}
+		if err := linkCardTxns(ctx, tx, cid, id, in.CardTxns, in.Tenders); err != nil {
 			return "", err
 		}
 		if promoRes != nil {

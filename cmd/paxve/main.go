@@ -149,6 +149,7 @@ func serve(ctx context.Context) error {
 	api.StartGrowthWorker(ctx)
 	api.StartSmartWorker(ctx)
 	api.StartIntercoWorker(ctx)
+	api.StartShipWorker(ctx)
 	api.ResumeBillingJobs(ctx)
 	go api.RepairEmptyCharts(ctx) // companies created without a chart before the P7 fix
 	hs := &http.Server{

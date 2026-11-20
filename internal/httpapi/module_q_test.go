@@ -327,6 +327,30 @@ func seedEverything(t *testing.T, o *org) {
 	step(200, "PUT", "/doc-layouts/invoice", map[string]any{"header": secretB})
 	step(200, "PUT", "/dashboards/roles/company", map[string]any{"widgets": []any{map[string]any{"id": "a", "metric": "cash", "size": 1, "title": secretB}}})
 	_ = btd
+
+	// phase 9: a bank matching rule, a card terminal (charge used by a sale, settled; one unused), a QR order, a
+	// carrier with a shipment, a Gantt task dependency
+	step(201, "POST", "/bank/match-rules", map[string]any{"name": secretB + " rule", "pattern": "FEE", "action": "account", "account_id": o.accounts["627"]})
+	card := id(step(201, "POST", "/payment-methods", map[string]any{"name": secretB + " card", "kind": "card", "currency": "USD", "account_id": o.accounts["512"]}), "id")
+	step(200, "PUT", "/pos/terminals/"+card, map[string]any{"driver": "simulator", "settle_method_id": bank, "fee_pct": "1"})
+	creg := id(step(201, "POST", "/pos/registers", map[string]any{"name": secretB + " card till", "currency": "USD", "method_ids": []any{usd, card}}), "id")
+	csess := id(step(201, "POST", "/pos/sessions", map[string]any{"register_id": creg}), "session", "id")
+	txn := id(step(201, "POST", "/pos/terminal/charge", map[string]any{"method_id": card, "amount": "5", "register_id": creg}), "id")
+	step(201, "POST", "/pos/orders", map[string]any{"session_id": csess, "lines": []any{map[string]any{"item_id": item, "quantity": "1"}},
+		"tenders": []any{map[string]any{"method_id": card, "amount": "5"}}, "card_txns": []any{txn}})
+	step(201, "POST", "/pos/terminal/settlements", map[string]any{"method_id": card, "date": "2026-11-20"})
+	step(201, "POST", "/pos/terminal/charge", map[string]any{"method_id": card, "amount": "2"})
+	step(200, "PUT", "/rest/qr", map[string]any{"enabled": true, "register_id": reg})
+	qtok := ownerQuery(t, `SELECT qr_token FROM rest_tables WHERE id = $1`, btable)
+	if r := c.do("POST", "/menu/"+qtok+"/orders", map[string]any{"name": secretB, "lines": []any{map[string]any{"item_id": item, "quantity": "1"}}}); r.status != 200 {
+		t.Errorf("seed QR order: %d %s", r.status, r.raw)
+	}
+	carrier := id(step(201, "POST", "/ship/carriers", map[string]any{"carrier": "manual", "name": secretB + " courier", "config": map[string]any{"flat_rate": "3"}}), "id")
+	step(201, "POST", "/ship/shipments", map[string]any{"account_id": carrier, "sales_order_id": oid, "recipient": secretB, "currency": "USD", "book": true})
+	gprj := id(step(201, "POST", "/prj/projects", map[string]any{"name": secretB + " gantt"}), "project", "id")
+	gt1 := id(step(201, "POST", "/prj/project-tasks", map[string]any{"project_id": gprj, "title": secretB + " t1"}), "task", "id")
+	gt2 := id(step(201, "POST", "/prj/project-tasks", map[string]any{"project_id": gprj, "title": secretB + " t2"}), "task", "id")
+	step(201, "POST", "/gantt/project-tasks/"+gt2+"/deps", map[string]any{"depends_on": gt1})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -429,6 +453,8 @@ var idTable = map[string]string{
 	"routes": "sales_routes", "days": "van_days", "tables": "rest_tables", "modifiers": "rest_modifiers", "checks": "rest_checks",
 	"check-lines": "rest_check_lines",
 	"branches":    "branches", "users": "users", "tenders": "purchase_tenders", "agreements": "purchase_agreements",
+	"match-rules": "bank_rules", "terminals": "payment_methods", "txns": "card_txns", "settlements": "card_settlements",
+	"carriers": "carrier_accounts", "shipments": "shipments", "deps": "project_task_deps",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -436,7 +462,7 @@ var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
 var paramValues = map[string][]string{
 	"type":   {"customers", "subscriptions", "opening_balances", "readings", "accounts"},
 	"kind":   {"fuel", "adjust"},
-	"action": {"confirm", "cancel", "send", "reopen", "unmatch", "ignore", "unignore", "submit"},
+	"action": {"confirm", "cancel", "send", "reopen", "unmatch", "ignore", "unignore", "submit", "accept", "reject", "book", "track"},
 	"op":     {"freeze", "unfreeze"},
 	"entity": {"customers", "suppliers", "items", "invoices", "employees"},
 	"key":    {"none"}, // business packs act on the caller's own company: only an unknown pack is swept
@@ -483,6 +509,9 @@ func sweepCalls(t *testing.T, cid string, ids map[string]string) []sweepCall {
 				}
 				if seg == "orders" && strings.Contains(cur, "/shop/") {
 					tb = "shop_orders"
+				}
+				if seg == "orders" && strings.Contains(cur, "/rest/qr/") {
+					tb = "qr_orders"
 				}
 				if seg == "claims" && strings.Contains(cur, "/pharma/") {
 					tb = "pharma_claims"
@@ -607,6 +636,16 @@ func sweepBody(c sweepCall, ids map[string]string) any {
 		return map[string]any{"bill_id": ids["bills"]}
 	case "/customers/{id}/location":
 		return map[string]any{"lat": 33.91, "lng": 35.51}
+	case "/bank/lines/{id}/reconcile":
+		return map[string]any{"kind": "account", "id": ids["accounts"]}
+	case "/gantt/project-tasks/{id}":
+		return map[string]any{"start": "2026-11-20", "end": "2026-11-21"}
+	case "/gantt/project-tasks/{id}/deps":
+		return map[string]any{"depends_on": ids["project_tasks"]}
+	case "/gantt/workorders/{id}", "/gantt/service-jobs/{id}":
+		return map[string]any{"start": "2026-11-20T08:00:00Z"}
+	case "/pos/terminals/{id}":
+		return map[string]any{"driver": "simulator"}
 	}
 	return map[string]any{} // PATCH routes: every field is optional
 }

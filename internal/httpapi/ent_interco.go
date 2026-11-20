@@ -721,6 +721,17 @@ func icEliminations(ctx context.Context, tx pgx.Tx, comps []consComp, report, fr
 					diff = diff.Add(pay)
 				}
 			}
+			// phase 9: the seller's margin still in the buyer's stock
+			urps, err := icUnrealized(ctx, tx, l.ID, cs, to)
+			if err != nil {
+				return nil, err
+			}
+			for _, u := range urps {
+				if err := add(u.InvAccount, u.Amount.Neg(), "unrealized_profit"); err != nil {
+					return nil, err
+				}
+				out = append(out, consElim{Code: "IC-URP", Name: "Unrealized inter-company profit", Type: "equity", Reason: "unrealized_profit", Amount: u.Amount.Neg()})
+			}
 			continue
 		}
 		// profit and loss: sales of the period mirrored as expenses of the buyer
@@ -794,6 +805,25 @@ func icEliminations(ctx context.Context, tx pgx.Tx, comps []consComp, report, fr
 					return nil, err
 				}
 			}
+		}
+		// phase 9: the change of the margin held in the buyer's stock over the period lowers the group profit
+		endU, err := icUnrealized(ctx, tx, l.ID, cs, to)
+		if err != nil {
+			return nil, err
+		}
+		startU, err := icUnrealized(ctx, tx, l.ID, cs, dayBefore(from))
+		if err != nil {
+			return nil, err
+		}
+		delta := decimal.Zero
+		for _, u := range endU {
+			delta = delta.Add(u.Amount)
+		}
+		for _, u := range startU {
+			delta = delta.Sub(u.Amount)
+		}
+		if !delta.Round(2).IsZero() {
+			out = append(out, consElim{Code: "IC-URP", Name: "Unrealized inter-company profit", Type: "expense", Reason: "unrealized_profit", Amount: delta})
 		}
 	}
 	if report == "balance-sheet" && !diff.Round(2).IsZero() {
