@@ -216,6 +216,8 @@ function Analysis() {
   const [shared, setShared] = useState(false);
   const [loadedId, setLoadedId] = useState('');
   const src = sources[sp.source];
+  const [auto, setAuto] = useState(false);
+  useEffect(() => { if (!auto && src) { setAuto(true); void go(); } }, [src, auto]); // eslint-disable-line react-hooks/exhaustive-deps
   const dims = src ? [...src.dims.slice().sort(), ...DATE_GROUPS] : [];
 
   async function go(s: Spec = sp) {
@@ -405,7 +407,7 @@ function Repairs({ me }: { me: Me }) {
     } catch (e) { setWInfo(errorText(t, e)); }
   }
   const cols: Col<Repair>[] = [
-    { key: 'n', title: '#', get: (r) => r.number, num: true, width: 55 },
+    { key: 'n', title: '#', get: (r) => r.number, num: true, decimals: 0, width: 55 },
     { key: 'st', title: t('gp.rep.status'), get: (r) => t(`gp.rep.s.${r.status}`), width: 100, cls: (r) => (r.late ? 'red' : '') },
     { key: 'cust', title: t('gp.customer'), get: (r) => `${r.customer_code} ${r.customer_name}`, width: 170 },
     { key: 'dev', title: t('gp.rep.device'), get: (r) => r.device || r.item_name || '', width: 150 },
@@ -453,7 +455,7 @@ function Repairs({ me }: { me: Me }) {
               <label className="mx-row" style={{ gap: 4 }}><input type="checkbox" disabled={!canEdit} checked={r.notify} onChange={(e) => patch({ notify: e.currentTarget.checked })} />{t('gp.rep.notify')}</label>
             </div>
             <h4 style={{ margin: '6px 0 2px' }}>{t('gp.rep.lines')}</h4>
-            <div style={{ overflowX: 'auto' }}>
+            <div style={{ overflowX: 'auto', flex: 'none' }}>
               <table className="mx-table">
                 <thead><tr><th>{t('gp.rep.kind')}</th><th>{t('gp.rep.item')}</th><th>{t('gp.rep.desc')}</th><th>{t('gp.qty')}</th><th>{t('gp.price')}</th><th>{t('gp.rep.covered')}</th><th /></tr></thead>
                 <tbody>{lines.map((l, i) => {
@@ -545,9 +547,9 @@ function Instalments({ me }: { me: Me }) {
   }, [base, nw.customer_id, mode]);
   const open = useCallback((id: string) => { if (base) api<{ plan: Plan; lines: PLine[] }>(`${base}/instalments/${id}`).then(setSel).catch(() => setSel(null)); }, [base]);
   const cols: Col<Plan>[] = [
-    { key: 'n', title: '#', get: (r) => r.number, num: true, width: 55 },
+    { key: 'n', title: '#', get: (r) => r.number, num: true, decimals: 0, width: 55 },
     { key: 'cust', title: t('gp.customer'), get: (r) => `${r.customer_code} ${r.customer_name}`, width: 180 },
-    { key: 'inv', title: t('gp.inst.invoice'), get: (r) => r.invoice_number, num: true, width: 70 },
+    { key: 'inv', title: t('gp.inst.invoice'), get: (r) => r.invoice_number, num: true, decimals: 0, width: 70 },
     { key: 'tot', title: t('gp.inst.total'), get: (r) => Number(r.total), render: (r) => formatAmount(r.total, decimalsOf(r.currency)), num: true, width: 100 },
     { key: 'bal', title: t('gp.inst.balance'), get: (r) => Number(r.balance), render: (r) => formatAmount(r.balance, decimalsOf(r.currency)), num: true, width: 100, total: 'sum' },
     { key: 'late', title: t('gp.inst.overdue'), get: (r) => Number(r.overdue), render: (r) => formatAmount(r.overdue, decimalsOf(r.currency)), num: true, width: 100, cls: (r) => (Number(r.overdue) > 0 ? 'red' : '') },
@@ -663,9 +665,9 @@ function Templates({ me }: { me: Me }) {
   const canEdit = can(me, 'sales.create');
   const cols: Col<QuoteTpl>[] = [
     { key: 'name', title: t('gp.qt.name'), get: (r) => r.name, width: 240 },
-    { key: 'lines', title: t('gp.qt.lines'), get: (r) => r.lines.length, num: true, width: 70 },
+    { key: 'lines', title: t('gp.qt.lines'), get: (r) => r.lines.length, num: true, decimals: 0, width: 70 },
     { key: 'cur', title: t('gp.currency'), get: (r) => r.currency ?? '', width: 70 },
-    { key: 'val', title: t('gp.qt.validity'), get: (r) => r.validity_days ?? '', num: true, width: 80 },
+    { key: 'val', title: t('gp.qt.validity'), get: (r) => r.validity_days ?? '', num: true, decimals: 0, width: 80 },
     { key: 'act', title: t('gp.active'), get: (r) => (r.is_active ? '✓' : ''), width: 60 },
   ];
   const up = (i: number, p: Partial<QuoteTpl['lines'][number]>) => setF({ ...f, lines: f.lines.map((x, j) => (j === i ? { ...x, ...p } : x)) });
@@ -733,10 +735,10 @@ function Fiscal({ me }: { me: Me }) {
   const cols: Col<FPos>[] = [
     { key: 'name', title: t('gp.fp.name'), get: (r) => r.name, width: 200 },
     { key: 'kind', title: t('gp.fp.kind'), get: (r) => t(`gp.fp.k.${r.kind}`), width: 120 },
-    { key: 'tx', title: t('gp.fp.taxes'), get: (r) => r.tax_map.length, num: true, width: 70 },
-    { key: 'ac', title: t('gp.fp.accounts'), get: (r) => r.account_map.length, num: true, width: 70 },
-    { key: 'c', title: t('gp.fp.customers'), get: (r) => r.customers, num: true, width: 80 },
-    { key: 's', title: t('gp.fp.suppliers'), get: (r) => r.suppliers, num: true, width: 80 },
+    { key: 'tx', title: t('gp.fp.taxes'), get: (r) => r.tax_map.length, num: true, decimals: 0, width: 70 },
+    { key: 'ac', title: t('gp.fp.accounts'), get: (r) => r.account_map.length, num: true, decimals: 0, width: 70 },
+    { key: 'c', title: t('gp.fp.customers'), get: (r) => r.customers, num: true, decimals: 0, width: 80 },
+    { key: 's', title: t('gp.fp.suppliers'), get: (r) => r.suppliers, num: true, decimals: 0, width: 80 },
     { key: 'a', title: t('gp.active'), get: (r) => (r.is_active ? '✓' : ''), width: 60 },
   ];
   return (
@@ -810,8 +812,8 @@ function Credit({ me }: { me: Me }) {
     { key: 'lim', title: t('gp.credit.limit'), get: (r) => (r.credit.limit === null ? '' : Number(r.credit.limit)), num: true, decimals: 2, width: 100 },
     { key: 'exp', title: t('gp.credit.exposure'), get: (r) => Number(r.credit.exposure), num: true, decimals: 2, width: 110, total: 'sum', cls: (r) => (r.over_limit ? 'red' : '') },
     { key: 'av', title: t('gp.credit.available'), get: (r) => (r.credit.available === null ? '' : Number(r.credit.available)), num: true, decimals: 2, width: 100 },
-    { key: 'late', title: t('gp.credit.maxLate'), get: (r) => r.credit.max_overdue_days, num: true, width: 90, cls: (r) => (r.too_late ? 'red' : '') },
-    { key: 'rule', title: t('gp.credit.days'), get: (r) => r.credit.overdue_days ?? '', num: true, width: 80 },
+    { key: 'late', title: t('gp.credit.maxLate'), get: (r) => r.credit.max_overdue_days, num: true, decimals: 0, width: 90, cls: (r) => (r.too_late ? 'red' : '') },
+    { key: 'rule', title: t('gp.credit.days'), get: (r) => r.credit.overdue_days ?? '', num: true, decimals: 0, width: 80 },
     { key: 'hold', title: t('gp.credit.hold'), get: (r) => (r.credit.hold ? '✓' : ''), width: 60 },
   ];
   return (

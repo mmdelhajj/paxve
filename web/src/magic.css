@@ -375,4 +375,6 @@ button.mx-kpi:hover { border-color: var(--mx-primary-line); background: #fbfcff;
 .mx-notif { display: block; width: 100%; border: 1px solid var(--mx-line); border-radius: var(--mx-radius-sm); background: #fff; padding: 6px 8px; font: inherit; color: var(--mx-ink); }
 .mx-notif.unread { border-color: var(--mx-primary-line); background: var(--mx-primary-soft); }
 .print-only { display: none; }
-@media print { .print-only { display: block; } }
+@media print { .print-only { display: block; } }.mx-frm > label:not(.mx-row) { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--mx-muted); }
+.mx-frm input:not([type=checkbox]), .mx-frm select { height: 32px; border: 1px solid var(--mx-line-strong); border-radius: var(--mx-radius-sm); padding: 0 8px; background: #fff; font: inherit; color: var(--mx-ink); }
+.mx-frm > label.mx-row { align-self: center; }

@@ -57,7 +57,7 @@ export function CustomerCredit({ customerId, readOnly }: { customerId: string; r
         {c.hold && <span className="mx-pill warn">{t('gp.credit.onHold')}</span>}
         {c.no_rate && <small className="red">{t('gp.credit.noRate')}</small>}
       </div>
-      <div className="mx-row" style={{ gap: 8, padding: 8, flexWrap: 'wrap', alignItems: 'end' }}>
+      <div className="mx-row mx-frm" style={{ gap: 8, padding: 8, flexWrap: 'wrap', alignItems: 'end' }}>
         <label>{t('gp.credit.limit')} ({c.base_currency})<input dir="ltr" disabled={readOnly} value={f.limit} placeholder={t('gp.credit.noLimit')}
           onChange={(e) => setF({ ...f, limit: e.currentTarget.value })} /></label>
         <label>{t('gp.credit.days')}<input dir="ltr" type="number" min={0} disabled={readOnly} value={f.days} placeholder={c.overdue_days === null ? '—' : String(c.overdue_days)}
@@ -86,7 +86,7 @@ export function WarrantyBox({ itemId, readOnly }: { itemId: string; readOnly?: b
   return (
     <section className="mx-box no-print">
       <h3>{t('gp.rep.warranty')}</h3>
-      <div className="mx-row" style={{ gap: 8, padding: 8, alignItems: 'end', flexWrap: 'wrap' }}>
+      <div className="mx-row mx-frm" style={{ gap: 8, padding: 8, alignItems: 'end', flexWrap: 'wrap' }}>
         <label>{t('gp.rep.warrantyMonths')}<input type="number" min={0} max={240} dir="ltr" disabled={readOnly} value={m} onChange={(e) => setM(e.currentTarget.value)} /></label>
         {!readOnly && <button className="mx-btn sm" onClick={() => base && api(`${base}/items/${itemId}/stock-settings`, { method: 'PUT', body: { warranty_months: Number(m) || 0 } })
           .then(() => setMsg(t('common.saved'))).catch((e) => setMsg(errorText(t, e)))}>{t('common.save')}</button>}
@@ -108,7 +108,7 @@ export function SupplierFiscal({ supplierId, current, readOnly }: { supplierId: 
   return (
     <section className="mx-box no-print">
       <h3>{t('gp.fp.title')}</h3>
-      <div className="mx-row" style={{ gap: 8, padding: 8, alignItems: 'end', flexWrap: 'wrap' }}>
+      <div className="mx-row mx-frm" style={{ gap: 8, padding: 8, alignItems: 'end', flexWrap: 'wrap' }}>
         <select disabled={readOnly} value={v} aria-label={t('gp.fp.title')} onChange={(e) => setV(e.currentTarget.value)}>
           <option value="">—</option>{fps.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select>
         {!readOnly && <button className="mx-btn sm" onClick={() => base && api(`${base}/suppliers/${supplierId}/fiscal-position`, { method: 'PUT', body: { fiscal_position_id: v } })
