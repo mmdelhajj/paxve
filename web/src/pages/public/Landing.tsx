@@ -202,7 +202,7 @@ function Header({ go }: { go: (id: string) => void }) {
 function Brand() {
   return (
     <a className="sx-brand" href="#/" aria-label="Paxve">
-      <BrandMark size={32} tone="light" /><span className="nm"><Wordmark height={17} /></span>
+      <BrandMark size={26} tone="light" /><span className="nm"><Wordmark height={21} /></span>
     </a>
   );
 }
