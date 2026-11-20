@@ -15,7 +15,7 @@ const A = pick('MARK_A'), B = pick('MARK_B'), WORD = pick('WORD');
 
 const NAVY = '#0B1F3A';
 const TONES = {
-  light: ['#0B1F3A', '#0B9C9E'], // dollar square, lira square
+  light: ['#041632', '#00929A'], // dollar square, lira square (colours sampled from the artwork)
   dark: ['#FFFFFF', '#2DD4BF'],
 };
 // one app = one colour on the lira square of its icon
@@ -36,11 +36,11 @@ function writeSvgs() {
   w('favicon.svg', svg('0 0 64 64', `<style>.a{fill:${TONES.light[0]}}.b{fill:${TONES.light[1]}}@media (prefers-color-scheme:dark){.a{fill:#FFFFFF}.b{fill:#2DD4BF}}</style><path class="a" d="${A}"/><path class="b" d="${B}"/>`));
   w('brand/paxve-mark.svg', svg('0 0 64 64', markG(TONES.light)));
   w('brand/paxve-mark-dark.svg', svg('0 0 64 64', markG(TONES.dark)));
-  w('brand/paxve-mark-mono.svg', svg('0 0 64 64', monoG(NAVY)));
+  w('brand/paxve-mark-mono.svg', svg('0 0 64 64', monoG(TONES.light[0])));
   w('brand/paxve-mark-white.svg', svg('0 0 64 64', monoG('#FFFFFF')));
-  w('brand/paxve-logo.svg', svg(LOCK_VB, markG(TONES.light) + wordG(NAVY)));
+  w('brand/paxve-logo.svg', svg(LOCK_VB, markG(TONES.light) + wordG(TONES.light[0])));
   w('brand/paxve-logo-dark.svg', svg(LOCK_VB, markG(TONES.dark) + wordG('#FFFFFF')));
-  w('brand/paxve-logo-mono.svg', svg(LOCK_VB, monoG(NAVY) + wordG(NAVY)));
+  w('brand/paxve-logo-mono.svg', svg(LOCK_VB, monoG(TONES.light[0]) + wordG(TONES.light[0])));
   w('brand/paxve-app-icon.svg', svg('0 0 64 64', `<rect width="64" height="64" rx="14" fill="${NAVY}"/><g transform="translate(13 13) scale(.594)">${markG(TONES.dark)}</g>`));
 }
 

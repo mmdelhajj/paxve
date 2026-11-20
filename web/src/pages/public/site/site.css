@@ -54,7 +54,7 @@
 .sx::before { content: ''; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background: #fff; z-index: 51; }
 .sx-topin { display: flex; align-items: center; gap: 8px; height: 64px; }
 .sx-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); font-family: var(--display); font-weight: 600; font-size: 19px; }
-.sx-brand { gap: 8px; direction: ltr; color: var(--navy); }
+.sx-brand { gap: 8px; direction: ltr; color: #041632; }
 /* logo sizes: header 32 px (phone 28), footer 28 px; the wordmark caps are 1 / 1.2 of the mark */
 .sx-footbrand .sx-brand .pxv-mark { width: 28px; height: 28px; }
 .sx-footbrand .sx-brand .pxv-word { height: 24px; width: auto; }

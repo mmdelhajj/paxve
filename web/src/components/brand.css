@@ -3,8 +3,8 @@
 .pxv-mark .m1 { fill: var(--pxv-m1); }
 .pxv-mark .m2 { fill: var(--pxv-m2); }
 .pxv-mark .m3 { fill: var(--pxv-m3); }
-.pxv-auto, .pxv-light { --pxv-m1: #0B1F3A; --pxv-m3: #0B9C9E; }
+.pxv-auto, .pxv-light { --pxv-m1: #041632; --pxv-m3: #00929A; }
 .pxv-dark, .pxv-icon, [data-mantine-color-scheme="dark"] .pxv-auto { --pxv-m1: #FFFFFF; --pxv-m3: #2DD4BF; }
 .pxv-word { display: block; flex: none; }
-.pxv-lockup { display: inline-flex; align-items: center; direction: ltr; color: #0B1F3A; }
+.pxv-lockup { display: inline-flex; align-items: center; direction: ltr; color: #041632; }
 [data-mantine-color-scheme="dark"] .pxv-lockup { color: #FFFFFF; }
