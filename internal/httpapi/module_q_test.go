@@ -172,6 +172,21 @@ func seedEverything(t *testing.T, o *org) {
 	comp := id(step(201, "POST", "/items", map[string]any{"code": "BCMP", "name": secretB + " part", "kind": "stock"}), "id")
 	bom := id(step(201, "POST", "/mfg/boms", map[string]any{"item_id": item, "name": secretB + " bom", "lines": []any{map[string]any{"item_id": comp, "quantity": "2"}}}), "bom", "id")
 	step(201, "POST", "/mfg/orders", map[string]any{"bom_id": bom, "quantity": "1", "notes": secretB})
+	// manufacturing pro: work center, routing, quality point, BoM with routing and by-product, confirmed order (work order,
+	// check, reservation), a running timer and a quality alert
+	bwc := id(step(201, "POST", "/mfg/workcenters", map[string]any{"code": "BWC", "name": secretB + " cell", "cost_per_hour": "10"}), "id")
+	brt := id(step(201, "POST", "/mfg/routings", map[string]any{"name": secretB + " route", "operations": []any{
+		map[string]any{"name": secretB + " op", "workcenter_id": bwc, "minutes": "5"}}}), "routing", "id")
+	step(201, "POST", "/mfg/quality-points", map[string]any{"name": secretB + " point", "trigger_on": "operation", "workcenter_id": bwc})
+	bfg := id(step(201, "POST", "/items", map[string]any{"code": "BFG", "name": secretB + " product", "kind": "stock"}), "id")
+	bbyp := id(step(201, "POST", "/items", map[string]any{"code": "BBYP", "name": secretB + " offcut", "kind": "stock"}), "id")
+	rbom := id(step(201, "POST", "/mfg/boms", map[string]any{"item_id": bfg, "name": secretB + " routed", "routing_id": brt,
+		"lines": []any{map[string]any{"item_id": comp, "quantity": "1"}}, "byproducts": []any{map[string]any{"item_id": bbyp, "quantity": "1", "cost_share": "5"}}}), "bom", "id")
+	rmo := step(201, "POST", "/mfg/orders", map[string]any{"bom_id": rbom, "quantity": "2", "notes": secretB, "confirm": true})
+	if wos, ok := rmo.body["workorders"].([]any); ok && len(wos) > 0 {
+		step(200, "POST", "/mfg/workorders/"+str(obj(wos[0])["id"])+"/start", map[string]any{})
+	}
+	step(201, "POST", "/mfg/quality-alerts", map[string]any{"title": secretB + " alert", "root_cause": secretB})
 	sch := id(step(201, "POST", "/hr/schedules", map[string]any{"name": secretB + " shift", "start_time": "08:00", "end_time": "16:00"}), "id")
 	step(201, "POST", "/hr/rotations", map[string]any{"name": secretB + " rota", "pattern": []any{sch, "off"}})
 	step(201, "POST", "/hr/devices", map[string]any{"serial": "BDEV" + randHex(4), "name": secretB})
@@ -314,6 +329,8 @@ var idTable = map[string]string{
 	"chatter": "record_messages", "record-activities": "record_activities", "reports": "analysis_reports",
 	"warehouses": "warehouses", "locations": "wh_locations", "putaway-rules": "wh_putaway_rules", "ops": "wh_ops", "packages": "wh_packages", "batches": "wh_batches",
 	"vehicles": "vehicles", "trips": "delivery_trips", "stops": "trip_stops",
+	"workcenters": "mfg_workcenters", "routings": "mfg_routings", "workorders": "mfg_workorders", "quality-points": "mfg_quality_points",
+	"quality-checks": "mfg_quality_checks", "quality-alerts": "mfg_quality_alerts",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -462,6 +479,12 @@ func sweepBody(c sweepCall, ids map[string]string) any {
 		return map[string]any{"status": "failed", "note": "x"}
 	case "/wh/stops/{id}/photo":
 		return map[string]any{"data": "iVBORw0KGgo="}
+	case "/mfg/quality-checks/{id}":
+		return map[string]any{"result": "pass"}
+	case "/mfg/routings/{id}":
+		return map[string]any{"name": "x", "operations": []any{map[string]any{"name": "x", "workcenter_id": ids["mfg_workcenters"], "minutes": "1"}}}
+	case "/mfg/orders/{id}/scrap":
+		return map[string]any{"item_id": ids["items"], "quantity": "1", "reason": "x"}
 	case "/quote-templates/{id}", "/fiscal-positions/{id}":
 		return map[string]any{"name": "x"}
 	case "/analysis/reports/{id}":

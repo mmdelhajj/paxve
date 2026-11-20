@@ -125,6 +125,10 @@ func (s *Server) receivePO(w http.ResponseWriter, r *http.Request) {
 		if err := whOnReceipt(ctx, tx, cid, gid, in.Date); err != nil {
 			return nil, err
 		}
+		// receipt quality checks (manufacturing pro)
+		if err := mfgOnReceipt(ctx, tx, cid, gid); err != nil {
+			return nil, err
+		}
 		return loadPO(ctx, tx, cid, id)
 	})
 }
@@ -166,6 +170,9 @@ func (s *Server) cancelReceipt(w http.ResponseWriter, r *http.Request) {
 			return nil, err
 		}
 		if err := whOnReceiptCancelled(ctx, tx, cid, id); err != nil {
+			return nil, err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE mfg_quality_checks SET status = 'cancelled' WHERE receipt_id = $1 AND status = 'todo'`, id); err != nil {
 			return nil, err
 		}
 		return loadPO(ctx, tx, cid, order)
