@@ -2,7 +2,7 @@
 // API calls are never cached here; offline data lives in the app (localStorage outbox/cache).
 // The page code is split into chunks; on every app start the page asks the worker to "sync",
 // which precaches all chunks listed in the Vite build manifest and drops chunks of old builds.
-const CACHE = 'paxve-shell-v11';
+const CACHE = 'paxve-shell-v12';
 const SHELL = ['/', '/favicon.svg', '/pwa.js', '/manifest.webmanifest', '/manifest-field.webmanifest', '/manifest-my.webmanifest',
   '/manifest-owner.webmanifest', '/icons/main-192.png', '/icons/field-192.png', '/icons/my-192.png', '/icons/owner-192.png'];
 

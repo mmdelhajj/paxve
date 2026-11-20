@@ -1,5 +1,5 @@
-// Builds every Paxve brand file from one source: the "two currencies" mark (dollar square + lira square in front of it,
-// split by a white gap) and the Sora 700 wordmark outlined to paths (same data as src/components/Brand.tsx).
+// Builds every Paxve brand file from one source: the "ledger cedar" mark (ledger lines stacked into a cedar on a
+// navy badge) and the Sora 700 wordmark outlined to paths (same data as src/components/Brand.tsx).
 // Writes public/favicon.svg, public/brand/*.svg, public/icons/*.png (4 apps x 192/512 x any/maskable, apple-touch) and
 // public/og.png. Run in the Playwright image:
 //   docker run --rm -v /srv/paxve/web:/web -w /web/e2e -e NODE_PATH=/web/e2e/node_modules \
@@ -11,20 +11,21 @@ const { chromium } = require('playwright');
 const pub = path.join(__dirname, '..', 'public');
 const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'components', 'Brand.tsx'), 'utf8');
 const pick = (n) => src.match(new RegExp(`export const ${n} = '([^']+)'`))[1];
-const A = pick('MARK_A'), B = pick('MARK_B'), WORD = pick('WORD');
+const BADGE = pick('MARK_BADGE'), A = pick('MARK_A'), B = pick('MARK_B'), WORD = pick('WORD');
 
-const NAVY = '#0B1F3A';
+const NAVY = '#041632';
 const TONES = {
-  light: ['#041632', '#00929A'], // dollar square, lira square (colours sampled from the artwork)
-  dark: ['#FFFFFF', '#2DD4BF'],
+  light: ['#041632', '#FFFFFF', '#2DD4BF'], // badge, middle line + trunk, top / bottom lines
+  dark: ['#FFFFFF', '#041632', '#00929A'],
 };
-// one app = one colour on the lira square of its icon
+// one app = one colour on the top / bottom lines of its icon
 const APPS = { main: '#2DD4BF', field: '#4ADE80', my: '#38BDF8', owner: '#FBBF24' };
 
-const markG = ([m1, m3]) => `<path d="${A}" fill="${m1}"/><path d="${B}" fill="${m3}"/>`;
-const monoG = (c) => `<path d="${A} ${B}" fill="${c}"/>`;
+const inner = (m2, m3) => `<path d="${A}" fill="${m2}"/><path d="${B}" fill="${m3}"/>`;
+const markG = ([m1, m2, m3]) => `<path d="${BADGE}" fill="${m1}"/>` + inner(m2, m3);
+const monoG = (c) => `<path d="${BADGE} ${A} ${B}" fill="${c}" fill-rule="evenodd"/>`;
 const svg = (vb, body, extra = '') => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}"${extra}>${body}</svg>\n`;
-// lockup like the approved artwork: mark (64 units) = 1.2 x cap height, caps centred on the mark, gap 0.31 cap
+// lockup: badge (64 units) = 1.2 x cap height, caps centred on the badge, gap 0.31 cap
 const CAP = 64 / 1.2, S = CAP / 730;
 const wordG = (c) => `<path transform="translate(${(64 + 0.31 * CAP - 82 * S).toFixed(3)} ${(32 + CAP / 2).toFixed(3)}) scale(${S.toFixed(6)})" fill="${c}" d="${WORD}"/>`;
 const LOCK_VB = '0 0 292 64';
@@ -32,28 +33,26 @@ const LOCK_VB = '0 0 292 64';
 function writeSvgs() {
   fs.mkdirSync(path.join(pub, 'brand'), { recursive: true });
   const w = (f, s) => fs.writeFileSync(path.join(pub, f), s);
-  // favicon: colour mark; the dollar square turns white on dark browser tabs
-  w('favicon.svg', svg('0 0 64 64', `<style>.a{fill:${TONES.light[0]}}.b{fill:${TONES.light[1]}}@media (prefers-color-scheme:dark){.a{fill:#FFFFFF}.b{fill:#2DD4BF}}</style><path class="a" d="${A}"/><path class="b" d="${B}"/>`));
+  w('favicon.svg', svg('0 0 64 64', markG(TONES.light))); // the navy badge reads on light and dark tabs
   w('brand/paxve-mark.svg', svg('0 0 64 64', markG(TONES.light)));
   w('brand/paxve-mark-dark.svg', svg('0 0 64 64', markG(TONES.dark)));
-  w('brand/paxve-mark-mono.svg', svg('0 0 64 64', monoG(TONES.light[0])));
+  w('brand/paxve-mark-mono.svg', svg('0 0 64 64', monoG(NAVY)));
   w('brand/paxve-mark-white.svg', svg('0 0 64 64', monoG('#FFFFFF')));
-  w('brand/paxve-logo.svg', svg(LOCK_VB, markG(TONES.light) + wordG(TONES.light[0])));
+  w('brand/paxve-logo.svg', svg(LOCK_VB, markG(TONES.light) + wordG(NAVY)));
   w('brand/paxve-logo-dark.svg', svg(LOCK_VB, markG(TONES.dark) + wordG('#FFFFFF')));
-  w('brand/paxve-logo-mono.svg', svg(LOCK_VB, monoG(TONES.light[0]) + wordG(TONES.light[0])));
-  w('brand/paxve-app-icon.svg', svg('0 0 64 64', `<rect width="64" height="64" rx="14" fill="${NAVY}"/><g transform="translate(13 13) scale(.594)">${markG(TONES.dark)}</g>`));
+  w('brand/paxve-logo-mono.svg', svg(LOCK_VB, monoG(NAVY) + wordG(NAVY)));
+  w('brand/paxve-app-icon.svg', svg('0 0 64 64', markG(TONES.light)));
 }
 
-// an icon: navy ground (rounded for "any", full bleed for maskable / iOS) and the mark at `share` of the side
+// an icon: navy ground (rounded for "any", full bleed for maskable / iOS) and the cedar at `share` of the side
 function iconHtml(size, lira, kind) {
-  const share = kind === 'any' ? 0.6 : kind === 'apple' ? 0.56 : 0.5; // mark (64 units) / side
-  const k = (share * size) / 64;
+  const share = kind === 'any' ? 0.66 : kind === 'apple' ? 0.6 : 0.52; // cedar (42 x 42 of 64 units) / side
+  const k = (share * size) / 42;
   const off = size / 2 - 32 * k;
-  const ground = kind === 'any' ? `<rect width="${size}" height="${size}" rx="${size * 0.22}" fill="${NAVY}"/>` : `<rect width="${size}" height="${size}" fill="${NAVY}"/>`;
-  const body = ground + `<g transform="translate(${off} ${off}) scale(${k})">${markG(['#FFFFFF', lira])}</g>`;
+  const ground = kind === 'any' ? `<rect width="${size}" height="${size}" rx="${size * 0.23}" fill="${NAVY}"/>` : `<rect width="${size}" height="${size}" fill="${NAVY}"/>`;
+  const body = ground + `<g transform="translate(${off} ${off - k}) scale(${k})">${inner('#FFFFFF', lira)}</g>`;
   return `<html><body style="margin:0;background:transparent">${svg(`0 0 ${size} ${size}`, body, ` width="${size}" height="${size}" style="display:block"`)}</body></html>`;
 }
-
 function ogHtml() {
   const f = (n) => 'file:///web/node_modules/@fontsource/readex-pro/files/' + n;
   return `<html><head><style>

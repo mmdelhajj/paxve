@@ -7,15 +7,15 @@ TMP=$(mktemp -d)
 
 # square icon (same as web favicon)
 cat > "$TMP/icon.svg" <<'EOF'
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0B1F3A"/><g transform="translate(13 13) scale(.594)"><path d="M10.4 0H36.6A10.4 10.4 0 0 1 47 10.4V20.6H33.1A13.4 13.4 0 0 0 19.7 34V44.5H10.4A10.4 10.4 0 0 1 0 34.1V10.4A10.4 10.4 0 0 1 10.4 0Z" fill="#fff"/><path d="M33.1 23.6H53.6A10.4 10.4 0 0 1 64 34V53.6A10.4 10.4 0 0 1 53.6 64H33.1A10.4 10.4 0 0 1 22.7 53.6V34A10.4 10.4 0 0 1 33.1 23.6Z" fill="#2DD4BF"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0B1F3A"/><g transform="translate(0 0) scale(1)"><path d="M20.5 23h23a3.5 3.5 0 0 1 0 7h-23a3.5 3.5 0 0 1 0-7z M31 44h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z" fill="#fff"/><path d="M26.5 12h11a3.5 3.5 0 0 1 0 7h-11a3.5 3.5 0 0 1 0-7z M14.5 34h35a3.5 3.5 0 0 1 0 7h-35a3.5 3.5 0 0 1 0-7z" fill="#2DD4BF"/></g></svg>
 EOF
 # round icon
 cat > "$TMP/round.svg" <<'EOF'
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#0B1F3A"/><g transform="translate(9.6 9.6) scale(0.7)"><path d="M10.4 0H36.6A10.4 10.4 0 0 1 47 10.4V20.6H33.1A13.4 13.4 0 0 0 19.7 34V44.5H10.4A10.4 10.4 0 0 1 0 34.1V10.4A10.4 10.4 0 0 1 10.4 0Z" fill="#fff"/><path d="M33.1 23.6H53.6A10.4 10.4 0 0 1 64 34V53.6A10.4 10.4 0 0 1 53.6 64H33.1A10.4 10.4 0 0 1 22.7 53.6V34A10.4 10.4 0 0 1 33.1 23.6Z" fill="#2DD4BF"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#0B1F3A"/><g transform="translate(9.6 9.6) scale(0.7)"><path d="M20.5 23h23a3.5 3.5 0 0 1 0 7h-23a3.5 3.5 0 0 1 0-7z M31 44h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z" fill="#fff"/><path d="M26.5 12h11a3.5 3.5 0 0 1 0 7h-11a3.5 3.5 0 0 1 0-7z M14.5 34h35a3.5 3.5 0 0 1 0 7h-35a3.5 3.5 0 0 1 0-7z" fill="#2DD4BF"/></g></svg>
 EOF
 # adaptive foreground (108dp canvas, glyph inside the 66dp safe zone)
 cat > "$TMP/fg.svg" <<'EOF'
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><g transform="translate(54 54) scale(1.05) translate(-32 -32)"><path d="M10.4 0H36.6A10.4 10.4 0 0 1 47 10.4V20.6H33.1A13.4 13.4 0 0 0 19.7 34V44.5H10.4A10.4 10.4 0 0 1 0 34.1V10.4A10.4 10.4 0 0 1 10.4 0Z" fill="#fff"/><path d="M33.1 23.6H53.6A10.4 10.4 0 0 1 64 34V53.6A10.4 10.4 0 0 1 53.6 64H33.1A10.4 10.4 0 0 1 22.7 53.6V34A10.4 10.4 0 0 1 33.1 23.6Z" fill="#2DD4BF"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><g transform="translate(54 54) scale(1.05) translate(-32 -32)"><path d="M20.5 23h23a3.5 3.5 0 0 1 0 7h-23a3.5 3.5 0 0 1 0-7z M31 44h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z" fill="#fff"/><path d="M26.5 12h11a3.5 3.5 0 0 1 0 7h-11a3.5 3.5 0 0 1 0-7z M14.5 34h35a3.5 3.5 0 0 1 0 7h-35a3.5 3.5 0 0 1 0-7z" fill="#2DD4BF"/></g></svg>
 EOF
 
 for d in mdpi:48:108 hdpi:72:162 xhdpi:96:216 xxhdpi:144:324 xxxhdpi:192:432; do
@@ -30,7 +30,7 @@ done
 # launch screen (Android 7–11; Android 12+ uses the system splash with the icon + brand colour, see styles.xml)
 splash() { # w h
   cat <<EOF
-<svg xmlns="http://www.w3.org/2000/svg" width="$1" height="$2" viewBox="0 0 $1 $2"><rect width="$1" height="$2" fill="#0B1F3A"/><g transform="translate($(( $1 / 2 )) $(( $2 / 2 ))) scale(4) translate(-32 -32)"><path d="M10.4 0H36.6A10.4 10.4 0 0 1 47 10.4V20.6H33.1A13.4 13.4 0 0 0 19.7 34V44.5H10.4A10.4 10.4 0 0 1 0 34.1V10.4A10.4 10.4 0 0 1 10.4 0Z" fill="#fff"/><path d="M33.1 23.6H53.6A10.4 10.4 0 0 1 64 34V53.6A10.4 10.4 0 0 1 53.6 64H33.1A10.4 10.4 0 0 1 22.7 53.6V34A10.4 10.4 0 0 1 33.1 23.6Z" fill="#2DD4BF"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="$1" height="$2" viewBox="0 0 $1 $2"><rect width="$1" height="$2" fill="#0B1F3A"/><g transform="translate($(( $1 / 2 )) $(( $2 / 2 ))) scale(4) translate(-32 -32)"><path d="M20.5 23h23a3.5 3.5 0 0 1 0 7h-23a3.5 3.5 0 0 1 0-7z M31 44h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z" fill="#fff"/><path d="M26.5 12h11a3.5 3.5 0 0 1 0 7h-11a3.5 3.5 0 0 1 0-7z M14.5 34h35a3.5 3.5 0 0 1 0 7h-35a3.5 3.5 0 0 1 0-7z" fill="#2DD4BF"/></g></svg>
 EOF
 }
 splash 720 1280 > "$TMP/port.svg"
