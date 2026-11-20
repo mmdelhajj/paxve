@@ -213,7 +213,13 @@ export function parseLots(text: string, tracking: string): { lot_no: string; qua
 let lk = 1;
 const blank = (): LineState => ({ key: lk++, item_id: null, account_id: null, warehouse_id: null, description: '', quantity: '1', unit_price: '', tax_rate_id: null, unit_id: null, lots: '' });
 
-export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; onClose: () => void; onDone: (id: string) => void }) {
+/** A bill to start from (e.g. read from a photo of the supplier's bill): everything stays editable before saving. */
+export interface BillPrefill {
+  supplier_id?: string; currency?: string; bill_date?: string; due_date?: string; supplier_ref?: string;
+  lines?: { item_id?: string; description: string; quantity: string; unit_price: string }[];
+}
+
+export function NewBill({ supplier, prefill, onClose, onDone }: { supplier?: Supplier; prefill?: BillPrefill; onClose: () => void; onDone: (id: string) => void }) {
   const { t, i18n } = useTranslation();
   const centers = useCostCenters().filter((x) => x.is_active);
   const [cc, setCc] = useState<string | null>(null);
@@ -222,12 +228,14 @@ export function NewBill({ supplier, onClose, onDone }: { supplier?: Supplier; on
   const [items, setItems] = useState<Item[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [supplierId, setSupplierId] = useState<string | null>(supplier?.id ?? null);
-  const [currency, setCurrency] = useState<string | null>(supplier?.currency ?? company?.base_currency ?? 'USD');
-  const [date, setDate] = useState(today());
-  const [due, setDue] = useState(''); // empty = the supplier's payment terms
-  const [ref, setRef] = useState('');
-  const [lines, setLines] = useState<LineState[]>([blank()]);
+  const [supplierId, setSupplierId] = useState<string | null>(supplier?.id ?? prefill?.supplier_id ?? null);
+  const [currency, setCurrency] = useState<string | null>(prefill?.currency ?? supplier?.currency ?? company?.base_currency ?? 'USD');
+  const [date, setDate] = useState(prefill?.bill_date ?? today());
+  const [due, setDue] = useState(prefill?.due_date ?? ''); // empty = the supplier's payment terms
+  const [ref, setRef] = useState(prefill?.supplier_ref ?? '');
+  const [lines, setLines] = useState<LineState[]>(() => (prefill?.lines?.length
+    ? prefill.lines.map((l) => ({ ...blank(), item_id: l.item_id ?? null, description: l.description, quantity: l.quantity, unit_price: l.unit_price }))
+    : [blank()]));
   const [busy, setBusy] = useState(false);
   const [taxes, setTaxes] = useState<{ id: string; name: string; rate: string; applies_to: string; is_active: boolean }[]>([]);
 

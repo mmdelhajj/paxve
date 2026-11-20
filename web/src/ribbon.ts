@@ -14,12 +14,13 @@ import {
   IconBuildingWarehouse, IconTruckDelivery, IconBoxSeam, IconStack2, IconChartHistogram, IconSteeringWheel, IconSettings,
   IconRobot, IconLayoutKanban, IconCar, IconMapPin, IconClock, IconAlertTriangle, IconReportAnalytics, IconCalendarEvent, IconListCheck,
   IconSpeakerphone, IconBriefcase, IconSignature, IconStars, IconWorldWww, IconMapPins, IconUserSearch, IconMailOff, IconShoppingBag, IconUserStar,
+  IconSparkles, IconBrain, IconChartAreaLine, IconUserExclamation, IconShoppingCartPlus, IconRoute, IconFileSearch, IconAdjustments,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
-export type AppId = 'gen' | 'acc' | 'col' | 'msg' | 'stk' | 'pur' | 'net' | 'sat' | 'pos' | 'hr' | 'crm' | 'svc' | 'mfg' | 'prj' | 'flt' | 'web' | 'mkt';
+export type AppId = 'gen' | 'acc' | 'col' | 'msg' | 'stk' | 'pur' | 'net' | 'sat' | 'pos' | 'hr' | 'crm' | 'svc' | 'mfg' | 'prj' | 'flt' | 'web' | 'mkt' | 'ai';
 export const CORE_APPS: AppId[] = ['gen', 'acc', 'col'];
-export const ALL_APPS: AppId[] = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt', 'web', 'mkt'];
+export const ALL_APPS: AppId[] = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt', 'web', 'mkt', 'ai'];
 
 export type Icon = typeof IconCash;
 
@@ -211,6 +212,18 @@ export const RIBBON: RibbonTab[] = [
     ],
   },
   {
+    id: 'ai', label: 'sm.rib', color: '#6d28d9', app: 'ai', tiles: [
+      { page: 'smart', param: 'alerts', label: 'sm.m.alerts', icon: IconAlertTriangle, perm: 'smart.view' },
+      { page: 'smart', param: 'assistant', label: 'sm.m.assistant', icon: IconSparkles, perm: 'smart.ai' },
+      { page: 'smart', param: 'forecast', label: 'sm.m.forecast', icon: IconChartAreaLine, perm: 'smart.view' },
+      { page: 'smart', param: 'risk', label: 'sm.m.risk', icon: IconUserExclamation, perm: 'smart.view' },
+      { page: 'smart', param: 'reorder', label: 'sm.m.reorder', icon: IconShoppingCartPlus, perm: 'smart.view' },
+      { page: 'smart', param: 'route', label: 'sm.m.route', icon: IconRoute, perm: 'collections.view' },
+      { page: 'smart', param: 'scans', label: 'sm.m.scans', icon: IconFileSearch, perm: 'purchasing.view' },
+      { page: 'smart', param: 'settings', label: 'sm.m.settings', icon: IconAdjustments, perm: 'smart.view' },
+    ],
+  },
+  {
     id: 'pos', label: 'mx.rib.pos', color: '#2d3436', app: 'pos', tiles: [
       { page: 'pos', label: 'mx.t.posOpen', icon: IconCashRegister, perm: 'pos.create' },
       { page: 'pos-sessions', label: 'mx.t.posSessions', icon: IconReceipt2 },
@@ -306,6 +319,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'platform', param: 'requests', label: 'pc.t.requests', icon: IconInbox, platform: true },
       { page: 'platform', param: 'payments', label: 'pc.t.payments', icon: IconCashBanknote, platform: true },
       { page: 'platform', param: 'plans', label: 'pc.t.plans', icon: IconCrown, platform: true },
+      { page: 'platform', param: 'ai', label: 'sm.pf.tile', icon: IconBrain, platform: true },
     ],
   },
 ];
@@ -315,7 +329,7 @@ export const PAGE_APP: Record<string, AppId | undefined> = {
   supplier: 'pur', item: 'stk', statement: undefined, customer: undefined, 'hr-extra': 'hr', claims: 'hr', mfg: 'mfg', 'supplier-prices': 'pur', retail: 'pos',
   wh: 'stk', scan: 'stk', driver: undefined, shopfloor: 'mfg',
   projects: 'prj', fleet: 'flt', field: 'svc', tech: undefined, automation: undefined,
-  webshop: 'web', marketing: 'mkt', talent: 'hr', 'my-appraisal': 'hr', esign: undefined,
+  webshop: 'web', marketing: 'mkt', talent: 'hr', 'my-appraisal': 'hr', esign: undefined, smart: 'ai',
   gaps: undefined, // per screen: repairs need the service app (the server refuses them when it is off)
 };
 

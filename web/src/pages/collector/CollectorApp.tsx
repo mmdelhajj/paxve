@@ -27,6 +27,7 @@ import { cacheGet, cacheSet, enqueue, newClientRef, outbox, syncOutbox } from '.
 
 const DriverTrips = lazy(() => import('../wh/Driver').then((m) => ({ default: m.DriverTrips })));
 const TechJobs = lazy(() => import('../fsv/Field').then((m) => ({ default: m.TechJobs })));
+const CollectorRoute = lazy(() => import('../smart/Route').then((m) => ({ default: m.CollectorRoute })));
 
 function useOnline() {
   const [on, setOn] = useState(navigator.onLine);
@@ -167,6 +168,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
           <Tabs.List grow mb="sm">
             <Tabs.Tab value="customers">{t('bill.customers')}</Tabs.Tab>
             <Tabs.Tab value="day">{t('collector.myDay')}</Tabs.Tab>
+            <Tabs.Tab value="route">{t('sm.rt.tab')}</Tabs.Tab>
             <Tabs.Tab value="readings">{t('bill.readings')}</Tabs.Tab>
             <Tabs.Tab value="trips">{t('wh.drv.tab')}</Tabs.Tab>
             <Tabs.Tab value="jobs">{t('fsv.tech.tab')}</Tabs.Tab>
@@ -197,6 +199,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
           </Tabs.Panel>
 
           <Tabs.Panel value="day"><MyDay me={me} /></Tabs.Panel>
+          <Tabs.Panel value="route"><Suspense fallback={<Center p="xl"><Loader /></Center>}><CollectorRoute /></Suspense></Tabs.Panel>
           <Tabs.Panel value="readings"><Readings me={me} /></Tabs.Panel>
         <Tabs.Panel value="trips"><Suspense fallback={null}><DriverTrips /></Suspense></Tabs.Panel>
         <Tabs.Panel value="jobs"><Suspense fallback={null}><TechJobs me={me} /></Suspense></Tabs.Panel>

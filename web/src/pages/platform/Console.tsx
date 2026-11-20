@@ -5,6 +5,7 @@ import { api } from '../../api';
 import DataGrid, { type Col } from '../../components/DataGrid';
 import { errorText, formatAmount, formatDate, formatDateTime, today } from '../../util';
 import { Help } from '../acc/common';
+import { PlatformAI } from '../smart/Smart';
 
 type Msg = { ok: boolean; text: string } | null;
 function Flash({ m }: { m: Msg }) {
@@ -22,7 +23,7 @@ function useLoad<T>(path: string | null, init: T): [T, () => void] {
 
 export const STATES = ['trial', 'active', 'grace', 'expired', 'blocked'] as const;
 const METHODS = ['cash', 'whish', 'omt', 'bank', 'card', 'other'];
-const MODES = ['dash', 'orgs', 'requests', 'payments', 'plans'] as const;
+const MODES = ['dash', 'orgs', 'requests', 'payments', 'plans', 'ai'] as const;
 type Mode = typeof MODES[number];
 
 export interface Org {
@@ -40,7 +41,7 @@ interface Setup {
 interface Plan {
   code: string; name_en: string; name_ar: string; name_fr: string; price_monthly: string; price_yearly: string; currency: string;
   max_subscribers: number | null; max_users: number | null; max_companies: number | null; apps: string[] | null; is_public: boolean; is_active: boolean;
-  sort: number; organisations: number;
+  sort: number; organisations: number; ai_monthly_limit: number | null;
 }
 interface Summary {
   organisations: number; trial: number; active: number; grace: number; expired: number; blocked: number; mrr: string; arr: string; signups_month: number;
@@ -101,6 +102,7 @@ export default function PlatformConsole({ initial }: { initial?: string }) {
       {mode === 'requests' && <Requests plans={plans} reloadOrgs={reloadOrgs} />}
       {mode === 'payments' && <Payments />}
       {mode === 'plans' && <Plans plans={plans} reload={reloadPlans} />}
+      {mode === 'ai' && <PlatformAI />}
     </div>
   );
 }
@@ -671,7 +673,7 @@ function Payments() {
 
 // ---------- plans ----------
 
-const APPS = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt', 'web', 'mkt'];
+const APPS = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt', 'web', 'mkt', 'ai'];
 
 function Plans({ plans, reload }: { plans: Plan[]; reload: () => void }) {
   const { t, i18n } = useTranslation();
@@ -715,7 +717,7 @@ function PlanForm({ plan, onSaved, onError }: { plan: Plan | null; onSaved: (cod
   const [f, setF] = useState({
     code: plan?.code ?? '', name_en: plan?.name_en ?? '', name_ar: plan?.name_ar ?? '', name_fr: plan?.name_fr ?? '',
     price_monthly: plan?.price_monthly ?? '0', price_yearly: plan?.price_yearly ?? '0', currency: plan?.currency ?? 'USD',
-    max_subscribers: n(plan?.max_subscribers), max_users: n(plan?.max_users), max_companies: n(plan?.max_companies),
+    max_subscribers: n(plan?.max_subscribers), max_users: n(plan?.max_users), max_companies: n(plan?.max_companies), ai_monthly_limit: n(plan?.ai_monthly_limit),
     apps: plan?.apps ?? [], is_public: plan?.is_public ?? true, is_active: plan?.is_active ?? true, sort: String(plan?.sort ?? 10), apply_limits: false,
   });
   const set = (k: keyof typeof f) => (e: { currentTarget: { value: string } }) => setF({ ...f, [k]: e.currentTarget.value });
@@ -723,7 +725,7 @@ function PlanForm({ plan, onSaved, onError }: { plan: Plan | null; onSaved: (cod
     const body: Record<string, unknown> = {
       name_en: f.name_en, name_ar: f.name_ar, name_fr: f.name_fr, price_monthly: f.price_monthly || '0', price_yearly: f.price_yearly || '0', currency: f.currency,
       max_subscribers: Number(f.max_subscribers || 0), max_users: Number(f.max_users || 0), max_companies: Number(f.max_companies || 0),
-      apps: f.apps, is_public: f.is_public, is_active: f.is_active, sort: Number(f.sort || 0),
+      ai_monthly_limit: Number(f.ai_monthly_limit || 0), apps: f.apps, is_public: f.is_public, is_active: f.is_active, sort: Number(f.sort || 0),
     };
     try {
       if (plan) await api(`/platform/plans/${plan.code}`, { method: 'PATCH', body: { ...body, apply_limits: f.apply_limits } });
@@ -743,6 +745,7 @@ function PlanForm({ plan, onSaved, onError }: { plan: Plan | null; onSaved: (cod
       <div className="mx-fld"><span>{t('pc.f.maxSubs')}</span><input type="number" min={0} placeholder="∞" value={f.max_subscribers} onChange={set('max_subscribers')} /></div>
       <div className="mx-fld"><span>{t('pc.f.maxUsers')}</span><input type="number" min={0} placeholder="∞" value={f.max_users} onChange={set('max_users')} /></div>
       <div className="mx-fld"><span>{t('pc.f.maxCompanies')}</span><input type="number" min={0} placeholder="∞" value={f.max_companies} onChange={set('max_companies')} /></div>
+      <div className="mx-fld"><span>{t('sm.pf.limit')}</span><input type="number" min={0} placeholder="∞" value={f.ai_monthly_limit} onChange={set('ai_monthly_limit')} /></div>
       <div className="mx-fld"><span>{t('pc.f.sort')}</span><input type="number" value={f.sort} onChange={set('sort')} /></div>
       <div><small>{t('pc.f.apps')}</small>
         <div className="mx-row" style={{ gap: 8, flexWrap: 'wrap' }}>

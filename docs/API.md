@@ -481,3 +481,27 @@ problems, `invalid_coupon`, `min_order`, `zone_required`), `GET /shop-orders/{to
 `POST /sign/{token} {method draw|type, signature (PNG data URL), typed_name, agree}` (`document_changed`, `expired`),
 `POST /sign/{token}/decline {reason}`, `GET /r/{token}` (tracked link, 302), `GET|POST /optout/{token} {all, reason}`.
 The WhatsApp inbound webhook also takes Cloud API `statuses` (delivered / read → the message is marked delivered).
+
+## Smart features (migration 00045)
+
+All under `/companies/{cid}`. App **ai** (`/smart/…`); `/collect/route` and `/customers/{id}/location` are core and also open to
+collectors. Permission module `smart.view|ai|manage`. Amounts are in the company's base currency.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET · PUT | `/smart/settings` | `{params {z, min_history, diesel_min_pct, discount_min_pct, cash_limit, void_min, work_start, work_end, count_loss_limit, collector_drop_pct, lead_days, review_days, service_level}, kinds [...], digest_enabled, digest_hour, digest_phone}`; GET adds `defaults`, `all_kinds`, `last_scan_at`, `last_risk_at`, `last_digest_on` |
+| GET | `/smart/alerts[?status=active\|open\|ack\|resolved\|dismissed\|all&kind&severity]` | `{alerts [{kind, severity, subject_label, period, value, expected, score, detail, status, note}], summary, last_scan_at}`; kinds: `diesel discount cash_diff cash_repeat voids off_hours count_loss collector_drop dup_bill fleet_fuel` |
+| POST | `/smart/alerts/scan` · `/smart/alerts/{id}/ack\|resolve\|dismiss\|reopen` | scan → `{new, open}`; actions `{note}` (`wrong_status`) |
+| GET | `/smart/forecast` | 13 weeks: `{opening, weeks [{start, in {receivables, subscriptions, pos}, out {payables, payroll, recurring, expenses}, net, closing, closing_local, optimistic, pessimistic}], months, lowest, first_negative_week, assumptions}` |
+| GET · POST | `/smart/risk[?band&area_id&q]` · `/smart/risk/recompute` | `{rows [{customer_id, score, band, late_score, churn_score, avg_days_late, overdue_base, factors [{code, value, points}]}], summary, computed_at}` |
+| GET | `/smart/reorder[?warehouse_id]` | `{lines [{item_id, warehouse_id, on_hand, on_order, weekly_demand, seasonal_factor, lead_days, lead_source, safety_stock, suggest_min, suggest_max, rule_min, rule_max, to_order, days_left, supplier_id, unit_price, status order\|watch\|ok}]}` |
+| POST | `/smart/reorder/apply` · `/smart/reorder/purchase` | `{lines [{item_id, warehouse_id, min_qty, max_qty, supplier_id}]}` → reorder rules (`stock.manage`) · `{lines [{item_id, warehouse_id, quantity, supplier_id}]}` → draft purchase orders per supplier (`purchasing.create`) |
+| GET | `/collect/route[?lat&lng&area_id&limit≤80]` | `{stops [{seq, customer_id, lat, lng, due_base, bills, risk_band, leg_km}], total_km, missing_location, maps_links}` (collectors: their areas) |
+| PUT | `/customers/{id}/location` | `{lat, lng, source gps\|manual}`; `{lat: null, lng: null}` clears |
+| GET | `/smart/ai/status` | `{enabled, model, used, limit, can_ask, can_scan}` |
+| POST · GET · GET | `/smart/ai/ask` · `/smart/ai/answers/{id}` · `/smart/ai/history` | ask `{messages [{role user\|assistant, content}]}` (≤20 turns, last = user) → 202 `{id}`; poll the answer `{status running\|done\|error, answer, tools, error}` (only your own). Errors: `ai_not_configured` (409), `ai_limit_reached` (429) |
+| GET · POST | `/smart/scans` · `/smart/scans {filename, data (base64 / data URL), read}` | JPG / PNG / WebP / GIF / PDF ≤ 10 MB (`unsupported_file`) |
+| GET · GET · POST · POST · DELETE | `/smart/scans/{id}` · `/{id}/file` · `/{id}/read` · `/{id}/link {bill_id}` · `/{id}` | read (background) → `status read`, `extracted`, `draft {supplier_id, currency, bill_date, due_date, supplier_ref, lines [{item_id, description, quantity, unit_price}], duplicate_bill}`; link attaches the file to the bill |
+
+Platform owner: `GET /platform/ai` → `{enabled, model, plans [{code, ai_monthly_limit}], usage [{tenant_name, requests, bills_read, errors, input_tokens, output_tokens}]}`;
+plans take `ai_monthly_limit` (0 = unlimited). Server: `PAXVE_ANTHROPIC_API_KEY`, `PAXVE_AI_MODEL` (default `claude-opus-5-5`).

@@ -241,6 +241,49 @@ Every step goes to an append-only audit trail; reminders every N days (5 at most
 has signed, a **certificate PDF** (document text, hash, signatures, audit trail) is stored on the request, the quotation /
 subscription and sent to the signers; a quotation signed online is accepted and can **confirm itself** into a sales order.
 
+## Smart features: alerts, forecast, risk, reorder, route, AI assistant (phase 5)
+
+App *ai* (ribbon tab **Smart**, on for every company; permission module *smart*: view / ai / manage).
+
+**Alerts center** — deterministic checks, no AI key needed. Each one compares the last 7 days with the company's own weekly
+history (z-score, at least 4 weeks) or a fixed limit, all configurable (Smart › Settings): generator **diesel per running
+hour**, a cashier's **discount share** (own history, else colleagues), **till shortage / overage** at shift close and repeated
+small shortages, **voids / credit notes / refunds** per user, **payments recorded outside working hours** (company time zone),
+**stock count losses**, a **collector bringing in less** than usual, **duplicate supplier bills** (same supplier invoice number,
+or same amount within a week) and the fleet's fuel flags. Alerts have a fingerprint (no repeats; dismissed / resolved ones stay
+so), a level, a plain-language explanation, and ack / resolve / dismiss / reopen with a note. A background worker checks every
+6 hours, re-scores risk daily, and sends a **daily digest** to the admins (in-app + e-mail, optionally WhatsApp) after the
+chosen hour.
+
+**Cash forecast (13 weeks)**: opening cash of every till / bank, open customer bills on their due date + the customer's usual
+delay (older debt weighted down), next months' subscription billing collected as usual, till takings, supplier bills on their
+due dates, salaries at month end, recurring and average expenses; weekly and monthly, good / bad scenarios, the lowest point and
+the first week below zero, also in LBP.
+
+**Late-payer / churn risk**: a 0–100 score per customer (late and leaving sub-scores) from average days late and its trend,
+overdue days and bills, partial payments, service cuts, suspended / ended subscriptions, days since the last payment and tenure,
+with the factors that explain it; feeds the collector route.
+
+**Smart reorder**: weekly demand (weighted 4-week average, seasonal factor from last year when a full year is known), the
+supplier's lead time (price list) or a default, safety stock for a service level → suggested min / max and quantity to order.
+One click saves them as **reorder rules** (the same rules replenishment and MRP read) or creates **purchase requests** (draft
+POs per supplier, priced from the supplier's price list).
+
+**Collector route**: customers with bills to collect (collectors: their own areas) ordered nearest-neighbour + 2-opt from the
+collector's position, riskiest / biggest first when the list is cut; an OpenStreetMap map (Leaflet), Google Maps directions per
+10 stops, and the customers without a location. Locations are captured from the phone's GPS ("I am here") in the collector app
+(**Route** tab) or clicked / typed in the office (`PUT /customers/{id}/location`).
+
+**AI assistant and bill reading** (Claude, official Go SDK `anthropic-sdk-go/v2`, model `claude-opus-5-5` by default, server-side
+refusal fallback): off until the platform owner sets `PAXVE_ANTHROPIC_API_KEY` (and optionally `PAXVE_AI_MODEL`) in `.env`.
+The assistant answers in the user's language from **read-only tools** (late customers, sales, profit by month, expenses, aging,
+cash boxes, cash forecast, stock, best sellers, suppliers, customer card, alerts) — the model never writes SQL; every tool runs in
+the asking user's own transaction (row security) and checks their permission first. **Bill reading**: a photo / PDF of a
+supplier bill → structured reading (supplier, number, dates, currency, lines, totals) → a draft matched to the company's
+supplier (tax number / name), items and currency, with a duplicate check; the bill form opens filled in and the file is attached
+to the saved bill. Both run in the background (the screen polls), are metered per organisation per month
+(`platform_plans.ai_monthly_limit`), and the platform console shows the use per organisation (**AI** tab).
+
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the
