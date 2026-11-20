@@ -1044,10 +1044,26 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
     setAmounts((a) => ({ ...a, [m.id]: String(v) }));
   }
 
+  const [approval, setApproval] = useState<Record<string, string>>({});
+
   async function confirm() {
     if (!company) return;
     const ref = newClientRef();
+    // phase 9: card tenders on a terminal are charged first; the sale carries the approved charges
+    const onTerminal = cat.methods.filter((m) => m.terminal_driver && Number(amounts[m.id] || 0) > 0);
+    if (onTerminal.length && !online) { notifications.show({ color: 'red', message: t('op.card.needOnline') }); return; }
+    const cardTxns: string[] = [];
+    for (const m of onTerminal) {
+      if (m.terminal_driver === 'manual' && !(approval[m.id] ?? '').match(/^[A-Za-z0-9]{4,12}$/)) { notifications.show({ color: 'orange', message: t('op.card.needCode') }); return; }
+      try {
+        const ch = await api<{ id: string; status: string; message: string }>(`/companies/${company.id}/pos/terminal/charge`, {
+          method: 'POST', body: { method_id: m.id, amount: amounts[m.id], register_id: reg.id, approval_code: approval[m.id] ?? '' } });
+        if (ch.status !== 'approved') { notifications.show({ color: 'red', message: t('op.card.declined', { msg: ch.message }) }); return; }
+        cardTxns.push(ch.id);
+      } catch (e) { notifyError(t, e); return; }
+    }
     const body = {
+      ...(cardTxns.length ? { card_txns: cardTxns } : {}),
       session_id: sessionId, customer_id: customer?.id ?? '', on_account: onAccount && !!customer, client_time: new Date().toISOString(),
       lines: priced.map((l) => ({ item_id: l.item.id, quantity: l.qty, unit_price: l.price, discount_pct: l.discount,
         ...(serialsOf(l).length ? { serials: serialsOf(l) } : {}) })),
@@ -1124,6 +1140,11 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
               styles={{ input: { fontFamily: 'monospace', fontSize: 18 } }}
               value={amounts[m.id] ?? ''} onChange={(e) => { const v = e.currentTarget.value.replace(/[^\d.]/g, ''); setAmounts((a) => ({ ...a, [m.id]: v })); }} />
             <Button size="md" variant="light" onClick={() => exact(m)}>{t('pos.exact')}</Button>
+            {m.terminal_driver === 'manual' && Number(amounts[m.id] || 0) > 0 && (
+              <TextInput w={130} size="md" label={t('op.card.approval')} dir="ltr" value={approval[m.id] ?? ''}
+                onChange={(e) => { const v = e.currentTarget.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 12); setApproval((a) => ({ ...a, [m.id]: v })); }} />
+            )}
+            {m.terminal_driver === 'simulator' && Number(amounts[m.id] || 0) > 0 && <Text size="xs" c="dimmed" maw={90}>{t('op.card.onTerminal')}</Text>}
           </Group>
         ))}
         {online && (

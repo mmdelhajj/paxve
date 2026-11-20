@@ -28,7 +28,7 @@ export interface ScalePrefix { prefix: string; mode: 'weight' | 'price'; decimal
 
 export interface Category { id: string; name: string; name_i18n: Record<string, string> | null; color: string }
 
-export interface TillMethod { id: string; name: string; kind: string; currency: string; change_rounding: string | null }
+export interface TillMethod { id: string; name: string; kind: string; currency: string; change_rounding: string | null; terminal_driver?: string }
 
 export interface Catalog {
   register: Register; items: CatItem[]; categories: Category[]; methods: TillMethod[];

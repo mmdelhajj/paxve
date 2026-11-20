@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api, can, type Me } from '../../api';
 import { formatAmount, formatDateTime, today } from '../../util';
 import { resizeImage } from '../../image';
+import { ShipForm } from '../ops/Ops';
 import { useBase, useLoad, useRun } from '../wh/Wh';
 
 // Online store (Magic-style screens): online orders (confirm, cancel, send to a delivery trip, message the customer),
@@ -21,6 +22,7 @@ interface ShopOrder {
   name: string; phone: string; email: string; address: string; zone_id: string | null; zone: string | null; delivery: string; payment: string; coupon: string;
   currency: string; subtotal: string; discount: string; fee: string; total: string; notes: string; status: string; created_at: string; state: string;
   trip_number: number | null; invoice_number: number | null;
+  shipment: { id: string; carrier: string; tracking_no: string; status: string } | null;
 }
 interface Product {
   id: string; code: string; name: string; kind: string; is_template: boolean; has_image: boolean; shop_visible: boolean; shop_description: string; category: string | null;
@@ -130,6 +132,8 @@ function Orders({ me }: { me: Me }) {
               <a className="mx-btn" target="_blank" rel="noopener noreferrer" href={`https://wa.me/${waNumber(order.phone)}?text=${encodeURIComponent(t('sh.waCustomer', { name: order.name, n: order.number, link: `${origin}/#/order/${order.token}` }))}`}>🟢 {t('sh.whatsapp')}</a>
             </div>
             <small>{t('sh.flowHelp')}</small>
+            {order.shipment && <div>📦 {t('op.ship.carrier')}: <b>{t(`op.ship.c.${order.shipment.carrier}`)}</b> · <span dir="ltr">{order.shipment.tracking_no || '—'}</span> · {t(`op.ship.s.${order.shipment.status}`)}</div>}
+            {!order.shipment && order.delivery === 'delivery' && order.state !== 'cancelled' && can(me, 'stock.create') && <ShipForm shopOrderId={order.id} onDone={() => setSel(null)} />}
           </div>
         </section>)}
     </div>

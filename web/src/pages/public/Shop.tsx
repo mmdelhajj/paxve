@@ -431,6 +431,7 @@ interface Track {
     discount: string; fee: string; tax: string; total: string; created_at: string; zone: string | null; eta: string | null; state: string; company: string;
     company_ar: string; logo: string; locale: string; slug: string | null; color: string | null; whatsapp: string | null; pay_note: string | null };
   lines: { description: string; quantity: string; unit_price: string; amount: string; delivered: string }[];
+  shipments?: { carrier: string; tracking_no: string; status: string; events: { at: string; status: string; text: string }[] }[];
 }
 
 const STATES = ['received', 'preparing', 'on_the_way', 'delivered'];
@@ -476,6 +477,8 @@ export function OrderTrack({ token }: { token: string }) {
           {Number(o.tax) > 0 && <div className="psh-row"><span>{t('pub.shop.tax')}</span><span className="psh-price">{formatAmount(o.tax, 2)}</span></div>}
           <div className="psh-row" style={{ fontWeight: 700, fontSize: 18 }}><span>{t('pub.shop.total')}</span><span className="psh-price">{formatAmount(o.total, 2)} {o.currency}</span></div>
           <small>{t('pub.shop.payment')}: {t(`pub.shop.pay.${o.payment}`)}</small>
+          {(d.shipments ?? []).map((s) => (
+            <small key={s.tracking_no}>📦 {t(`op.ship.c.${s.carrier}`)} · <b dir="ltr">{s.tracking_no}</b> · {t(`op.ship.s.${s.status}`)}{s.events.length > 0 && <> — <bdi>{s.events[s.events.length - 1].text}</bdi></>}</small>))}
           {o.pay_note && (o.payment === 'whish' || o.payment === 'omt') && <small style={{ whiteSpace: 'pre-wrap' }}>{o.pay_note}</small>}
           {wa && <a className="psh-btn" style={{ textAlign: 'center', textDecoration: 'none' }} target="_blank" rel="noopener noreferrer"
             href={`https://wa.me/${wa}?text=${encodeURIComponent(t('pub.shop.waAbout', { n: o.number }))}`}>🟢 {t('pub.shop.contact')}</a>}

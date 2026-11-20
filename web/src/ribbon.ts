@@ -16,6 +16,7 @@ import {
   IconSpeakerphone, IconBriefcase, IconSignature, IconStars, IconWorldWww, IconMapPins, IconUserSearch, IconMailOff, IconShoppingBag, IconUserStar,
   IconSparkles, IconBrain, IconChartAreaLine, IconUserExclamation, IconShoppingCartPlus, IconRoute, IconFileSearch, IconAdjustments,
   IconToolsKitchen2, IconChefHat, IconPill, IconSofa, IconDevicesPc, IconPrescription,
+  IconQrcode, IconPackageExport, IconTimelineEvent, IconCalendarTime as IconCalTime2, IconBuildingBank as IconBank2,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
@@ -122,6 +123,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'rates', label: 'mx.t.rates', icon: IconArrowsExchange, perm: 'accounting.view' },
       { page: 'recurring', label: 'mx.t.recurring', icon: IconRepeat, perm: 'accounting.view' },
       { page: 'bank-rec', label: 'mx.t.bank', icon: IconBuildingBank, perm: 'bank.edit' },
+      { page: 'ops', param: 'bank', label: 'op.t.bank', icon: IconBank2, perm: 'bank.edit' },
       { page: 'assets', label: 'mx.t.assets', icon: IconBuildingFactory2, perm: 'assets.view' },
       { page: 'fx-reval', label: 'oa.t.fx', icon: IconScaleOutline, perm: 'accounting.view' },
       { page: 'deferrals', label: 'oa.t.def', icon: IconCalendarTime, perm: 'accounting.view' },
@@ -167,6 +169,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'wh', param: 'batches', label: 'wh.m.batches', icon: IconListDetails, perm: 'stock.view' },
       { page: 'wh', param: 'packages', label: 'wh.m.packages', icon: IconBoxSeam, perm: 'stock.view' },
       { page: 'wh', param: 'trips', label: 'wh.m.trips', icon: IconTruckDelivery, perm: 'stock.view' },
+      { page: 'ops', param: 'shipping', label: 'op.t.shipping', icon: IconPackageExport, perm: 'stock.view' },
       { page: 'driver', label: 'wh.t.driver', icon: IconSteeringWheel, any: true },
       { page: 'wh', param: 'reports', label: 'wh.m.reports', icon: IconChartHistogram, perm: 'stock.view' },
       { page: 'wh', param: 'setup', label: 'wh.m.setup', icon: IconSettings, perm: 'stock.view' },
@@ -179,6 +182,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'mfg', param: 'boms', label: 'mf.m.boms', icon: IconListDetails, perm: 'stock.view' },
       { page: 'mfg', param: 'workcenters', label: 'mf.m.workcenters', icon: IconBuildingFactory2, perm: 'stock.view' },
       { page: 'mfg', param: 'mrp', label: 'mf.m.mrp', icon: IconCalendarStats, perm: 'stock.view' },
+      { page: 'ops', param: 'gantt-mfg', label: 'op.t.gantt-mfg', icon: IconTimelineEvent, perm: 'stock.view' },
       { page: 'mfg', param: 'quality', label: 'mf.m.quality', icon: IconShieldCheck, perm: 'stock.view' },
       { page: 'mfg', param: 'trace', label: 'mf.m.trace', icon: IconSitemap, perm: 'stock.view' },
       { page: 'mfg', param: 'reports', label: 'mf.m.reports', icon: IconChartBar, perm: 'stock.view' },
@@ -214,6 +218,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'webshop', param: 'orders', label: 'sh.m.orders', icon: IconShoppingBag, perm: 'website.view' },
       { page: 'webshop', param: 'products', label: 'sh.m.products', icon: IconPackages, perm: 'website.view' },
       { page: 'webshop', param: 'zones', label: 'sh.m.zones', icon: IconMapPins, perm: 'website.view' },
+      { page: 'ops', param: 'shipping', label: 'op.t.shipping', icon: IconPackageExport, perm: 'stock.view', app: 'stk' },
       { page: 'webshop', param: 'settings', label: 'sh.m.settings', icon: IconWorldWww, perm: 'website.view' },
       { page: 'retail', param: 'promos', label: 'mk.coupons', icon: IconDiscount2, perm: 'pos.view', app: 'pos' },
     ],
@@ -242,6 +247,7 @@ export const RIBBON: RibbonTab[] = [
     id: 'vt', label: 'vt.rib', color: '#b45309', tiles: [
       { page: 'resto', label: 'vt.t.resto', icon: IconToolsKitchen2, perm: 'pos.view', app: 'pos', biz: ['restaurant'] },
       { page: 'kds', label: 'vt.t.kds', icon: IconChefHat, perm: 'pos.view', app: 'pos', biz: ['restaurant'] },
+      { page: 'ops', param: 'qr', label: 'op.t.qr', icon: IconQrcode, perm: 'pos.view', app: 'pos', biz: ['restaurant'] },
       { page: 'vert', param: 'restaurant', label: 'vt.t.restSetup', icon: IconTable, perm: 'pos.manage', app: 'pos', biz: ['restaurant'] },
       { page: 'vert', param: 'electronics', label: 'vt.t.serials', icon: IconDevicesPc, perm: 'stock.view', app: 'stk', biz: ['electronics'] },
       { page: 'vert', param: 'furniture', label: 'vt.t.furniture', icon: IconSofa, perm: 'sales.view', app: 'crm', biz: ['furniture'] },
@@ -258,6 +264,8 @@ export const RIBBON: RibbonTab[] = [
       { page: 'pos', label: 'mx.t.posOpen', icon: IconCashRegister, perm: 'pos.create' },
       { page: 'pos-sessions', label: 'mx.t.posSessions', icon: IconReceipt2 },
       { page: 'pos-setup', label: 'mx.t.posSetup', icon: IconLayoutGrid, perm: 'pos.manage' },
+      { page: 'ops', param: 'terminals', label: 'op.t.terminals', icon: IconCreditCard, perm: 'pos.view' },
+      { page: 'ops', param: 'qr', label: 'op.t.qr', icon: IconQrcode, perm: 'pos.view', biz: ['restaurant'] },
     ],
   },
   {
@@ -280,6 +288,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'gaps', param: 'repairs', label: 'gp.m.repairs', icon: IconDeviceMobileCog, perm: 'service.view' },
       { page: 'field', param: 'jobs', label: 'fsv.m.jobs', icon: IconMapPin, perm: 'service.view' },
       { page: 'field', param: 'board', label: 'fsv.m.board', icon: IconCalendarEvent, perm: 'service.view' },
+      { page: 'ops', param: 'gantt-field', label: 'op.t.gantt-field', icon: IconCalTime2, perm: 'service.view' },
       { page: 'tech', label: 'fsv.tech.title', icon: IconDeviceMobile, any: true },
       { page: 'field', param: 'sla', label: 'fsv.m.sla', icon: IconAlertTriangle, perm: 'service.view' },
     ],
@@ -288,6 +297,7 @@ export const RIBBON: RibbonTab[] = [
     id: 'prj', label: 'pj.rib', color: '#00897b', app: 'prj', tiles: [
       { page: 'projects', param: 'projects', label: 'pj.m.projects', icon: IconLayoutKanban, perm: 'projects.view' },
       { page: 'projects', param: 'tasks', label: 'pj.m.tasks', icon: IconListCheck, perm: 'projects.view' },
+      { page: 'ops', param: 'gantt-projects', label: 'op.t.gantt-projects', icon: IconTimelineEvent, perm: 'projects.view' },
       { page: 'projects', param: 'timesheets', label: 'pj.m.timesheets', icon: IconClock, perm: 'projects.view' },
       { page: 'projects', param: 'reports', label: 'pj.m.reports', icon: IconReportAnalytics, perm: 'reports.view' },
     ],
@@ -363,6 +373,7 @@ export const PAGE_APP: Record<string, AppId | undefined> = {
   wh: 'stk', scan: 'stk', driver: undefined, shopfloor: 'mfg',
   projects: 'prj', fleet: 'flt', field: 'svc', tech: undefined, automation: undefined,
   webshop: 'web', marketing: 'mkt', talent: 'hr', 'my-appraisal': 'hr', esign: undefined, smart: 'ai',
+  ops: undefined, // per screen (bank: core; terminals / QR: till; shipping: stock; timelines: their apps)
   gaps: undefined, // per screen: repairs need the service app (the server refuses them when it is off)
 };
 

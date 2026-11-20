@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IconMessageCircle, IconChecklist, IconHistory, IconPaperclip, IconTrash, IconCheck } from '@tabler/icons-react';
+import { IconMessageCircle, IconChecklist, IconHistory, IconPaperclip, IconTrash, IconCheck, IconMail } from '@tabler/icons-react';
 import { api } from '../api';
 import { useCompany } from '../company';
 import { errorText, formatDate, formatDateTime, today } from '../util';
 import Attachments from './Attachments';
+import RecordMail from './RecordMail';
 
 interface Msg { id: string; body: string; author: string | null; created_at: string; mine: boolean; mentioned?: { id: string; name: string }[] }
 interface Act {
@@ -29,7 +30,7 @@ export default function Chatter({ type, id, readOnly }: { type: string; id: stri
   const { t } = useTranslation();
   const { company } = useCompany();
   const base = company ? `/companies/${company.id}` : null;
-  const [tab, setTab] = useState<'msg' | 'act' | 'hist' | 'files'>('msg');
+  const [tab, setTab] = useState<'msg' | 'act' | 'hist' | 'files' | 'mail'>('msg');
   const [d, setD] = useState<Data | null>(null);
   const [err, setErr] = useState('');
   const [text, setText] = useState('');
@@ -78,6 +79,7 @@ export default function Chatter({ type, id, readOnly }: { type: string; id: stri
     { k: 'act', icon: IconChecklist, label: t('gp.ch.activities'), n: openActs },
     { k: 'hist', icon: IconHistory, label: t('gp.ch.history') },
     { k: 'files', icon: IconPaperclip, label: t('gp.ch.files'), n: d?.files },
+    { k: 'mail', icon: IconMail, label: t('op.mail.tab') },
   ];
 
   return (
@@ -167,6 +169,7 @@ export default function Chatter({ type, id, readOnly }: { type: string; id: stri
         </div>
       )}
       {tab === 'files' && <div className="mx-chatter-body"><Attachments type={type} id={id} readOnly={readOnly} /></div>}
+      {tab === 'mail' && <div className="mx-chatter-body"><RecordMail type={type} id={id} readOnly={readOnly} onSent={load} /></div>}
       {err && <div className="mx-flash bad">{err}</div>}
     </div>
   );

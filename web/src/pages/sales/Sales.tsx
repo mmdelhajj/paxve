@@ -351,6 +351,7 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
   const [step, setStep] = useState<null | 'deliver' | 'invoice' | 'cancel'>(null);
   const [invoice, setInvoice] = useState<string | null>(null);
   const [proforma, setProforma] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
   const canEdit = can(me, 'sales.create');
   const canInvoice = can(me, 'billing.create');
   // pro-forma: the same document titled "Pro-forma invoice" (no accounting), printed then back to normal
@@ -418,7 +419,7 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
             {isOrder && hasStock && <Badge variant="dot">{t(`sales.delivery.${o.delivery_status ?? 'none'}`)}</Badge>}
             {isOrder && <Badge variant="dot">{t(`sales.invoicing.${o.invoice_status ?? 'none'}`)}</Badge>}
           </Group>
-          <div className="print-doc" data-doc={docType} dir={rtl ? 'rtl' : 'ltr'}>
+          <div className={note ? 'no-print' : 'print-doc'} data-doc={docType} dir={rtl ? 'rtl' : 'ltr'}>
             <LayoutStyle type={docType} layout={lay} />
             <DocHeader c={o} layout={lay} title2={t2 ? (isOrder ? t2('sales.order') : t2('sales.quote')) : undefined} title={proforma ? t('gp.pf.title') : isOrder ? t('sales.order') : t('sales.quote')} lines={[
               <span dir="ltr" key="n">{proforma ? `PF-${o.order_number ?? o.number}` : docNumber(o)}</span>,
@@ -471,6 +472,7 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
                       <Text size="sm" td={x.status === 'void' ? 'line-through' : undefined}>
                         DEL-{x.number} · {formatDate(x.delivery_date)} · {x.lines.map((l) => `${Number(l.quantity)}× ${l.description}`).join(', ')}
                       </Text>
+                      {x.status !== 'void' && <Button size="compact-xs" variant="subtle" onClick={() => setNote(x.id)}>{t('op.dn.print')}</Button>}
                       {x.status !== 'void' && canInvoice && <Button size="compact-xs" variant="subtle" color="red" onClick={() => void voidDelivery(x.id)}>{t('gap.void')}</Button>}
                     </Group>
                   ))}
@@ -490,6 +492,7 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
             </SimpleGrid>
           )}
 
+          {note && <DeliveryNote d={d} deliveryId={note} onClose={() => setNote(null)} />}
           {step === 'cancel' && <Confirm text={t('sales.cancelConfirm')} yesLabel={t('sales.cancelOrder')} noLabel={t('common.close')} busy={busy}
             onYes={() => void act('cancel')} onNo={() => setStep(null)} />}
           {(step === 'deliver' || step === 'invoice') && (
@@ -660,5 +663,44 @@ export function SalesReport() {
       </>}
       {d && d.products.length === 0 && d.salespeople.length === 0 && <Alert color="gray" variant="light">{t('sales.reportEmpty')}</Alert>}
     </Stack>
+  );
+}
+
+/** Phase 9: the delivery note of one delivery (what left, to whom), in the company's "delivery" print layout, with
+ *  places for the driver's and the receiver's signatures. */
+function DeliveryNote({ d, deliveryId, onClose }: { d: OrderDetail; deliveryId: string; onClose: () => void }) {
+  const { t, i18n } = useTranslation();
+  const lay = useDocLayout('delivery');
+  const t2 = lay.bilingual && lay.bilingual !== i18n.language ? i18n.getFixedT(lay.bilingual) : null;
+  const x = d.deliveries.find((v) => v.id === deliveryId);
+  const o = d.order;
+  if (!x) return null;
+  return (
+    <Modal opened onClose={onClose} size="lg" title={`DEL-${x.number}`}>
+      <div className="print-doc" data-doc="delivery" dir={i18n.language === 'ar' ? 'rtl' : 'ltr'}>
+        <LayoutStyle type="delivery" layout={lay} />
+        <DocHeader c={o} layout={lay} title={t('op.dn.title')} title2={t2 ? t2('op.dn.title') : undefined} lines={[
+          <span dir="ltr" key="n">DEL-{x.number}</span>,
+          `${t('invoices.date')}: ${formatDate(x.delivery_date)}`,
+          `${t('sales.order')}: ${docNumber(o)}`,
+        ]} />
+        <Divider my="sm" />
+        <Text fw={600}>{o.customer_name} <Text span c="dimmed" size="sm">({o.customer_code})</Text></Text>
+        <Text size="sm"><span className="f-customer_phone">{o.customer_phone}</span>{o.customer_address ? <span className="f-customer_address"> · {o.customer_address}</span> : null}</Text>
+        <table style={{ marginTop: 12 }}>
+          <thead><tr><th>#</th><th>{t('invoices.description')}</th><th className="num">{t('invoices.qty')}</th></tr></thead>
+          <tbody>{x.lines.map((l, i) => <tr key={l.line_id + i}><td>{i + 1}</td><td style={{ whiteSpace: 'pre-wrap' }}>{l.description}</td><td className="num">{Number(l.quantity)}</td></tr>)}</tbody>
+        </table>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 24, marginTop: 40 }}>
+          <div style={{ flex: 1, borderTop: '1px solid #333', paddingTop: 4, fontSize: 12 }}>{t('op.dn.driver')}</div>
+          <div style={{ flex: 1, borderTop: '1px solid #333', paddingTop: 4, fontSize: 12 }}>{t('op.dn.receiver')}</div>
+        </div>
+        <DocFooter c={o} layout={lay} qr={`DEL-${x.number} ${o.customer_name}`} />
+      </div>
+      <Group justify="flex-end" mt="md" className="no-print">
+        <Button variant="default" onClick={onClose}>{t('common.close')}</Button>
+        <Button leftSection={<IconPrinter size={16} />} onClick={() => void printPage()}>{t('invoices.print')}</Button>
+      </Group>
+    </Modal>
   );
 }

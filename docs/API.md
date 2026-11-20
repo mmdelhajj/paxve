@@ -612,3 +612,31 @@ only use their own boxes (`invalid_tender`), and only those are listed to them.
 
 Errors: `weak_password_complexity`, `password_expired` (403 on every route but `/me` and sign-out), `invalid_branch`,
 `ic_no_expense_account`, `tender_has_bids`, `agreement_exceeded`, `agreement_expired`, `agreement_used`.
+
+## Bank files, card terminals, QR ordering, carriers, e-mail, timelines (migration 00051)
+
+| Route | Permission | Notes |
+|---|---|---|
+| `POST /companies/{cid}/bank/statements/parse` | bank.create | `{format: csv|ofx|mt940|camt, content, method_id, mapping{header, delimiter, date, amount | debit+credit, description, reference, partner, date_format, decimal}}` → `{lines, currency, duplicates, total, warnings}` (nothing saved) |
+| `POST /companies/{cid}/bank/statements` | bank.create | also `format`, lines `{date, description, amount, reference, partner, bank_id}`; duplicates skipped (`skipped`), all duplicates → 409 `already_imported` |
+| `GET/POST .../bank/match-rules`, `PATCH/DELETE .../bank/match-rules/{id}` | bank.view / edit | `{name, method_id, field: any|description|reference|partner, pattern (regex), direction: any|in|out, amount_min, amount_max, action: account|customer|supplier|ignore, account_id | customer_id | supplier_id, label, priority, is_active}` |
+| `GET .../bank/lines/{id}/suggestions` | bank.view | open invoices (money in) / bills (money out) with `confidence` and `why`; the first fitting rule |
+| `POST .../bank/lines/{id}/reconcile` | bank.edit (+ collections.create / purchasing.create) | `{kind: invoice|bill|customer|supplier|account, id, label}`: books the payment / entry and matches the line |
+| `POST .../bank/statements/{id}/auto-reconcile` | bank.edit | `{min_confidence (85), rules_only}` → `{result{matched, rules, documents, left}, statement}` |
+| `GET .../pos/terminals`, `PUT .../pos/terminals/{id}` | pos.view / manage | `{driver: ''|simulator|manual, terminal_ref, fee_pct, fee_fixed, settle_method_id}` on a card box |
+| `POST .../pos/terminal/charge` | pos.create | `{method_id, amount, register_id, approval_code (manual), card_last4, card_brand, simulate: decline}` → charge `{id, status, approval_code, rrn}` |
+| `GET .../pos/terminal/txns?method_id&state=open|unused|settled|all`, `POST .../txns/{id}/void` | pos.view / create | void only an unused approved charge |
+| `POST /pos/orders`, `POST /rest/checks/{id}/pay` | | also `card_txns: [charge ids]`; a terminal box must be covered exactly (`card_not_charged` 422) |
+| `GET/POST .../pos/terminal/settlements`, `POST .../settlements/{id}/void` | pos.view / manage / void | `{method_id, date, bank_method_id, txn_ids, fee, batch_ref}`: Dr bank net + Dr fees (627), Cr card box; void refused once the bank line is matched |
+| `GET/PUT .../rest/qr`, `POST .../rest/tables/{id}/qr` | pos.view / manage | `{enabled, register_id}`; a new table link (old QR stops) |
+| `GET .../rest/qr/orders?status`, `POST .../rest/qr/orders/{id}/accept|reject` | pos.view / create | accept: onto the table's open check (opened on the QR till), lines sent to the kitchen |
+| `GET /menu/{token}`, `GET/POST /menu/{token}/orders` | public | menu in the till's currency; order `{lines[{item_id, quantity (whole, ≤50), note}], name, note, website (honeypot)}`; 5 waiting / 20 per hour per table |
+| `GET/POST .../ship/carriers`, `PATCH .../ship/carriers/{id}` | stock.view / manage | `{carrier: manual|aramex|dhl, name, config, is_active, is_default}`; secrets sealed, masked on read; `configured` |
+| `POST .../ship/quote`, `GET .../ship/prefill?shop_order_id|sales_order_id|trip_stop_id` | stock.view | rates of one / every account (+ errors per account) |
+| `GET/POST .../ship/shipments`, `GET .../ship/shipments/{id}`, `POST .../ship/shipments/{id}/book|track|cancel|status` | stock.view / create | `{account_id, shop_order_id | sales_order_id | trip_stop_id, recipient, phone, address, city, country, weight_kg, pieces, contents, currency, cod_amount, service, rate, book}`; label = attachment of type `shipment` |
+| `GET/POST /companies/{cid}/record-mail`, `PUT .../record-mail/settings` | any (record's own rights) / settings.manage | `{type, id, to, cc, subject, body, attach_pdf, attachment_ids}`; `reply_to_email` for plus-address replies; inbound replies via `[PX-token]` |
+| `GET .../gantt/projects/{id}`, `GET .../gantt/projects/{id}/deps`, `PUT .../gantt/project-tasks/{id}`, `POST .../gantt/project-tasks/{id}/deps`, `DELETE .../gantt/deps/{id}` | projects.view / edit | move `{start, end, shift_dependents}`; `dependency_loop` 400 |
+| `GET .../gantt/mfg?from&to`, `PUT .../gantt/workorders/{id}`, `POST .../gantt/mfg/plan` | stock.view / create | load per work center and day; plan `{order_id, start}` |
+| `GET .../gantt/field?from&to`, `PUT .../gantt/service-jobs/{id}` | service.view / edit | `{start, technician_id, duration_min}` → `conflicts` |
+
+Group report: `eliminations` may carry `IC-URP` (reason `unrealized_profit`): the seller's margin on goods the buyer still holds.

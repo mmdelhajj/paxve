@@ -16,6 +16,7 @@ const Rate = lazy(() => import('./pages/public/Rate'));
 const Shop = lazy(() => import('./pages/public/Shop'));
 const OrderTrack = lazy(() => import('./pages/public/Shop').then((m) => ({ default: m.OrderTrack })));
 const Careers = lazy(() => import('./pages/public/Careers'));
+const MenuPage = lazy(() => import('./pages/public/Menu'));
 const SignPage = lazy(() => import('./pages/public/Sign'));
 const Optout = lazy(() => import('./pages/public/Sign').then((m) => ({ default: m.Optout })));
 const MyAccounts = lazy(() => import('./pages/public/PortalMore').then((m) => ({ default: m.MyAccounts })));
@@ -95,6 +96,8 @@ function Root() {
   if (route === 'careers' && arg) return <Suspense fallback={fullPageLoader}><Careers slug={arg} key={arg} /></Suspense>;
   if (route === 'sign' && arg) return <Suspense fallback={fullPageLoader}><SignPage token={arg} key={arg} /></Suspense>;
   if (route === 'optout' && arg) return <Suspense fallback={fullPageLoader}><Optout token={arg} key={arg} /></Suspense>;
+  // phase 9: a restaurant table's menu (QR code on the table)
+  if (route === 'menu' && arg) return <Suspense fallback={fullPageLoader}><MenuPage token={arg} key={arg} /></Suspense>;
   // phase 6b: the installed customer app starts here and opens the account remembered on this phone
   if (route === 'my') return <Suspense fallback={fullPageLoader}><MyAccounts /></Suspense>;
   if (me === undefined) return fullPageLoader;

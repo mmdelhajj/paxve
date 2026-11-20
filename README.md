@@ -360,6 +360,28 @@ optional demo data, all through the normal handlers. Ribbon tab **Business** sho
 - **Tenders** (Purchases › Tenders): lines, bids per supplier (price per line, lead time), comparison with the best price per line,
   award per line into confirmed purchase orders (one per supplier) or into blanket agreements. **Blanket agreements**: price and
   quantity agreed for a period; purchase orders drawn at the agreed price, the remaining quantity followed and enforced.
+
+## Bank files, card terminals, QR ordering, carriers, e-mail, timelines (phase 9)
+
+- **Bank files** (Accounting › Bank files & matching): import CSV (column map, date format, decimal mark), OFX / QFX, MT940 and
+  CAMT.053. Every line gets a fingerprint (the bank's id, or date + amount + text): a file imported twice is refused, an overlapping
+  file only adds the new lines. **Matching rules** (text pattern, direction, amount range, bank box) book bank fees / interest on an
+  account, settle a customer's invoices, pay a supplier's bills, or ignore. **Suggestions** score open invoices / bills (amount,
+  number in the text, name). **Auto-reconcile**: exact journal matches, then the rules, then documents found without doubt; one click
+  books the payment and matches the line.
+- **Card terminals** (Till › Card terminals): a card box gets a terminal driver (`simulator` for training, `manual` for a stand-alone
+  terminal: the cashier types the approval code; a real acquirer driver plugs into the same interface). The till charges the card
+  first; a sale paid by that box needs its approved charge. Settlement of the batch: Dr bank (net) + Dr card fees, Cr the card box
+  (clearing); the bank statement line of the net matches that entry.
+- **QR table ordering** (restaurant): each table has a QR link to `#/menu/<token>`; the guest's order waits for staff, who accept it
+  onto the table's check (sent to the kitchen screen). Limits: 5 waiting and 20 an hour per table, honeypot, per-IP limit.
+- **Shipping** (Stock › Shipping & carriers): own / local courier (Paxve's label PDF, status by hand), Aramex and DHL Express
+  (switched off until their keys are entered; rates, carrier label, tracking every 30 minutes). Online orders show the parcel.
+- **E-mail from records**: the chatter's E-mail tab sends with a PDF of the document and chosen files; replies come back to the
+  record through the subject mark `[PX-…]` or the plus address of `reply_to_email`, into the chatter.
+- **Timelines**: project tasks (start dates, dependencies, shift dependants, loops refused), production (work orders per work
+  center, plan an order in the center's hours, daily load vs capacity), technicians (jobs per technician, double bookings).
+- **Delivery note** print in the "delivery" layout; **unrealized inter-company profit** removed from stock and profit in the group report.
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the

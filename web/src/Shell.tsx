@@ -137,6 +137,7 @@ const Van = lazy(() => import('./pages/vert/Van'));
 const OwnerApp = lazy(() => import('./pages/owner/Owner'));
 const Enterprise = lazy(() => import('./pages/ent/Enterprise'));
 const MyDash = lazy(() => import('./pages/ent/MyDash'));
+const Ops = lazy(() => import('./pages/ops/Ops'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -146,7 +147,7 @@ const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'vouche
 const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash', 'invoices', 'customers', 'print-bills', 'trial-balance', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances',
   'localization', 'translations', 'stock-pro', 'hr', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'platform', 'retail', 'gaps', 'wh',
-  'projects', 'field', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'esign', 'smart', 'vert', 'ent', 'mydash']);
+  'projects', 'field', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'esign', 'smart', 'vert', 'ent', 'mydash', 'ops']);
 const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
   'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
   'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
@@ -155,7 +156,7 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
   'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'my-sub', 'retail', 'gaps', 'wh', 'scan', 'driver', 'shopfloor',
-  'projects', 'field', 'tech', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'my-appraisal', 'esign', 'smart', 'vert', 'resto', 'kds', 'van', 'owner', 'ent', 'mydash']);
+  'projects', 'field', 'tech', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'my-appraisal', 'esign', 'smart', 'vert', 'resto', 'kds', 'van', 'owner', 'ent', 'mydash', 'ops']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -561,6 +562,7 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     fleet: () => <Fleet me={me} initial={param} key={param} />,
     ent: () => <Enterprise me={me} initial={param} key={param} />,
     mydash: () => <MyDash me={me} />,
+    ops: () => <Ops me={me} initial={param} key={param} />,
     webshop: () => <WebShop me={me} initial={param} key={param} />,
     marketing: () => <Marketing me={me} initial={param} key={param} />,
     talent: () => <Talent me={me} initial={param} key={param} />,
