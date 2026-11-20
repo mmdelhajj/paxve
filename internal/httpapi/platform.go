@@ -902,7 +902,7 @@ func (s *Server) platformPayments(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-const platformPlanCols = `code, name_en, name_ar, name_fr, price_monthly, price_yearly, currency, max_subscribers, max_users, max_companies, apps,
+const platformPlanCols = `code, name_en, name_ar, name_fr, price_monthly, price_yearly, currency, max_subscribers, max_users, max_companies, apps, ai_monthly_limit,
 	is_public, is_active, sort, (SELECT count(*) FROM tenants t WHERE t.plan = platform_plans.code) AS organisations`
 
 func (s *Server) platformPlans(w http.ResponseWriter, r *http.Request) {
@@ -922,7 +922,8 @@ type planInput struct {
 	MaxSubscribers *int      `json:"max_subscribers"` // 0 = unlimited
 	MaxUsers       *int      `json:"max_users"`
 	MaxCompanies   *int      `json:"max_companies"`
-	Apps           *[]string `json:"apps"` // [] = every app
+	AIMonthly      *int      `json:"ai_monthly_limit"` // AI requests per month, 0 = unlimited
+	Apps           *[]string `json:"apps"`             // [] = every app
 	IsPublic       *bool     `json:"is_public"`
 	IsActive       *bool     `json:"is_active"`
 	Sort           *int      `json:"sort"`
@@ -937,7 +938,7 @@ func (p *planInput) valid() bool {
 			}
 		}
 	}
-	for _, n := range []*int{p.MaxSubscribers, p.MaxUsers, p.MaxCompanies} {
+	for _, n := range []*int{p.MaxSubscribers, p.MaxUsers, p.MaxCompanies, p.AIMonthly} {
 		if n != nil && *n < 0 {
 			return false
 		}
@@ -1002,13 +1003,14 @@ func (s *Server) platformCreatePlan(w http.ResponseWriter, r *http.Request) {
 	_, users := zeroNil(in.MaxUsers)
 	_, comps := zeroNil(in.MaxCompanies)
 	_, apps := appsArg(in.Apps)
+	_, aiLimit := zeroNil(in.AIMonthly)
 	s.ownerRun(w, r, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		_, err := tx.Exec(ctx, `INSERT INTO platform_plans (code, name_en, name_ar, name_fr, price_monthly, price_yearly, currency, max_subscribers,
-			max_users, max_companies, apps, is_public, is_active, sort)
+			max_users, max_companies, apps, is_public, is_active, sort, ai_monthly_limit)
 			VALUES ($1, $2, coalesce($3, ''), coalesce($4, ''), coalesce($5::numeric, 0), coalesce($6::numeric, 0), coalesce($7, 'USD'), $8, $9, $10, $11,
-			coalesce($12, true), coalesce($13, true), coalesce($14, 0))`,
+			coalesce($12, true), coalesce($13, true), coalesce($14, 0), $15)`,
 			in.Code, strings.TrimSpace(*in.NameEn), in.NameAr, in.NameFr, in.PriceMonthly, in.PriceYearly, in.Currency, subs, users, comps, apps,
-			in.IsPublic, in.IsActive, in.Sort)
+			in.IsPublic, in.IsActive, in.Sort, aiLimit)
 		if isUniqueViolation(err) {
 			return nil, &apiError{status: http.StatusConflict, code: "duplicate"}
 		}
@@ -1040,6 +1042,7 @@ func (s *Server) platformUpdatePlan(w http.ResponseWriter, r *http.Request) {
 	setU, users := zeroNil(in.MaxUsers)
 	setC, comps := zeroNil(in.MaxCompanies)
 	setA, apps := appsArg(in.Apps)
+	setAI, aiLimit := zeroNil(in.AIMonthly)
 	s.ownerRun(w, r, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		var oldApps []string
 		if err := tx.QueryRow(ctx, `SELECT apps FROM platform_plans WHERE code = $1 FOR UPDATE`, code).Scan(&oldApps); err != nil {
@@ -1056,9 +1059,10 @@ func (s *Server) platformUpdatePlan(w http.ResponseWriter, r *http.Request) {
 			max_users = CASE WHEN $10 THEN $11::int ELSE max_users END,
 			max_companies = CASE WHEN $12 THEN $13::int ELSE max_companies END,
 			apps = CASE WHEN $14 THEN $15::text[] ELSE apps END,
-			is_public = coalesce($16, is_public), is_active = coalesce($17, is_active), sort = coalesce($18, sort)
+			is_public = coalesce($16, is_public), is_active = coalesce($17, is_active), sort = coalesce($18, sort),
+			ai_monthly_limit = CASE WHEN $19 THEN $20::int ELSE ai_monthly_limit END
 			WHERE code = $1`, code, in.NameEn, in.NameAr, in.NameFr, in.PriceMonthly, in.PriceYearly, in.Currency,
-			setS, subs, setU, users, setC, comps, setA, apps, in.IsPublic, in.IsActive, in.Sort)
+			setS, subs, setU, users, setC, comps, setA, apps, in.IsPublic, in.IsActive, in.Sort, setAI, aiLimit)
 		if err != nil {
 			return nil, err
 		}

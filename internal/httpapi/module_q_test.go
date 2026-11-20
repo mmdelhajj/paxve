@@ -286,6 +286,18 @@ func seedEverything(t *testing.T, o *org) {
 		"signers": []any{map[string]any{"name": secretB, "phone": "70555444"}}})
 	step(201, "POST", "/esign/requests", map[string]any{"doc_type": "contract", "title": secretB + " draft", "body": secretB,
 		"signers": []any{map[string]any{"name": secretB, "email": "b@example.com"}}})
+
+	// phase 5: smart alerts (a duplicate supplier bill), risk scores, settings, a scanned bill, a customer location
+	for i := 0; i < 2; i++ {
+		step(201, "POST", "/bills", map[string]any{"supplier_id": sup, "bill_date": "2026-11-07", "currency": "USD", "supplier_ref": secretB + "-DUP",
+			"allow_duplicate": true, "lines": []any{map[string]any{"description": secretB + " dup", "quantity": "1", "unit_price": "3", "account_id": o.accounts["611"]}}})
+	}
+	step(200, "PUT", "/smart/settings", map[string]any{"digest_phone": "70333222"})
+	step(200, "POST", "/smart/alerts/scan", map[string]any{})
+	step(200, "POST", "/smart/risk/recompute", map[string]any{})
+	step(201, "POST", "/smart/scans", map[string]any{"filename": secretB + ".png",
+		"data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="})
+	step(200, "PUT", "/customers/"+cust+"/location", map[string]any{"lat": 33.9, "lng": 35.5})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -384,6 +396,7 @@ var idTable = map[string]string{
 	"zones": "shop_zones", "products": "items", "lists": "mkt_lists", "list-members": "mkt_list_members", "optouts": "mkt_optouts",
 	"campaigns": "mkt_campaigns", "job-positions": "job_positions", "applicants": "job_applicants", "interviews": "job_interviews",
 	"appraisal-cycles": "appraisal_cycles", "appraisals": "appraisals", "requests": "sign_requests",
+	"alerts": "smart_alerts", "scans": "ocr_scans", "answers": "ai_requests",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -553,6 +566,10 @@ func sweepBody(c sweepCall, ids map[string]string) any {
 		return map[string]any{"name": "x", "spec": map[string]any{"source": "sales", "measure": "amount"}}
 	case "/record-activities/{id}":
 		return map[string]any{"summary": "x"}
+	case "/smart/scans/{id}/link":
+		return map[string]any{"bill_id": ids["bills"]}
+	case "/customers/{id}/location":
+		return map[string]any{"lat": 33.91, "lng": 35.51}
 	}
 	return map[string]any{} // PATCH routes: every field is optional
 }

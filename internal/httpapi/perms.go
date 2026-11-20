@@ -36,6 +36,7 @@ var moduleActions = []struct {
 	{"marketing", []string{"view", "create", "manage"}},
 	{"talent", []string{"view", "edit", "manage"}},
 	{"esign", []string{"view", "create"}},
+	{"smart", []string{"view", "ai", "manage"}},
 	{"pos", []string{"view", "create", "void", "manage", "approve"}},
 	{"suppliers", []string{"view", "create", "edit"}},
 	{"purchasing", []string{"view", "create", "void", "manage", "approve"}},
@@ -75,19 +76,19 @@ var (
 	officeView = []string{"accounting.view", "customers.view", "billing.view", "collections.view", "sales.view",
 		"crm.view", "suppliers.view", "purchasing.view", "expenses.view", "stock.view", "assets.view", "bank.view",
 		"network.view", "messaging.view", "reports.view", "reports.export", "settings.view", "service.view", "projects.view", "fleet.view",
-		"website.view", "marketing.view", "esign.view"}
+		"website.view", "marketing.view", "esign.view", "smart.view"}
 	// day-to-day data entry
 	entryPerms = []string{"accounting.create", "customers.create", "customers.edit", "collections.create",
 		"sales.create", "crm.create", "crm.edit", "pos.view", "pos.create", "pos.void", "suppliers.create",
 		"suppliers.edit", "expenses.create", "stock.create", "network.create", "messaging.create", "service.create", "service.edit",
-		"projects.create", "projects.edit", "fleet.create", "marketing.create", "esign.create"}
+		"projects.create", "projects.edit", "fleet.create", "marketing.create", "esign.create", "smart.ai"}
 	// accountant: money, posting, voids, configuration of the modules
 	writePerms = []string{"accounting.edit", "accounting.void", "accounting.manage", "billing.create", "billing.void",
 		"billing.manage", "collections.edit", "collections.void", "sales.void", "crm.manage", "pos.manage",
 		"purchasing.create", "purchasing.void", "purchasing.manage", "expenses.void", "stock.void", "stock.manage",
 		"assets.create", "assets.edit", "assets.void", "payroll.view", "payroll.create", "payroll.edit", "payroll.void",
 		"bank.create", "bank.edit", "network.manage", "messaging.manage", "import.create", "audit.view", "service.manage", "sales.credit_override",
-		"projects.manage", "fleet.manage", "website.manage", "marketing.manage", "talent.view", "talent.edit", "talent.manage"}
+		"projects.manage", "fleet.manage", "website.manage", "marketing.manage", "talent.view", "talent.edit", "talent.manage", "smart.manage"}
 )
 
 var presets = func() map[string][]string {
@@ -909,6 +910,33 @@ var routePerms = map[string]string{
 	"GET /companies/{cid}/fleet/reports/costs":               "reports.view",
 	"GET /companies/{cid}/fleet/settings":                    "fleet.view",
 	"PUT /companies/{cid}/fleet/settings":                    "fleet.manage",
+
+	// phase 5: smart features (app "ai")
+	"GET /companies/{cid}/smart/settings":              "smart.view",
+	"PUT /companies/{cid}/smart/settings":              "smart.manage",
+	"GET /companies/{cid}/smart/alerts":                "smart.view",
+	"POST /companies/{cid}/smart/alerts/scan":          "smart.manage",
+	"POST /companies/{cid}/smart/alerts/{id}/{action}": "smart.manage",
+	"GET /companies/{cid}/smart/forecast":              "smart.view",
+	"GET /companies/{cid}/smart/risk":                  "smart.view",
+	"POST /companies/{cid}/smart/risk/recompute":       "smart.manage",
+	"GET /companies/{cid}/smart/reorder":               "smart.view",
+	"POST /companies/{cid}/smart/reorder/apply":        "stock.manage",
+	"POST /companies/{cid}/smart/reorder/purchase":     "purchasing.create",
+	"GET /companies/{cid}/smart/ai/status":             "smart.view",
+	"POST /companies/{cid}/smart/ai/ask":               "smart.ai", // each tool also checks the user's permission for its data
+	"GET /companies/{cid}/smart/ai/answers/{id}":       "smart.ai",
+	"GET /companies/{cid}/smart/ai/history":            "smart.ai",
+	"GET /companies/{cid}/smart/scans":                 "purchasing.view",
+	"POST /companies/{cid}/smart/scans":                "purchasing.create",
+	"GET /companies/{cid}/smart/scans/{id}":            "purchasing.view",
+	"GET /companies/{cid}/smart/scans/{id}/file":       "purchasing.view",
+	"POST /companies/{cid}/smart/scans/{id}/read":      "purchasing.create",
+	"POST /companies/{cid}/smart/scans/{id}/link":      "purchasing.create",
+	"DELETE /companies/{cid}/smart/scans/{id}":         "purchasing.create",
+	"GET /companies/{cid}/collect/route":               "collections.view",
+	"PUT /companies/{cid}/customers/{id}/location":     "collections.create",
+	"GET /platform/ai":                                 permAny,
 
 	// phase 4: online store (app "web")
 	"GET /companies/{cid}/shop/settings":              "website.view",

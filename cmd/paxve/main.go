@@ -147,6 +147,7 @@ func serve(ctx context.Context) error {
 	api.StartPlatformWorker(ctx)
 	api.StartAutomationWorker(ctx)
 	api.StartGrowthWorker(ctx)
+	api.StartSmartWorker(ctx)
 	api.ResumeBillingJobs(ctx)
 	hs := &http.Server{
 		Addr:              addr,

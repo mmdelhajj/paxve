@@ -48,6 +48,9 @@ services:
       ALLOW_PRIVATE_ROUTERS: ${ALLOW_PRIVATE_ROUTERS:-false}
       PAXVE_SALES_PHONE: ${PAXVE_SALES_PHONE:-}
       PAXVE_SALES_EMAIL: ${PAXVE_SALES_EMAIL:-}
+      # AI assistant and supplier-bill reading (Claude); empty = switched off
+      PAXVE_ANTHROPIC_API_KEY: ${PAXVE_ANTHROPIC_API_KEY:-}
+      PAXVE_AI_MODEL: ${PAXVE_AI_MODEL:-}
 
   caddy:
     image: caddy:2

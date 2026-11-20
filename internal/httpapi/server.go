@@ -73,6 +73,9 @@ type Server struct {
 	// shown to organisations on "My Paxve subscription" (PAXVE_SALES_PHONE / PAXVE_SALES_EMAIL); renewal
 	// requests are also sent to this phone
 	platformContactPhone, platformContactEmail string
+
+	// AI features (assistant, bill reading): nil = off (PAXVE_ANTHROPIC_API_KEY not set)
+	ai *aiConfig
 }
 
 func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir string, platformAdmins []string) *Server {
@@ -86,7 +89,8 @@ func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir str
 		loginIP: newLimiter(100, 15*time.Minute), loginPair: newBackoff(5, 30*time.Second, 15*time.Minute, time.Hour),
 		loginEmail: newBackoff(10, time.Minute, 15*time.Minute, time.Hour), loginTrust: newTrustSet(30 * 24 * time.Hour), signupLimiter: newLimiter(5, time.Hour), portalLimiter: newLimiter(120, 10*time.Minute), platformAdmins: admins,
 		apiKeyLimiter: newLimiter(30, 15*time.Minute), resetLimiter: newLimiter(5, time.Hour), mfaLimiter: newLimiter(5, 15*time.Minute),
-		platformContactPhone: strings.TrimSpace(os.Getenv("PAXVE_SALES_PHONE")), platformContactEmail: strings.TrimSpace(os.Getenv("PAXVE_SALES_EMAIL"))}
+		platformContactPhone: strings.TrimSpace(os.Getenv("PAXVE_SALES_PHONE")), platformContactEmail: strings.TrimSpace(os.Getenv("PAXVE_SALES_EMAIL")),
+		ai: aiFromEnv()}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -908,6 +912,34 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+v+"/sign/{token}", s.signSubmit)
 	mux.HandleFunc("POST "+v+"/sign/{token}/decline", s.signDecline)
 
+	// smart features (phase 5, app "ai"): alerts center, forecast, risk, reorder, AI assistant, bill reading
+	mux.Handle("GET "+v+"/companies/{cid}/smart/settings", s.auth(s.smartSettings))
+	mux.Handle("PUT "+v+"/companies/{cid}/smart/settings", s.auth(s.smartSettings))
+	mux.Handle("GET "+v+"/companies/{cid}/smart/alerts", s.auth(s.smartAlerts))
+	mux.Handle("POST "+v+"/companies/{cid}/smart/alerts/scan", s.auth(s.smartScan))
+	mux.Handle("POST "+v+"/companies/{cid}/smart/alerts/{id}/{action}", s.auth(s.smartAlertAction))
+	mux.Handle("GET "+v+"/companies/{cid}/smart/forecast", s.auth(s.smartForecast))
+	mux.Handle("GET "+v+"/companies/{cid}/smart/risk", s.auth(s.smartRisk))
+	mux.Handle("POST "+v+"/companies/{cid}/smart/risk/recompute", s.auth(s.smartRiskRecompute))
+	mux.Handle("GET "+v+"/companies/{cid}/smart/reorder", s.auth(s.smartReorder))
+	mux.Handle("POST "+v+"/companies/{cid}/smart/reorder/apply", s.auth(s.smartReorderApply))
+	mux.Handle("POST "+v+"/companies/{cid}/smart/reorder/purchase", s.auth(s.smartReorderPurchase))
+	mux.Handle("GET "+v+"/companies/{cid}/smart/ai/status", s.auth(s.aiStatus))
+	mux.Handle("POST "+v+"/companies/{cid}/smart/ai/ask", s.auth(sessionOnly(s.aiAskStart)))
+	mux.Handle("GET "+v+"/companies/{cid}/smart/ai/answers/{id}", s.auth(s.aiAnswer))
+	mux.Handle("GET "+v+"/companies/{cid}/smart/ai/history", s.auth(s.aiHistory))
+	mux.Handle("GET "+v+"/companies/{cid}/smart/scans", s.auth(s.ocrList))
+	mux.Handle("POST "+v+"/companies/{cid}/smart/scans", s.auth(s.ocrUpload))
+	mux.Handle("GET "+v+"/companies/{cid}/smart/scans/{id}", s.auth(s.ocrGet))
+	mux.Handle("GET "+v+"/companies/{cid}/smart/scans/{id}/file", s.auth(s.ocrFile))
+	mux.Handle("POST "+v+"/companies/{cid}/smart/scans/{id}/read", s.auth(s.ocrRead))
+	mux.Handle("POST "+v+"/companies/{cid}/smart/scans/{id}/link", s.auth(s.ocrLink))
+	mux.Handle("DELETE "+v+"/companies/{cid}/smart/scans/{id}", s.auth(s.ocrDelete))
+	// collector route and customer location (also for collectors)
+	mux.Handle("GET "+v+"/companies/{cid}/collect/route", s.field(s.collectRoute))
+	mux.Handle("PUT "+v+"/companies/{cid}/customers/{id}/location", s.field(s.setCustomerLocation))
+	mux.Handle("GET "+v+"/platform/ai", s.auth(s.platformOnly(s.platformAI)))
+
 	// service desk and generator maintenance (app "svc")
 	mux.Handle("GET "+v+"/companies/{cid}/tickets", s.auth(s.listTickets))
 	mux.Handle("POST "+v+"/companies/{cid}/tickets", s.auth(s.createTicket))
@@ -1355,7 +1387,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Content-Security-Policy",
-			"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-ancestors 'none'")
+			"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; font-src 'self' data:; frame-ancestors 'none'")
 		next.ServeHTTP(w, r)
 	})
 }
