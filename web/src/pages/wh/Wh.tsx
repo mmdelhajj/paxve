@@ -210,7 +210,7 @@ export function OpDetail({ id, me, onChanged, onOpen, compact }: { id: string; m
           <tbody>{d.lines.map((l) => (
             <tr key={l.id}>
               <td>{l.item_code} · {l.item_name}{l.lot_no ? <small dir="ltr"> [{l.lot_no}]</small> : null}</td>
-              <td dir="ltr">{l.from_code ?? (op.kind === 'putaway' ? t('wh.arrival') : op.kind === 'ship' ? 'OUTPUT' : t('wh.unbinned'))}</td>
+              <td dir="ltr" style={{ whiteSpace: 'nowrap' }}>{l.from_code ?? (op.kind === 'putaway' ? t('wh.arrival') : op.kind === 'ship' ? 'OUTPUT' : t('wh.unbinned'))}</td>
               <td dir="ltr">{ready && op.kind !== 'ship' ? (
                 <select value={to[l.id] ?? l.to_location_id ?? ''} onChange={(e) => setTo({ ...to, [l.id]: e.currentTarget.value })} aria-label={t('wh.to')}>
                   <option value="">{l.to_code ?? t('wh.unbinned')}</option>

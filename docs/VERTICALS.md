@@ -186,3 +186,16 @@ Supermarket and Clothing packs (chosen at sign-up or from Retail → Business pa
 Still open in this area: direct serial/USB scale on the till, a mobile price checker, several barcodes per item, points expiry
 (the setting is stored, expiry is not run yet), loyalty / gift card reversal on a till return (the refund does not take the points or
 the card balance back).
+
+## Status after warehouse pro (phase 1, 2026-11-20)
+
+Built and live: bins and locations (hierarchy, generator, labels), putaway rules, removal strategies (FIFO / FEFO / closest
+bin), receipts in 1/2/3 steps and deliveries in 1/2/3 steps as warehouse tasks with backorders, packages and pallets with
+labels, batch and wave picking, dropship, cross-dock, the phone scanner (camera or Bluetooth scanner, offline queue: look up,
+receive, tasks, move, count a bin), stock reports (by bin, slow / dead, ABC, ageing, value against the ledger) and the
+**delivery board** (vehicles, trips, driver phone view with name, signature, photo and place as proof of delivery). This closes
+the "delivery board" item of the shared retail core and the warehouse depth gap against Odoo Inventory.
+
+Still open here: storage capacity per bin (volume / weight limits), routes between warehouses with automatic replenishment
+(reorder rules still suggest purchases only), shipping carrier integrations and labels (Aramex, DHL), a route optimiser for trips
+(stops keep the order chosen), and the delivery slot booking by the customer.

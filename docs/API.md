@@ -348,3 +348,30 @@ POS sale (`POST /pos/orders`) also takes `apply_promos`, `coupon`, `gift_sold [{
 and `redeem_points`; the order returns `promos`, `loyalty {earned, redeemed, balance}` and `gift`. Session close takes
 `denominations {method_id: {"100": 3}}`. Gift card / points tenders (`payment-methods?all=1`, kinds `gift` and `loyalty`)
 are refused outside the till.
+
+## Warehouse pro (migration 00041)
+
+All under `/companies/{cid}`; app **stk** (dropship: **pur**). Bins are physical: stock value never moves here.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET · PATCH | `/wh/warehouses` · `/wh/warehouses/{id}` | `{name, code, address, use_bins, reception_steps 1-3, delivery_steps 1-3, removal fifo\|fefo\|closest, crossdock, is_active}`; steps need bins |
+| GET · POST · PATCH | `/wh/locations?warehouse_id=` · `/wh/locations` · `/wh/locations/{id}` | `{warehouse_id, parent_id, kind zone\|aisle\|shelf\|bin\|input\|qc\|output\|pack, code, name, barcode}` |
+| POST | `/wh/locations/generate` | `{warehouse_id, zone, aisles, shelves, bins}` → zone Z, aisles Z-01, shelves Z-01-1, bins Z-01-1-01 |
+| GET · POST · DELETE | `/wh/putaway-rules[/{id}]` | `{warehouse_id, item_id \| category_id, location_id, priority}` |
+| GET | `/wh/bin-stock?warehouse_id&location_id&item_id&q` | `{bins, unbinned}` |
+| POST | `/wh/move` | `{warehouse_id, item_id, lot_id?, quantity, from_location_id?, to_location_id?}` (empty = unbinned); recorded as a done transfer |
+| POST | `/wh/count` | `{warehouse_id, location_id, lines [{item_id, lot_id?, counted}]}` physical count of a bin; returns `warnings` when bins exceed the books |
+| GET | `/wh/scan?code=` | `{type: location\|item\|lot\|package\|op\|unknown, data}` (`PKG000012`, `OP000034`, unit barcodes give `factor`) |
+| GET · POST | `/wh/ops?status=open\|ready\|done\|all&kind&warehouse_id&order_id` · `/wh/ops` | tasks; POST makes an internal transfer `{warehouse_id, lines [{item_id, quantity, from_location_id, to_location_id}]}` |
+| GET · POST | `/wh/ops/{id}` · `/wh/ops/{id}/done` · `/wh/ops/{id}/cancel` | done `{date?, lines? [{line_id, done_qty, to_location_id?, from_location_id?, lot_id?, package_id?}]}` → `{next_op_id, backorder_id, delivery_id}` |
+| GET · POST · PATCH · PUT | `/wh/packages[?status&order_id]` · `/wh/packages/{id}` · `/wh/packages/{id}/lines` | `{warehouse_id, kind box\|pallet, parent_id, sales_order_id, weight, length_cm, width_cm, height_cm, status open\|sealed\|cancelled}` |
+| GET · POST | `/wh/batches` · `/wh/batches/{id}` · `/wh/batches/{id}/done` · `/wh/batches/{id}/cancel` | `{warehouse_id, kind batch\|wave, op_ids? \| up_to_date?, assigned_to?}`; one pick list in bin order |
+| POST | `/wh/dropship` | `{order_id, supplier_id, lines? [{line_id, quantity, unit_price?}]}` → purchase order to a dropship warehouse; its bill delivers the order |
+| GET | `/wh/reports/slow?days&dead_days` · `/abc?months` · `/ageing` · `/valuation` | stock analysis; valuation ties each inventory account to the ledger |
+| GET · POST · PATCH | `/wh/vehicles[/{id}]` | `{name, plate, capacity_kg, driver_id, is_active}` |
+| GET | `/wh/to-schedule` | posted deliveries and confirmed orders on no trip |
+| GET · POST · PATCH | `/wh/trips[?date&status&mine=1]` · `/wh/trips/{id}` | `{trip_date, vehicle_id, driver_id, notes, stops [{sales_delivery_id \| sales_order_id \| customer_id, address?, phone?, note?}], status}`; drivers (also collectors) see `mine=1` and their own trips |
+| POST · GET | `/wh/stops/{id}/pod` · `/wh/stops/{id}/photo` · `/wh/stops/{id}/signature` | `{status delivered\|failed, name, signature (PNG data URL), note, lat, lng}` · `{filename, data}` image |
+
+A sales order in a 2/3-step warehouse refuses `/sales/orders/{id}/deliver` (`use_warehouse_steps`) while its tasks are open.

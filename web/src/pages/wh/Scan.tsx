@@ -138,7 +138,7 @@ export default function Scan({ me, onExit }: { me: Me; onExit: () => void }) {
   return (
     <div dir={dir} style={{ minHeight: '100vh', background: '#f3f5f8', display: 'flex', flexDirection: 'column', fontSize: 16 }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: '#14324f', color: '#fff', paddingTop: 'calc(8px + env(safe-area-inset-top, 0px))' }}>
-        <b style={{ flex: 1 }}>{t('wh.scan.title')}</b>
+        <b style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('wh.scan.title')}</b>
         <select value={wh} onChange={(e) => setWh(e.currentTarget.value)} aria-label={t('wh.warehouse')} style={{ maxWidth: 150 }}>
           {whs.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
         </select>
@@ -150,7 +150,7 @@ export default function Scan({ me, onExit }: { me: Me; onExit: () => void }) {
       </nav>
       <form onSubmit={(e) => { e.preventDefault(); void scan(code); }} style={{ display: 'flex', gap: 6, padding: '0 6px' }}>
         <input ref={input} value={code} onChange={(e) => setCode(e.currentTarget.value)} placeholder={t('wh.scan.placeholder')} aria-label={t('wh.scan.placeholder')}
-          dir="ltr" autoComplete="off" style={{ flex: 1, minHeight: 48, fontSize: 18, padding: '0 10px' }} />
+          dir="ltr" autoComplete="off" style={{ flex: 1, minWidth: 0, width: '100%', minHeight: 48, fontSize: 18, padding: '0 10px' }} />
         <button type="button" className="mx-btn" style={{ minHeight: 48 }} onClick={() => setCam(true)}>{t('wh.scan.camera')}</button>
       </form>
       {queue.length > 0 && <div className="mx-note" style={{ margin: 6 }}>{t('wh.scan.pending', { n: queue.length })} <button className="mx-btn sm" onClick={() => void sync()}>{t('wh.scan.sync')}</button></div>}

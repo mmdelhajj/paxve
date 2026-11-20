@@ -137,6 +137,22 @@ changes and sends reminders 7 / 3 / 1 days before and on expiry through the owne
 Organisations see **Settings → My Paxve subscription** (plan, end date, usage against limits, payments) and send renewal
 requests from there. Optional `PAXVE_SALES_PHONE` / `PAXVE_SALES_EMAIL` are shown to them as where to pay.
 
+## Warehouse pro (bins, steps, packages, picking, dropship, delivery board)
+
+Ribbon tab **Stock**: per warehouse, **bins** (zone → aisle → shelf → bin, generated in one click, barcode labels), **receipt in
+1/2/3 steps** (receive → QC → put away) and **delivery in 1/2/3 steps** (pick → pack → ship), removal strategy (FIFO, FEFO,
+closest bin), **putaway rules** by item or category and **cross-dock** (goods open orders wait for go straight to the shipping
+area). Each step is a task (`wh_ops`); a task done in part leaves a backorder; the next step is created with what was really
+done; the ship step books the delivery. Bins are the physical place only: value stays per item and warehouse, so every existing
+flow keeps working and a trigger takes stock that leaves a warehouse out of the unbinned part first, then the bins (shipping area
+first). Also: **packages and pallets** (content, weight, dimensions, label with barcode, shipped with the delivery), **batch /
+wave picking** (one pick list for many orders in bin order), **dropship** (a sales order makes a purchase order shipped to the
+customer; the supplier bill delivers the order through a dropship warehouse), stock **reports** (by bin, slow / dead stock, ABC,
+ageing, value per warehouse and per inventory account against the ledger), and the **delivery board** (vehicles, trips with
+stops, driver, route sheet; the driver confirms each stop from the phone with the receiver's name, a signature, a photo and the
+place). Phone apps: `#/scan` (camera via BarcodeDetector or a Bluetooth / USB scanner; look up, receive a PO, do tasks, move,
+count a bin; moves, counts and tasks made offline are queued) and `#/driver` (also the **Deliveries** tab of the collector app).
+
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the
