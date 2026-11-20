@@ -306,6 +306,34 @@ optional demo data, all through the normal handlers. Ribbon tab **Business** sho
   register, **insurance share** (a tender on "Insurance claims receivable" + a claim to submit / settle / reject).
 - **Factory**: the manufacturing apps with starter work centers, BoM and routing.
 
+## Installable apps and the marketing site (phase 6b)
+
+- **Four installable web apps** (PWA) on one site, each with its own manifest and icons (`web/public/manifest-*.webmanifest`,
+  `web/public/icons/`); `/pwa.js` (a plain same-origin script, allowed by the CSP) picks the manifest and keeps the browser's
+  install offer for the in-app **Install** button (iPhone: an "Add to Home Screen" hint). The service worker caches the shell,
+  the boot script, manifests and icons.
+  - **Paxve** (`/`) — the full system.
+  - **Paxve Field** (`/field` → `#/collect`) — collectors, drivers, technicians and van salesmen: tabs by what the user has
+    (deliveries / jobs shown with a count), a "My van today" entry when the user drives a van, payments queued offline, and
+    the app icon badge (deliveries + jobs + payments not sent).
+  - **My account** (`/my`) — the customer portal remembered on the phone (`#/my` opens it), now with consumption per meter,
+    tickets (report a problem → ticket channel `portal`, SLA applied, 5 a day per customer; rate a fixed one) and online orders
+    with tracking (`GET /portal/{token}/more`, `POST /portal/{token}/tickets`).
+  - **Paxve Owner** (`/owner` → `#/owner`) — today's collections and sales, money in tills / banks, what customers owe (and
+    overdue), smart alerts, approvals waiting, in-app notifications and the AI assistant (`GET /owner/today`, `reports.view`;
+    alerts only with `smart.view`). Refreshes every minute; icon badge = urgent alerts + approvals + unread notifications.
+- **Marketing site** at `paxve.com` for signed-out visitors (Arabic first, EN / FR, `?lang=`): hero, the 12 business types with
+  a card each, features, comparison with spreadsheets / old programs, plans from the platform (`GET /public/site`, monthly /
+  yearly), FAQ, sales contact (`PAXVE_SALES_PHONE` / `PAXVE_SALES_EMAIL`, hidden when not set) and a **demo request** form
+  (`POST /public/demo-request`, honeypot, 5 an hour per address) that lands in the platform console › **Demo requests**
+  (status new / contacted / won / lost, notes, WhatsApp). SEO: meta + OpenGraph (`/og.png`), `robots.txt`, `sitemap.xml`.
+- **Leftovers closed**: restaurant **split equally** (N guests, each pays a share; recorded as tenders of one sale), payroll
+  **posting date** option (HR › Payroll: today while the month runs, or always the month end), **supplier opening balances**
+  import (Import › Supplier balances: one opening supplier bill per row against an equity account), **collectors with a cash
+  box of their own** can no longer use the shared office boxes, smart alert **price_override** (catalog prices lowered by hand
+  at the till; `pos_orders.price_cut`), and offline payments carry the **device time** (`payments.client_time`), which the
+  "payments at night" check uses.
+
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the

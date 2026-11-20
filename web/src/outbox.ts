@@ -57,7 +57,9 @@ export async function syncOutbox(): Promise<number> {
   try {
     for (const p of read()) {
       try {
-        await api(p.path ?? `/companies/${p.company_id}/payments`, { method: 'POST', body: { ...p.body, client_ref: p.client_ref } });
+        // payments carry the time the device took them, so a payment synced late is not read as a night payment
+        const extra = p.path ? {} : { client_time: p.created_at };
+        await api(p.path ?? `/companies/${p.company_id}/payments`, { method: 'POST', body: { ...extra, ...p.body, client_ref: p.client_ref } });
         write(read().filter((x) => x.client_ref !== p.client_ref));
         sent++;
       } catch (e) {

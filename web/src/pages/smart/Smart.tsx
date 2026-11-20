@@ -54,7 +54,7 @@ export interface Alert {
   value: number | null; expected: number | null; score: number | null; detail: Record<string, unknown>; status: string; note: string;
   acted_at: string | null; acted_by_name: string | null; created_at: string;
 }
-const KINDS = ['diesel', 'discount', 'cash_diff', 'cash_repeat', 'voids', 'off_hours', 'count_loss', 'collector_drop', 'dup_bill', 'fleet_fuel'];
+const KINDS = ['diesel', 'discount', 'cash_diff', 'cash_repeat', 'voids', 'off_hours', 'count_loss', 'collector_drop', 'dup_bill', 'fleet_fuel', 'price_override'];
 const sevPill: Record<string, string> = { high: 'off', medium: 'warn', low: '' };
 
 /** One sentence that explains the alert, from its numbers. */
@@ -151,7 +151,7 @@ function AINotOn({ st }: { st: AIStatus | null }) {
   return <div className="mx-note" style={{ padding: 10 }}><b>{t('sm.ai.off')}</b><br />{t('sm.ai.offHelp')}</div>;
 }
 
-function Assistant({ me }: { me: Me }) {
+export function Assistant({ me }: { me: Me }) {
   const { t } = useTranslation();
   const base = useBase();
   const [st, reloadSt] = useAIStatus();

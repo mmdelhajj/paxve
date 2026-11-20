@@ -23,7 +23,7 @@ function useLoad<T>(path: string | null, init: T): [T, () => void] {
 
 export const STATES = ['trial', 'active', 'grace', 'expired', 'blocked'] as const;
 const METHODS = ['cash', 'whish', 'omt', 'bank', 'card', 'other'];
-const MODES = ['dash', 'orgs', 'requests', 'payments', 'plans', 'ai'] as const;
+const MODES = ['dash', 'orgs', 'requests', 'leads', 'payments', 'plans', 'ai'] as const;
 type Mode = typeof MODES[number];
 
 export interface Org {
@@ -100,9 +100,85 @@ export default function PlatformConsole({ initial }: { initial?: string }) {
       {mode === 'dash' && <Dash orgs={orgs} go={go} />}
       {mode === 'orgs' && <Orgs orgs={orgs} plans={plans} reload={reloadOrgs} focus={focus} />}
       {mode === 'requests' && <Requests plans={plans} reloadOrgs={reloadOrgs} />}
+      {mode === 'leads' && <Leads />}
       {mode === 'payments' && <Payments />}
       {mode === 'plans' && <Plans plans={plans} reload={reloadPlans} />}
       {mode === 'ai' && <PlatformAI />}
+    </div>
+  );
+}
+
+// ---------- demo requests from the marketing site (phase 6b) ----------
+
+interface Lead {
+  id: string; name: string; company: string; phone: string; email: string; business: string; city: string; message: string; lang: string;
+  status: string; notes: string; created_at: string; updated_at: string;
+}
+const LEAD_ST = ['new', 'contacted', 'won', 'lost'] as const;
+
+function Leads() {
+  const { t } = useTranslation();
+  const [st, setSt] = useState('');
+  const [rows, reload] = useLoad<Lead[]>(`/platform/leads${st ? `?status=${st}` : ''}`, []);
+  const [sel, setSel] = useState<Lead | null>(null);
+  const [notes, setNotes] = useState('');
+  const [msg, setMsg] = useState<Msg>(null);
+  const save = (body: { status?: string; notes?: string }) => {
+    if (!sel) return;
+    api<Lead>(`/platform/leads/${sel.id}`, { method: 'PATCH', body })
+      .then((x) => { setSel(x); setMsg({ ok: true, text: t('pc.saved') }); reload(); })
+      .catch((e) => setMsg({ ok: false, text: errorText(t, e) }));
+  };
+  const cols: Col<Lead>[] = [
+    { key: 'at', title: t('pc.ld.at'), get: (r) => r.created_at, render: (r) => formatDateTime(r.created_at), width: 130 },
+    { key: 'name', title: t('pc.ld.name'), get: (r) => r.name, width: 150 },
+    { key: 'company', title: t('pc.ld.company'), get: (r) => r.company, width: 150 },
+    { key: 'business', title: t('pc.ld.business'), get: (r) => t(`site.biz.${r.business}.t`, { defaultValue: r.business }), width: 120 },
+    { key: 'phone', title: t('pc.f.phone'), get: (r) => r.phone, width: 110 },
+    { key: 'email', title: t('pc.f.email'), get: (r) => r.email, width: 170 },
+    { key: 'city', title: t('pc.ld.city'), get: (r) => r.city, width: 100 },
+    { key: 'status', title: t('pc.f.state'), get: (r) => t(`pc.ld.st.${r.status}`), cls: (r) => (r.status === 'new' ? 'red' : ''), width: 90 },
+  ];
+  return (
+    <div className="mx-body" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, 380px)' }}>
+      <section className="mx-box">
+        <h3>{t('pc.m.leads')}</h3>
+        <div className="mx-row" style={{ padding: 6, gap: 6 }}>
+          <select aria-label={t('pc.f.state')} value={st} onChange={(e) => setSt(e.currentTarget.value)}>
+            <option value="">{t('pc.ld.all')}</option>
+            {LEAD_ST.map((x) => <option key={x} value={x}>{t(`pc.ld.st.${x}`)}</option>)}
+          </select>
+          <span className="mx-sp" />
+          <small>{t('pc.ld.hint')}</small>
+        </div>
+        <DataGrid rows={rows} cols={cols} rowKey={(r) => r.id} selected={sel?.id ?? null} onSelect={(r) => { setSel(r); setNotes(r.notes); setMsg(null); }} />
+      </section>
+      <section className="mx-box">
+        <h3>{sel ? sel.name : t('pc.ld.pick')}</h3>
+        {sel && (
+          <div className="mx-col" style={{ padding: 8, gap: 6 }}>
+            <Flash m={msg} />
+            <table className="mx-mini"><tbody>
+              <tr><th>{t('pc.ld.company')}</th><td>{sel.company || '—'}</td></tr>
+              <tr><th>{t('pc.ld.business')}</th><td>{t(`site.biz.${sel.business}.t`, { defaultValue: sel.business })}</td></tr>
+              <tr><th>{t('pc.f.phone')}</th><td dir="ltr">{sel.phone || '—'}</td></tr>
+              <tr><th>{t('pc.f.email')}</th><td dir="ltr">{sel.email || '—'}</td></tr>
+              <tr><th>{t('pc.ld.city')}</th><td>{sel.city || '—'}</td></tr>
+              <tr><th>{t('pc.ld.message')}</th><td style={{ whiteSpace: 'pre-wrap' }}>{sel.message || '—'}</td></tr>
+            </tbody></table>
+            <div className="mx-row" style={{ gap: 4, flexWrap: 'wrap' }}>
+              {LEAD_ST.map((x) => <button key={x} className={`mx-btn sm ${sel.status === x ? 'main' : ''}`} onClick={() => save({ status: x })}>{t(`pc.ld.st.${x}`)}</button>)}
+            </div>
+            <label className="mx-col" style={{ gap: 2 }}>{t('pc.ld.notes')}
+              <textarea rows={4} value={notes} onChange={(e) => setNotes(e.currentTarget.value)} /></label>
+            <div className="mx-row" style={{ gap: 6 }}>
+              {sel.phone && <a className="mx-btn sm" href={`https://wa.me/${sel.phone.replace(/[^\d]/g, '')}`} target="_blank" rel="noreferrer">WhatsApp</a>}
+              <span className="mx-sp" />
+              <button className="mx-btn main" onClick={() => save({ notes })}>{t('pc.save')}</button>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

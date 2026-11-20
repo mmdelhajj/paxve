@@ -13,6 +13,8 @@ import { errorText, formatAmount, formatDate } from '../../util';
 import LangSwitch from '../../components/LangSwitch';
 import { applyLang } from '../../i18n';
 import Logo from '../../components/Logo';
+import InstallApp from '../../components/InstallApp';
+import PortalMore, { rememberPortal } from './PortalMore';
 import { invoiceColor, type InvoiceDetail, type Money } from '../../billing';
 
 interface PInvoice {
@@ -44,6 +46,7 @@ export default function Portal({ token }: { token: string }) {
     let chosen = false;
     try { chosen = localStorage.getItem('paxve.portal.lang') === '1'; } catch { /* storage unavailable */ }
     if (!chosen && x.customer.locale) applyLang(x.customer.locale);
+    rememberPortal({ token, company: x.company.name_ar || x.company.name_en, name: x.customer.name }); // the installed "My account" app opens it
     setD(x);
   }).catch(() => setD('missing'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,7 +92,10 @@ export default function Portal({ token }: { token: string }) {
       <Paper radius={0} shadow="xs" px="md" py="xs">
         <Group justify="space-between" wrap="nowrap">
           <Text fw={700} truncate>{company}</Text>
-          <LangSwitch onChange={() => { try { localStorage.setItem('paxve.portal.lang', '1'); } catch { /* storage unavailable */ } }} />
+          <Group gap={6} wrap="nowrap">
+            <InstallApp className="" label={t('pwa.short')} style={{ font: 'inherit', fontSize: 13, fontWeight: 600, border: '1px solid #D5DCE6', background: '#fff', borderRadius: 999, padding: '4px 10px', cursor: 'pointer' }} />
+            <LangSwitch onChange={() => { try { localStorage.setItem('paxve.portal.lang', '1'); } catch { /* storage unavailable */ } }} />
+          </Group>
         </Group>
       </Paper>
       <Container size="sm" py="lg" px="md">
@@ -161,6 +167,7 @@ export default function Portal({ token }: { token: string }) {
               </Table>
             </Paper>
           )}
+          <PortalMore token={token} />
           <Group justify="center" gap={6} c="dimmed"><Text size="xs">{t('portal.poweredBy')}</Text><Logo /></Group>
         </Stack>
       </Container>

@@ -1,0 +1,43 @@
+const { chromium } = require('playwright');
+const fs = require('fs');
+const base = 'https://paxve.com';
+const st = JSON.parse(fs.readFileSync('/out/state.json', 'utf8'));
+(async () => {
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'ar', timezoneId: 'Asia/Beirut' });
+  const page = await ctx.newPage();
+  const http = []; const errs = [];
+  page.on('response', (r) => { if (r.status() >= 400 && r.url().includes('/api/')) http.push(r.status() + ' ' + r.url().replace(/[0-9a-f-]{36}/g, ':id').slice(-70)); });
+  page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 150)); });
+  page.on('popup', (p) => { console.log('popup opened', p.url().slice(0, 80)); });
+  await page.goto(`${base}/#/login`); await page.waitForSelector('input[type=password]');
+  await page.fill('input[type=email], input[name=email]', st.email); await page.fill('input[type=password]', st.pass);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(3000);
+  const sel = page.locator('.mx-title select').first();
+  const opts = await sel.locator('option').allTextContents().catch(() => []);
+  const demo = opts.find((o) => /Demo|تجريبية/.test(o)); if (demo) { await sel.selectOption({ label: demo }); await page.waitForTimeout(1500); }
+  await page.goto(`${base}/#/jibaya`); await page.waitForTimeout(2500);
+  const focused0 = await page.evaluate(() => { const a = document.activeElement; return a ? a.tagName + ' ' + (a.placeholder || a.getAttribute('aria-label') || a.className).slice(0, 40) : ''; });
+  console.log('focus on open:', focused0);
+  await page.keyboard.press('F2'); await page.waitForTimeout(400);
+  const focused1 = await page.evaluate(() => { const a = document.activeElement; return a ? a.tagName + ' ' + (a.placeholder || a.getAttribute('aria-label') || a.className).slice(0, 40) : ''; });
+  console.log('focus after F2:', focused1);
+  await page.keyboard.type('خليل'); await page.waitForTimeout(900);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(1500);
+  const focused2 = await page.evaluate(() => { const a = document.activeElement; return a ? a.tagName + ' ' + (a.placeholder || a.getAttribute('aria-label') || a.className).slice(0, 40) : ''; });
+  console.log('focus after Enter:', focused2);
+  await page.screenshot({ path: '/out/jb-1-picked.png' });
+  await page.keyboard.type('10'); await page.keyboard.press('Tab'); await page.keyboard.type('1,163,500'); await page.waitForTimeout(600);
+  await page.screenshot({ path: '/out/jb-2-amounts.png' });
+  const panel = await page.evaluate(() => document.body.innerText.match(/إيصال قبض[\s\S]{0,400}/)?.[0]?.replace(/\s+/g, ' '));
+  console.log('panel:', panel);
+  await page.keyboard.press('Enter'); await page.waitForTimeout(3000);
+  await page.screenshot({ path: '/out/jb-3-saved.png' });
+  const after = await page.evaluate(() => [...document.querySelectorAll('.mx-flash, [role=alert], .mantine-Notification-root')].map((e) => e.textContent.trim()).join(' | '));
+  console.log('after save msg:', after, '| http', http.join(' ; '), '| console', errs.join(' ; '));
+  // correction screen
+  await page.goto(`${base}/#/payments`); await page.waitForTimeout(2500);
+  await page.screenshot({ path: '/out/jb-4-payments.png' });
+  console.log('payments text:', (await page.evaluate(() => document.body.innerText.replace(/\s+/g, ' '))).slice(0, 600));
+  await browser.close();
+})();

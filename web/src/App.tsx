@@ -18,9 +18,13 @@ const OrderTrack = lazy(() => import('./pages/public/Shop').then((m) => ({ defau
 const Careers = lazy(() => import('./pages/public/Careers'));
 const SignPage = lazy(() => import('./pages/public/Sign'));
 const Optout = lazy(() => import('./pages/public/Sign').then((m) => ({ default: m.Optout })));
+const MyAccounts = lazy(() => import('./pages/public/PortalMore').then((m) => ({ default: m.MyAccounts })));
 const PosDisplay = lazy(() => import('./pages/pos/PosApp').then((m) => ({ default: m.CustomerDisplay })));
 const ForcedMfa = lazy(() => import('./pages/Security').then((m) => ({ default: m.ForcedMfa })));
 const Shell = lazy(() => import('./Shell'));
+
+// phase 6b: the installed apps (Paxve Field, Paxve Owner) open straight on the sign-in screen, not the marketing site
+const APP_ROUTES = ['owner', 'collect', 'driver', 'tech', 'van', 'scan'];
 
 const fullPageLoader = (
   <Center h="100vh">
@@ -90,15 +94,17 @@ function Root() {
   if (route === 'careers' && arg) return <Suspense fallback={fullPageLoader}><Careers slug={arg} key={arg} /></Suspense>;
   if (route === 'sign' && arg) return <Suspense fallback={fullPageLoader}><SignPage token={arg} key={arg} /></Suspense>;
   if (route === 'optout' && arg) return <Suspense fallback={fullPageLoader}><Optout token={arg} key={arg} /></Suspense>;
+  // phase 6b: the installed customer app starts here and opens the account remembered on this phone
+  if (route === 'my') return <Suspense fallback={fullPageLoader}><MyAccounts /></Suspense>;
   if (me === undefined) return fullPageLoader;
   if (me === null) {
     const signedIn = (m: Me) => {
       setSignedIn(true, true);
       applyLang(m.locale);
-      window.location.hash = '#/dashboard';
+      if (!APP_ROUTES.includes(route)) window.location.hash = '#/dashboard'; // an installed app keeps its own screen
       setMe(m);
     };
-    if (route === 'login') return <Login onLogin={signedIn} />;
+    if (route === 'login' || APP_ROUTES.includes(route)) return <Login onLogin={signedIn} />;
     if (route === 'signup') return <Suspense fallback={fullPageLoader}><Signup onSignedUp={signedIn} /></Suspense>;
     return <Suspense fallback={fullPageLoader}><Landing /></Suspense>;
   }

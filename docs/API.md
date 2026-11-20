@@ -537,3 +537,29 @@ Apps: `/rest/` → pos, `/pharma/` `/van/` `/verticals/` → stk, `/furn/` → c
 | GET | `/pharma/search?q` · `/pharma/alternatives?item_id` · `/pharma/expiry[?days]` · `/pharma/controlled?from&to[&all=1]` | |
 | GET · PUT | `/pharma/settings` | `{block_expired, expiry_alert_days}` |
 | GET · POST | `/pharma/claims[?status&insurer_id]` · `/pharma/claims/{id}/submit\|settle\|reject` | settle `{method_id, date}` (same currency) moves the receivable to the box; reject writes it off |
+
+## Installable apps, marketing site and leftovers (migration 00047)
+
+Public (no sign-in):
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/public/site` | `{plans [{code, name_en, name_ar, name_fr, price_monthly, price_yearly, currency, max_subscribers, max_users, max_companies, apps, ai_monthly_limit}], phone, email}` (public, active plans; cached 5 min) |
+| POST | `/public/demo-request` | `{name, company, phone, email, business, city, message, lang, website}` — phone or e-mail required; `business` one of the 12 types or `other`; `website` is a honeypot; 5 an hour per address (`rate_limited`) |
+| GET | `/portal/{token}/more` | `{consumption [{meter_no, period, reading, used}], tickets [{number, subject, status, category, created_at, rating, rating_token}], orders [{number, total, currency, status, token}]}` |
+| POST | `/portal/{token}/tickets` | `{subject, description, category}` → `{number}`; channel `portal`, SLA applied, at most 5 a day per customer |
+
+Platform owner: `GET /platform/leads[?status=new|contacted|won|lost]`, `PATCH /platform/leads/{id} {status, notes}`.
+
+Company (`/companies/{cid}`):
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/owner/today` | `reports.view`: `{day, base_currency, collected, sales, cash, receivable [{currency, amount, overdue, customers}], counts {alerts, alerts_high, approvals, orders_today}, alerts}` (alerts only with `smart.view`) |
+| GET · PUT | `/payroll-options` | `{post_date: auto \| period_end}` (`payroll.view` / `payroll.edit`) |
+| POST | `/import/supplier_openings` | rows `{supplier_code \| supplier_name, amount, currency, date, due_date, reference, description}`, options `{account_id, date}` — one opening supplier bill per row (Dr the equity / chosen account, Cr payables) |
+| POST | `/payments` (new field) | `client_time` (RFC 3339, with `client_ref`): when the offline device took the payment; kept when between 45 days ago and now |
+
+Smart alert kind `price_override`: per cashier and week, catalog prices lowered by hand at the till (`pos_orders.price_cut`,
+`price_cut_lines`); detail `{lines, pct, weeks}`. A collector who has a cash box of their own (`payment_methods.user_id`) can
+only use their own boxes (`invalid_tender`), and only those are listed to them.

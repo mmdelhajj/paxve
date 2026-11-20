@@ -132,6 +132,7 @@ const Vert = lazy(() => import('./pages/vert/Vert'));
 const Resto = lazy(() => import('./pages/vert/Resto'));
 const Kds = lazy(() => named(import('./pages/vert/Resto'), 'Kds'));
 const Van = lazy(() => import('./pages/vert/Van'));
+const OwnerApp = lazy(() => import('./pages/owner/Owner'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -150,7 +151,7 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
   'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'my-sub', 'retail', 'gaps', 'wh', 'scan', 'driver', 'shopfloor',
-  'projects', 'field', 'tech', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'my-appraisal', 'esign', 'smart', 'vert', 'resto', 'kds', 'van']);
+  'projects', 'field', 'tech', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'my-appraisal', 'esign', 'smart', 'vert', 'resto', 'kds', 'van', 'owner']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -286,8 +287,11 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
     const exit = () => { window.location.hash = me.role === 'collector' ? '#/collect' : '#/wh/ops'; };
     return <Suspense fallback={pageFallback}>{page === 'scan' ? <WhScan me={me} onExit={exit} /> : <WhDriver me={me} onExit={exit} />}</Suspense>;
   }
+  if (page === 'owner' && me.role !== 'collector' && me.role !== 'cashier') {
+    return <Suspense fallback={pageFallback}><OwnerApp me={me} onLogout={onLogout} onExit={() => { window.location.hash = '#/dashboard'; }} /></Suspense>;
+  }
   if (page === 'resto' || page === 'kds' || page === 'van') {
-    const exit = () => { window.location.hash = me.role === 'cashier' ? '#/pos' : page === 'van' ? '#/vert/wholesale' : '#/vert/restaurant'; };
+    const exit = () => { window.location.hash = me.role === 'cashier' ? '#/pos' : me.role === 'collector' ? '#/collect' : page === 'van' ? '#/vert/wholesale' : '#/vert/restaurant'; };
     return <Suspense fallback={pageFallback}>{page === 'resto' ? <Resto me={me} onExit={exit} /> : page === 'kds' ? <Kds me={me} onExit={exit} /> : <Van me={me} onExit={exit} />}</Suspense>;
   }
   if (me.role === 'cashier' || page === 'pos') {

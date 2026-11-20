@@ -24,6 +24,7 @@ import {
   setPaper, paperWidth, type PairedPrinter, type PrintLine,
 } from '../../bt';
 import { cacheGet, cacheSet, enqueue, newClientRef, outbox, syncOutbox } from '../../outbox';
+import InstallApp, { setBadge } from '../../components/InstallApp';
 
 const DriverTrips = lazy(() => import('../wh/Driver').then((m) => ({ default: m.DriverTrips })));
 const TechJobs = lazy(() => import('../fsv/Field').then((m) => ({ default: m.TechJobs })));
@@ -86,6 +87,37 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
   }, [cid]);
   useEffect(load, [load]);
 
+  // phase 6b — "Paxve Field": one installable app for collectors, drivers, technicians and van salesmen. The tabs
+  // with work waiting show a count; the app icon shows the total (deliveries + jobs + payments not sent yet).
+  const [work, setWork] = useState<{ trips: number; jobs: number; van: boolean }>({ trips: -1, jobs: -1, van: false });
+  useEffect(() => {
+    if (!cid || !navigator.onLine) return;
+    const open = (s: string) => !['done', 'cancelled', 'invoiced', 'closed', 'completed'].includes(s);
+    let live = true;
+    const run = () => {
+      Promise.allSettled([
+        api<{ status: string }[]>(`/companies/${cid}/wh/trips?mine=1`),
+        api<{ status: string }[]>(`/companies/${cid}/fs/my-jobs`),
+        api<{ van?: { id: string } | null }>(`/companies/${cid}/van/today`),
+      ]).then(([a, b, c]) => {
+        if (!live) return;
+        setWork({
+          trips: a.status === 'fulfilled' ? a.value.filter((x) => open(x.status)).length : -1,
+          jobs: b.status === 'fulfilled' ? b.value.filter((x) => open(x.status)).length : -1,
+          van: c.status === 'fulfilled' && !!c.value?.van,
+        });
+      });
+    };
+    run();
+    const id = window.setInterval(run, 120000);
+    return () => { live = false; window.clearInterval(id); };
+  }, [cid]);
+  useEffect(() => { setBadge(Math.max(work.trips, 0) + Math.max(work.jobs, 0) + pending); }, [work, pending]);
+  const office = me.role !== 'collector';
+  const showTrips = office || work.trips > 0;
+  const showJobs = office || work.jobs > 0;
+  const count = (n: number) => (n > 0 ? <Badge size="xs" circle ml={4} color="red">{n}</Badge> : null);
+
   // send queued payments whenever we are online
   useEffect(() => {
     if (!online) return;
@@ -134,6 +166,7 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
               : <Badge color="red" leftSection={<IconCloudOff size={12} />}>{t('collector.offline')}</Badge>}
           </Group>
           <Group gap={4} wrap="nowrap">
+            <InstallApp label={t('pwa.short')} />
             {bluetoothSupported() && (
               <ActionIcon variant={printer ? 'filled' : 'light'} color={printer ? 'teal' : 'gray'} size="lg" onClick={pickPrinter}
                 aria-label={t('collector.printer')}><IconBluetooth size={18} /></ActionIcon>
@@ -164,14 +197,17 @@ export default function CollectorApp({ me, onLogout }: { me: Me; onLogout: () =>
       </Paper>
 
       <Container size="sm" px="sm" py="sm">
+        {work.van && (
+          <Button fullWidth mb="sm" variant="light" component="a" href="#/van">{t('pwa.field.van')}</Button>
+        )}
         <Tabs defaultValue="customers" keepMounted={false}>
-          <Tabs.List grow mb="sm">
+          <Tabs.List mb="sm" style={{ flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'hidden' }}>
             <Tabs.Tab value="customers">{t('bill.customers')}</Tabs.Tab>
-            <Tabs.Tab value="day">{t('collector.myDay')}</Tabs.Tab>
+            <Tabs.Tab value="day">{t('collector.myDay')}{count(pending)}</Tabs.Tab>
             <Tabs.Tab value="route">{t('sm.rt.tab')}</Tabs.Tab>
             <Tabs.Tab value="readings">{t('bill.readings')}</Tabs.Tab>
-            <Tabs.Tab value="trips">{t('wh.drv.tab')}</Tabs.Tab>
-            <Tabs.Tab value="jobs">{t('fsv.tech.tab')}</Tabs.Tab>
+            {showTrips && <Tabs.Tab value="trips">{t('wh.drv.tab')}{count(work.trips)}</Tabs.Tab>}
+            {showJobs && <Tabs.Tab value="jobs">{t('fsv.tech.tab')}{count(work.jobs)}</Tabs.Tab>}
           </Tabs.List>
 
           <Tabs.Panel value="customers">

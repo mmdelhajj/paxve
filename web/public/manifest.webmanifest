@@ -1,12 +1,62 @@
 {
-  "name": "Paxve",
-  "short_name": "Paxve",
-  "description": "Accounting and billing for subscription businesses",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#f8f9fa",
-  "theme_color": "#0f766e",
-  "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
-  ]
+    "id":  "/",
+    "name":  "Paxve",
+    "short_name":  "Paxve",
+    "description":  "Paxve ERP: accounting, billing, stock, sales and more",
+    "start_url":  "/",
+    "scope":  "/",
+    "display":  "standalone",
+    "orientation":  "any",
+    "dir":  "auto",
+    "lang":  "ar",
+    "background_color":  "#F4F6F9",
+    "theme_color":  "#0B1F3A",
+    "icons":  [
+                  {
+                      "src":  "/icons/main-192.png",
+                      "sizes":  "192x192",
+                      "type":  "image/png",
+                      "purpose":  "any"
+                  },
+                  {
+                      "src":  "/icons/main-512.png",
+                      "sizes":  "512x512",
+                      "type":  "image/png",
+                      "purpose":  "any"
+                  },
+                  {
+                      "src":  "/icons/main-192-maskable.png",
+                      "sizes":  "192x192",
+                      "type":  "image/png",
+                      "purpose":  "maskable"
+                  },
+                  {
+                      "src":  "/icons/main-512-maskable.png",
+                      "sizes":  "512x512",
+                      "type":  "image/png",
+                      "purpose":  "maskable"
+                  }
+              ],
+    "shortcuts":  [
+                      {
+                          "name":  "Paxve Field",
+                          "url":  "/field",
+                          "icons":  [
+                                        {
+                                            "src":  "/icons/field-192.png",
+                                            "sizes":  "192x192"
+                                        }
+                                    ]
+                      },
+                      {
+                          "name":  "Paxve Owner",
+                          "url":  "/owner",
+                          "icons":  [
+                                        {
+                                            "src":  "/icons/owner-192.png",
+                                            "sizes":  "192x192"
+                                        }
+                                    ]
+                      }
+                  ]
 }

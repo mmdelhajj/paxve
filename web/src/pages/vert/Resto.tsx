@@ -272,6 +272,15 @@ function PayPanel({ base, cat, d, session, dec, lineIds, onClose, onPaid, onErro
   const cur = cat.register.currency;
   const methods = cat.methods.filter((m) => m.currency === cur);
   const received = methods.reduce((a, m) => a + Number(amounts[m.id] || 0), 0);
+  const [parts, setParts] = useState(1);
+  const [guests, setGuests] = useState<string[]>([]); // method id per guest who paid their share
+  const unit = 10 ** dec;
+  const baseShare = Math.floor((total * unit) / parts) / unit;
+  const share = (i: number) => (i === parts - 1 ? Math.round((total - baseShare * (parts - 1)) * unit) / unit : baseShare);
+  const payGuest = (i: number, mid: string) => {
+    setGuests((g) => { const n = [...g]; n[i] = mid; return n; });
+    setAmounts((a) => ({ ...a, [mid]: String(Math.round((Number(a[mid] || 0) + share(i)) * unit) / unit) }));
+  };
   const confirm = async () => {
     setBusy(true);
     try {
@@ -294,7 +303,28 @@ function PayPanel({ base, cat, d, session, dec, lineIds, onClose, onPaid, onErro
           <tr><th>{t('vt.f.total')}</th><th dir="ltr" style={{ fontSize: 20 }}>{formatAmount(total, dec)} {cur}</th></tr>
         </tbody></table>
         <small>{t('vt.r.taxNote')}</small>
-        {methods.map((m) => (
+        {/* phase 6b: split equally — each guest pays one share (the last one takes the rounding), recorded as tenders of one sale */}
+        <div className="mx-row" style={{ gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+          <span>{t('vt.r.splitEq')}</span>
+          <input type="number" min={1} max={30} dir="ltr" aria-label={t('vt.r.splitEq')} style={{ width: 60 }} value={parts}
+            onChange={(e) => { setParts(Math.max(1, Math.min(30, Number(e.currentTarget.value) || 1))); setGuests([]); setAmounts({}); }} />
+          {parts > 1 && <b dir="ltr">{t('vt.r.eachPays', { v: formatAmount(share(0), dec), n: parts })}</b>}
+        </div>
+        {parts > 1 && (
+          <div className="mx-box" style={{ marginTop: 6, padding: 6, maxHeight: 180, overflowY: 'auto' }}>
+            {Array.from({ length: parts }, (_, i) => {
+              const g = guests[i];
+              return (
+                <div key={i} className="mx-row" style={{ gap: 6, padding: '2px 0' }}>
+                  <span style={{ flex: 1 }}>{t('vt.r.guestN', { n: i + 1 })} · <span dir="ltr">{formatAmount(share(i), dec)}</span></span>
+                  {g ? <span className="mx-pill ok">{methods.find((m) => m.id === g)?.name ?? ''} ✓</span>
+                    : methods.map((m) => <button key={m.id} className="mx-btn sm" onClick={() => payGuest(i, m.id)}>{m.name}</button>)}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {parts === 1 && methods.map((m) => (
           <div key={m.id} className="mx-row" style={{ gap: 6, marginTop: 6 }}>
             <span style={{ flex: 1 }}>{m.name}</span>
             <input dir="ltr" inputMode="decimal" style={{ width: 110, fontSize: 18 }} value={amounts[m.id] ?? ''} onChange={(e) => { const v = e.currentTarget.value.replace(/[^\d.]/g, ''); setAmounts((a) => ({ ...a, [m.id]: v })); }} />

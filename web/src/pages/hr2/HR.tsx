@@ -524,6 +524,28 @@ interface Slip {
 }
 interface RunDetail { run: Run; payslips: Slip[]; payments: { id: string; payment_date: string; method: string; currency: string; amount: string }[]; company: { name_en: string; name_ar: string } }
 
+/** Phase 6b: on which date a payroll run is posted — today when the month is running (default) or always the month end. */
+function PostDateOption({ base, canEdit }: { base: string | null; canEdit: boolean }) {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { if (base) api<{ post_date: string }>(`${base}/payroll-options`).then((x) => setMode(x.post_date)).catch(() => setMode(null)); }, [base]);
+  if (!base || mode === null) return null;
+  return (
+    <label className="mx-row" style={{ padding: 6, gap: 6, flexWrap: 'wrap', borderTop: '1px solid var(--mx-line, #e3e8ef)' }}>
+      <span>{t('hr2.postDate')}</span>
+      <select value={mode} disabled={!canEdit} onChange={(e) => {
+        const v = e.currentTarget.value;
+        api<{ post_date: string }>(`${base}/payroll-options`, { method: 'PUT', body: { post_date: v } }).then((x) => { setMode(x.post_date); setSaved(true); setTimeout(() => setSaved(false), 2000); }).catch(() => {});
+      }}>
+        <option value="auto">{t('hr2.postDateAuto')}</option>
+        <option value="period_end">{t('hr2.postDateEnd')}</option>
+      </select>
+      {saved && <small>✓ {t('common.saved')}</small>}
+    </label>
+  );
+}
+
 function PayrollMode({ me }: { me: Me }) {
   const { t, i18n } = useTranslation();
   const { company, decimalsOf } = useCompany();
@@ -587,6 +609,7 @@ function PayrollMode({ me }: { me: Me }) {
           <button className="mx-btn" onClick={() => void run(api<RunDetail>(`${base}/payroll`, { method: 'POST', body: { period } }), (d) => { reloadRuns(); setCur(d); })}>{t('hr2.newRun')}</button>
         </div>}
         <DataGrid rows={runs} cols={runCols} rowKey={(r) => r.id} selected={cur?.run.id ?? null} onSelect={(r) => { setSlip(null); open(r.id); }} />
+        <PostDateOption base={base} canEdit={canEdit} />
       </section>
       <section className="mx-box"><h3>{cur ? `${t('hr2.payroll')} ${cur.run.period} · ${t(`hr2.rs.${cur.run.status}`)}${cur.run.approved_by_name ? ` · ${t('hr2.approvedBy')} ${cur.run.approved_by_name}` : ''}` : t('hr2.pickRun')}</h3>
         {cur && (<>

@@ -1,0 +1,40 @@
+{
+    "id":  "/field",
+    "name":  "Paxve Field",
+    "short_name":  "Paxve Field",
+    "description":  "Collect, read meters, deliver, service and sell from the van - works offline",
+    "start_url":  "/field",
+    "scope":  "/",
+    "display":  "standalone",
+    "orientation":  "any",
+    "dir":  "auto",
+    "lang":  "ar",
+    "background_color":  "#F4F6F9",
+    "theme_color":  "#0B1F3A",
+    "icons":  [
+                  {
+                      "src":  "/icons/field-192.png",
+                      "sizes":  "192x192",
+                      "type":  "image/png",
+                      "purpose":  "any"
+                  },
+                  {
+                      "src":  "/icons/field-512.png",
+                      "sizes":  "512x512",
+                      "type":  "image/png",
+                      "purpose":  "any"
+                  },
+                  {
+                      "src":  "/icons/field-192-maskable.png",
+                      "sizes":  "192x192",
+                      "type":  "image/png",
+                      "purpose":  "maskable"
+                  },
+                  {
+                      "src":  "/icons/field-512-maskable.png",
+                      "sizes":  "512x512",
+                      "type":  "image/png",
+                      "purpose":  "maskable"
+                  }
+              ]
+}

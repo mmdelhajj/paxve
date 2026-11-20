@@ -13,7 +13,7 @@ import { accountLabel, notifyError, today } from '../util';
 import PageHeader from '../components/PageHeader';
 import { saveFile } from '../native';
 
-type ImportType = 'customers' | 'subscriptions' | 'opening_balances' | 'readings' | 'accounts';
+type ImportType = 'customers' | 'subscriptions' | 'opening_balances' | 'supplier_openings' | 'readings' | 'accounts';
 
 interface FieldDef { key: string; required?: boolean; synonyms: string[]; sample: string }
 
@@ -46,6 +46,16 @@ const FIELDS: Record<ImportType, FieldDef[]> = {
     { key: 'date', synonyms: ['date', 'التاريخ', 'تاريخ'], sample: today() },
     { key: 'description', synonyms: ['description', 'memo', 'البيان', 'بيان', 'libellé', 'désignation'], sample: 'Balance from old system' },
   ],
+  supplier_openings: [
+    { key: 'supplier_code', synonyms: ['supplier code', 'code', 'supplier', 'رمز المورد', 'الرمز', 'code fournisseur'], sample: 'S001' },
+    { key: 'supplier_name', synonyms: ['supplier name', 'name', 'اسم المورد', 'المورد', 'fournisseur', 'nom'], sample: '' },
+    { key: 'currency', synonyms: ['currency', 'cur', 'العملة', 'عملة', 'devise'], sample: 'USD' },
+    { key: 'amount', required: true, synonyms: ['amount', 'balance', 'due', 'المبلغ', 'الرصيد', 'montant', 'solde'], sample: '1200' },
+    { key: 'date', synonyms: ['date', 'التاريخ', 'تاريخ'], sample: today() },
+    { key: 'due_date', synonyms: ['due date', 'due', 'تاريخ الاستحقاق', 'échéance'], sample: '' },
+    { key: 'reference', synonyms: ['reference', 'ref', 'invoice no', 'رقم الفاتورة', 'المرجع', 'référence'], sample: '' },
+    { key: 'description', synonyms: ['description', 'memo', 'البيان', 'libellé'], sample: 'Balance from old system' },
+  ],
   readings: [
     { key: 'customer_code', synonyms: ['customer code', 'code', 'customer', 'رمز المشترك', 'الرمز', 'code client'], sample: '1001' },
     { key: 'meter_no', synonyms: ['meter', 'meter no', 'counter', 'العداد', 'رقم العداد', 'compteur'], sample: '' },
@@ -65,6 +75,7 @@ const TYPES: { key: ImportType; icon: typeof IconUserCircle }[] = [
   { key: 'customers', icon: IconUserCircle },
   { key: 'subscriptions', icon: IconUsersGroup },
   { key: 'opening_balances', icon: IconReceipt2 },
+  { key: 'supplier_openings', icon: IconReceipt2 },
   { key: 'readings', icon: IconGauge },
   { key: 'accounts', icon: IconBook2 },
 ];
@@ -144,7 +155,7 @@ export default function Import() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (company && type === 'opening_balances') api<Account[]>(`/companies/${company.id}/accounts`).then(setAccounts).catch(() => {});
+    if (company && (type === 'opening_balances' || type === 'supplier_openings')) api<Account[]>(`/companies/${company.id}/accounts`).then(setAccounts).catch(() => {});
   }, [company, type]);
 
   const headers = useMemo(() => (table.length ? (hasHeader ? table[0] : table[0].map((_, i) => `#${i + 1}`)) : []), [table, hasHeader]);
@@ -155,7 +166,8 @@ export default function Import() {
     return o;
   }), [dataRows, mapping]);
   const missingRequired = FIELDS[type].filter((f) => f.required && !mapping[f.key]);
-  const readingsKeyMissing = type === 'readings' && !mapping.customer_code && !mapping.meter_no;
+  const readingsKeyMissing = (type === 'readings' && !mapping.customer_code && !mapping.meter_no) ||
+    (type === 'supplier_openings' && !mapping.supplier_code && !mapping.supplier_name);
 
   function load(text: string) {
     const tbl = parseTable(text);
@@ -239,7 +251,7 @@ export default function Import() {
               <Checkbox label={t('import.updateExisting')} checked={options.update_existing === 'true'}
                 onChange={(e) => setOptions((o) => ({ ...o, update_existing: String(e.currentTarget.checked) }))} />
             )}
-            {type === 'opening_balances' && (
+            {(type === 'opening_balances' || type === 'supplier_openings') && (
               <Group grow align="flex-end">
                 <Select label={t('import.openingAccount')} searchable clearable placeholder={t('import.openingAccountDefault')}
                   data={accounts.filter((a) => a.is_postable && a.is_active).map((a) => ({ value: a.id, label: accountLabel(a) }))}

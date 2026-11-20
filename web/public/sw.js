@@ -2,8 +2,9 @@
 // API calls are never cached here; offline data lives in the app (localStorage outbox/cache).
 // The page code is split into chunks; on every app start the page asks the worker to "sync",
 // which precaches all chunks listed in the Vite build manifest and drops chunks of old builds.
-const CACHE = 'paxve-shell-v2';
-const SHELL = ['/', '/favicon.svg', '/manifest.webmanifest'];
+const CACHE = 'paxve-shell-v3';
+const SHELL = ['/', '/favicon.svg', '/pwa.js', '/manifest.webmanifest', '/manifest-field.webmanifest', '/manifest-my.webmanifest',
+  '/manifest-owner.webmanifest', '/icons/main-192.png', '/icons/field-192.png', '/icons/my-192.png', '/icons/owner-192.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => syncAssets()).catch(() => {}));
@@ -56,6 +57,12 @@ self.addEventListener('fetch', (event) => {
         return res;
       })),
     );
+    return;
+  }
+  // the boot script, manifests and icons: network first (they change rarely), cached copy offline
+  if (SHELL.includes(url.pathname) && url.pathname !== '/') {
+    event.respondWith(fetch(req).then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); return res; })
+      .catch(() => caches.match(req)));
     return;
   }
   // pages: network first, fall back to the cached shell

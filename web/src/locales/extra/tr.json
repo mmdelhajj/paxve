@@ -1012,6 +1012,7 @@
   "already_matched": "Bu günlük satırı zaten eşleşti",
   "already_on_instalments": "Bu fatura zaten taksitli.",
   "already_revalued": "Bu ay zaten yeniden değerlendi",
+  "already_scheduled": "Bu siparişin zaten planlanmış bir teslimatı var.",
   "amount_too_large": "Bu miktar veya miktar çok büyük.",
   "app_disabled": "Bu uygulama bu şirket için kapalı (Ayarlar → Uygulamalar).",
   "app_not_in_plan": "Bu uygulama Paxve planınıza dahil değil. Ayarlar → Paxve aboneliğim bölümünden planınızı yükseltin.",
@@ -1038,6 +1039,8 @@
   "cart_changed": "Bazı ürünler değişti veya tükendi",
   "change_method_required": "Değişikliğin nereden verileceğini seçin",
   "chart_not_empty": "Bu şirketin zaten hesapları var",
+  "check_closed": "Bu kontrol zaten kapalı.",
+  "check_partly_paid": "Bu çekin bir kısmı ödenmiştir; iptal edilemez.",
   "cheque_debit": "Bu miktar iade edilen bir çekten gelir. Kontroller ekranından halledin.",
   "cheque_frozen": "Bu çek dondurulmuş: önce onu çözün.",
   "cheque_payment": "Bu ödeme bir çekle yapıldı: Çekler ekranından bu işlemi geri alın (geri çevrildi veya iade edildi).",
@@ -1111,6 +1114,7 @@
   "invalid_gateway": "Bu ödeme şekli mevcut değildir.",
   "invalid_generator": "Geçersiz oluşturucu",
   "invalid_gift_card": "Hediye kartı kodunu ve tutarını kontrol edin.",
+  "invalid_insurer": "Sigorta şirketini seçin.",
   "invalid_invoice": "Geçersiz fatura",
   "invalid_item": "Geçersiz veya etkin olmayan öğe",
   "invalid_job": "Pozisyon bulunamadı",
@@ -1123,7 +1127,9 @@
   "invalid_lot": "Her partinin bir numaraya ve miktara ihtiyacı vardır (seri numarası 1 sayılır)",
   "invalid_method": "Aktif bir kasa veya banka hesabı seçin.",
   "invalid_milestone": "Bu kilometre taşı projede yer almıyor",
+  "invalid_modifier": "Bu değiştirici bu öğe için geçerli değildir.",
   "invalid_op": "Bilinmeyen görev.",
+  "invalid_option": "Bilinmeyen seçenek: {{detail}} .",
   "invalid_order": "Bu şirketin bir siparişini seçin.",
   "invalid_package": "Bu deponun açık paketini veya paletini seçin.",
   "invalid_parent": "Geçersiz ebeveyn hesabı",
@@ -1141,18 +1147,23 @@
   "invalid_router": "Geçersiz yönlendirici",
   "invalid_routing": "Bilinmeyen yönlendirme.",
   "invalid_schedule": "Bu şirketin çalışma programını seçin.",
+  "invalid_serial": "Seri numarası boş, çok uzun veya iki kez yazılmış.",
+  "invalid_size": "Genişlik ve derinliği cm cinsinden yazın.",
   "invalid_slug": "3-40 arası küçük harf, rakam veya tire kullanın",
   "invalid_source": "Belge bulunamadı",
+  "invalid_split": "Ücretsiz hatlardan bazılarını seçin (en az birinin kalması gerekir).",
   "invalid_stage": "Geçersiz aşama",
   "invalid_station": "Geçersiz istasyon",
   "invalid_subscription": "Abonelik bulunamadı",
   "invalid_supplier": "Geçersiz tedarikçi",
+  "invalid_table": "Bu tablo mevcut değil veya kapalı.",
   "invalid_task": "Bu projede görev bulunamadı",
   "invalid_tax": "Bu vergi burada kullanılamaz",
   "invalid_tender": "Alınan para hatlarını kontrol edin",
   "invalid_ticket": "İstek bulunamadı",
   "invalid_time": "Bitiş zamanı başlangıç ​​zamanından sonra olmalıdır",
   "invalid_tolerance": "Minimum, maksimumun üzerinde olmamalıdır.",
+  "invalid_trade_in": "Takas işlemini kontrol edin: bir stok kalemi, bir değer ve (seri kalemler için) seri numarası.",
   "invalid_trigger": "Bu kayıt bu tetikleyiciyi kullanamaz",
   "invalid_unit": "Bu birim bu öğe için kullanılamaz",
   "invalid_url": "Adres geçerli değil (yalnızca https).",
@@ -1169,6 +1180,7 @@
   "leave_overlap": "Bu günler başka bir izin talebiyle çakışıyor",
   "location_required": "Konumun devreye girmesine izin verin.",
   "logo_too_big": "Logo çok büyük (en fazla 250 KB)",
+  "lot_expired": "{{detail}} lotunun süresi doldu: satılamaz.",
   "lot_insufficient": "Bu partide yeterli miktar kalmadı",
   "lots_mismatch": "Parti miktarlarının toplamı satır miktarına eşit olmalıdır ( {{detail}} )",
   "loyalty_off": "Önce sadakat programını açın.",
@@ -1199,9 +1211,11 @@
   "no_support": "Hiçbir destek görünümü açık değil.",
   "no_template": "Bu tür için mesaj şablonu yok",
   "no_timer": "Hiçbir zamanlayıcı çalışmıyor",
+  "no_van": "Size herhangi bir minibüs tahsis edilmedi.",
   "no_working_days": "Bu tarihlerde iş günü yoktur",
   "not_a_stock_item": "Depoda yalnızca stok kalemlerinin yeri vardır.",
   "not_a_template": "Önce nitelikleri kaydedin.",
+  "not_a_van": "Bu depo bir kamyonet değil.",
   "not_an_image": "Fotoğraf bir resim olmalıdır.",
   "not_enough_in_bin": "Bu kutuda yeterli değil: {{detail}}",
   "not_enough_points": "Yeterli puan yok (mevcut: {{detail}} ).",
@@ -1213,6 +1227,7 @@
   "not_subcontract": "Bu sipariş taşeron değildir.",
   "not_trial": "Bu örgüt yargılanmıyor.",
   "not_your_area": "Bu abone bölgenizde değil. Yöneticiden alanı size atamasını isteyin.",
+  "not_your_van": "Bu minibüs başka bir satıcıya ait.",
   "nothing_done": "En az bir adet yapılanı girin.",
   "nothing_to_bill": "Bu siparişte faturalandırılacak hiçbir şey kalmadı",
   "nothing_to_deliver": "Teslim edilecek hiçbir şey kalmadı",
@@ -1228,6 +1243,7 @@
   "op_not_pickable": "Görevlerden biri bu deponun hazır seçimi değil veya zaten bir parti halinde.",
   "opening_control_account": "Müşteriler, tedarikçiler, stoklar, hediye kartları ve puanların kendi bakiyeleri vardır: İthalat yoluyla açık müşteriler → açılış bakiyeleri, açılış tedarikçi faturası olan tedarikçiler, stok sayımı olan stoklar.",
   "order_in_progress": "Bu siparişin teslimatları veya faturaları var. Önce onları geçersiz kılın.",
+  "order_not_confirmed": "Önce siparişi onaylayın.",
   "org_blocked": "Bu kuruluş engellendi. {{detail}}",
   "outside_area": "İşyerinde değilsiniz ( {{detail}} uzakta).",
   "over_billing": "Siparişte hâlâ açık olandan daha fazlası: {{detail}}",
@@ -1251,6 +1267,7 @@
   "po_not_confirmed": "Siparişi teslim almadan ve faturalandırmadan önce onaylayın",
   "pod_needs_name_or_signature": "Malları kimin aldığını yazın veya imzalatın.",
   "posted_locked": "Gönderilen girişler değiştirilemez. Bunun yerine girişi ters çevirin.",
+  "prescription_required": "Bu ilacın reçeteye ihtiyacı var: Doktoru ve reçete numarasını yazın.",
   "price_edit_forbidden": "Bu tarihe kadar fiyatları değiştirmenize izin verilmez.",
   "price_mismatch": "Fatura fiyatı siparişten farklı: {{detail}}",
   "project_closed": "Proje kapatıldı",
@@ -1282,6 +1299,7 @@
   "same_plan": "Plan zaten bu.",
   "self_approval": "Kendi isteğinizi onaylayamazsınız",
   "serial_in_stock": "Seri numarası {{detail}} zaten stokta",
+  "serials_mismatch": "{{detail}} satılan birim başına bir seri numarası yazın.",
   "serials_required": "Bu öğenin seri numaralarını yazın",
   "server_error": "Bir şeyler ters gitti. Lütfen tekrar deneyin.",
   "session_closed": "Bu oturum kapalı. Yeni bir tane açın.",
@@ -1299,6 +1317,8 @@
   "support_active": "Bir destek görünümü zaten açık. Önce bunu sonlandırın.",
   "support_ended": "Destek görünümü sona erdi. Sayfayı yeniden yükleyin.",
   "support_read_only": "Destek görünümü: hiçbir şey değiştirilemez.",
+  "table_busy": "Bu tabloda zaten açık bir çek var.",
+  "table_required": "Yemekli check-in için bir masa seçin.",
   "template_has_stock": "Bu öğenin stoğu var: şablon olamaz. Şablon için yeni bir öğe oluşturun.",
   "text_too_long": "Bu metin çok uzun.",
   "timesheet_invoiced": "Bu saatler faturalandırıldı: bunları değiştirmek için faturayı geçersiz kılın",
@@ -1313,12 +1333,15 @@
   "unknown_plan": "Bu plan mevcut değil veya kapalı.",
   "unsupported_file": "Fotoğraf (JPG, PNG, WebP) veya PDF kullanın",
   "use_warehouse_steps": "Bu sipariş depo adımlarından (toplama, paketleme, sevkıyat) geçer: Depo operasyonlarında sevkıyat görevini tamamlar.",
+  "van_day_not_open": "Minibüsün günü açık değil: önce minibüsü yükleyin.",
+  "van_day_open": "Bu minibüsün zaten açık bir günü var.",
   "variant_cannot_be_template": "Bir varyantın kendisi bir şablon olamaz.",
   "waive_over_fee": "Ücretten fazlasını geri veremezsiniz.",
   "weak_password": "Şifre en az 10 karakter olmalıdır",
   "wps_not_setup": "Önce şirketin WPS ayrıntılarını (işveren kimliği ve banka) ayarlayın",
   "wrong_account_type": "Bir gelir/gider hesabı ve ertelenmiş gelir (borç)/ön ödemeli (varlık) hesabı seçin",
   "wrong_password": "Mevcut şifre yanlış",
+  "wrong_register": "Çek kasasında bir oturumla ödeme yapın.",
   "wrong_status": "Bu işlem bu giriş için mümkün değil",
   "year_closed": "Bu yıl zaten kapalı.",
   "year_not_closed": "Bu yıl kapanmadı.",
@@ -2843,6 +2866,9 @@
   },
   "position": "İş unvanı",
   "post": "Postalamak",
+  "postDate": "Maaş bordrolarını yayınlayın",
+  "postDateAuto": "bugün ay devam ederken (aksi takdirde ay sonu)",
+  "postDateEnd": "her zaman ayın son günü",
   "present": "Sunmak",
   "print": "Yazdır",
   "printAll": "Tüm maaş bordrolarını yazdır",
@@ -3020,6 +3046,7 @@
    "customer_code": "Müşteri kodu",
    "date": "Tarih",
    "description": "Tanım",
+   "due_date": "Bitiş tarihi",
    "email": "E-posta",
    "fee_override": "Özel ücret",
    "initial_reading": "Okumaya başlamak",
@@ -3033,8 +3060,11 @@
    "phone2": "İkinci telefon",
    "plan": "Planı",
    "reading": "Okuma",
+   "reference": "Tedarikçi fatura no.",
    "start_date": "Başlangıç ​​tarihi",
    "status": "Durum",
+   "supplier_code": "Tedarikçi kodu",
+   "supplier_name": "Tedarikçi adı",
    "type": "Tip"
   },
   "fixErrors": "Dosyanızdaki bu satırları düzeltip tekrar yükleyin. Hiçbir şey ithal edilmedi.",
@@ -3044,7 +3074,8 @@
    "customers": "Kod, isim, telefon, alan… Alanlar otomatik olarak oluşturulur.",
    "opening_balances": "Her müşterinin eski sistemden borçları (fatura oluşturur).",
    "readings": "Müşteri koduna veya sayaç numarasına göre bir aylık sayaç okumaları.",
-   "subscriptions": "Müşteri kodu + plan adı (planların mevcut olması gerekir)."
+   "subscriptions": "Müşteri kodu + plan adı (planların mevcut olması gerekir).",
+   "supplier_openings": "Şirketin Paxve taşınırken her tedarikçiye borçlu olduğu miktar (bir açılış tedarikçi faturası oluşturur)."
   },
   "invalid": "Hatalı",
   "notInFile": "Dosyada yok",
@@ -3070,7 +3101,8 @@
    "customers": "Müşteriler",
    "opening_balances": "Açılış bakiyeleri",
    "readings": "Sayaç okumaları",
-   "subscriptions": "Abonelikler"
+   "subscriptions": "Abonelikler",
+   "supplier_openings": "Tedarikçi bakiyeleri"
   },
   "updateExisting": "Kodu zaten mevcut olan müşterileri güncelleyin",
   "usePasted": "Yapıştırılan verileri kullan",
@@ -4697,11 +4729,17 @@
   },
   "biz": {
    "clothing": "Giyim ve ayakkabı",
+   "electronics": "Elektronik",
+   "factory": "Fabrika",
+   "furniture": "Mobilya",
    "generator": "Jeneratör",
    "internet": "internet",
+   "pharmacy": "Eczane",
+   "restaurant": "Restoran",
    "satellite": "Uydu",
    "supermarket": "Süpermarket",
-   "water": "su"
+   "water": "su",
+   "wholesale": "Toptan"
   },
   "blockReason": "Oturum açma sırasında gösterilen neden (ör. ücretsiz)",
   "blockedOk": "Engellendi: Bu kuruluştan hiç kimse oturum açamaz.",
@@ -4798,6 +4836,7 @@
     "body": "Paxve kaydolan her kuruluş, şu anki durumuna göre sayılır: deneme aşamasında, aktif (ücretli), yetkisiz (bitiş tarihi geçti ancak hala birkaç gün çalışabilirler), süresi doldu (bakıp dışa aktarabilirler ancak kaydedemezler) ve engellendi (kimse oturum açamaz).\n\n Aylık gelir (MRR), her aktif veya ödemesiz kuruluşun aylık fiyatını ekler; Yıllık planlar onikinci olarak sayılır. Arkasındaki listeyi açmak için bir kutuyu tıklayın.",
     "title": "Platforma genel bakış"
    },
+   "leads": "Paxve.com'da demo isteyen kişiler. Onları arayın veya WhatsApp arayın, ardından iletişime geçildi, kazanıldı veya kaybedildi olarak işaretleyin.",
    "orgs": {
     "body": "Eyalete, plana veya ülkeye göre filtreleyin veya arayın. Excel / CSV aktarmak için ızgaraya sağ tıklayın.\n\n Kullanıcılarını, şirketlerini, kullanımını, ödemelerini ve her eylemin geçmişini görmek için bir kuruluş seçin. Yenileme bir ödemeyi kaydeder ve son ödeme tarihini uzatır. Block her oturum açma işlemini durdurur ve nedenini gösterir. Destek görünümü, kuruluşu yönetici olarak, salt okunur olarak, mor bir başlıkla açar; banner'dan sonlandırın.",
     "title": "Organizasyonlar"
@@ -4838,9 +4877,28 @@
    "upgrade": "Planı değiştir"
   },
   "lastLogin": "son oturum açma",
+  "ld": {
+   "all": "Tüm",
+   "at": "Kabul edilmiş",
+   "business": "İşletme",
+   "city": "Şehir",
+   "company": "Şirket",
+   "hint": "paxve.com'daki formdan",
+   "message": "Mesaj",
+   "name": "İsim",
+   "notes": "Notlarınız",
+   "pick": "Sol taraftan bir istek seçin.",
+   "st": {
+    "contacted": "İletişime geçildi",
+    "lost": "Kayıp",
+    "new": "Yeni",
+    "won": "Kazanmak"
+   }
+  },
   "m": {
    "ai": "yapay zeka",
    "dash": "Genel Bakış",
+   "leads": "Demo istekleri",
    "orgs": "Organizasyonlar",
    "payments": "Alınan ödemeler",
    "plans": "Planlar ve fiyatlar",
@@ -5541,6 +5599,80 @@
   "voidPaymentConfirm": "Bu tedarikçi ödemesi iptal edilsin mi? Yevmiye kaydı ters çevrilir ve faturalar tekrar ödenmemiş hale gelir.",
   "warehouse": "Depo"
  },
+ "pwa": {
+  "field": {
+   "van": "Bugünkü minibüsüm → sat, yükle ve günü kapat"
+  },
+  "install": "Uygulamayı yükleyin",
+  "iosHint": "iPhone'da: Paylaş düğmesine ve ardından \"Ana Ekrana Ekle\"ye dokunun.",
+  "my": {
+   "c": {
+    "billing": "Fatura",
+    "complaint": "Şikayet",
+    "disconnect": "Hizmeti durdur",
+    "meter": "Metre",
+    "move": "Taşınmak",
+    "new_connection": "Yeni bağlantı",
+    "no_internet": "İnternet yok",
+    "no_signal": "Sinyal yok",
+    "other": "Diğer",
+    "outage": "Elektrik kesintisi",
+    "slow": "Yavaş internet"
+   },
+   "cat": "Tip",
+   "consumption": "Tüketim",
+   "details": "Detaylar",
+   "forget": "Bu telefondaki hesapları unut",
+   "meter": "Metre {{m}}",
+   "none": "Faturanızdaki veya WhatsApp mesajınızdaki bağlantıyı bir kez açın; Bu uygulama onu hatırlayacaktır.",
+   "orders": "Çevrimiçi siparişlerim",
+   "rate": "Oran",
+   "report": "Sorun bildir",
+   "send": "Göndermek",
+   "sent": "İstek # {{n}} gönderildi. Seni arayacağız.",
+   "st": {
+    "cancelled": "iptal edildi",
+    "done": "sabit",
+    "in_progress": "devam etmekte",
+    "new": "yeni",
+    "waiting": "beklemek"
+   },
+   "subject": "Ders",
+   "tickets": "İstekler ve sorunlar",
+   "title": "Hesabım",
+   "track": "İzlemek"
+  },
+  "owner": {
+   "alertsN": "{{n}} uyarı",
+   "allAlerts": "Sistemdeki tüm uyarılar →",
+   "approvalsN": "{{n}} onay bekleniyor",
+   "askBtn": "İşletmeniz hakkında bilgi alın",
+   "cash": "Kasalarda ve bankalarda",
+   "cashHint": "tüm kasalar, cüzdanlar ve banka hesapları",
+   "collected": "Bugün toplandı",
+   "full": "Tüm sistemi aç",
+   "highN": "{{n}} acil",
+   "latest": "En son uyarılar",
+   "markRead": "Tümünü okundu olarak işaretle",
+   "menu": "Menü",
+   "nInvoices": "{{n}} fatura",
+   "nPayments": "{{n}} ödeme",
+   "offline": "Yenilenemedi — son rakamlar gösteriliyor.",
+   "ordersN": "{{n}} bugün sipariş verdi",
+   "overdue": "vadesi geçmiş",
+   "owed": "Müşteriler borçlu",
+   "sales": "Bugünkü satışlar",
+   "t": {
+    "alerts": "Uyarılar",
+    "ask": "Sormak",
+    "news": "Bildirimler",
+    "today": "Bugün"
+   },
+   "today": "Bugün {{day}}",
+   "updated": "güncellendi {{at}}"
+  },
+  "short": "Düzenlemek"
+ },
  "rates": {
   "currency": "Para birimi",
   "current": "Güncel oranlar",
@@ -5818,9 +5950,21 @@
    "clothing": "Giyim ve ayakkabı",
    "clothingDesc": "Boyutlar × renkler, çeşit başına barkod, sezonluk indirimler, 3'e 2 teklifler, sadakat, hediye kartları.",
    "demo": "Demo verilerini de yükle",
+   "electronics": "Elektronik ve mobil mağaza",
+   "electronicsDesc": "Her satış ve satın alma işleminde seri / IMEI, seri geçmişi, garanti kartı ve talepler, onarımlar, takaslar, taksitler.",
+   "factory": "Fabrika / atölye",
+   "factoryDesc": "İş merkezleri, başlangıç ​​malzeme listesi ve rotalama, üretim siparişleri, MRP, kalite ve atölye tableti.",
+   "furniture": "Mobilya ve showroom",
+   "furnitureDesc": "Opsiyonlu ve m² fiyatıyla siparişe göre üretilen ürünler, %30 depozito, teslimat + montaj planlaması, showroom stoku.",
    "hint": "Bir iş paketi, doğru uygulamaları, sadakat programını ve perakende varsayılanlarını açar ve her şeyi denemek için demo verilerini (ürünler, promosyonlar, kasa) yükleyebilir.",
+   "pharmacy": "Eczane",
+   "pharmacyDesc": "Son kullanma tarihi geçmiş lotlar (FEFO, süresi dolmuş bloke edilmiş), alternatifler, reçeteler, kontrollü kayıt, sigorta ile genel / içerik araması.",
+   "restaurant": "Restoran / kafe",
+   "restaurantDesc": "Tablolar ve kat planı, değiştiriciler, istasyona göre mutfak gösterimi, bölünmüş faturalar, servis ücreti ve bahşişler, yemek tarifleri, yemek maliyeti yüzdesi.",
    "supermarket": "Süpermarket / minimarket",
-   "supermarketDesc": "Tartılan ürünler ve tartı etiketleri, promosyonlar, sadakat puanları, hediye kartları, son kullanma tarihi yaklaşmış indirimler, hızlı kasa."
+   "supermarketDesc": "Tartılan ürünler ve tartı etiketleri, promosyonlar, sadakat puanları, hediye kartları, son kullanma tarihi yaklaşmış indirimler, hızlı kasa.",
+   "wholesale": "Toptan satış / dağıtım",
+   "wholesaleDesc": "Fiyat kademeleri, uygulanan kredi limitleri, satıcı rotaları, telefondan minibüs satışları (çevrimdışı), gün sonu sayımı, komisyon."
   },
   "portal": {
    "gift": "Hediye kartı {{code}} : {{balance}}",
@@ -5888,11 +6032,17 @@
   "signup": {
    "b": {
     "clothing": "Giyim ve ayakkabı",
+    "electronics": "Elektronik ve mobil mağaza",
+    "factory": "Fabrika / atölye",
+    "furniture": "Mobilya ve showroom",
     "generator": "Jeneratör / elektrik",
     "internet": "İnternet sağlayıcısı",
+    "pharmacy": "Eczane",
+    "restaurant": "Restoran / kafe",
     "satellite": "Uydu TV",
     "supermarket": "Süpermarket / minimarket",
-    "water": "su"
+    "water": "su",
+    "wholesale": "Toptan satış / dağıtım"
    },
    "business": "İşletmeniz",
    "demoHint": "Uygulamaları kuruyoruz ve daha sonra silebileceğiniz demo öğeleri ve promosyonlar ekliyoruz."
@@ -6278,6 +6428,315 @@
   "submit": "Hesap oluştur ve başla",
   "title": "Paxve hesabınızı oluşturun"
  },
+ "site": {
+  "android": "Android uygulaması (APK)",
+  "biz": {
+   "clothing": {
+    "d": "Boyutlar ve renkler, sezonlar, değişimler ve hediye kartları.",
+    "f": {
+     "0": "Boyut ve renge göre çeşitler",
+     "1": "Kasada değişim ve iade",
+     "2": "Hediye kartları ve teklifler",
+     "3": "En iyi ve yavaş satanlar"
+    },
+    "t": "Giyim"
+   },
+   "electronics": {
+    "d": "Her satış, garanti ve onarım, takas ve taksitlerde seri / IMEI.",
+    "f": {
+     "0": "Alış ve satışta seri / IMEI",
+     "1": "Garanti kartı ve talepler",
+     "2": "Kısmi ödeme olarak takas",
+     "3": "Taksitli satışlar"
+    },
+    "t": "Elektronik"
+   },
+   "factory": {
+    "d": "Malzeme listeleri, iş emirleri, kalite ve ürün başına gerçek maliyet.",
+    "f": {
+     "0": "Çok seviyeli malzeme listeleri",
+     "1": "Malzeme planlaması (ne yapılmalı ve satın alınmalı)",
+     "2": "Zamanlayıcılı atölye tableti",
+     "3": "Gerçek maliyet ve standart maliyet"
+    },
+    "t": "Fabrika"
+   },
+   "furniture": {
+    "d": "Boyut ve seçenekler, depozito, teslimat ve montaj ile siparişe göre üretilir.",
+    "f": {
+     "0": "Seçenekler ve m² fiyatı",
+     "1": "Teslimatta depozito ve bakiye",
+     "2": "Teslimat ve montaj planlaması",
+     "3": "Showroom stoğu"
+    },
+    "t": "Mobilya"
+   },
+   "generator": {
+    "d": "Amper veya metre bazında aylık faturalar, telefondaki okumalar, alana göre tahsilat, kesintiler ve yeniden bağlantılar.",
+    "f": {
+     "0": "Dizel ek ücreti ile sabit veya ölçülü tarifeler",
+     "1": "Koleksiyoncular için sayaç okuma uygulaması",
+     "2": "Alan başına toplama kutuları ve günlük mutabakat",
+     "3": "Hırsızlık uyarılarıyla saat başına dizel kullanımı"
+    },
+    "t": "Jeneratörler"
+   },
+   "internet": {
+    "d": "Abonelikler ve hız planları, yenilemeler, yönlendiriciler ve ağ cihazları, destek biletleri.",
+    "f": {
+     "0": "Otomatik aylık yenileme ve askıya alma",
+     "1": "MikroTik / ağ cihazı listesi",
+     "2": "Yanıt süresi sınırlaması olan biletler",
+     "3": "Faturaları görmek ve ödemek için müşteri bağlantısı"
+    },
+    "t": "İnternet (İSS)"
+   },
+   "pharmacy": {
+    "d": "Lotlar ve son kullanma tarihi, aktif maddeye, reçetelere ve sigorta şirketlerine göre arama yapın.",
+    "f": {
+     "0": "İlk son kullanma tarihi, süresi dolmuş engellendi",
+     "1": "Alternatiflerle birlikte genel ada göre arama yapın",
+     "2": "Reçeteler ve kontrollü ilaçlar",
+     "3": "Talep olarak sigortacı payı"
+    },
+    "t": "Eczane"
+   },
+   "restaurant": {
+    "d": "Masalar, mutfak ekranı, ekstralar, bölünmüş faturalar ve yemek bedeli.",
+    "f": {
+     "0": "Kat planı ve tablolar",
+     "1": "İstasyona göre mutfak ekranı",
+     "2": "Bölünmüş faturalar, servis ücreti ve bahşişler",
+     "3": "Stok kullanan tarifler, günlük yemek maliyeti"
+    },
+    "t": "Restoran ve kafe"
+   },
+   "satellite": {
+    "d": "Paketler ve kutular, yenilemeler ve kapıdan kapıya toplama.",
+    "f": {
+     "0": "Paket abonelikleri ve eklentiler",
+     "1": "Alıcı ve kart serileri",
+     "2": "Makbuzları olan koleksiyoncu uygulaması",
+     "3": "Nedenleriyle birlikte geç ödeyenler listesi"
+    },
+    "t": "Uydu / TV"
+   },
+   "sub": "İşletmenizi seçin: Paxve ilk günden itibaren doğru ekranları, hesapları ve ayarları açar.",
+   "supermarket": {
+    "d": "Her satışı takip eden barkod, teklifler, sadakat puanları ve stoklarla hızlı işlem yapın.",
+    "f": {
+     "0": "Hızlı barkod, çevrimdışı çalışıyor",
+     "1": "Teklifler, kuponlar ve sadakat puanları",
+     "2": "Son kullanma tarihleri ​​ve akıllı yeniden sıralama",
+     "3": "Nakit sayımı ile yakın vardiya"
+    },
+    "t": "Süpermarket"
+   },
+   "title": "Sizin türdeki işleriniz için tasarlandı",
+   "water": {
+    "d": "Galon veya metre, teslimat yolları ve şişelerdeki birikintiler.",
+    "f": {
+     "0": "Sayaçlı veya sabit aylık planlar",
+     "1": "Teslimat gezileri ve teslimat kanıtı",
+     "2": "Şişe yatırma ve iadeleri",
+     "3": "Müşteri başına beyanlar"
+    },
+    "t": "su"
+   },
+   "wholesale": {
+    "d": "Fiyat kademeleri, kredi limitleri ve telefondan satış yapan bir minibüs.",
+    "f": {
+     "0": "Fiyat listeleri ve toplu indirimler",
+     "1": "Kredi limitleri uygulandı",
+     "2": "Kamyonet stoğu: yükleyin, çevrimdışı satın, günü kapatın",
+     "3": "Satıcı komisyonu"
+    },
+    "t": "Toptan ve kamyonet satışları"
+   }
+  },
+  "bizTry": "{{name}} için Paxve deneyin",
+  "cmp": {
+   "no": "HAYIR",
+   "old": "Eski masaüstü programı",
+   "part": "Kısmen",
+   "r": {
+    "alerts": "Hırsızlık ve hata uyarıları",
+    "apps": "Ekip ve müşteriler için telefon uygulamaları",
+    "arabic": "Tamamen Arapça, İngilizce ve Fransızca",
+    "backup": "Bulutta otomatik yedeklemeler",
+    "currency": "Her belgede USD ve LBP",
+    "ledger": "Hesaplar otomatik olarak gönderildi",
+    "offline": "İnternet olmadan topla ve sat",
+    "shop": "Stoklara bağlı çevrimiçi mağaza"
+   },
+   "sheets": "Excel / not defteri",
+   "sub": "İlk günde ne değişir?",
+   "title": "Neden Excel veya eski program değil?",
+   "yes": "Evet"
+  },
+  "contact": {
+   "sub": "Bize işletmenizden bahsedin: Size Paxve kendi çalışma tarzınızla gösteriyor ve verilerinizi taşımanıza yardımcı oluyoruz.",
+   "title": "Bizimle konuşun"
+  },
+  "demo": "Demo rezervasyonu yapın",
+  "faq": {
+   "q1": {
+    "a": "Evet. Müşteriler, abonelikler, bakiyeler, okumalar ve hesap planı Excel veya doğrudan eski Magic sisteminden gelir; her satır kontrol edilene kadar hiçbir şey yazılmaz.",
+    "q": "Eski programımdan verilerimi getirebilir miyim?"
+   },
+   "q2": {
+    "a": "Toplayıcı, kamyonet ve kasa çevrimdışı çalışmaya devam ediyor ve hat geri geldiğinde her şeyi gönderiyor; bir makbuz asla iki kez alınmaz.",
+    "q": "İnternet kesildiğinde çalışır mı?"
+   },
+   "q3": {
+    "a": "Evet: Faturalar, makbuzlar ve raporlar her ikisini de günün döviz kuruyla gösterir ve para üstü her iki para biriminde de verilebilir.",
+    "q": "Gerçekten dolar ve pound cinsinden mi?"
+   },
+   "q4": {
+    "a": "Günlük şifrelenmiş yedeklemelere sahip güvenli bir sunucuda. Her şirket yalnızca kendi verilerini görür ve her değişiklik günlüğe kaydedilir.",
+    "q": "Verilerim nerede ve güvende mi?"
+   },
+   "q5": {
+    "a": "Hayır. Paxve.com'u bilgisayarda veya telefonda açın; telefon uygulamalarını tarayıcıdan veya Android APK'sından da yükleyebilirsiniz.",
+    "q": "Herhangi bir şey yüklemem gerekiyor mu?"
+   },
+   "q6": {
+    "a": "Genellikle bir gün: İşletme türünüzü seçin, verilerinizi içe aktarın, ekibinizi ekleyin ve toplamaya başlayın.",
+    "q": "Başlamak ne kadar sürer?"
+   },
+   "q7": {
+    "a": "Evet. Sözleşme yok; verilerinizi istediğiniz zaman dışa aktarabilirsiniz.",
+    "q": "İstediğim zaman durabilir miyim?"
+   },
+   "title": "İnsanların sorduğu sorular"
+  },
+  "feat": {
+   "apps": {
+    "d": "Bugünün rakamlarını içeren sahip uygulaması, faturaları görmek ve ödemek için müşteri uygulaması ve bilgisayardaki tüm sistem.",
+    "t": "Herkes için uygulamalar"
+   },
+   "esign": {
+    "d": "Telefonda imzalamak için bir fiyat teklifi veya sözleşme gönderin; imzalı nüshası deliliyle birlikte saklanır.",
+    "t": "Elektronik imza"
+   },
+   "field": {
+    "d": "Koleksiyoncular, sürücüler, teknisyenler ve kamyonet satıcıları çevrimdışı olsa bile telefonda çalışıyor ve Bluetooth aracılığıyla makbuzları yazdırıyor.",
+    "t": "Saha için telefon uygulaması"
+   },
+   "mfg": {
+    "d": "Malzeme listeleri, iş emirleri, kalite kontrolleri, taşeronluk ve gerçek ürün maliyeti.",
+    "t": "Üretme"
+   },
+   "money": {
+    "d": "Günlük kuruyla birlikte USD ve LBP cinsinden her fatura, makbuz ve rapor; Her iki para biriminde verilen değişiklik.",
+    "t": "Dolar ve pound"
+   },
+   "security": {
+    "d": "İki adımlı oturum açma, roller ve izinler, her değişikliğin denetim günlüğü ve günlük şifrelenmiş yedeklemeler.",
+    "t": "Güvenli ve yedeklenmiş"
+   },
+   "shop": {
+    "d": "Stoklara, WhatsApp siparişlerine, kampanyalara ve kuponlara bağlı kendi mağaza sayfanız.",
+    "t": "Çevrimiçi mağaza ve WhatsApp"
+   },
+   "smart": {
+    "d": "Paxve dizel hırsızlığını, kıtlıklara, alışılmadık indirimlere ve geç ödeyenlere kadar izliyor ve rakamlarınızla ilgili soruları yanıtlıyor.",
+    "t": "Akıllı uyarılar ve yapay zeka"
+   },
+   "stock": {
+    "d": "Kutular ve raflar, barkod tarama, adım adım teslim alma ve toplama, imzalı teslimatlar.",
+    "t": "Stok ve depolar"
+   },
+   "sub": "Beş program ve bir dizüstü bilgisayar yerine tek bir sistem.",
+   "title": "Büyük bir şirketin sahip olduğu her şey küçük bir şirket için yeterince basit"
+  },
+  "foot": {
+   "made": "Lübnan'da üretilen iş yazılımı"
+  },
+  "form": {
+   "business": "İşletme türü",
+   "city": "Şehir / bölge",
+   "company": "İşletme adı",
+   "email": "E-posta",
+   "hint": "Telefon veya e-posta yeterlidir. Genellikle aynı gün cevap veriyoruz.",
+   "message": "Ne istiyorsun?",
+   "name": "Adınız",
+   "other": "Diğer",
+   "phone": "Telefon / WhatsApp",
+   "send": "Göndermek",
+   "thanks": "Teşekkür ederim!",
+   "thanksSub": "Talebinizi aldık ve sizi yakında arayacağız.",
+   "title": "Ücretsiz demo rezervasyonu yapın"
+  },
+  "hero": {
+   "badge": "Lübnan için üretildi · USD + LBP",
+   "lead": "Ekibiniz için muhasebe, abone faturalandırması, stok ve depolar, üretim, satış noktası, çevrimiçi mağaza ve telefon uygulamaları. İnternet olmasa bile dolar ve pound cinsinden.",
+   "note": "Ücretsiz deneme · kart gerekmez · verileriniz size ait kalır",
+   "t1": "Bir günde hazır",
+   "t2": "Verilerinizi eski sistemden getirin",
+   "t3": "Arapça, İngilizce, Fransızca",
+   "title": "Tüm işinizi tek bir sistemden yönetin - Arapça"
+  },
+  "installWeb": "Uygulama olarak yükle",
+  "metaTitle": "Paxve — işletme yönetimi: muhasebe, faturalandırma, stok, satış",
+  "mock": {
+   "app": "Koleksiyon",
+   "bill1": "Fatura · Eylül",
+   "bill2": "Fatura · Ekim",
+   "customer": "Samer Haddad",
+   "initials": "SH",
+   "late": "2 ay gecikti",
+   "pay": "Toplayın ve yazdırın",
+   "today": "Bugünkü kutu",
+   "total": "Ödemek"
+  },
+  "nav": {
+   "business": "İşletme türleri",
+   "contact": "Temas etmek",
+   "faq": "Sorular",
+   "features": "Özellikler",
+   "label": "Menü",
+   "pricing": "Fiyatlandırma"
+  },
+  "price": {
+   "ai": "Aylık yapay zeka soruları: {{n}}",
+   "all": "Tüm uygulamalar ve telefon uygulamaları",
+   "ask": "Bizden fiyat isteyin.",
+   "companies": "Şirketler: {{n}}",
+   "cycle": "Faturalandırma döngüsü",
+   "month": "ay",
+   "monthly": "Aylık",
+   "note": "Fiyatlar ABD doları cinsindendir. Nakit, Whish, OMT veya banka havalesiyle ödeme yapın.",
+   "popular": "En çok seçilen",
+   "sub": "Her planın tam sistemi vardır. İşletmenizin büyüklüğüne göre ödeme yapın.",
+   "subs": "Aboneler/müşteriler: {{n}}",
+   "title": "Basit fiyatlar",
+   "unlimited": "sınırsız",
+   "users": "Kullanıcılar: {{n}}",
+   "year": "yıl",
+   "yearly": "Yıllık (2 ay ücretsiz)"
+  },
+  "signIn": "Oturum aç",
+  "stats": {
+   "s1": {
+    "l": "iş türleri hazır",
+    "v": "12"
+   },
+   "s2": {
+    "l": "her fatura ve makbuzda",
+    "v": "USD + LBP"
+   },
+   "s3": {
+    "l": "internet olmadan topla ve sat",
+    "v": "Çevrimdışı"
+   },
+   "s4": {
+    "l": "diller",
+    "v": "11"
+   }
+  },
+  "trial": "Ücretsiz denemeyi başlat"
+ },
  "sm": {
   "ai": {
    "empty": "(cevap yok)",
@@ -6334,6 +6793,7 @@
     "dup_bill": "Yinelenen fatura",
     "fleet_fuel": "Araç yakıtı",
     "off_hours": "Gece ödemeleri",
+    "price_override": "Fiyatlar elle düşürüldü",
     "voids": "İptaller / geri ödemeler"
    },
    "kind": "Tip",
@@ -6374,6 +6834,7 @@
     "dup_bill": "# {{number_a}} ve # {{number_b}} numaralı banknotlarda {{what}} ( {{currency}} {{value}} ) bulunur",
     "fleet_fuel": "{{anomaly}} : {{value}} L/100 km (normal {{expected}} )",
     "off_hours": "{ {{first}} ile {{last}} (çalışma saatleri {{work_start}} :00– {{work_end}} :00) arasında kaydedilen {{payments}} ödeme, toplamda {{value}}",
+    "price_override": "Bu hafta katalog fiyatının altında {{lines}} satır satıldı, {{value}} daha az (satışların %'si {{pct}} )",
     "voids": "Bu hafta {{value}} geçersiz kılma, kredi notları ve geri ödemeler, normalde {{expected}} (faturalar {{invoices}} , ödemeler {{payments}} , kredi dekontları / geri ödemeler {{credit_notes}} )"
    },
    "what": "Ne oldu"
@@ -7087,6 +7548,396 @@
   "password": "Başlangıç ​​şifresi (en az 10 karakter)",
   "role": "Rol",
   "title": "Kullanıcılar"
+ },
+ "vt": {
+  "cl": {
+   "all": "Tüm",
+   "insurer": "Sigortacı",
+   "note": "Sigortacı payı “Sigorta alacakları” hesabına kaydedilmiştir. Ücretli: kutuya gider. Reddedildi: gider olarak silindi.",
+   "open": "Açık",
+   "paid": "Paralı",
+   "paidInto": "Ödenen",
+   "pending": "Göndermek",
+   "policy": "Politika #",
+   "reject": "Reddetmek",
+   "rejected": "Reddedilmiş",
+   "settle": "Paralı",
+   "submit": "Gönderildi",
+   "submitted": "Gönderildi"
+  },
+  "close": "Kapalı",
+  "del": "Silmek",
+  "dow": {
+   "0": "Güneş",
+   "1": "Pazartesi",
+   "2": "Salı",
+   "3": "Çar",
+   "4": "Per",
+   "5": "Cuma",
+   "6": "Doygunluk"
+  },
+  "e": {
+   "card": "Garanti kartı",
+   "covered": "Garanti kapsamında",
+   "doc": "Belge",
+   "expired": "Garanti bitti",
+   "history": "Tarih",
+   "inStock": "Stokta var",
+   "lookup": "Bakmak",
+   "months": "{{n}} ay",
+   "noWarranty": "Garanti yok",
+   "note": "Süreli yayınlar kasada (birim başına bir tane) ve faturalarda yazılır veya taranır; Takas olarak alınan ikinci el cihazlar serileri ile stoklara girmektedir.",
+   "partner": "Tedarikçi / müşteri",
+   "printCard": "Garanti kartını yazdırın",
+   "repairs": "Onarımlar",
+   "saleDate": "satıldı",
+   "serial": "Seri / IMEI",
+   "serialPh": "Seri / IMEI…",
+   "trackingNow": "Stok takibi: {{tracking}} · garanti {{m}} ay (Ürünler → stok ayarları).",
+   "unknown": "Bu seri numarası burada bilinmiyor.",
+   "until": "{{date}} tarihine kadar",
+   "warranty": "Garanti",
+   "what": "Hareket"
+  },
+  "f": {
+   "active": "Aktif",
+   "customer": "Müşteri",
+   "date": "Tarih",
+   "item": "Öğe",
+   "name": "İsim",
+   "price": "Fiyat",
+   "qty": "Adet",
+   "showAll": "Tümünü göster",
+   "status": "Durum",
+   "total": "Toplam",
+   "value": "Değer",
+   "warehouse": "Depo"
+  },
+  "fu": {
+   "area": "Alan {{a}} m²",
+   "assembly": "Toplantı",
+   "balance": "Teslimatta bakiye",
+   "copyHint": "Bu metni ve fiyatı teklif satırında kullanın.",
+   "days": "Gösterilen günler",
+   "delivery": "Teslimat",
+   "deposit": "Mevduat",
+   "depth": "derinlik",
+   "fitter": "Tesisatçı",
+   "job": "İş # {{n}}",
+   "mto": "Sipariş üzerine üretildi",
+   "noShowroom": "Hiçbir depo showroom olarak işaretlenmemiş veya boş.",
+   "note": "Depozito, siparişe bağlı hesaptaki bir müşteri ödemesidir: siparişin faturası bunu otomatik olarak kullanır. Yolculuk durağı, toplanacak bakiyeyi gösterir.",
+   "options": "Seçenekler (her satıra bir tane)",
+   "optionsHint": "Örnek: \"Kumaş: Keten, Kadife=150\" — rakam ekstra fiyattır.",
+   "paid": "Depozito ödendi",
+   "perM2": "m² başına {{p}}",
+   "ppm": "m² başına fiyat (temel para birimi)",
+   "price": "Fiyatlandır",
+   "receive": "Almak",
+   "required": "Depozito istendi",
+   "schedule": "Teslimatı planlayın",
+   "size": "Boyut",
+   "slot": "Zaman aralığı",
+   "trip": "Yolculuk # {{n}}",
+   "width": "Genişlik"
+  },
+  "g": {
+   "claims": "Sigorta talepleri",
+   "electronics": "Elektronik",
+   "furniture": "Mobilya",
+   "items": "İşletmeye göre öğe ayrıntıları",
+   "pharmacy": "Eczane",
+   "restaurant": "Restoran",
+   "wholesale": "Toptan ve kamyonet satışları"
+  },
+  "help": {
+   "claims": "Sigortacıların kasa satışlarındaki payı: teslim edin, ödeme yapıldığında uzlaşın veya reddedin.",
+   "commission": "Komisyon yüzdesi ile satıcı başına satış ve tahsilatlar.",
+   "configure": "Sipariş üzerine hazırlanan bir ürünü seçeneklerine ve boyutuna göre fiyatlandırın, ardından teklifteki metni ve fiyatı kullanın.",
+   "controlled": "Reçeteyle satılan her kontrollü ilaç.",
+   "days": "Her kamyonet günü: sabah yüklenir, akşam sayılır ve boşaltılır.",
+   "expiry": "Lotların süresi dolmuş veya değerleriyle birlikte yakında sona erecek.",
+   "foodcost": "Yiyecekler, stokta kalan malzemelerin maliyeti karşılığında satıldı.",
+   "itemfields": "İş paketlerinin kullandığı alanlar: seçenekler ve boyut fiyatı, ilaç detayları, mutfak istasyonu.",
+   "modifiers": "Bir ürün sipariş edildiğinde sunulan ekstralar ve \"olmayan\" seçenekleri.",
+   "orders": "İstenen ve ödenen depozito, teslimat gezisi ve montaj işi ile açık satış siparişleri.",
+   "psettings": "Süresi dolmuş lotlar satışta bloke edildi ve son kullanma uyarısı.",
+   "routes": "Her satıcının hangi müşterileri sırayla ve hangi günlerde ziyaret ettiği.",
+   "rsettings": "Servis ücreti ve restoran ekranları.",
+   "search": "İsme, barkoda, jenerik isme veya aktif maddeye göre arama yapın; Stoktaki alternatifleri görün.",
+   "serial": "Bir seri / IMEI'yi tarayın veya yazın: onu kim sağladı, kim satın aldı, garantisi ve onarımları.",
+   "showroom": "Parçaları showroom depolarında ve ne kadar süredir sergide olduklarını sergileyin.",
+   "tables": "Masalar ve kat planındaki yerleri.",
+   "vans": "Depoları kamyonet (satıcılarıyla birlikte) veya showroom olarak işaretleyin."
+  },
+  "job": {
+   "cancelled": "iptal edildi",
+   "done": "Tamamlandı",
+   "in_progress": "devam etmekte",
+   "invoiced": "faturalı",
+   "new": "yeni",
+   "scheduled": "planlanmış"
+  },
+  "k": {
+   "all": "Tüm",
+   "cooking": "yemek pişirmek",
+   "empty": "Şu anda yapacak bir şey yok.",
+   "new": "gönderilmedi",
+   "ready": "hazır",
+   "sent": "yapmak",
+   "serve": "Sunuldu",
+   "served": "servis edildi",
+   "start": "Başlangıç",
+   "void": "kaldırıldı"
+  },
+  "m": {
+   "claims": "İddialar",
+   "commission": "Komisyon",
+   "configure": "Yapılandırıcı",
+   "controlled": "Kontrollü kayıt",
+   "days": "Van günleri",
+   "expiry": "Son kullanma tarihi",
+   "foodcost": "Yemek maliyeti",
+   "itemfields": "Ürün ayrıntıları",
+   "modifiers": "Değiştiriciler",
+   "orders": "Siparişler",
+   "psettings": "Ayarlar",
+   "routes": "Rotalar",
+   "rsettings": "Ayarlar",
+   "search": "İlaç arama",
+   "serial": "Seri arama",
+   "showroom": "Showroom",
+   "tables": "Tablolar",
+   "vans": "Minibüsler ve showroomlar"
+  },
+  "new": "Eklemek",
+  "none": "Burada henüz bir şey yok.",
+  "p": {
+   "alertDays": "Sona ermeden önceki uyarı günleri",
+   "altOf": "{{name}} alternatifleri",
+   "alternatives": "{{n}} alternatif",
+   "block": "Süresi dolmuş bir lotu asla satmayın",
+   "by": "Tarafından satıldı",
+   "controlled": "Kontrollü",
+   "daysLeft": "Kalan gün sayısı",
+   "doctor": "Doktor",
+   "expired": "Günü geçmiş",
+   "expiredN": "{{n}} süresi doldu",
+   "expiringN": "{{n}} {{d}} gün içinde",
+   "expiry": "Son kullanma tarihi",
+   "expiryNote": "Süresi dolmuş stok: tedarikçiye geri gönderin (borç dekontu) veya hurdaya çıkarın. Lotlar ilk vade bitiminde satılır.",
+   "form": "Biçim",
+   "generic": "genel ad",
+   "ingredient": "Aktif madde",
+   "lot": "Pay",
+   "needLots": "Son kullanma tarihini takip etmek için bu öğeyi partiye göre (Öğeler → stok ayarları) takip edin.",
+   "nextExpiry": "Sonraki sona erme",
+   "noExpiry": "Hiçbir şeyin süresi dolmadı veya yakında sona erecek.",
+   "notBlocked": "Süresi dolmuş lotlar satışta engellenmez: Ayarlar'dan açın.",
+   "patient": "Hasta",
+   "rx": "Reçete",
+   "rxNo": "Reçete #",
+   "sale": "Satış",
+   "same": "aynı güç",
+   "search": "Aramak",
+   "searchPh": "Ad, barkod, genel ad veya içerik…",
+   "settingsNote": "Kasa, reçeteli ve kontrollü ilaçların reçetesini ister.",
+   "stock": "Stokta var",
+   "strength": "Kuvvet",
+   "withRx": "Reçeteli ilaçlar da",
+   "within": "(gün) içinde"
+  },
+  "pos": {
+   "condition": "Durum…",
+   "doctor": "Doktor",
+   "insPct": "Sigortacı %",
+   "insurance": "Sigorta",
+   "insurer": "Sigortacı",
+   "patient": "Hasta",
+   "policy": "Politika #",
+   "rx": "Reçete",
+   "rxNumber": "Reçete #",
+   "serial": "Seri",
+   "serials": "{{name}} ( {{n}} ) dizileri",
+   "serialsCount": "Birim başına bir seri",
+   "serialsHint": "Virgülle ayırarak tarayın veya yazın",
+   "tradeIn": "Takas",
+   "tradeValue": "Değer ( {{cur}} )",
+   "usedItem": "Kullanılmış ürün"
+  },
+  "print": "Yazdır",
+  "r": {
+   "add": "Eklemek",
+   "address": "Adres",
+   "all": "her öğe",
+   "allMenu": "Tüm",
+   "appliesTo": "Şunlar için geçerlidir:",
+   "area": "Alan",
+   "cancel": "Kontrolü iptal et",
+   "cancelled": "Kontrol iptal edildi.",
+   "change": "{{v}} yi değiştir",
+   "confirm": "Ödemeyi onayla",
+   "cost": "İçerik maliyeti",
+   "delivery": "Teslimat",
+   "dishes": "Bulaşıklar",
+   "eachPays": "{{n}} misafir · her biri {{v}} öder",
+   "empty": "Eklemek için menüye dokunun.",
+   "exact": "Bire bir aynı",
+   "floor": "Zemin",
+   "group": "Grup",
+   "guestN": "Misafir {{n}}",
+   "guests": "Misafirler",
+   "k": {
+    "delivery": "Teslimat",
+    "dine_in": "Masa",
+    "takeaway": "Götürmek"
+   },
+   "left": "Sol {{v}}",
+   "minAgo": "{{n}} dakika",
+   "modNote": "Fiyatlar temel para birimindedir ve ürün fiyatına eklenir.",
+   "move": "Masaya taşı…",
+   "noSession": "Ödeme almak için kasa oturumu açın.",
+   "noTables": "Masa yok: Restoran kurulumuna ekleyin.",
+   "note": "Not (tuzsuz, aferin…)",
+   "openSession": "Açık oturum",
+   "orders": "Siparişler",
+   "paidDone": "Ödendi · makbuz # {{n}}",
+   "paidLine": "paralı",
+   "pay": "Ödemek",
+   "phone": "Telefon",
+   "plan": "Kat planı",
+   "recipeCost": "Tarif maliyeti (şimdi)",
+   "recipeNote": "Bir yemek bir kittir: bileşenleri bileşenlerdir (Öğeler → bileşenler).",
+   "register": "Kadar",
+   "sales": "Satılan yiyecekler",
+   "searchMenu": "Menüde arama yapın…",
+   "seats": "Koltuklar",
+   "seatsN": "{{n}} koltuk",
+   "send": "Mutfağa gönder ( {{n}} )",
+   "service": "Servis ücreti",
+   "serviceN": "Hizmet {{n}}",
+   "settingsNote": "Garsonlar kasa kullanıcılarını kullanır (kasiyer rolü). Hizmet bedeli gelirdir; bahşişler personele borçludur.",
+   "some": "{{n}} öğe / kategori",
+   "split": "Böl ( {{n}} )",
+   "splitEq": "Aralarında eşit olarak bölün",
+   "station": "Mutfak istasyonu",
+   "stationHint": "mutfak, ızgara, bar… (boş = mutfak)",
+   "subtotal": "Yiyecek ( {{n}} satır)",
+   "takeaway": "Götürmek",
+   "taxNote": "Kasa makbuzuna vergi eklenir.",
+   "tip": "Uç",
+   "void": "Kaldırmak"
+  },
+  "rep": {
+   "cancelled": "İptal edildi",
+   "delivered": "Teslim edilmiş",
+   "diagnosing": "Teşhis",
+   "received": "Kabul edilmiş",
+   "repaired": "Onarıldı",
+   "waiting_parts": "Parçaları bekliyorum"
+  },
+  "rib": "İşletme",
+  "so": {
+   "cancelled": "İptal edildi",
+   "confirmed": "Onaylandı",
+   "done": "Tamamlamak",
+   "draft": "Alıntı yapmak",
+   "sent": "Gönderilmiş"
+  },
+  "src": {
+   "adjust": "Ayarlama",
+   "bill": "Satın alınmış",
+   "bill_void": "Satın alma işlemi iptal edildi",
+   "count": "Stok sayısı",
+   "credit_note": "İade edildi",
+   "credit_note_void": "İade iptal edildi",
+   "debit_note": "Tedarikçiye geri gönderildi",
+   "delivery": "Teslim edilmiş",
+   "sale": "Satılmış",
+   "sale_void": "Satış geçersiz kılındı",
+   "tradein": "Takas",
+   "transfer": "Aktarım"
+  },
+  "t": {
+   "claims": "Sigorta talepleri",
+   "furniture": "Siparişler, para yatırma ve teslimat",
+   "items": "İşletmeye göre öğe ayrıntıları",
+   "kds": "Mutfak ekranı",
+   "pharmacy": "Eczane",
+   "restSetup": "Restoran kurulumu",
+   "resto": "Tablolar ve siparişler",
+   "serials": "Süreli yayınlar ve garanti",
+   "van": "Van satış uygulaması",
+   "wholesale": "Rotalar ve minibüsler"
+  },
+  "tr": {
+   "lot": "kurayla",
+   "none": "hiçbiri",
+   "serial": "seriye göre"
+  },
+  "trip": {
+   "cancelled": "iptal edildi",
+   "done": "Tamamlandı",
+   "out": "yolda",
+   "planned": "planlanmış"
+  },
+  "v": {
+   "all": "Tüm",
+   "back": "Geri",
+   "balance": "Denge",
+   "close": "Günü kapat",
+   "closeDay": "Günü kapat",
+   "closed": "Kapanan gün: {{n}} satış · {{total}} · nakit {{cash}} · {{d}} fark.",
+   "countHint": "Minibüste kalanları sayın (orada olması gerekenlerle dolu).",
+   "customers": "Müşteriler",
+   "empty": "Minibüs boş.",
+   "estimate": "Hakkında",
+   "find": "Bir öğe bulun veya tarayın…",
+   "hold": "beklemede",
+   "left": "{{n}} minibüste",
+   "limit": "sınır {{v}}",
+   "method": "Kutu",
+   "needOnline": "Günü kapatmak için bağlantıya ve gönderilen her satışa ihtiyaç vardır.",
+   "noDay": "Minibüsün günü henüz açık değil: Depo ilk önce minibüsü yüklüyor.",
+   "noStops": "Bugünkü rotada müşteri yok.",
+   "offline": "çevrimdışı",
+   "over": "Minibüsün taşıdığından daha fazlası.",
+   "paid": "Şimdi ödedim",
+   "priceNote": "Nihai fiyatta müşterinin fiyat listesi kullanılır.",
+   "queued": "Telefona kaydedildi: Bağlantı yeniden kurulduğunda gönderilir.",
+   "save": "Satışı kaydet",
+   "saved": "Fatura # {{n}} · {{total}} · ödenmiş {{paid}}",
+   "stock": "Van stoğu",
+   "unload": "Geri kalanını depoya boşaltın"
+  },
+  "w": {
+   "add": "Eklemek",
+   "collected": "Toplanan",
+   "commissionNote": "Van satışları ve kasa satışları bunları yapan kullanıcı için, siparişler ise satış elemanı için sayılır. %, çalışan dosyasının komisyonudur.",
+   "days": "Günler",
+   "diffs": "Farklılıkları sayın",
+   "everyDay": "Her gün",
+   "findCustomer": "Müşteri bul (Giriş)",
+   "from": "İtibaren",
+   "invoices": "Faturalar",
+   "isShowroom": "Showroom",
+   "isVan": "Van",
+   "loadOpen": "Günü yükleyin ve açın",
+   "net": "Satıldı (vergi öncesi)",
+   "onCollected": "Koleksiyonlarda",
+   "onSales": "Satışta",
+   "openDay": "Bir minibüs yükle",
+   "sales": "Satış",
+   "salesman": "Satıcı",
+   "st": {
+    "closed": "kapalı",
+    "open": "açık"
+   },
+   "stops": "Müşteriler",
+   "stopsOf": "{{name}} müşterileri",
+   "toLoad": "Yüklenecek {{n}} satır",
+   "van": "Van"
+  }
  },
  "wh": {
   "add": "Eklemek",

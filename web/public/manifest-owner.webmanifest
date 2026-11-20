@@ -1,0 +1,40 @@
+{
+    "id":  "/owner",
+    "name":  "Paxve Owner",
+    "short_name":  "Paxve Owner",
+    "description":  "Today\u0027s collections, cash, alerts and approvals at a glance",
+    "start_url":  "/owner",
+    "scope":  "/",
+    "display":  "standalone",
+    "orientation":  "any",
+    "dir":  "auto",
+    "lang":  "ar",
+    "background_color":  "#F4F6F9",
+    "theme_color":  "#0B1F3A",
+    "icons":  [
+                  {
+                      "src":  "/icons/owner-192.png",
+                      "sizes":  "192x192",
+                      "type":  "image/png",
+                      "purpose":  "any"
+                  },
+                  {
+                      "src":  "/icons/owner-512.png",
+                      "sizes":  "512x512",
+                      "type":  "image/png",
+                      "purpose":  "any"
+                  },
+                  {
+                      "src":  "/icons/owner-192-maskable.png",
+                      "sizes":  "192x192",
+                      "type":  "image/png",
+                      "purpose":  "maskable"
+                  },
+                  {
+                      "src":  "/icons/owner-512-maskable.png",
+                      "sizes":  "512x512",
+                      "type":  "image/png",
+                      "purpose":  "maskable"
+                  }
+              ]
+}

@@ -1012,6 +1012,7 @@
   "already_matched": "Esta linha do diário já corresponde",
   "already_on_instalments": "Esta fatura já está parcelada.",
   "already_revalued": "Este mês já está reavaliado",
+  "already_scheduled": "Este pedido já tem entrega planejada.",
   "amount_too_large": "Este valor ou quantidade é muito grande.",
   "app_disabled": "Este aplicativo está desativado para esta empresa (Configurações → Aplicativos).",
   "app_not_in_plan": "Esta aplicação não está incluída no seu plano Paxve. Mude de plano em Definições → A minha subscrição Paxve.",
@@ -1038,6 +1039,8 @@
   "cart_changed": "Alguns produtos mudaram ou acabaram",
   "change_method_required": "Escolha de onde o troco é dado",
   "chart_not_empty": "Esta empresa já tem contas",
+  "check_closed": "Esta verificação já está fechada.",
+  "check_partly_paid": "Parte deste cheque está paga: não pode ser cancelada.",
   "cheque_debit": "Este valor provém de um cheque devolvido. Faça isso na tela Verificações.",
   "cheque_frozen": "Esta verificação está congelada: descongele-a primeiro.",
   "cheque_payment": "Este pagamento foi feito com cheque: desfaça-o na tela Cheques (devolvidos ou devolvidos).",
@@ -1111,6 +1114,7 @@
   "invalid_gateway": "Esta forma de pagamento não está disponível.",
   "invalid_generator": "Gerador inválido",
   "invalid_gift_card": "Verifique o código e o valor do cartão-presente.",
+  "invalid_insurer": "Escolha a seguradora.",
   "invalid_invoice": "Fatura inválida",
   "invalid_item": "Item inválido ou inativo",
   "invalid_job": "Posição não encontrada",
@@ -1123,7 +1127,9 @@
   "invalid_lot": "Cada lote precisa de um número e uma quantidade (um número de série conta 1)",
   "invalid_method": "Escolha um caixa ou conta bancária ativa.",
   "invalid_milestone": "Este marco não está no projeto",
+  "invalid_modifier": "Este modificador não se aplica a este item.",
   "invalid_op": "Tarefa desconhecida.",
+  "invalid_option": "Opção desconhecida: {{detail}} .",
   "invalid_order": "Escolha um pedido desta empresa.",
   "invalid_package": "Escolha uma embalagem aberta ou palete deste armazém.",
   "invalid_parent": "Conta pai inválida",
@@ -1141,18 +1147,23 @@
   "invalid_router": "Roteador inválido",
   "invalid_routing": "Roteamento desconhecido.",
   "invalid_schedule": "Escolha um horário de trabalho desta empresa.",
+  "invalid_serial": "Um número de série está vazio, é muito longo ou foi digitado duas vezes.",
+  "invalid_size": "Digite a largura e a profundidade em cm.",
   "invalid_slug": "Use de 3 a 40 letras minúsculas, dígitos ou travessões",
   "invalid_source": "Documento não encontrado",
+  "invalid_split": "Escolha algumas das linhas não pagas (pelo menos uma deve ficar).",
   "invalid_stage": "Estágio inválido",
   "invalid_station": "Estação inválida",
   "invalid_subscription": "Assinatura não encontrada",
   "invalid_supplier": "Fornecedor inválido",
+  "invalid_table": "Esta tabela não existe ou está desativada.",
   "invalid_task": "Tarefa não encontrada neste projeto",
   "invalid_tax": "Este imposto não pode ser usado aqui",
   "invalid_tender": "Verifique as linhas de dinheiro recebido",
   "invalid_ticket": "Solicitação não encontrada",
   "invalid_time": "O horário de término deve ser posterior ao horário de início",
   "invalid_tolerance": "O mínimo não deve estar acima do máximo.",
+  "invalid_trade_in": "Verifique a troca: um item em estoque, um valor e (para itens de série) seu número de série.",
   "invalid_trigger": "Este registro não pode usar este gatilho",
   "invalid_unit": "Esta unidade não pode ser usada para este item",
   "invalid_url": "O endereço não é válido (somente https).",
@@ -1169,6 +1180,7 @@
   "leave_overlap": "Estes dias se sobrepõem a outro pedido de licença",
   "location_required": "Permita que o local marque o ponto.",
   "logo_too_big": "O logotipo é muito grande (máximo de 250 KB)",
+  "lot_expired": "O lote {{detail}} expirou: não pode ser vendido.",
   "lot_insufficient": "Não resta quantidade suficiente neste lote",
   "lots_mismatch": "As quantidades do lote devem somar a quantidade da linha ( {{detail}} )",
   "loyalty_off": "Ative o programa de fidelidade primeiro.",
@@ -1199,9 +1211,11 @@
   "no_support": "Nenhuma visualização de suporte está aberta.",
   "no_template": "Nenhum modelo de mensagem para este tipo",
   "no_timer": "Nenhum cronômetro está funcionando",
+  "no_van": "Nenhuma van está atribuída a você.",
   "no_working_days": "Não há dias úteis nestas datas",
   "not_a_stock_item": "Apenas os itens em estoque têm lugar no armazém.",
   "not_a_template": "Salve os atributos primeiro.",
+  "not_a_van": "Este armazém não é uma van.",
   "not_an_image": "A foto deve ser uma imagem.",
   "not_enough_in_bin": "Não há quantidade suficiente nesta caixa: {{detail}}",
   "not_enough_points": "Pontos insuficientes (disponíveis: {{detail}} ).",
@@ -1213,6 +1227,7 @@
   "not_subcontract": "Este pedido não é subcontratado.",
   "not_trial": "Esta organização não está em julgamento.",
   "not_your_area": "Este assinante não está em sua área. Peça ao gerente para atribuir a área a você.",
+  "not_your_van": "Esta van pertence a outro vendedor.",
   "nothing_done": "Insira pelo menos uma quantidade concluída.",
   "nothing_to_bill": "Não há mais nada a faturar neste pedido",
   "nothing_to_deliver": "Não sobrou nada para entregar",
@@ -1228,6 +1243,7 @@
   "op_not_pickable": "Uma das tarefas não é a seleção pronta deste armazém, ou já está em lote.",
   "opening_control_account": "Clientes, fornecedores, estoque, vale-presente e pontos possuem saldos próprios: clientes abertos através de Importação → saldos iniciais, fornecedores com fatura de fornecedor de abertura, estoque com contagem de estoque.",
   "order_in_progress": "Este pedido possui entregas ou faturas. Anule-os primeiro.",
+  "order_not_confirmed": "Confirme o pedido primeiro.",
   "org_blocked": "Esta organização está bloqueada. {{detail}}",
   "outside_area": "Você não está no local de trabalho ( {{detail}} de distância).",
   "over_billing": "Mais do que ainda está em aberto no pedido: {{detail}}",
@@ -1251,6 +1267,7 @@
   "po_not_confirmed": "Confirme o pedido antes de recebê-lo e cobrá-lo",
   "pod_needs_name_or_signature": "Escreva quem recebeu a mercadoria ou deixe-o assinar.",
   "posted_locked": "As entradas publicadas não podem ser alteradas. Em vez disso, inverta a entrada.",
+  "prescription_required": "Este medicamento precisa de receita médica: digite o médico e o número da receita.",
   "price_edit_forbidden": "Você não tem permissão para alterar os preços até",
   "price_mismatch": "O preço da fatura é diferente do pedido: {{detail}}",
   "project_closed": "O projeto está fechado",
@@ -1282,6 +1299,7 @@
   "same_plan": "Este já é o plano.",
   "self_approval": "Você não pode aprovar sua própria solicitação",
   "serial_in_stock": "O número de série {{detail}} já está em estoque",
+  "serials_mismatch": "Digite um número de série por unidade vendida de {{detail}} .",
   "serials_required": "Digite os números de série deste item",
   "server_error": "Algo deu errado. Por favor, tente novamente.",
   "session_closed": "Esta sessão está encerrada. Abra um novo.",
@@ -1299,6 +1317,8 @@
   "support_active": "Uma visualização de suporte já está aberta. Termine primeiro.",
   "support_ended": "A visualização de suporte terminou. Recarregue a página.",
   "support_read_only": "Visão de suporte: nada pode ser alterado.",
+  "table_busy": "Esta tabela já possui um cheque aberto.",
+  "table_required": "Escolha uma mesa para um jantar.",
   "template_has_stock": "Este item tem estoque: não pode se tornar um modelo. Crie um novo item para o modelo.",
   "text_too_long": "Este texto é muito longo.",
   "timesheet_invoiced": "Estas horas são faturadas: anule a fatura para alterá-las",
@@ -1313,12 +1333,15 @@
   "unknown_plan": "Este plano não existe ou está desativado.",
   "unsupported_file": "Use uma foto (JPG, PNG, WebP) ou PDF",
   "use_warehouse_steps": "Este pedido passa pelas etapas do armazém (retirar, embalar, enviar): finalizar sua tarefa de envio nas operações do armazém.",
+  "van_day_not_open": "O dia da van não está aberto: carregue a van primeiro.",
+  "van_day_open": "Esta van já está com dia aberto.",
   "variant_cannot_be_template": "Uma variante não pode ser um modelo em si.",
   "waive_over_fee": "Você não pode devolver mais do que a taxa.",
   "weak_password": "A senha deve ter pelo menos 10 caracteres",
   "wps_not_setup": "Defina primeiro os detalhes do WPS da empresa (ID do empregador e banco)",
   "wrong_account_type": "Escolha uma conta de receitas/despesas e uma conta de receita diferida (passivo)/pré-paga (ativo)",
   "wrong_password": "A senha atual está errada",
+  "wrong_register": "Pague com uma sessão de caixa de cheques.",
   "wrong_status": "Esta ação não é possível para esta entrada",
   "year_closed": "Este ano já está fechado.",
   "year_not_closed": "Este ano não está fechado.",
@@ -2843,6 +2866,9 @@
   },
   "position": "Cargo",
   "post": "Publicar",
+  "postDate": "Lançar folhas de pagamento em",
+  "postDateAuto": "hoje enquanto o mês está em execução (caso contrário, o final do mês)",
+  "postDateEnd": "sempre no último dia do mês",
   "present": "Presente",
   "print": "Imprimir",
   "printAll": "Imprimir todos os recibos de vencimento",
@@ -3020,6 +3046,7 @@
    "customer_code": "Código do cliente",
    "date": "Data",
    "description": "Descrição",
+   "due_date": "Data de vencimento",
    "email": "E-mail",
    "fee_override": "Taxa especial",
    "initial_reading": "Começando a ler",
@@ -3033,8 +3060,11 @@
    "phone2": "Segundo telefone",
    "plan": "Plano",
    "reading": "Leitura",
+   "reference": "Fatura do fornecedor nº.",
    "start_date": "Data de início",
    "status": "Status",
+   "supplier_code": "Código do fornecedor",
+   "supplier_name": "Nome do fornecedor",
    "type": "Tipo"
   },
   "fixErrors": "Corrija essas linhas no seu arquivo e faça upload novamente. Nada foi importado.",
@@ -3044,7 +3074,8 @@
    "customers": "Código, nome, telefone, área… As áreas são criadas automaticamente.",
    "opening_balances": "O que cada cliente deve do sistema antigo (cria uma fatura).",
    "readings": "Leituras do medidor de um mês, por código do cliente ou número do medidor.",
-   "subscriptions": "Código do cliente + nome do plano (os planos devem existir)."
+   "subscriptions": "Código do cliente + nome do plano (os planos devem existir).",
+   "supplier_openings": "O que a empresa devia a cada fornecedor ao mudar para Paxve (cria uma fatura inicial do fornecedor)."
   },
   "invalid": "Com erros",
   "notInFile": "Não está no arquivo",
@@ -3070,7 +3101,8 @@
    "customers": "Clientes",
    "opening_balances": "Saldos iniciais",
    "readings": "Leituras do medidor",
-   "subscriptions": "Assinaturas"
+   "subscriptions": "Assinaturas",
+   "supplier_openings": "Saldos de fornecedores"
   },
   "updateExisting": "Atualizar clientes cujo código já existe",
   "usePasted": "Usar dados colados",
@@ -4697,11 +4729,17 @@
   },
   "biz": {
    "clothing": "Roupas e sapatos",
+   "electronics": "Eletrônica",
+   "factory": "Fábrica",
+   "furniture": "Mobília",
    "generator": "Gerador",
    "internet": "Internet",
+   "pharmacy": "Farmácia",
+   "restaurant": "Restaurante",
    "satellite": "Satélite",
    "supermarket": "Supermercado",
-   "water": "Água"
+   "water": "Água",
+   "wholesale": "Atacado"
   },
   "blockReason": "Motivo mostrado no login (por exemplo, não pago)",
   "blockedOk": "Bloqueado: ninguém desta organização pode fazer login.",
@@ -4798,6 +4836,7 @@
     "body": "Cada organização que se inscreveu no Paxve , contada pela sua situação: em teste, ativa (paga), em carência (a data de término passou, mas ainda podem trabalhar por alguns dias), expirada (podem procurar e exportar, mas não salvar) e bloqueada (ninguém pode entrar).\n\n A receita mensal (MRR) soma o preço mensal de cada organização ativa ou de carência; os planos anuais contam como um duodécimo. Clique em uma caixa para abrir a lista atrás dela.",
     "title": "Visão geral da plataforma"
    },
+   "leads": "Pessoas que pediram uma demonstração em paxve.com. Ligue para eles ou WhatsApp e marque-os como contatados, ganhos ou perdidos.",
    "orgs": {
     "body": "Filtre por estado, plano ou país, ou pesquise. Clique com o botão direito na grade para exportar para Excel / CSV .\n\n Escolha uma organização para ver seus usuários, empresas, utilização, pagamentos e o histórico de cada ação. Renovar registra um pagamento e estende a data de pagamento até. O bloco interrompe cada login e mostra o motivo. A visualização de suporte abre a organização como administrador, somente leitura, com um banner roxo; terminá-lo a partir do banner.",
     "title": "Organizações"
@@ -4838,9 +4877,28 @@
    "upgrade": "Alterar plano"
   },
   "lastLogin": "último login",
+  "ld": {
+   "all": "Todos",
+   "at": "Recebido",
+   "business": "Negócios",
+   "city": "Cidade",
+   "company": "Empresa",
+   "hint": "Do formulário em paxve.com",
+   "message": "Mensagem",
+   "name": "Nome",
+   "notes": "Suas notas",
+   "pick": "Escolha uma solicitação à esquerda.",
+   "st": {
+    "contacted": "Contatado",
+    "lost": "Perdido",
+    "new": "Novo",
+    "won": "Ganho"
+   }
+  },
   "m": {
    "ai": "IA",
    "dash": "Visão geral",
+   "leads": "Solicitações de demonstração",
    "orgs": "Organizações",
    "payments": "Pagamentos recebidos",
    "plans": "Planos e preços",
@@ -5541,6 +5599,80 @@
   "voidPaymentConfirm": "Anular este pagamento de fornecedor? Seu lançamento contábil manual é revertido e as contas ficam novamente sem pagamento.",
   "warehouse": "Armazém"
  },
+ "pwa": {
+  "field": {
+   "van": "Minha van hoje → vender, carregar e fechar o dia"
+  },
+  "install": "Instale o aplicativo",
+  "iosHint": "No iPhone: toque no botão Compartilhar e depois em \"Adicionar à tela inicial\".",
+  "my": {
+   "c": {
+    "billing": "Conta",
+    "complaint": "Reclamação",
+    "disconnect": "Pare o serviço",
+    "meter": "Medidor",
+    "move": "Mover",
+    "new_connection": "Nova conexão",
+    "no_internet": "Sem internet",
+    "no_signal": "Sem sinal",
+    "other": "Outro",
+    "outage": "Corte de energia",
+    "slow": "Internet lenta"
+   },
+   "cat": "Tipo",
+   "consumption": "Consumo",
+   "details": "Detalhes",
+   "forget": "Esqueça as contas neste telefone",
+   "meter": "Medidor {{m}}",
+   "none": "Abra o link da sua fatura ou mensagem WhatsApp uma vez; este aplicativo vai se lembrar disso.",
+   "orders": "Meus pedidos on-line",
+   "rate": "Avaliar",
+   "report": "Informar um problema",
+   "send": "Enviar",
+   "sent": "Solicitação # {{n}} enviada. Nós ligaremos para você.",
+   "st": {
+    "cancelled": "cancelado",
+    "done": "fixo",
+    "in_progress": "em andamento",
+    "new": "novo",
+    "waiting": "esperando"
+   },
+   "subject": "Assunto",
+   "tickets": "Solicitações e problemas",
+   "title": "Minha conta",
+   "track": "Acompanhar"
+  },
+  "owner": {
+   "alertsN": "{{n}} alertas",
+   "allAlerts": "Todos os alertas no sistema →",
+   "approvalsN": "{{n}} aprovações aguardando",
+   "askBtn": "Pergunte sobre o seu negócio",
+   "cash": "Em caixas registradoras e bancos",
+   "cashHint": "todas as caixas de dinheiro, carteiras e contas bancárias",
+   "collected": "Coletado hoje",
+   "full": "Abra o sistema completo",
+   "highN": "{{n}} urgente",
+   "latest": "Últimos alertas",
+   "markRead": "Marcar tudo como lido",
+   "menu": "Menu",
+   "nInvoices": "{{n}} faturas",
+   "nPayments": "{{n}} pagamentos",
+   "offline": "Não foi possível atualizar — mostrando os últimos números.",
+   "ordersN": "{{n}} pedidos hoje",
+   "overdue": "atrasado",
+   "owed": "Os clientes devem",
+   "sales": "Vendas hoje",
+   "t": {
+    "alerts": "Alertas",
+    "ask": "Perguntar",
+    "news": "Notificações",
+    "today": "Hoje"
+   },
+   "today": "Hoje {{day}}",
+   "updated": "atualizado {{at}}"
+  },
+  "short": "Instalar"
+ },
  "rates": {
   "currency": "Moeda",
   "current": "Taxas atuais",
@@ -5818,9 +5950,21 @@
    "clothing": "Roupas e sapatos",
    "clothingDesc": "Tamanhos × cores com código de barras por variante, vendas sazonais, ofertas 3 por 2, fidelidade, cartões-presente.",
    "demo": "Carregue também dados de demonstração",
+   "electronics": "Loja de eletrônicos e celulares",
+   "electronicsDesc": "Serial / IMEI em cada compra e venda, histórico de série, cartão de garantia e reclamações, reparos, trocas, parcelamentos.",
+   "factory": "Fábrica/oficina",
+   "factoryDesc": "Centros de trabalho, lista inicial de materiais e roteiros, ordens de fabricação, MRP, qualidade e tablet do chão de fábrica.",
+   "furniture": "Móveis e showroom",
+   "furnitureDesc": "Itens sob encomenda com opções e preço por m², depósito de 30%, entrega + planejamento de montagem, estoque no showroom.",
    "hint": "Um pacote empresarial ativa os aplicativos certos, o programa de fidelidade e os padrões de varejo, e pode carregar dados de demonstração (itens, promoções, caixa registradora) para experimentar de tudo.",
+   "pharmacy": "Farmácia",
+   "pharmacyDesc": "Lotes com validade (FEFO, vencidos bloqueados), busca de genéricos/ingredientes com alternativas, receitas, cadastro controlado, seguros.",
+   "restaurant": "Restaurante/café",
+   "restaurantDesc": "Tabelas e planta baixa, modificadores, exibição da cozinha por posto, parcelamento de contas, taxa de serviço e gorjetas, receitas, % custo da alimentação.",
    "supermarket": "Supermercado / minimercado",
-   "supermarketDesc": "Mercadorias pesadas e etiquetas de balança, promoções, pontos de fidelidade, cartões-presente, descontos perto do vencimento, caixa rápida."
+   "supermarketDesc": "Mercadorias pesadas e etiquetas de balança, promoções, pontos de fidelidade, cartões-presente, descontos perto do vencimento, caixa rápida.",
+   "wholesale": "Atacado / distribuição",
+   "wholesaleDesc": "Níveis de preços, limites de crédito aplicados, rotas de vendedores, vendas de van pelo telefone (off-line), contagem de final de dia, comissão."
   },
   "portal": {
    "gift": "Vale-presente {{code}} : {{balance}}",
@@ -5888,11 +6032,17 @@
   "signup": {
    "b": {
     "clothing": "Roupas e sapatos",
+    "electronics": "Loja de eletrônicos e celulares",
+    "factory": "Fábrica/oficina",
+    "furniture": "Móveis e showroom",
     "generator": "Gerador / eletricidade",
     "internet": "Provedor de Internet",
+    "pharmacy": "Farmácia",
+    "restaurant": "Restaurante/café",
     "satellite": "Televisão por satélite",
     "supermarket": "Supermercado / minimercado",
-    "water": "Água"
+    "water": "Água",
+    "wholesale": "Atacado / distribuição"
    },
    "business": "Seu negócio",
    "demoHint": "Configuramos os aplicativos e adicionamos itens de demonstração e promoções que você pode excluir posteriormente."
@@ -6278,6 +6428,315 @@
   "submit": "Crie uma conta e comece",
   "title": "Crie sua conta Paxve"
  },
+ "site": {
+  "android": "Aplicativo Android (APK)",
+  "biz": {
+   "clothing": {
+    "d": "Tamanhos e cores, estações, trocas e vales-presente.",
+    "f": {
+     "0": "Variantes por tamanho e cor",
+     "1": "Trocas e devoluções na caixa",
+     "2": "Vales-presente e ofertas",
+     "3": "Os melhores e mais lentos vendedores"
+    },
+    "t": "Roupas"
+   },
+   "electronics": {
+    "d": "Serial / IMEI em todas as vendas, garantias e reparos, trocas e parcelamentos.",
+    "f": {
+     "0": "Serial/IMEI na compra e venda",
+     "1": "Cartão de garantia e reclamações",
+     "2": "Troca como parte do pagamento",
+     "3": "Vendas parceladas"
+    },
+    "t": "Eletrônica"
+   },
+   "factory": {
+    "d": "Listas de materiais, ordens de serviço, qualidade e custo real por produto.",
+    "f": {
+     "0": "Listas de materiais multinível",
+     "1": "Planejamento de materiais (o que fazer e comprar)",
+     "2": "Tablet de chão de fábrica com temporizador",
+     "3": "Custo real versus custo padrão"
+    },
+    "t": "Fábrica"
+   },
+   "furniture": {
+    "d": "Feito sob encomenda com tamanhos e opções, depósito, entrega e montagem.",
+    "f": {
+     "0": "Opções e preço por m²",
+     "1": "Depósitos e saldo na entrega",
+     "2": "Planejamento de entrega e montagem",
+     "3": "Estoque de showroom"
+    },
+    "t": "Mobília"
+   },
+   "generator": {
+    "d": "Contas mensais por amperes ou por medidor, leituras no telefone, cobrança por área, cortes e reconexões.",
+    "f": {
+     "0": "Tarifas fixas ou medidas com adicional de diesel",
+     "1": "Aplicativo de leitura de medidores para o colecionador",
+     "2": "Caixas coletoras por área e conciliação diária",
+     "3": "Consumo de diesel por hora com alertas de roubo"
+    },
+    "t": "Geradores"
+   },
+   "internet": {
+    "d": "Assinaturas e planos de velocidade, renovações, roteadores e dispositivos de rede, tickets de suporte.",
+    "f": {
+     "0": "Renovação e suspensão mensal automática",
+     "1": "MikroTik / lista de dispositivos de rede",
+     "2": "Tickets com limites de tempo de resposta",
+     "3": "Link do cliente para ver e pagar contas"
+    },
+    "t": "Internet (ISP)"
+   },
+   "pharmacy": {
+    "d": "Lotes e prazos de validade, busca por princípio ativo, receitas e seguradoras.",
+    "f": {
+     "0": "Primeiro-expira-primeiro, expirou bloqueado",
+     "1": "Pesquise por nome genérico com alternativas",
+     "2": "Prescrições e medicamentos controlados",
+     "3": "Participação da seguradora como sinistro"
+    },
+    "t": "Farmácia"
+   },
+   "restaurant": {
+    "d": "Mesas, biombo de cozinha, extras, contas divididas e custo de alimentação.",
+    "f": {
+     "0": "Planta baixa e tabelas",
+     "1": "Exibição de cozinha por estação",
+     "2": "Dividir contas, taxa de serviço e gorjetas",
+     "3": "Receitas que usam estoque, custo diário de alimentação"
+    },
+    "t": "Restaurante e cafeteria"
+   },
+   "satellite": {
+    "d": "Embalagens e caixas, renovações e coleta porta a porta.",
+    "f": {
+     "0": "Assinaturas de pacotes e complementos",
+     "1": "Seriais do receptor e do cartão",
+     "2": "Aplicativo coletor com recibos",
+     "3": "Lista de pagadores atrasados ​​com motivos"
+    },
+    "t": "Satélite/TV"
+   },
+   "sub": "Escolha o seu negócio: Paxve ativa as telas, contas e configurações certas desde o primeiro dia.",
+   "supermarket": {
+    "d": "Caixa rápida com código de barras, ofertas, pontos de fidelidade e estoque que acompanha cada venda.",
+    "f": {
+     "0": "Código de barras rápido, funciona offline",
+     "1": "Ofertas, cupons e pontos de fidelidade",
+     "2": "Datas de validade e reordenamento inteligente",
+     "3": "Fechamento de turno com contagem de dinheiro"
+    },
+    "t": "Supermercado"
+   },
+   "title": "Construído para o seu tipo de negócio",
+   "water": {
+    "d": "Galões ou metros, rotas de entrega e depósitos em garrafas.",
+    "f": {
+     "0": "Medidor ou planos mensais fixos",
+     "1": "Viagens de entrega e comprovante de entrega",
+     "2": "Depósitos e devoluções de garrafas",
+     "3": "Extratos por cliente"
+    },
+    "t": "Água"
+   },
+   "wholesale": {
+    "d": "Camadas de preços, limites de crédito e uma van que vende pelo telefone.",
+    "f": {
+     "0": "Listas de preços e descontos por volume",
+     "1": "Limites de crédito aplicados",
+     "2": "Estoque de van: carregue, venda offline, feche o dia",
+     "3": "Comissão de vendedor"
+    },
+    "t": "Vendas no atacado e vans"
+   }
+  },
+  "bizTry": "Experimente Paxve para {{name}}",
+  "cmp": {
+   "no": "Não",
+   "old": "Antigo programa de desktop",
+   "part": "Parcialmente",
+   "r": {
+    "alerts": "Alertas de roubo e erro",
+    "apps": "Aplicativos de telefone para a equipe e clientes",
+    "arabic": "Totalmente em árabe, inglês e francês",
+    "backup": "Backups automáticos na nuvem",
+    "currency": "USD e LBP em todos os documentos",
+    "ledger": "Contas postadas automaticamente",
+    "offline": "Colete e venda sem internet",
+    "shop": "Loja online vinculada ao estoque"
+   },
+   "sheets": "Excel /caderno",
+   "sub": "O que muda no primeiro dia.",
+   "title": "Por que não Excel ou o programa antigo?",
+   "yes": "Sim"
+  },
+  "contact": {
+   "sub": "Conte-nos sobre o seu negócio: mostramos o Paxve com seu próprio tipo de trabalho e ajudamos você a movimentar seus dados.",
+   "title": "Fale conosco"
+  },
+  "demo": "Agende uma demonstração",
+  "faq": {
+   "q1": {
+    "a": "Sim. Clientes, assinaturas, saldos, leituras e plano de contas vêm do Excel ou direto do antigo sistema Magic; nada é escrito até que cada linha seja verificada.",
+    "q": "Posso trazer meus dados do meu programa antigo?"
+   },
+   "q2": {
+    "a": "O cobrador, a van e a caixa registradora continuam trabalhando off-line e enviam tudo quando a linha volta; um recibo nunca é retirado duas vezes.",
+    "q": "Funciona quando a internet é cortada?"
+   },
+   "q3": {
+    "a": "Sim: faturas, recibos e relatórios mostram ambos, com a taxa de câmbio do dia, e o troco pode ser dado em qualquer uma das moedas.",
+    "q": "É realmente em dólares e libras?"
+   },
+   "q4": {
+    "a": "Em um servidor seguro com backups criptografados diariamente. Cada empresa vê apenas os seus próprios dados e cada alteração é registrada.",
+    "q": "Onde estão meus dados e eles estão seguros?"
+   },
+   "q5": {
+    "a": "Não. Abra paxve.com no computador ou telefone; você também pode instalar os aplicativos do telefone a partir do navegador ou do APK do Android.",
+    "q": "Preciso instalar alguma coisa?"
+   },
+   "q6": {
+    "a": "Geralmente um dia: escolha seu tipo de negócio, importe seus dados, adicione sua equipe e comece a coletar.",
+    "q": "Quanto tempo leva para começar?"
+   },
+   "q7": {
+    "a": "Sim. Não há contrato; você pode exportar seus dados a qualquer momento.",
+    "q": "Posso parar quando quiser?"
+   },
+   "title": "Perguntas que as pessoas fazem"
+  },
+  "feat": {
+   "apps": {
+    "d": "Aplicativo do proprietário com os números do dia, aplicativo do cliente para ver e pagar contas e o sistema completo no computador.",
+    "t": "Aplicativos para todos"
+   },
+   "esign": {
+    "d": "Envie um orçamento ou contrato para assinar pelo telefone; a cópia assinada é guardada com o respectivo comprovativo.",
+    "t": "Assinatura eletrônica"
+   },
+   "field": {
+    "d": "Cobradores, motoristas, técnicos e vendedores de vans trabalham ao telefone — mesmo offline — e imprimem recibos por Bluetooth.",
+    "t": "Aplicativo de telefone para o campo"
+   },
+   "mfg": {
+    "d": "Listas de materiais, ordens de serviço, verificações de qualidade, subcontratação e custo real do produto.",
+    "t": "Fabricação"
+   },
+   "money": {
+    "d": "Toda fatura, recibo e relatório em USD e LBP com a tarifa do dia; troco dado em qualquer uma das moedas.",
+    "t": "Dólares e libras"
+   },
+   "security": {
+    "d": "Login em duas etapas, funções e permissões, registro de auditoria de cada alteração e backups criptografados diários.",
+    "t": "Seguro e com backup"
+   },
+   "shop": {
+    "d": "Sua própria página de loja vinculada a estoque, pedidos por WhatsApp , campanhas e cupons.",
+    "t": "Loja online e WhatsApp"
+   },
+   "smart": {
+    "d": "Paxve monitora roubos de diesel, escassez, descontos incomuns e atrasos no pagamento - e responde a perguntas sobre seus números.",
+    "t": "Alertas inteligentes e IA"
+   },
+   "stock": {
+    "d": "Caixas e prateleiras, leitura de código de barras, recebimento e separação escalonada, entregas com assinatura.",
+    "t": "Estoque e armazéns"
+   },
+   "sub": "Um sistema em vez de cinco programas e um notebook.",
+   "title": "Tudo o que uma grande empresa tem – simples o suficiente para uma pequena"
+  },
+  "foot": {
+   "made": "Software empresarial feito no Líbano"
+  },
+  "form": {
+   "business": "Tipo de negócio",
+   "city": "Cidade/área",
+   "company": "Nome comercial",
+   "email": "E-mail",
+   "hint": "Telefone ou e-mail são suficientes. Geralmente respondemos no mesmo dia.",
+   "message": "O que você precisa?",
+   "name": "Seu nome",
+   "other": "Outro",
+   "phone": "Telefone/ WhatsApp",
+   "send": "Enviar",
+   "thanks": "Obrigado!",
+   "thanksSub": "Recebemos sua solicitação e ligaremos para você em breve.",
+   "title": "Agende uma demonstração gratuita"
+  },
+  "hero": {
+   "badge": "Feito para o Líbano · USD + LBP",
+   "lead": "Contabilidade, faturamento de assinantes, estoque e depósitos, fabricação, ponto de venda, loja online e aplicativos de telefone para sua equipe. Em dólares e libras, mesmo sem internet.",
+   "note": "Avaliação gratuita · não é necessário cartão · seus dados permanecem seus",
+   "t1": "Pronto em um dia",
+   "t2": "Traga seus dados do sistema antigo",
+   "t3": "Árabe, Inglês, Francês",
+   "title": "Administre todo o seu negócio a partir de um único sistema — em árabe"
+  },
+  "installWeb": "Instalar como um aplicativo",
+  "metaTitle": "Paxve — gestão empresarial: contabilidade, faturamento, estoque, vendas",
+  "mock": {
+   "app": "Coleção",
+   "bill1": "Conta · Setembro",
+   "bill2": "Conta · Outubro",
+   "customer": "Samer Haddad",
+   "initials": "SH",
+   "late": "2 meses atrasado",
+   "pay": "Colete e imprima",
+   "today": "A caixa de hoje",
+   "total": "Para pagar"
+  },
+  "nav": {
+   "business": "Tipos de negócios",
+   "contact": "Contato",
+   "faq": "Questões",
+   "features": "Características",
+   "label": "Menu",
+   "pricing": "Preços"
+  },
+  "price": {
+   "ai": "Perguntas sobre IA por mês: {{n}}",
+   "all": "Todos os aplicativos e os aplicativos do telefone",
+   "ask": "Pergunte-nos os preços.",
+   "companies": "Empresas: {{n}}",
+   "cycle": "Ciclo de faturamento",
+   "month": "mês",
+   "monthly": "Mensal",
+   "note": "Preços em dólares americanos. Pague em dinheiro, Whish, OMT ou transferência bancária.",
+   "popular": "Mais escolhido",
+   "sub": "Todo plano possui o sistema completo. Pague pelo tamanho do seu negócio.",
+   "subs": "Assinantes/clientes: {{n}}",
+   "title": "Preços simples",
+   "unlimited": "ilimitado",
+   "users": "Usuários: {{n}}",
+   "year": "ano",
+   "yearly": "Anualmente (2 meses grátis)"
+  },
+  "signIn": "Entrar",
+  "stats": {
+   "s1": {
+    "l": "tipos de negócios prontos",
+    "v": "12"
+   },
+   "s2": {
+    "l": "em cada fatura e recibo",
+    "v": "USD + LBP"
+   },
+   "s3": {
+    "l": "coletar e vender sem internet",
+    "v": "Off-line"
+   },
+   "s4": {
+    "l": "idiomas",
+    "v": "11"
+   }
+  },
+  "trial": "Iniciar teste gratuito"
+ },
  "sm": {
   "ai": {
    "empty": "(sem resposta)",
@@ -6334,6 +6793,7 @@
     "dup_bill": "Fatura duplicada",
     "fleet_fuel": "Combustível para veículos",
     "off_hours": "Pagamentos à noite",
+    "price_override": "Preços reduzidos manualmente",
     "voids": "Anulações/reembolsos"
    },
    "kind": "Tipo",
@@ -6374,6 +6834,7 @@
     "dup_bill": "As notas # {{number_a}} e # {{number_b}} têm o {{what}} ( {{currency}} {{value}} )",
     "fleet_fuel": "{{anomaly}} : {{value}} L/100 km (normal {{expected}} )",
     "off_hours": "{{payments}} pagamentos registrados entre {{first}} e {{last}} (horário de trabalho {{work_start}} :00– {{work_end}} :00), {{value}} no total",
+    "price_override": "{{lines}} linhas vendidas abaixo do preço de catálogo esta semana, {{value}} menos ( {{pct}} % das vendas)",
     "voids": "{{value}} anulações, notas de crédito e reembolsos esta semana, normalmente {{expected}} (contas {{invoices}} , pagamentos {{payments}} , notas de crédito/reembolsos {{credit_notes}} )"
    },
    "what": "O que aconteceu"
@@ -7087,6 +7548,396 @@
   "password": "Senha inicial (pelo menos 10 caracteres)",
   "role": "Papel",
   "title": "Usuários"
+ },
+ "vt": {
+  "cl": {
+   "all": "Todos",
+   "insurer": "Segurador",
+   "note": "A parcela da seguradora está contabilizada na rubrica “Sinistros a receber”. Pago: vai para a caixa. Rejeitado: baixado como despesa.",
+   "open": "Abrir",
+   "paid": "Pago",
+   "paidInto": "Pago em",
+   "pending": "Para enviar",
+   "policy": "Política #",
+   "reject": "Rejeitar",
+   "rejected": "Rejeitado",
+   "settle": "Pago",
+   "submit": "Enviado",
+   "submitted": "Enviado"
+  },
+  "close": "Fechar",
+  "del": "Excluir",
+  "dow": {
+   "0": "Sol",
+   "1": "seg",
+   "2": "ter",
+   "3": "qua",
+   "4": "qui",
+   "5": "sex",
+   "6": "Sentado"
+  },
+  "e": {
+   "card": "Cartão de garantia",
+   "covered": "Na garantia",
+   "doc": "Documento",
+   "expired": "Garantia encerrada",
+   "history": "História",
+   "inStock": "Em estoque",
+   "lookup": "Olhe para cima",
+   "months": "{{n}} meses",
+   "noWarranty": "Sem garantia",
+   "note": "Os números de série são digitados ou digitalizados no caixa (um por unidade) e nas faturas; dispositivos usados ​​tomados como troca entram em estoque com seu número de série.",
+   "partner": "Fornecedor/cliente",
+   "printCard": "Imprimir cartão de garantia",
+   "repairs": "Reparos",
+   "saleDate": "Vendido em",
+   "serial": "Série/IMEI",
+   "serialPh": "Série/IMEI…",
+   "trackingNow": "Acompanhamento de estoque: {{tracking}} · garantia {{m}} meses (Itens → configurações de estoque).",
+   "unknown": "Este número de série não é conhecido aqui.",
+   "until": "até {{date}}",
+   "warranty": "Garantia",
+   "what": "Movimento"
+  },
+  "f": {
+   "active": "Ativo",
+   "customer": "Cliente",
+   "date": "Data",
+   "item": "Item",
+   "name": "Nome",
+   "price": "Preço",
+   "qty": "Quantidade",
+   "showAll": "Mostrar tudo",
+   "status": "Status",
+   "total": "Total",
+   "value": "Valor",
+   "warehouse": "Armazém"
+  },
+  "fu": {
+   "area": "Área {{a}} m²",
+   "assembly": "Conjunto",
+   "balance": "Saldo na entrega",
+   "copyHint": "Use este texto e preço na linha de cotação.",
+   "days": "Dias em exibição",
+   "delivery": "Entrega",
+   "deposit": "Depósito",
+   "depth": "profundidade",
+   "fitter": "Ajustador",
+   "job": "Trabalho nº {{n}}",
+   "mto": "Feito sob encomenda",
+   "noShowroom": "Nenhum armazém está marcado como showroom ou está vazio.",
+   "note": "O depósito é um pagamento por conta do cliente vinculado ao pedido: a fatura do pedido utiliza-o automaticamente. A parada da viagem mostra o saldo a cobrar.",
+   "options": "Opções (uma por linha)",
+   "optionsHint": "Exemplo: “Tecido: Linho, Veludo=150” — o número é o preço extra.",
+   "paid": "Depósito pago",
+   "perM2": "{{p}} por m²",
+   "ppm": "Preço por m² (moeda base)",
+   "price": "Preço",
+   "receive": "Receber",
+   "required": "Depósito solicitado",
+   "schedule": "Planejar entrega",
+   "size": "Tamanho",
+   "slot": "Horário",
+   "trip": "Viagem nº {{n}}",
+   "width": "largura"
+  },
+  "g": {
+   "claims": "Sinistros de seguros",
+   "electronics": "Eletrônica",
+   "furniture": "Mobília",
+   "items": "Detalhes do item por empresa",
+   "pharmacy": "Farmácia",
+   "restaurant": "Restaurante",
+   "wholesale": "Vendas no atacado e vans"
+  },
+  "help": {
+   "claims": "A participação das seguradoras nas vendas: submeter, liquidar quando pago ou rejeitar.",
+   "commission": "Vendas e cobranças por vendedor com % de comissão.",
+   "configure": "Defina o preço de um item feito sob encomenda com base em suas opções e tamanho e, a seguir, use o texto e o preço na cotação.",
+   "controlled": "Todo medicamento controlado vendido, com receita médica.",
+   "days": "Cada van por dia: carregada pela manhã, contada e descarregada à noite.",
+   "expiry": "Lotes vencidos ou com vencimento em breve, com seu valor.",
+   "foodcost": "Alimentos vendidos contra o custo dos ingredientes que saíram do estoque.",
+   "itemfields": "Campos utilizados pelas embalagens empresariais: opções e preço de tamanho, detalhes do medicamento, posto de cozinha.",
+   "modifiers": "Opções extras e \"sem\" oferecidas quando um item é pedido.",
+   "orders": "Abrir pedidos de venda com o depósito solicitado e pago, a viagem de entrega e o trabalho de montagem.",
+   "psettings": "Lotes vencidos bloqueados à venda e alerta de vencimento.",
+   "routes": "Quais clientes cada vendedor visita, em ordem e em quais dias.",
+   "rsettings": "Taxa de serviço e telas do restaurante.",
+   "search": "Pesquisa por nome, código de barras, nome genérico ou princípio ativo; veja as alternativas em estoque.",
+   "serial": "Digitalize ou digite um serial / IMEI: quem o forneceu, quem comprou, sua garantia e reparos.",
+   "showroom": "Exiba as peças nos armazéns do showroom e há quanto tempo estão em exposição.",
+   "tables": "Mesas e sua localização na planta baixa.",
+   "vans": "Marque os armazéns como vans (com seu vendedor) ou showrooms."
+  },
+  "job": {
+   "cancelled": "cancelado",
+   "done": "feito",
+   "in_progress": "em andamento",
+   "invoiced": "faturado",
+   "new": "novo",
+   "scheduled": "agendado"
+  },
+  "k": {
+   "all": "Todos",
+   "cooking": "culinária",
+   "empty": "Nada para fazer agora.",
+   "new": "não enviado",
+   "ready": "preparar",
+   "sent": "fazer",
+   "serve": "Servido",
+   "served": "servido",
+   "start": "Começar",
+   "void": "removido"
+  },
+  "m": {
+   "claims": "Reivindicações",
+   "commission": "Comissão",
+   "configure": "Configurador",
+   "controlled": "Registro controlado",
+   "days": "Dias de van",
+   "expiry": "Termo",
+   "foodcost": "Custo da alimentação",
+   "itemfields": "Detalhes do item",
+   "modifiers": "Modificadores",
+   "orders": "Pedidos",
+   "psettings": "Configurações",
+   "routes": "Rotas",
+   "rsettings": "Configurações",
+   "search": "Pesquisa de drogas",
+   "serial": "Pesquisa serial",
+   "showroom": "Showroom",
+   "tables": "Tabelas",
+   "vans": "Vans e showrooms"
+  },
+  "new": "Adicionar",
+  "none": "Nada aqui ainda.",
+  "p": {
+   "alertDays": "Alerta dias antes do vencimento",
+   "altOf": "Alternativas para {{name}}",
+   "alternatives": "{{n}} alternativas",
+   "block": "Nunca venda um lote vencido",
+   "by": "Vendido por",
+   "controlled": "Controlado",
+   "daysLeft": "Dias restantes",
+   "doctor": "Doutor",
+   "expired": "Expirado",
+   "expiredN": "{{n}} expirou",
+   "expiringN": "{{n}} dentro de {{d}} dias",
+   "expiry": "Termo",
+   "expiryNote": "Estoque vencido: devolva ao fornecedor (nota de débito) ou descarte. Os lotes são vendidos primeiro, primeiro expiram.",
+   "form": "Forma",
+   "generic": "Nome genérico",
+   "ingredient": "Ingrediente ativo",
+   "lot": "Muito",
+   "needLots": "Acompanhe este item por lote (Itens → configurações de estoque) para acompanhar o vencimento.",
+   "nextExpiry": "Próxima expiração",
+   "noExpiry": "Nada expirou ou expirará em breve.",
+   "notBlocked": "Os lotes expirados não são bloqueados na venda: ative-o em Configurações.",
+   "patient": "Paciente",
+   "rx": "Prescrição",
+   "rxNo": "Prescrição #",
+   "sale": "Oferta",
+   "same": "mesma força",
+   "search": "Procurar",
+   "searchPh": "Nome, código de barras, nome genérico ou ingrediente…",
+   "settingsNote": "A caixa pede a prescrição de medicamentos prescritos e controlados.",
+   "stock": "Em estoque",
+   "strength": "Força",
+   "withRx": "Medicamentos prescritos também",
+   "within": "Dentro de (dias)"
+  },
+  "pos": {
+   "condition": "Doença…",
+   "doctor": "Doutor",
+   "insPct": "Seguradora %",
+   "insurance": "Seguro",
+   "insurer": "Segurador",
+   "patient": "Paciente",
+   "policy": "Política #",
+   "rx": "Prescrição",
+   "rxNumber": "Prescrição #",
+   "serial": "Serial",
+   "serials": "Séries de {{name}} ( {{n}} )",
+   "serialsCount": "Uma série por unidade",
+   "serialsHint": "Digitalize ou digite, separados por vírgulas",
+   "tradeIn": "Troca",
+   "tradeValue": "Valor ( {{cur}} )",
+   "usedItem": "Item usado"
+  },
+  "print": "Imprimir",
+  "r": {
+   "add": "Adicionar",
+   "address": "Endereço",
+   "all": "cada item",
+   "allMenu": "Todos",
+   "appliesTo": "Aplica-se a",
+   "area": "Área",
+   "cancel": "Cancelar cheque",
+   "cancelled": "Cheque cancelado.",
+   "change": "Alterar {{v}}",
+   "confirm": "Confirmar pagamento",
+   "cost": "Custo do ingrediente",
+   "delivery": "Entrega",
+   "dishes": "Pratos",
+   "eachPays": "{{n}} convidados · cada um paga {{v}}",
+   "empty": "Toque no menu para adicionar.",
+   "exact": "Exato",
+   "floor": "Chão",
+   "group": "Grupo",
+   "guestN": "Convidado {{n}}",
+   "guests": "Convidados",
+   "k": {
+    "delivery": "Entrega",
+    "dine_in": "Mesa",
+    "takeaway": "Remover"
+   },
+   "left": "Esquerda {{v}}",
+   "minAgo": "{{n}} minutos",
+   "modNote": "Os preços estão na moeda base e são adicionados ao preço do item.",
+   "move": "Vá para a mesa…",
+   "noSession": "Abra uma sessão de caixa registradora para receber pagamentos.",
+   "noTables": "Sem mesas: adicione-as na configuração do restaurante.",
+   "note": "Nota (sem sal, muito bem…)",
+   "openSession": "Sessão aberta",
+   "orders": "Pedidos",
+   "paidDone": "Pago · recibo nº {{n}}",
+   "paidLine": "pago",
+   "pay": "Pagar",
+   "phone": "Telefone",
+   "plan": "Planta baixa",
+   "recipeCost": "Custo da receita (agora)",
+   "recipeNote": "Um prato é um kit: seus componentes são os ingredientes (Itens → componentes).",
+   "register": "Até",
+   "sales": "Alimentos vendidos",
+   "searchMenu": "Pesquise no cardápio…",
+   "seats": "Assentos",
+   "seatsN": "{{n}} assentos",
+   "send": "Enviar para a cozinha ( {{n}} )",
+   "service": "Taxa de serviço",
+   "serviceN": "Serviço {{n}} %",
+   "settingsNote": "Os garçons usam os usuários do caixa (função de caixa). A taxa de serviço é receita; as gorjetas são devidas à equipe.",
+   "some": "{{n}} itens/categorias",
+   "split": "Dividir ( {{n}} )",
+   "splitEq": "Dividir igualmente entre",
+   "station": "Estação de cozinha",
+   "stationHint": "cozinha, churrasqueira, bar… (vazio = cozinha)",
+   "subtotal": "Comida ( {{n}} linhas)",
+   "takeaway": "Remover",
+   "taxNote": "O imposto é adicionado no recibo da caixa.",
+   "tip": "Dica",
+   "void": "Remover"
+  },
+  "rep": {
+   "cancelled": "Cancelado",
+   "delivered": "Entregue",
+   "diagnosing": "Diagnosticando",
+   "received": "Recebido",
+   "repaired": "Reparado",
+   "waiting_parts": "Aguardando peças"
+  },
+  "rib": "Negócios",
+  "so": {
+   "cancelled": "Cancelado",
+   "confirmed": "Confirmado",
+   "done": "Feito",
+   "draft": "Cotação",
+   "sent": "Enviado"
+  },
+  "src": {
+   "adjust": "Ajuste",
+   "bill": "Comprado",
+   "bill_void": "Compra anulada",
+   "count": "Contagem de estoque",
+   "credit_note": "Devolvido",
+   "credit_note_void": "Devolução anulada",
+   "debit_note": "Enviado de volta ao fornecedor",
+   "delivery": "Entregue",
+   "sale": "Vendido",
+   "sale_void": "Venda anulada",
+   "tradein": "Troca",
+   "transfer": "Transferir"
+  },
+  "t": {
+   "claims": "Sinistros de seguros",
+   "furniture": "Pedidos, depósitos e entrega",
+   "items": "Detalhes do item por empresa",
+   "kds": "Tela de cozinha",
+   "pharmacy": "Farmácia",
+   "restSetup": "Configuração do restaurante",
+   "resto": "Mesas e pedidos",
+   "serials": "Séries e garantia",
+   "van": "Aplicativo de vendas de vans",
+   "wholesale": "Rotas e vans"
+  },
+  "tr": {
+   "lot": "por lote",
+   "none": "nenhum",
+   "serial": "por série"
+  },
+  "trip": {
+   "cancelled": "cancelado",
+   "done": "feito",
+   "out": "na estrada",
+   "planned": "planejado"
+  },
+  "v": {
+   "all": "Todos",
+   "back": "Voltar",
+   "balance": "Equilíbrio",
+   "close": "Fechar o dia",
+   "closeDay": "Fechar o dia",
+   "closed": "Dia fechado: {{n}} vendas · {{total}} · dinheiro {{cash}} · {{d}} diferenças.",
+   "countHint": "Conte o que resta na van (preencha com o que deveria estar lá).",
+   "customers": "Clientes",
+   "empty": "A van está vazia.",
+   "estimate": "Sobre",
+   "find": "Encontre um item ou digitalize…",
+   "hold": "em espera",
+   "left": "{{n}} na van",
+   "limit": "limite {{v}}",
+   "method": "Caixa",
+   "needOnline": "Fechar o dia precisa da conexão e de cada venda enviada.",
+   "noDay": "O dia da van ainda não abriu: o armazém carrega a van primeiro.",
+   "noStops": "Nenhum cliente na rota de hoje.",
+   "offline": "off-line",
+   "over": "Mais do que a van comporta.",
+   "paid": "Pago agora",
+   "priceNote": "O preço final utiliza a lista de preços do cliente.",
+   "queued": "Salvo no telefone: é enviado quando a conexão é restabelecida.",
+   "save": "Salve a venda",
+   "saved": "Fatura nº {{n}} · {{total}} · paga {{paid}}",
+   "stock": "Estoque de van",
+   "unload": "Descarregue o resto para o armazém"
+  },
+  "w": {
+   "add": "Adicionar",
+   "collected": "Coletado",
+   "commissionNote": "As vendas de vans e até vendas contam para o usuário que as fez, pedidos para seu vendedor. O % é a comissão do arquivo do funcionário.",
+   "days": "Dias",
+   "diffs": "Contar diferenças",
+   "everyDay": "diariamente",
+   "findCustomer": "Encontre um cliente (Enter)",
+   "from": "De",
+   "invoices": "Faturas",
+   "isShowroom": "Showroom",
+   "isVan": "Van",
+   "loadOpen": "Carregue e abra o dia",
+   "net": "Vendido (antes de impostos)",
+   "onCollected": "Em coleções",
+   "onSales": "Em vendas",
+   "openDay": "Carregue uma van",
+   "sales": "Vendas",
+   "salesman": "Vendedor",
+   "st": {
+    "closed": "fechado",
+    "open": "abrir"
+   },
+   "stops": "Clientes",
+   "stopsOf": "Clientes de {{name}}",
+   "toLoad": "{{n}} linhas para carregar",
+   "van": "Van"
+  }
  },
  "wh": {
   "add": "Adicionar",
