@@ -587,7 +587,7 @@
     "title": "Aylık faturalar"
    },
    "opening": {
-    "body": "Paxve kullanmaya başladığınızda, ilk gün her hesapta nelerin bulunduğunu girin: nakit, banka, hisse senedi, ekipman (borç) ve krediler veya diğer borçlar (alacak).\n\n Müşterilerin ve tedarikçilerin bakiyeleri en iyi şekilde içe aktarılır (İçe Aktarma ekranı veya Magic'ten İçe Aktarma), böylece her biri kendi hesabını tutar.\n\n Borç ve alacak eşit değilse, fark dağıtılmamış karlara (sahiplerin başlangıç ​​sermayesi) gider.",
+    "body": "Paxve kullanmaya başladığınızda, ilk gün her hesapta nelerin bulunduğunu girin: nakit, banka, hisse senedi, ekipman (borç) ve krediler veya diğer borçlar (alacak).\n\n Müşterilerin ve tedarikçilerin bakiyeleri en iyi şekilde içe aktarılır (İçe aktarma ekranı), böylece her biri kendi hesabını tutar.\n\n Borç ve alacak eşit değilse, fark dağıtılmamış karlara (sahiplerin başlangıç ​​sermayesi) gider.",
     "title": "Açılış bakiyeleri"
    },
    "owner": {
@@ -1497,7 +1497,7 @@
   "duplicate_key": "Bu anahtar zaten mevcut.",
   "duplicate_serial": "Bu cihaz zaten kayıtlı.",
   "duplicate_supplier_ref": "Bu tedarikçinin zaten aynı fatura numarasına sahip {{detail}} numaralı faturası var",
-  "duplicate_target": "İki Magic şirketi aynı Paxve şirketine giremez",
+  "duplicate_target": "Eski sistemdeki iki şirket aynı Paxve şirketine giremez",
   "einvoice_seller_missing": "Satıcı adını ve 15 haneli KDV numarasını girin.",
   "einvoice_signer": "İmzalama hizmeti yanıt vermedi: {{detail}}",
   "einvoice_unreachable": "Vergi dairesine ulaşılamadı: {{detail}}",
@@ -1677,7 +1677,7 @@
   "nothing_done": "En az bir adet yapılanı girin.",
   "nothing_to_bill": "Bu siparişte faturalandırılacak hiçbir şey kalmadı",
   "nothing_to_deliver": "Teslim edilecek hiçbir şey kalmadı",
-  "nothing_to_import": "İçe aktarılacak en az bir Magic şirketi seçin",
+  "nothing_to_import": "İthalat yapmak için eski sistemden en az bir şirket seçin",
   "nothing_to_invoice": "Faturalanacak hiçbir şey kalmadı",
   "nothing_to_order": "Bu satış siparişinde sipariş edilecek hiçbir şey kalmadı.",
   "nothing_to_pay": "Bu para biriminde ödenecek hiçbir şey kalmadı",
@@ -3836,7 +3836,7 @@
   "accountsCreated": "Grafiğe eklenen hesaplar",
   "allOrNothing": "Ya hep ya hiç: Başarısız bir içe aktarma hiçbir şeyi değiştirmez.",
   "alreadyImported": "Zaten {{name}} içine aktarıldı",
-  "confirm": "{{n}} Magic şirketi/şirketleri şimdi içe aktarılsın mı? Her şey tek seferde yazılır: Bir şey başarısız olursa hiçbir şey saklanmaz.",
+  "confirm": "{{n}} şirket(ler) artık eski sistemden içe aktarılsın mı? Her şey tek seferde yazılır: Bir şey başarısız olursa hiçbir şey saklanmaz.",
   "counts": {
    "boxes": "Kutular",
    "collectors": "Koleksiyonerler",
@@ -3873,14 +3873,14 @@
   "import": "İçe aktarmak",
   "includeEnded": "İptal edilen abonelikleri de içe aktar",
   "invalid": "Bu dosya okunamıyor: {{detail}}",
-  "nav": "Magic'ten içe aktar",
+  "nav": "Eski sistemi içe aktarma",
   "newCompany": "Yeni bir şirket yarat",
   "nextSteps": "Sonraki: Kullanıcılar'da her koleksiyoncuya bir e-posta ve şifre verin (etkin olmayan bir şekilde oluşturuldular), deneme bakiyesini ve müşteri bakiyelerini kontrol edin, ardından Paxve faturalandırmaya başlayın.",
   "openingDate": "Açılış tarihi",
   "openingDateHint": "Bakiyeler bu tarihte devredilir",
   "rate": "LBP oranı",
   "rateHint": "Açılış bakiyeleri için 1 USD başına LBP",
-  "readOnly": "Komut dosyası yalnızca okur (SELECT). Magic'i asla değiştirmez, hiçbir zaman şifre saklamaz ve VOD şifrelerini, kart numaralarını ve SMS anahtarlarını dışarıda bırakır.",
+  "readOnly": "Komut dosyası yalnızca okur (SELECT). Asla eski sistemi değiştirmez, asla şifre saklamaz ve VOD şifrelerini, kart numaralarını ve SMS anahtarlarını dışarıda bırakır.",
   "readingsHint": "Tarifeli abonelik başına içe aktarılan geçmiş",
   "readingsMonths": "Sayaç okumaları (ay)",
   "recalculate": "Yeniden hesapla",
@@ -3899,8 +3899,8 @@
    "ended": "İptal edildi",
    "suspended": "Askıya alınmış"
   },
-  "step1": "Magic'ten dışa aktar",
-  "step1Text": "Magic'in çalıştığı bilgisayarda (veya SQL Server'a erişebilen herhangi bir bilgisayarda):",
+  "step1": "Eski sistemden ihracat",
+  "step1Text": "Eski sistemin çalıştığı bilgisayarda (veya SQL Server'ına erişebilen herhangi bir bilgisayarda):",
   "step1a": "Aşağıdaki dışa aktarma komut dosyasını indirin ve o bilgisayara kopyalayın.",
   "step1b": "Betiğin klasöründe PowerShell'i açın ve çalıştırın:",
   "step1c": "Sorulduğunda SQL Server adını yazın (örneğin .\\SQLEXPRESS). Masaüstünde bir zip dosyası görünür.",
@@ -3921,12 +3921,12 @@
    "subscriptions": "Abonelikler",
    "suppliers": "Tedarikçiler"
   },
-  "subtitle": "Eski Magic programından müşterilerinizi, aboneliklerinizi, ödenmemiş faturalarınızı ve bakiyelerinizi getirin.",
+  "subtitle": "Müşterilerinizi, aboneliklerinizi, ödenmemiş faturalarınızı ve bakiyelerinizi eski sistemden kurtarın.",
   "target": "İçeri aktar",
-  "title": "Magic'ten içe aktar",
+  "title": "Eski sistemi içe aktarma",
   "totals": {
    "customer_credits": "Müşteri kredileri (avanslar)",
-   "imbalance": "Magic'te dengesiz girişler",
+   "imbalance": "Eski sistemde dengesiz girişler",
    "open_bills": "Ödenmemiş faturalar",
    "receivables": "Müşteri bakiyeleri (alacaklar)",
    "supplier_balances": "Tedarikçilere borçluyum"
@@ -3941,7 +3941,7 @@
    "box_missing": "Kutusu bulunmayan abonelikler",
    "duplicate_bill_period": "Aynı aya ait iki fatura (ikincisi aya bağlı değildir)",
    "ledger_missing": "Grafikte eksik olan hesaplar (oluşturuldu)",
-   "magic_books_unbalanced": "Magic dengesiz (tek satırlık) girişleri tutar: fark 4719 hesabına gider",
+   "magic_books_unbalanced": "Eski sistem dengesiz (tek satırlık) girişleri tutar: fark 4719 hesabına gider",
    "odd_year_lines": "İmkansız bir yıla sahip günlük satırları (tutuldu, kontrol edildi)",
    "partial_payments_applied": "En eski faturalara uygulanan hesaptan ödemeler",
    "plan_missing": "Planı mevcut olmayan abonelikler (atlandı)",
@@ -4784,7 +4784,7 @@
    "jibaya": "Koleksiyon",
    "late": "Geç ödeyenler",
    "ledger": "Defter",
-   "magicImport": "Magic'ten içe aktar",
+   "magicImport": "Eski sistemi içe aktarma",
    "manageSubs": "Abonelikleri yönet",
    "messages": "WhatsApp ve SMS",
    "meterLists": "Sayaç okumaları",
@@ -4854,7 +4854,7 @@
   "developers": "Geliştiriciler ( API )",
   "import": "Verileri içe aktar",
   "journal": "Günlük girişleri",
-  "magicImport": "Magic'ten içe aktar",
+  "magicImport": "Eski sistemi içe aktarma",
   "rates": "Döviz kurları",
   "settings": "Ayarlar",
   "trialBalance": "Mizan",
@@ -7535,7 +7535,7 @@
   "demo": "Demo rezervasyonu yapın",
   "faq": {
    "q1": {
-    "a": "Evet. Müşteriler, abonelikler, bakiyeler, okumalar ve hesap planı Excel veya doğrudan eski Magic sisteminden gelir; her satır kontrol edilene kadar hiçbir şey yazılmaz.",
+    "a": "Evet. Müşteriler, abonelikler, bakiyeler, okumalar ve hesap planı Excel veya doğrudan eski sisteminizden gelir; her satır kontrol edilene kadar hiçbir şey yazılmaz.",
     "q": "Eski programımdan verilerimi getirebilir miyim?"
    },
    "q2": {

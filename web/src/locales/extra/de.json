@@ -587,7 +587,7 @@
     "title": "Monatliche Rechnungen"
    },
    "opening": {
-    "body": "Wenn Sie mit Paxve beginnen, geben Sie ein, was jedes Konto am ersten Tag hält: Bargeld, Bankguthaben, Aktien, Ausrüstung (Soll) und Kredite oder andere Schulden (Guthaben).\n\n Die Salden von Kunden und Lieferanten werden am besten importiert (Importbildschirm oder Import aus Magic), sodass jeder sein eigenes Konto führt.\n\n Wenn Soll und Haben nicht gleich sind, fließt die Differenz in die Gewinnrücklagen (das Startkapital der Eigentümer) ein.",
+    "body": "Wenn Sie mit Paxve beginnen, geben Sie ein, was jedes Konto am ersten Tag hält: Bargeld, Bankguthaben, Aktien, Ausrüstung (Soll) und Kredite oder andere Schulden (Guthaben).\n\n Die Salden von Kunden und Lieferanten werden am besten importiert (Importbildschirm), sodass jeder ein eigenes Konto führt.\n\n Wenn Soll und Haben nicht gleich sind, fließt die Differenz in die Gewinnrücklagen (das Startkapital der Eigentümer) ein.",
     "title": "Eröffnungssalden"
    },
    "owner": {
@@ -1497,7 +1497,7 @@
   "duplicate_key": "Dieser Schlüssel existiert bereits.",
   "duplicate_serial": "Dieses Gerät ist bereits registriert.",
   "duplicate_supplier_ref": "Dieser Lieferant hat bereits die Rechnung Nr. {{detail}} mit derselben Rechnungsnummer",
-  "duplicate_target": "Zwei Magic-Unternehmen können nicht in dasselbe Paxve -Unternehmen einsteigen",
+  "duplicate_target": "Zwei Unternehmen aus dem alten System können nicht in dasselbe Paxve -Unternehmen einsteigen",
   "einvoice_seller_missing": "Geben Sie den Namen des Verkäufers und die 15-stellige Umsatzsteuer-Identifikationsnummer ein.",
   "einvoice_signer": "Der Signaturdienst hat nicht geantwortet: {{detail}}",
   "einvoice_unreachable": "Das Finanzamt konnte nicht erreicht werden: {{detail}}",
@@ -1677,7 +1677,7 @@
   "nothing_done": "Geben Sie mindestens eine Fertigmenge ein.",
   "nothing_to_bill": "Für diese Bestellung muss nichts mehr in Rechnung gestellt werden",
   "nothing_to_deliver": "Nichts mehr zu liefern",
-  "nothing_to_import": "Wählen Sie mindestens ein Magic-Unternehmen zum Importieren aus",
+  "nothing_to_import": "Wählen Sie mindestens ein Unternehmen aus dem alten System zum Importieren aus",
   "nothing_to_invoice": "Es muss nichts mehr in Rechnung gestellt werden",
   "nothing_to_order": "Für diesen Kundenauftrag gibt es nichts mehr zu bestellen.",
   "nothing_to_pay": "In dieser Währung muss nichts mehr bezahlt werden",
@@ -3836,7 +3836,7 @@
   "accountsCreated": "Dem Diagramm hinzugefügte Konten",
   "allOrNothing": "Alles oder nichts: Ein fehlgeschlagener Import ändert nichts.",
   "alreadyImported": "Bereits in {{name}} importiert",
-  "confirm": "Jetzt {{n}} Magic-Unternehmen importieren? Alles wird in einem Rutsch geschrieben: Wenn etwas ausfällt, wird nichts behalten.",
+  "confirm": "Jetzt {{n}} Firma(n) aus dem alten System importieren? Alles wird in einem Rutsch geschrieben: Wenn etwas ausfällt, wird nichts behalten.",
   "counts": {
    "boxes": "Boxen",
    "collectors": "Sammler",
@@ -3873,14 +3873,14 @@
   "import": "Import",
   "includeEnded": "Importieren Sie auch gekündigte Abonnements",
   "invalid": "Diese Datei kann nicht gelesen werden: {{detail}}",
-  "nav": "Import aus Magic",
+  "nav": "Import von Altsystemen",
   "newCompany": "Erstellen Sie ein neues Unternehmen",
   "nextSteps": "Als nächstes: Geben Sie jedem Sammler eine E-Mail-Adresse und ein Passwort in „Benutzer“ (sie wurden inaktiv erstellt), überprüfen Sie den Test- und Kundensaldo und beginnen Sie dann mit der Abrechnung in Paxve .",
   "openingDate": "Eröffnungsdatum",
   "openingDateHint": "Die Salden werden zu diesem Datum übertragen",
   "rate": "LBP Rate",
   "rateHint": "LBP pro 1 USD für Eröffnungssalden",
-  "readOnly": "Das Skript liest nur (SELECT). Es verändert Magic nie, speichert nie ein Passwort und lässt VOD-Passwörter, Kartennummern und SMS-Schlüssel weg.",
+  "readOnly": "Das Skript liest nur (SELECT). Es ändert nie das alte System, speichert nie ein Passwort und lässt VOD-Passwörter, Kartennummern und SMS-Schlüssel weg.",
   "readingsHint": "Pro getaktetem Abonnement importierter Verlauf",
   "readingsMonths": "Zählerstände (Monate)",
   "recalculate": "Neu berechnen",
@@ -3899,8 +3899,8 @@
    "ended": "Abgesagt",
    "suspended": "Ausgesetzt"
   },
-  "step1": "Aus Magic exportieren",
-  "step1Text": "Auf dem Computer, auf dem Magic ausgeführt wird (oder auf einem beliebigen Computer, der seinen SQL Server erreichen kann):",
+  "step1": "Export aus dem alten System",
+  "step1Text": "Auf dem Computer, auf dem das alte System läuft (oder auf einem beliebigen Computer, der seinen SQL Server erreichen kann):",
   "step1a": "Laden Sie das Exportskript unten herunter und kopieren Sie es auf diesen Computer.",
   "step1b": "Öffnen Sie PowerShell im Ordner des Skripts und führen Sie Folgendes aus:",
   "step1c": "Geben Sie den SQL Server-Namen ein, wenn Sie dazu aufgefordert werden (z. B. .\\SQLEXPRESS). Auf dem Desktop erscheint eine ZIP-Datei.",
@@ -3921,12 +3921,12 @@
    "subscriptions": "Abonnements",
    "suppliers": "Lieferanten"
   },
-  "subtitle": "Übernehmen Sie Ihre Kunden, Abonnements, unbezahlten Rechnungen und Guthaben aus dem alten Magic-Programm.",
+  "subtitle": "Übernehmen Sie Ihre Kunden, Abonnements, unbezahlte Rechnungen und Guthaben aus dem alten System.",
   "target": "Importieren in",
-  "title": "Import aus Magic",
+  "title": "Import von Altsystemen",
   "totals": {
    "customer_credits": "Kundenkredite (Vorschüsse)",
-   "imbalance": "Unausgeglichene Einträge in Magic",
+   "imbalance": "Unausgeglichene Einträge im alten System",
    "open_bills": "Unbezahlte Rechnungen",
    "receivables": "Kundensalden (Forderungen)",
    "supplier_balances": "Den Lieferanten geschuldet"
@@ -3941,7 +3941,7 @@
    "box_missing": "Abonnements, deren Box nicht existiert",
    "duplicate_bill_period": "Zwei Rechnungen für denselben Monat (die zweite ist nicht mit dem Monat verknüpft)",
    "ledger_missing": "Konten fehlen im Diagramm (erstellt)",
-   "magic_books_unbalanced": "Magic enthält unausgeglichene (einzeilige) Einträge: Die Differenz geht auf Konto 4719",
+   "magic_books_unbalanced": "Das alte System enthält unausgeglichene (einzeilige) Einträge: Die Differenz geht auf das Konto 4719",
    "odd_year_lines": "Journalzeilen mit einem unmöglichen Jahr (behalten, überprüfen)",
    "partial_payments_applied": "Akontozahlungen gelten für die ältesten Rechnungen",
    "plan_missing": "Abonnements, deren Plan nicht existiert (übersprungen)",
@@ -4784,7 +4784,7 @@
    "jibaya": "Sammlung",
    "late": "Spätzahler",
    "ledger": "Hauptbuch",
-   "magicImport": "Import aus Magic",
+   "magicImport": "Import von Altsystemen",
    "manageSubs": "Abonnements verwalten",
    "messages": "WhatsApp & SMS",
    "meterLists": "Zählerstände",
@@ -4854,7 +4854,7 @@
   "developers": "Entwickler ( API )",
   "import": "Daten importieren",
   "journal": "Tagebucheinträge",
-  "magicImport": "Import aus Magic",
+  "magicImport": "Import von Altsystemen",
   "rates": "Wechselkurse",
   "settings": "Einstellungen",
   "trialBalance": "Probebilanz",
@@ -7535,7 +7535,7 @@
   "demo": "Buchen Sie eine Demo",
   "faq": {
    "q1": {
-    "a": "Ja. Kunden, Abonnements, Salden, Ablesungen und der Kontenplan stammen aus Excel oder direkt aus dem alten Magic-System; Es wird nichts geschrieben, bis jede Zeile überprüft wurde.",
+    "a": "Ja. Kunden, Abonnements, Salden, Ablesungen und der Kontenplan kommen aus Excel oder direkt aus Ihrem alten System; Es wird nichts geschrieben, bis jede Zeile überprüft wurde.",
     "q": "Kann ich meine Daten aus meinem alten Programm mitbringen?"
    },
    "q2": {

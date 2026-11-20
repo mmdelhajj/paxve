@@ -477,7 +477,7 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     audit: () => <Audit />,
     developers: () => <Developers />,
     import: () => <Import />,
-    'magic-import': () => <MagicImport />,
+    'magic-import': () => (me.is_platform_admin ? <MagicImport /> : null),
     messages: () => <Messages me={me} />,
     suppliers: () => <Suppliers me={me} />,
     supplier: () => <SupplierDetail me={me} id={param} key={param} />,

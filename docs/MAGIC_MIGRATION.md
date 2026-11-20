@@ -23,8 +23,8 @@ The code lives here:
 | Export script | `tools/magic-export/Export-Magic.ps1`. The page also offers it for download at `/tools/Export-Magic.ps1` |
 | Reading the zip and computing the plan | `internal/magic` (`Parse`, `Build`): pure Go with unit tests |
 | Writing the plan | `internal/httpapi/magic.go` |
-| API | `/api/v1/magic/imports…` (admin, session only) |
-| Page | `web/src/pages/MagicImport.tsx` (`#/magic-import`) |
+| API | `/api/v1/magic/imports…` (platform owner only, session only; tenants get 403) |
+| Page | `web/src/pages/MagicImport.tsx` (`#/magic-import`, shown only to the platform owner as "Legacy system import"; tenants never see the word Magic) |
 | Test data | `paxve magic-sample out.zip` builds a synthetic Magic export with Arabic names and every edge case below |
 
 ## 1. Running the export (owner)

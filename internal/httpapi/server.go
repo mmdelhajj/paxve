@@ -365,13 +365,13 @@ func (s *Server) Handler() http.Handler {
 
 	// bulk import (customers, subscriptions, opening balances, readings, accounts)
 	mux.Handle("POST "+v+"/companies/{cid}/import/{type}", s.auth(s.importData))
-	// migration from the legacy Magic system (zip made by tools/magic-export)
-	mux.Handle("GET "+v+"/magic/imports", s.auth(sessionOnly(s.listMagicImports)))
-	mux.Handle("POST "+v+"/magic/imports", s.auth(sessionOnly(s.createMagicImport)))
-	mux.Handle("GET "+v+"/magic/imports/{id}", s.auth(sessionOnly(s.getMagicImport)))
-	mux.Handle("POST "+v+"/magic/imports/{id}/chunk", s.auth(sessionOnly(s.magicChunk)))
-	mux.Handle("POST "+v+"/magic/imports/{id}/analyze", s.auth(sessionOnly(s.analyzeMagicImport)))
-	mux.Handle("POST "+v+"/magic/imports/{id}/commit", s.auth(sessionOnly(s.commitMagicImport)))
+	// migration from the legacy Magic system (zip made by tools/magic-export) — platform owner only: tenants never see it
+	mux.Handle("GET "+v+"/magic/imports", s.auth(sessionOnly(s.platformOnly(s.listMagicImports))))
+	mux.Handle("POST "+v+"/magic/imports", s.auth(sessionOnly(s.platformOnly(s.createMagicImport))))
+	mux.Handle("GET "+v+"/magic/imports/{id}", s.auth(sessionOnly(s.platformOnly(s.getMagicImport))))
+	mux.Handle("POST "+v+"/magic/imports/{id}/chunk", s.auth(sessionOnly(s.platformOnly(s.magicChunk))))
+	mux.Handle("POST "+v+"/magic/imports/{id}/analyze", s.auth(sessionOnly(s.platformOnly(s.analyzeMagicImport))))
+	mux.Handle("POST "+v+"/magic/imports/{id}/commit", s.auth(sessionOnly(s.platformOnly(s.commitMagicImport))))
 
 	// messaging (WhatsApp / SMS)
 	mux.Handle("GET "+v+"/companies/{cid}/message-providers", s.auth(s.listProviders))

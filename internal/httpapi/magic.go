@@ -533,9 +533,9 @@ func freeName(taken map[string]bool, name string) string {
 	n := name
 	for i := 1; taken[strings.ToLower(n)]; i++ {
 		if i == 1 {
-			n = name + " (Magic)"
+			n = name + " (2)"
 		} else {
-			n = fmt.Sprintf("%s (Magic %d)", name, i)
+			n = fmt.Sprintf("%s (%d)", name, i+1)
 		}
 	}
 	taken[strings.ToLower(n)] = true
@@ -1004,7 +1004,7 @@ func (w *magicWriter) ensureAccount(code, typ string, names map[string]string) (
 		name = names["ar"]
 	}
 	if name == "" {
-		name = "Magic " + code
+		name = "Account " + code
 	}
 	i18n := map[string]string{}
 	for k, v := range names {
@@ -1075,8 +1075,8 @@ func (w *magicWriter) balances() error {
 		return err
 	}
 	var err error
-	if w.clearing, err = w.ensureAccount("4718", "liability", map[string]string{"en": "Magic migration clearing",
-		"ar": "حساب وسيط - ترحيل ماجيك", "fr": "Compte d'attente - migration Magic"}); err != nil {
+	if w.clearing, err = w.ensureAccount("4718", "liability", map[string]string{"en": "Migration clearing",
+		"ar": "حساب وسيط - ترحيل البيانات", "fr": "Compte d'attente - migration"}); err != nil {
 		return err
 	}
 	// rates: on the opening date, and before the first foreign-currency document
@@ -1132,7 +1132,7 @@ func (w *magicWriter) balances() error {
 		}
 		line := invLine{Kind: "other", Description: b.Description, Quantity: decimal.NewFromInt(1), UnitPrice: b.Amount, Amount: b.Amount, Meta: b.Meta}
 		if _, _, err := issueInvoice(withExternalRef(ctx, b.Ref), tx, w.cid, w.set, cust, name, sub, period, b.Issue, b.Due, b.Currency,
-			w.clearing, "Magic", []invLine{line}); err != nil {
+			w.clearing, "Opening balance", []invLine{line}); err != nil {
 			return err
 		}
 		w.created["open_bills"]++
@@ -1150,9 +1150,9 @@ func (w *magicWriter) balances() error {
 		if err != nil {
 			return err
 		}
-		line := invLine{Kind: "other", Description: "Opening balance (Magic)", Quantity: decimal.NewFromInt(1), UnitPrice: o.Amount, Amount: o.Amount}
+		line := invLine{Kind: "other", Description: "Opening balance", Quantity: decimal.NewFromInt(1), UnitPrice: o.Amount, Amount: o.Amount}
 		if _, _, err := issueInvoice(withExternalRef(ctx, o.Ref), tx, w.cid, w.set, cust, name, nil, nil, p.OpeningDate, p.OpeningDate,
-			o.Currency, w.clearing, "Opening balance (Magic)", []invLine{line}); err != nil {
+			o.Currency, w.clearing, "Opening balance", []invLine{line}); err != nil {
 			return err
 		}
 		w.created["opening_debits"]++
@@ -1193,9 +1193,9 @@ func (w *magicWriter) openingCredit(o magic.POpen) error {
 	if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'opening_credit')`, w.cid).Scan(&number); err != nil {
 		return err
 	}
-	je, err := postJournal(ctx, tx, w.cid, w.set, w.plan.OpeningDate, fmt.Sprintf("Opening credit #%d · %s (Magic)", number, name),
+	je, err := postJournal(ctx, tx, w.cid, w.set, w.plan.OpeningDate, fmt.Sprintf("Opening credit #%d · %s", number, name),
 		fmt.Sprintf("OC-%d", number), "opening", []jline{
-			{Account: w.clearing, Desc: "Magic", Currency: o.Currency, Debit: amount, Rate: rate},
+			{Account: w.clearing, Desc: "Opening balance", Currency: o.Currency, Debit: amount, Rate: rate},
 			{Account: *w.set.AR, Desc: name, Currency: o.Currency, Credit: amount, Rate: rate},
 		})
 	if err != nil {
@@ -1205,7 +1205,7 @@ func (w *magicWriter) openingCredit(o magic.POpen) error {
 	if err := tx.QueryRow(ctx, `INSERT INTO payments (company_id, number, customer_id, payment_date, currency, amount, journal_entry_id,
 		notes, kind, ar_rate, external_ref) VALUES ($1, $2, $3, $4::date, $5, $6::numeric, $7, $8, 'opening_credit', $9::numeric, $10)
 		RETURNING id::text`, w.cid, number, cust, w.plan.OpeningDate, o.Currency, amount.String(), je,
-		"Opening credit (Magic)", rate, o.Ref).Scan(&id); err != nil {
+		"Opening credit", rate, o.Ref).Scan(&id); err != nil {
 		return err
 	}
 	return autoAllocate(ctx, tx, w.cid, w.set, cust, o.Currency, "")
@@ -1232,9 +1232,9 @@ func (w *magicWriter) openingBill(o magic.POpen) error {
 	if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'bill')`, w.cid).Scan(&number); err != nil {
 		return err
 	}
-	je, err := postJournal(ctx, tx, w.cid, w.set, w.plan.OpeningDate, fmt.Sprintf("Bill #%d · %s (Magic opening balance)", number, name),
+	je, err := postJournal(ctx, tx, w.cid, w.set, w.plan.OpeningDate, fmt.Sprintf("Bill #%d · %s (opening balance)", number, name),
 		fmt.Sprintf("BILL-%d", number), "bill", []jline{
-			{Account: w.clearing, Desc: "Magic", Currency: o.Currency, Debit: o.Amount, Rate: rate},
+			{Account: w.clearing, Desc: "Opening balance", Currency: o.Currency, Debit: o.Amount, Rate: rate},
 			{Account: *w.ps.AP, Desc: name, Currency: o.Currency, Credit: o.Amount, Rate: rate},
 		})
 	if err != nil {
@@ -1243,7 +1243,7 @@ func (w *magicWriter) openingBill(o magic.POpen) error {
 	var id string
 	if err := tx.QueryRow(ctx, `INSERT INTO bills (company_id, number, supplier_id, supplier_ref, bill_date, due_date, currency, total,
 		journal_entry_id, notes, external_ref) VALUES ($1, $2, $3, 'Magic', $4::date, $4::date, $5, $6::numeric, $7, $8, $9) RETURNING id::text`,
-		w.cid, number, sup, w.plan.OpeningDate, o.Currency, o.Amount.String(), je, "Opening balance (Magic)", o.Ref).Scan(&id); err != nil {
+		w.cid, number, sup, w.plan.OpeningDate, o.Currency, o.Amount.String(), je, "Opening balance", o.Ref).Scan(&id); err != nil {
 		return err
 	}
 	if err := w.exec(`INSERT INTO bill_lines (bill_id, line_no, account_id, description, quantity, unit_price, amount)
@@ -1266,7 +1266,7 @@ func (w *magicWriter) openingEntry() error {
 	ref := magic.CompanyRef(p.Company.ID) + ":opening"
 	if err := tx.QueryRow(ctx, `INSERT INTO journal_entries (company_id, entry_date, memo, reference, source, external_ref)
 		VALUES ($1, $2::date, $3, $4, 'opening', $5) RETURNING id::text`, w.cid, p.OpeningDate,
-		fmt.Sprintf("Opening balances · Magic company %d (%s)", p.Company.ID, p.Company.Name), "MAGIC-"+strconv.Itoa(p.Company.ID), ref).Scan(&entry); err != nil {
+		fmt.Sprintf("Opening balances · %s", p.Company.Name), "OPEN-"+strconv.Itoa(p.Company.ID), ref).Scan(&entry); err != nil {
 		return err
 	}
 	n := 0
@@ -1297,7 +1297,7 @@ func (w *magicWriter) openingEntry() error {
 		switch g.Kind {
 		case "gl":
 			acc, err = w.glAccount(g)
-			desc = "Magic " + g.Code
+			desc = "Opening " + g.Code
 			if g.NameAr != "" {
 				desc += " " + g.NameAr
 			} else if g.NameEn != "" {
@@ -1305,16 +1305,16 @@ func (w *magicWriter) openingEntry() error {
 			}
 		case "retained":
 			acc, err = w.ensureAccount("12", "equity", map[string]string{"en": "Retained earnings / result", "ar": "النتيجة المدورة", "fr": "Report à nouveau"})
-			desc = "Magic: result of previous years"
+			desc = "Opening: result of previous years"
 		case "ar_clearing":
-			acc, desc = w.clearing, "Magic: customer balances (see the customer documents)"
+			acc, desc = w.clearing, "Opening: customer balances (see the customer documents)"
 		case "ap_clearing":
-			acc, desc = w.clearing, "Magic: supplier balances (see the supplier bills)"
+			acc, desc = w.clearing, "Opening: supplier balances (see the supplier bills)"
 		case "ap_direct":
 			if w.ps.AP == nil {
 				return notSetup("ap")
 			}
-			acc, desc = *w.ps.AP, "Magic: advances paid to suppliers"
+			acc, desc = *w.ps.AP, "Opening: advances paid to suppliers"
 		default:
 			continue
 		}
@@ -1344,23 +1344,23 @@ func (w *magicWriter) openingEntry() error {
 		magicPart = p.MagicImbalanceUSD
 	}
 	if !magicPart.IsZero() {
-		acc, err := w.ensureAccount("4719", "equity", map[string]string{"en": "Magic migration difference",
-			"ar": "فرق ترحيل ماجيك", "fr": "Écart de migration Magic"})
+		acc, err := w.ensureAccount("4719", "equity", map[string]string{"en": "Migration difference",
+			"ar": "فرق ترحيل البيانات", "fr": "Écart de migration"})
 		if err != nil {
 			return err
 		}
-		if err := insert(acc, "Magic: unbalanced entries in the old system", w.set.Base, magicPart.Neg(), "1"); err != nil {
+		if err := insert(acc, "Opening: unbalanced entries in the old system", w.set.Base, magicPart.Neg(), "1"); err != nil {
 			return err
 		}
 	}
 	reval := diff.Sub(magicPart)
 	switch {
 	case reval.IsPositive():
-		if err := insert(*w.set.FXGain, "Magic: revaluation at the opening rate", w.set.Base, reval.Neg(), "1"); err != nil {
+		if err := insert(*w.set.FXGain, "Opening: revaluation at the opening rate", w.set.Base, reval.Neg(), "1"); err != nil {
 			return err
 		}
 	case reval.IsNegative():
-		if err := insert(*w.set.FXLoss, "Magic: revaluation at the opening rate", w.set.Base, reval.Neg(), "1"); err != nil {
+		if err := insert(*w.set.FXLoss, "Opening: revaluation at the opening rate", w.set.Base, reval.Neg(), "1"); err != nil {
 			return err
 		}
 	}

@@ -345,7 +345,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'approvals', label: 'mx.t.approvals', icon: IconChecklist, any: true },
       { page: 'audit', label: 'mx.t.audit', icon: IconHistory, perm: 'audit.view' },
       { page: 'import', label: 'mx.t.import', icon: IconFileImport, perm: 'import.create' },
-      { page: 'magic-import', label: 'mx.t.magicImport', icon: IconDatabaseImport, perm: 'import.manage' },
+      { page: 'magic-import', label: 'mx.t.magicImport', icon: IconDatabaseImport, platform: true },
       { page: 'developers', label: 'mx.t.developers', icon: IconApi, perm: 'api.view' },
       { page: 'security', label: 'mx.t.security', icon: IconShieldLock, any: true },
       { page: 'ent', param: 'security', label: 'ep.t.security', icon: IconShieldCheck, perm: 'users.view' },

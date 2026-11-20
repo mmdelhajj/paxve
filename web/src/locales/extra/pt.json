@@ -587,7 +587,7 @@
     "title": "Contas mensais"
    },
    "opening": {
-    "body": "Ao iniciar o Paxve , insira o que cada conta possui no primeiro dia: dinheiro, banco, estoque, equipamentos (débito) e empréstimos ou outras dívidas (crédito).\n\n Os saldos de clientes e fornecedores são melhor importados (tela Importar ou Importar do Magic) para que cada um mantenha sua própria conta.\n\n Se o débito e o crédito não forem iguais, a diferença vai para os lucros retidos (capital inicial dos proprietários).",
+    "body": "Ao iniciar o Paxve , insira o que cada conta possui no primeiro dia: dinheiro, banco, estoque, equipamentos (débito) e empréstimos ou outras dívidas (crédito).\n\n Os saldos de clientes e fornecedores são melhor importados (tela Importar) para que cada um mantenha sua própria conta.\n\n Se o débito e o crédito não forem iguais, a diferença vai para os lucros retidos (capital inicial dos proprietários).",
     "title": "Saldos iniciais"
    },
    "owner": {
@@ -1497,7 +1497,7 @@
   "duplicate_key": "Esta chave já existe.",
   "duplicate_serial": "Este dispositivo já está registrado.",
   "duplicate_supplier_ref": "Este fornecedor já possui a fatura nº {{detail}} com o mesmo número de fatura",
-  "duplicate_target": "Duas empresas de Magic não podem entrar na mesma empresa Paxve",
+  "duplicate_target": "Duas empresas do sistema antigo não podem entrar na mesma empresa Paxve",
   "einvoice_seller_missing": "Preencha o nome do vendedor e o número de IVA de 15 dígitos.",
   "einvoice_signer": "O serviço de assinatura não respondeu: {{detail}}",
   "einvoice_unreachable": "Não foi possível entrar em contato com a autoridade fiscal: {{detail}}",
@@ -1677,7 +1677,7 @@
   "nothing_done": "Insira pelo menos uma quantidade concluída.",
   "nothing_to_bill": "Não há mais nada a faturar neste pedido",
   "nothing_to_deliver": "Não sobrou nada para entregar",
-  "nothing_to_import": "Escolha pelo menos uma empresa Magic para importar",
+  "nothing_to_import": "Escolha pelo menos uma empresa do sistema antigo para importar",
   "nothing_to_invoice": "Nada mais para faturar",
   "nothing_to_order": "Não sobrou nada para fazer neste pedido de venda.",
   "nothing_to_pay": "Não sobrou nada para pagar nesta moeda",
@@ -3836,7 +3836,7 @@
   "accountsCreated": "Contas adicionadas ao gráfico",
   "allOrNothing": "Tudo ou nada: uma importação falhada não altera nada.",
   "alreadyImported": "Já importado para {{name}}",
-  "confirm": "Importar {{n}} empresa(s) de Magic agora? Tudo está escrito de uma só vez: se alguma coisa falhar, nada será mantido.",
+  "confirm": "Importar agora {{n}} empresa(s) do sistema antigo? Tudo está escrito de uma só vez: se alguma coisa falhar, nada será mantido.",
   "counts": {
    "boxes": "Caixas",
    "collectors": "Colecionadores",
@@ -3873,14 +3873,14 @@
   "import": "Importar",
   "includeEnded": "Importe também assinaturas canceladas",
   "invalid": "Este arquivo não pode ser lido: {{detail}}",
-  "nav": "Importar do Magic",
+  "nav": "Importação de sistema legado",
   "newCompany": "Crie uma nova empresa",
   "nextSteps": "A seguir: forneça a cada cobrador um e-mail e uma senha em Usuários (eles foram criados inativos), verifique o balancete e os saldos dos clientes e, em seguida, inicie o faturamento no Paxve .",
   "openingDate": "Data de abertura",
   "openingDateHint": "Os saldos são transitados nesta data",
   "rate": "Taxa LBP",
   "rateHint": "LBP por 1 USD para saldos iniciais",
-  "readOnly": "O script apenas lê (SELECT). Ele nunca muda o Magic, nunca armazena uma senha e deixa de fora senhas VOD, números de cartão e chaves de SMS.",
+  "readOnly": "O script apenas lê (SELECT). Ele nunca altera o sistema antigo, nunca armazena uma senha e deixa de fora senhas VOD, números de cartão e chaves SMS.",
   "readingsHint": "Histórico importado por assinatura limitada",
   "readingsMonths": "Leituras do medidor (meses)",
   "recalculate": "Recalcular",
@@ -3899,8 +3899,8 @@
    "ended": "Cancelado",
    "suspended": "Suspenso"
   },
-  "step1": "Exportar do Magic",
-  "step1Text": "No computador onde o Magic é executado (ou em qualquer computador que possa acessar seu SQL Server):",
+  "step1": "Exportar do sistema antigo",
+  "step1Text": "No computador onde o sistema antigo é executado (ou em qualquer computador que possa acessar o SQL Server):",
   "step1a": "Baixe o script de exportação abaixo e copie-o para esse computador.",
   "step1b": "Abra o PowerShell na pasta do script e execute:",
   "step1c": "Digite o nome do SQL Server quando solicitado (por exemplo .\\SQLEXPRESS). Um arquivo zip aparece na área de trabalho.",
@@ -3921,12 +3921,12 @@
    "subscriptions": "Assinaturas",
    "suppliers": "Fornecedores"
   },
-  "subtitle": "Traga seus clientes, assinaturas, contas não pagas e saldos do antigo programa Magic.",
+  "subtitle": "Traga seus clientes, assinaturas, contas não pagas e saldos do sistema antigo.",
   "target": "Importar para",
-  "title": "Importar do Magic",
+  "title": "Importação de sistema legado",
   "totals": {
    "customer_credits": "Créditos de clientes (adiantamentos)",
-   "imbalance": "Entradas desequilibradas no Magic",
+   "imbalance": "Entradas desequilibradas no sistema antigo",
    "open_bills": "Contas não pagas",
    "receivables": "Saldos de clientes (contas a receber)",
    "supplier_balances": "Devida a fornecedores"
@@ -3941,7 +3941,7 @@
    "box_missing": "Assinaturas cuja caixa não existe",
    "duplicate_bill_period": "Duas faturas do mesmo mês (a segunda não está vinculada ao mês)",
    "ledger_missing": "Contas ausentes no gráfico (criadas)",
-   "magic_books_unbalanced": "Magic mantém entradas desequilibradas (uma linha): a diferença vai para a conta 4719",
+   "magic_books_unbalanced": "O sistema antigo mantém lançamentos não balanceados (uma linha): a diferença vai para a conta 4719",
    "odd_year_lines": "Linhas do diário com ano impossível (mantidos, verifique-os)",
    "partial_payments_applied": "Pagamentos por conta aplicados às faturas mais antigas",
    "plan_missing": "Assinaturas cujo plano não existe (ignorada)",
@@ -4784,7 +4784,7 @@
    "jibaya": "Coleção",
    "late": "Pagadores atrasados",
    "ledger": "Razão",
-   "magicImport": "Importar do Magic",
+   "magicImport": "Importação de sistema legado",
    "manageSubs": "Gerenciar assinaturas",
    "messages": "WhatsApp e SMS",
    "meterLists": "Leituras do medidor",
@@ -4854,7 +4854,7 @@
   "developers": "Desenvolvedores ( API )",
   "import": "Importar dados",
   "journal": "Lançamentos de diário",
-  "magicImport": "Importar do Magic",
+  "magicImport": "Importação de sistema legado",
   "rates": "Taxas de câmbio",
   "settings": "Configurações",
   "trialBalance": "Balancete",
@@ -7535,7 +7535,7 @@
   "demo": "Agende uma demonstração",
   "faq": {
    "q1": {
-    "a": "Sim. Clientes, assinaturas, saldos, leituras e plano de contas vêm do Excel ou direto do antigo sistema Magic; nada é escrito até que cada linha seja verificada.",
+    "a": "Sim. Clientes, assinaturas, saldos, leituras e plano de contas vêm do Excel ou direto do seu antigo sistema; nada é escrito até que cada linha seja verificada.",
     "q": "Posso trazer meus dados do meu programa antigo?"
    },
    "q2": {

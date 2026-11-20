@@ -45,7 +45,7 @@ export default function Translations({ me }: { me: Me }) {
   useEffect(load, [load]);
 
   const en = useMemo(() => flatten(i18n.getResourceBundle('en', 'translation')), []);
-  const rows: Row[] = useMemo(() => Object.keys(en).sort()
+  const rows: Row[] = useMemo(() => Object.keys(en).filter((k) => me.is_platform_admin || !(k.startsWith('magic.') || k.endsWith('.magicImport'))).sort()
     .map((k) => ({ key: k, en: en[k], shipped: shipped[k] ?? '', own: own[k] ?? '' }))
     .filter((r) => !onlyOwn || r.own), [en, shipped, own, onlyOwn]);
 

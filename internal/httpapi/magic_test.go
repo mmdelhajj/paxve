@@ -61,6 +61,12 @@ func ownerQuery(t *testing.T, sql string, args ...any) string {
 func TestMagicMigration(t *testing.T) {
 	needDB(t)
 	o := signup(t, "lebanon")
+	// the legacy import is the platform owner's tool: a tenant admin never reaches it
+	o.c.ok("GET", "/magic/imports", nil, 403)
+	email := str(o.c.ok("GET", "/me", nil, 200).body["email"])
+	itAPI.platformAdmins[email] = true
+	defer delete(itAPI.platformAdmins, email)
+	o.c.ok("GET", "/magic/imports", nil, 200)
 	data, exp := magic.Synthetic(11)
 
 	// bad offset and checksum are refused

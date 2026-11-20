@@ -252,7 +252,7 @@ func Build(d *Data, companyID int, opt Options) (*Plan, error) {
 		if pp, ok := d.People[id]; ok && strings.TrimSpace(pp.Name) != "" {
 			return strings.TrimSpace(pp.Name)
 		}
-		return fmt.Sprintf("Magic %d", id)
+		return fmt.Sprintf("Customer %d", id)
 	}
 
 	// ---- collectors (tenant-wide users, one per person) ----
@@ -627,7 +627,7 @@ func Build(d *Data, companyID int, opt Options) (*Plan, error) {
 			f := s.SpecialCost.Round(4)
 			x.FeeOverride = &f
 		}
-		notes := []string{fmt.Sprintf("Magic sub #%d", s.ID)}
+		notes := []string{fmt.Sprintf("Imported subscription #%d", s.ID)}
 		if s.NumInLocation > 0 && s.NumInLocation < 10000 {
 			notes = append(notes, fmt.Sprintf("box position %d", s.NumInLocation))
 		}
@@ -758,7 +758,7 @@ func Build(d *Data, companyID int, opt Options) (*Plan, error) {
 		} else if per != "" {
 			p.warn("duplicate_bill_period", fmt.Sprintf("sub %d %s (bill %d)", b.SubID, per, b.IssalID))
 		}
-		desc := fmt.Sprintf("Magic bill %d/%d", b.Year, b.IssalID)
+		desc := fmt.Sprintf("Opening bill %d/%d", b.Year, b.IssalID)
 		if per != "" {
 			desc += " · " + per
 		}
