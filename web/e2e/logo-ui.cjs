@@ -55,10 +55,10 @@ const ok = (n, c, x = '') => { console.log(`${c ? 'PASS' : 'FAIL'} ${n} ${x}`); 
   for (const p of ['/favicon.svg', '/icons/main-512.png', '/icons/field-192-maskable.png', '/icons/apple-touch-icon.png', '/og.png', '/brand/paxve-logo.svg', '/brand/paxve-mark-mono.svg']) {
     const r = await ctx.request.get(base + p); ok(`asset ${p}`, r.ok(), String(r.status()));
   }
-  const fav = await (await ctx.request.get(base + '/favicon.svg?v=4')).text();
+  const fav = await (await ctx.request.get(base + '/favicon.svg?v=5')).text();
   ok('favicon is the new mark', fav.includes('M31 24h18') && !fav.includes('M22 48'));
   const html = await (await ctx.request.get(base + '/')).text();
-  ok('index links versioned favicon', html.includes('/favicon.svg?v=4'));
+  ok('index links versioned favicon', html.includes('/favicon.svg?v=5'));
   const sw = await (await ctx.request.get(base + '/sw.js?fresh=' + Date.now())).text();
   ok('sw cache v6', sw.includes('paxve-shell-v6'));
   await browser.close();

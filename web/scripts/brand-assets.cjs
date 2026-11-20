@@ -48,8 +48,8 @@ function writeSvgs() {
 
 // an icon: navy ground (rounded for "any", full bleed for maskable / iOS) and the mark at `share` of the side
 function iconHtml(size, lira, kind) {
-  const share = kind === 'any' ? 0.6 : kind === 'apple' ? 0.56 : 0.5; // visible mark (48 of 64 units) / side
-  const k = (share * size) / 48;
+  const share = kind === 'any' ? 0.6 : kind === 'apple' ? 0.56 : 0.5; // visible mark (56 of 64 units) / side
+  const k = (share * size) / 56;
   const off = size / 2 - 32 * k;
   const ground = kind === 'any' ? `<rect width="${size}" height="${size}" rx="${size * 0.22}" fill="${NAVY}"/>` : `<rect width="${size}" height="${size}" fill="${NAVY}"/>`;
   const [m1, m2] = TONES.icon;
