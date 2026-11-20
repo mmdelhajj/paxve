@@ -5141,6 +5141,7 @@
   "bank": {
    "allBoxes": "Jedes Bankfach",
    "auto": "Automatisch abgleichen",
+   "autoDetect": "Automatisch",
    "autoResult": "Abgeglichen mit Einträgen: {{matched}} · nach Regeln: {{rules}} · Rechnungen / Rechnungen: {{documents}} · links: {{left}}",
    "balance": "Offen",
    "book": "Buch",

@@ -5141,6 +5141,7 @@
   "bank": {
    "allBoxes": "Cada caixa bancária",
    "auto": "Reconciliar automaticamente",
+   "autoDetect": "Automático",
    "autoResult": "Correspondido com entradas: {{matched}} · por regras: {{rules}} · faturas/contas: {{documents}} · esquerda: {{left}}",
    "balance": "Abrir",
    "book": "Livro",

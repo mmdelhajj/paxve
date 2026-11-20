@@ -5141,6 +5141,7 @@
   "bank": {
    "allBoxes": "Her banka kutusu",
    "auto": "Otomatik olarak uzlaştır",
+   "autoDetect": "Otomatik",
    "autoResult": "Girişlerle eşleşti: {{matched}} · kurallara göre: {{rules}} · faturalar / faturalar: {{documents}} · sol: {{left}}",
    "balance": "Açık",
    "book": "Kitap",
