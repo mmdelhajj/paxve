@@ -130,7 +130,7 @@ func TestElectronicsPack(t *testing.T) {
 	// trade-in: a used phone (serial) taken at 10 as part payment of a charger (15)
 	s := o.c.ok("POST", o.p("/pos/orders"), map[string]any{"session_id": sess, "customer_id": cust, "lines": []any{map[string]any{"item_id": charger, "quantity": "1"}},
 		"trade_in": []any{map[string]any{"item_id": used, "serial": "USED-777", "value": "10", "note": "screen scratched"}},
-		"tenders": []any{map[string]any{"method_id": usd, "amount": "5"}}}, 201)
+		"tenders":  []any{map[string]any{"method_id": usd, "amount": "5"}}}, 201)
 	if v := obj(s.body["vertical"]); len(v["tradein"].([]any)) != 1 {
 		t.Fatalf("trade-in not stored: %s", s.raw)
 	}

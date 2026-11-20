@@ -131,7 +131,9 @@ func (s *Server) verticalDemo(r *http.Request, cid, key, base string,
 			sql(`UPDATE customers SET credit_limit = 500 WHERE id = $1`, cu)
 		}
 		if vans := query(`SELECT id::text FROM warehouses WHERE company_id = $1 AND is_van ORDER BY created_at LIMIT 1`, cid); len(vans) > 0 && len(custs) > 0 {
-			var rt struct{ Route idOnly `json:"route"` }
+			var rt struct {
+				Route idOnly `json:"route"`
+			}
 			_ = json.Unmarshal(step(s.vanSaveRoute, nil, map[string]any{"name": "Daily route", "warehouse_id": vans[0]}), &rt)
 			rid := rt.Route.ID
 			if rid != "" {
