@@ -128,6 +128,10 @@ const Talent = lazy(() => import('./pages/talent/Talent'));
 const SelfAppraisal = lazy(() => named(import('./pages/talent/Talent'), 'SelfAppraisal'));
 const ESign = lazy(() => import('./pages/esign/ESign'));
 const Smart = lazy(() => import('./pages/smart/Smart'));
+const Vert = lazy(() => import('./pages/vert/Vert'));
+const Resto = lazy(() => import('./pages/vert/Resto'));
+const Kds = lazy(() => named(import('./pages/vert/Resto'), 'Kds'));
+const Van = lazy(() => import('./pages/vert/Van'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -137,7 +141,7 @@ const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'vouche
 const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash', 'invoices', 'customers', 'print-bills', 'trial-balance', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances',
   'localization', 'translations', 'stock-pro', 'hr', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'platform', 'retail', 'gaps', 'wh',
-  'projects', 'field', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'esign', 'smart']);
+  'projects', 'field', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'esign', 'smart', 'vert']);
 const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
   'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
   'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
@@ -146,7 +150,7 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
   'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'my-sub', 'retail', 'gaps', 'wh', 'scan', 'driver', 'shopfloor',
-  'projects', 'field', 'tech', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'my-appraisal', 'esign', 'smart']);
+  'projects', 'field', 'tech', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'my-appraisal', 'esign', 'smart', 'vert', 'resto', 'kds', 'van']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -241,6 +245,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   const allowed = useCallback((tile: Tile) => {
     if (tile.platform) return me.is_platform_admin;
     if (tile.app && !apps.has(tile.app)) return false;
+    if (tile.biz && !tile.biz.includes(biz)) return false;
     return tile.any ? true : can(me, tile.perm ?? 'reports.view');
   }, [apps, me]);
 
@@ -280,6 +285,10 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   if (page === 'scan' || page === 'driver') {
     const exit = () => { window.location.hash = me.role === 'collector' ? '#/collect' : '#/wh/ops'; };
     return <Suspense fallback={pageFallback}>{page === 'scan' ? <WhScan me={me} onExit={exit} /> : <WhDriver me={me} onExit={exit} />}</Suspense>;
+  }
+  if (page === 'resto' || page === 'kds' || page === 'van') {
+    const exit = () => { window.location.hash = me.role === 'cashier' ? '#/pos' : page === 'van' ? '#/vert/wholesale' : '#/vert/restaurant'; };
+    return <Suspense fallback={pageFallback}>{page === 'resto' ? <Resto me={me} onExit={exit} /> : page === 'kds' ? <Kds me={me} onExit={exit} /> : <Van me={me} onExit={exit} />}</Suspense>;
   }
   if (me.role === 'cashier' || page === 'pos') {
     return <Suspense fallback={pageFallback}><PosApp me={me} onLogout={me.role === 'cashier' ? onLogout : () => { window.location.hash = '#/dashboard'; }} /></Suspense>;
@@ -518,6 +527,7 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     'my-appraisal': () => <SelfAppraisal />,
     esign: () => <ESign me={me} />,
     smart: () => <Smart me={me} initial={param} key={param} />,
+    vert: () => <Vert me={me} initial={param} key={param} />,
     'hr-extra': () => <HRExtra me={me} initial={param} key={param} />,
     'online-pay': () => <OnlinePayments me={me} />,
     einvoice: () => <EInvoice me={me} />,

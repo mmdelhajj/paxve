@@ -284,6 +284,28 @@ supplier (tax number / name), items and currency, with a duplicate check; the bi
 to the saved bill. Both run in the background (the screen polls), are metered per organisation per month
 (`platform_plans.ai_monthly_limit`), and the platform console shows the use per organisation (**AI** tab).
 
+## Business packs: electronics, furniture, wholesale, restaurant, pharmacy, factory (phase 6a)
+
+Choosing a business type (sign-up, Apps page or Retail › Business packs) applies its **pack**: the right apps, the defaults and
+optional demo data, all through the normal handlers. Ribbon tab **Business** shows only the tiles of the company's type.
+
+- **Electronics**: serials / IMEI scanned at the till (one per unit) and on office invoices (`lines[].lots`), serial history
+  (bought from, sold to, repairs), warranty card print, **trade-in** at the till (a tender on a clearing account; the used device
+  enters stock at the agreed value, Dr inventory / Cr clearing), repairs and instalments as before.
+- **Furniture**: made-to-order items with **options** (extra price) and **price per m²** (configurator), **deposits** on sales
+  orders (a customer payment on account linked to the order, used by its invoice), **delivery + assembly** scheduling (a
+  delivery-board trip with the balance to collect + a service job for the fitter), showroom warehouses.
+- **Wholesale**: price lists as price tiers, credit limit **blocked**, salesman **routes**, **vans** (warehouse per salesman):
+  load in the morning, sell from the phone (`#/van`, offline queue, customer prices, credit checked on the unpaid part), close the
+  day with a count (differences booked) and unload; `invoices.salesman_id` (van and till sales) feeds the **commission** report.
+- **Restaurant**: tables / floor plan, modifiers, open checks (dine-in / takeaway / delivery) with kitchen lines per station,
+  **kitchen display** (`#/kds`), split by lines, payment as a normal till sale with **service charge** (revenue) and **tip** (a
+  liability), dishes = kits whose components are ingredients (taken out of stock on sale), daily **food cost %**.
+- **Pharmacy**: drug fields (generic name, active ingredient, strength, form, prescription, controlled), search with
+  alternatives, FEFO with **expired lots blocked** (`companies.block_expired`), prescription required at the till, controlled
+  register, **insurance share** (a tender on "Insurance claims receivable" + a claim to submit / settle / reject).
+- **Factory**: the manufacturing apps with starter work centers, BoM and routing.
+
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the

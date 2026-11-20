@@ -15,6 +15,7 @@ import {
   IconRobot, IconLayoutKanban, IconCar, IconMapPin, IconClock, IconAlertTriangle, IconReportAnalytics, IconCalendarEvent, IconListCheck,
   IconSpeakerphone, IconBriefcase, IconSignature, IconStars, IconWorldWww, IconMapPins, IconUserSearch, IconMailOff, IconShoppingBag, IconUserStar,
   IconSparkles, IconBrain, IconChartAreaLine, IconUserExclamation, IconShoppingCartPlus, IconRoute, IconFileSearch, IconAdjustments,
+  IconToolsKitchen2, IconChefHat, IconPill, IconSofa, IconDevicesPc, IconPrescription,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
@@ -33,6 +34,7 @@ export interface Tile {
   app?: AppId;
   platform?: boolean;    // only for platform owners
   any?: boolean;         // every signed-in user
+  biz?: string[];        // only for these business types (business packs)
 }
 
 export interface RibbonTab { id: string; label: string; color: string; app?: AppId; tiles: Tile[] }
@@ -221,6 +223,21 @@ export const RIBBON: RibbonTab[] = [
       { page: 'smart', param: 'route', label: 'sm.m.route', icon: IconRoute, perm: 'collections.view' },
       { page: 'smart', param: 'scans', label: 'sm.m.scans', icon: IconFileSearch, perm: 'purchasing.view' },
       { page: 'smart', param: 'settings', label: 'sm.m.settings', icon: IconAdjustments, perm: 'smart.view' },
+    ],
+  },
+  {
+    id: 'vt', label: 'vt.rib', color: '#b45309', tiles: [
+      { page: 'resto', label: 'vt.t.resto', icon: IconToolsKitchen2, perm: 'pos.view', app: 'pos', biz: ['restaurant'] },
+      { page: 'kds', label: 'vt.t.kds', icon: IconChefHat, perm: 'pos.view', app: 'pos', biz: ['restaurant'] },
+      { page: 'vert', param: 'restaurant', label: 'vt.t.restSetup', icon: IconTable, perm: 'pos.manage', app: 'pos', biz: ['restaurant'] },
+      { page: 'vert', param: 'electronics', label: 'vt.t.serials', icon: IconDevicesPc, perm: 'stock.view', app: 'stk', biz: ['electronics'] },
+      { page: 'vert', param: 'furniture', label: 'vt.t.furniture', icon: IconSofa, perm: 'sales.view', app: 'crm', biz: ['furniture'] },
+      { page: 'vert', param: 'wholesale', label: 'vt.t.wholesale', icon: IconTruck, perm: 'stock.view', app: 'stk', biz: ['wholesale'] },
+      { page: 'van', label: 'vt.t.van', icon: IconRoute, perm: 'pos.create', app: 'stk', biz: ['wholesale'] },
+      { page: 'vert', param: 'pharmacy', label: 'vt.t.pharmacy', icon: IconPill, perm: 'stock.view', app: 'stk', biz: ['pharmacy'] },
+      { page: 'vert', param: 'claims', label: 'vt.t.claims', icon: IconPrescription, perm: 'collections.view', app: 'stk', biz: ['pharmacy'] },
+      { page: 'vert', param: 'items', label: 'vt.t.items', icon: IconAdjustments, perm: 'stock.view', app: 'stk',
+        biz: ['electronics', 'furniture', 'restaurant', 'pharmacy', 'wholesale'] },
     ],
   },
   {

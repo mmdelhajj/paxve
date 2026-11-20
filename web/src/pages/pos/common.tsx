@@ -20,6 +20,7 @@ export interface CatItem {
   barcode: string; category_id: string | null; image: string; price: string; tax_rate_id: string | null; tax_rate: string | null;
   tax_name: string | null; stock: string;
   template_id?: string | null; variant_values?: Record<string, string>; sold_by_weight?: boolean; plu?: number | null; brand?: string;
+  tracking?: 'none' | 'lot' | 'serial'; rx_required?: boolean; controlled?: boolean; kitchen_station?: string; active_ingredient?: string;
 }
 
 export interface ScalePrefix { prefix: string; mode: 'weight' | 'price'; decimals: number }
@@ -54,6 +55,11 @@ export interface PosOrderDetail {
   tenders: { method: string; method_id: string; currency: string; amount: string; rate: string }[];
   change: { currency: string; amount: string; method: string } | null;
   pending?: boolean; // taken offline, not sent yet
+  vertical?: {
+    serials: { item_id: string; serial: string }[]; tradein: { item: string; serial: string; value: string }[];
+    rx: { doctor?: string; patient?: string; number?: string }; insurance: { insurer?: string; amount?: string; claim_number?: string };
+    extras: { service_charge?: string; tip?: string; table?: string };
+  };
 }
 
 export interface DrawerLine {

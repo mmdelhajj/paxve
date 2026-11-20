@@ -56,7 +56,8 @@ export interface Company {
   created_at: string;
   lock_date: string | null;
   apps?: string[];                 // enabled apps (see ribbon.ts)
-  business_type?: 'generator' | 'internet' | 'satellite' | 'water';
+  business_type?: 'generator' | 'internet' | 'satellite' | 'water' | 'supermarket' | 'clothing' | 'electronics' | 'furniture' | 'wholesale' | 'restaurant'
+    | 'pharmacy' | 'factory';
   // localization (country pack)
   country?: string; l10n?: string; einvoice?: '' | 'zatca' | 'eta'; default_locale?: string; fiscal_year_start?: string;
   tax_id_label?: string; invoice_title?: string; legal_mentions?: string;

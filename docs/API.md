@@ -505,3 +505,35 @@ collectors. Permission module `smart.view|ai|manage`. Amounts are in the company
 
 Platform owner: `GET /platform/ai` → `{enabled, model, plans [{code, ai_monthly_limit}], usage [{tenant_name, requests, bills_read, errors, input_tokens, output_tokens}]}`;
 plans take `ai_monthly_limit` (0 = unlimited). Server: `PAXVE_ANTHROPIC_API_KEY`, `PAXVE_AI_MODEL` (default `claude-opus-5-5`).
+
+## Business packs (migration 00046)
+
+All under `/companies/{cid}`. `POST /retail/packs/{key} {demo}` takes `supermarket clothing electronics furniture wholesale restaurant pharmacy factory`.
+Apps: `/rest/` → pos, `/pharma/` `/van/` `/verticals/` → stk, `/furn/` → crm.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET · PUT | `/items/{id}/vertical` | `{made_to_order, options [{name, values [{label, extra}]}], price_per_m2, kitchen_station, generic_name, active_ingredient, strength, dosage_form, rx_required, controlled}` |
+| GET · PUT | `/verticals/warehouses` · `/warehouses/{id}/vertical` | `{is_showroom, is_van, van_user_id}` |
+| GET | `/stock/serial-history?serial=` · `/stock/serials?item_id=&warehouse_id=` | lots, moves (partner, document), warranty, repairs · serials in stock |
+| POST | `/pos/orders` (new fields) | `lines[].serials`, `lines[].note`, `trade_in [{item_id, serial, value, note}]`, `rx {doctor, number, patient, date}`, `insurance {insurer_id, pct \| amount, policy_no, patient}`, `service_charge`, `tip`; the order returns `vertical`. Errors `serials_mismatch invalid_serial prescription_required invalid_trade_in invalid_insurer lot_expired` |
+| POST | `/invoices` (new field) | `lines[].lots [{lot_no, quantity}]` |
+| POST | `/furn/configure` | `{item_id, choices {name: label}, width_cm, depth_cm, currency}` → `{unit_price, description, area_m2}` |
+| GET · PUT · POST | `/furn/orders` · `/furn/orders/{id}/deposit-pct {pct}` · `/furn/orders/{id}/deposit {method_id, amount}` · `/furn/orders/{id}/schedule {date, slot, vehicle_id, driver_id, assembly, technician_id, start}` | deposit required / paid, trip and assembly job (`order_not_confirmed already_scheduled`) |
+| GET | `/furn/showroom` | stock in showroom warehouses with days on display |
+| GET · POST · PATCH · PUT | `/van/routes` · `/van/routes/{id}` · `/van/routes/{id}/stops {customer_ids}` | `{name, user_id, warehouse_id, weekdays}` |
+| GET | `/van/today[?warehouse_id]` | van, open day, today's stops with balance / credit, van stock with prices, boxes (`no_van not_your_van`) |
+| GET · POST | `/van/days[?from&to]` · `/van/days {warehouse_id, source_warehouse_id, lines}` · `/van/days/{id}/load {lines}` · `/van/days/{id}/close {counted, unload}` | close = stock count of the van + unload; summary `{sales, sales_total, collected, differences, unloaded}` |
+| POST | `/van/sales` | `{client_ref, customer_id, warehouse_id, lines [{item_id, quantity}], method_id, paid}` → `{invoice}`; customer price list prices, credit checked on the unpaid part (`van_day_not_open credit_limit`) |
+| GET | `/van/commission?from&to` | per salesman and currency: invoices, net, collected, commission_pct, commission_on_sales, commission_on_collected |
+| GET · POST · PATCH · DELETE | `/rest/tables[/{id}]` · `/rest/modifiers[/{id}]` | tables `{name, area, seats, x, y, shape}`; modifiers `{name, name_i18n, grp, price (base), item_ids, category_ids, sort, is_active}` |
+| GET · PUT | `/rest/settings` | `{service_charge_pct}` |
+| GET | `/rest/floor?register_id` · `/rest/checks?status&date` · `/rest/checks/{id}` | tables with their open check, takeaway / delivery checks |
+| POST · PATCH | `/rest/checks` · `/rest/checks/{id}` | `{register_id, table_id, kind dine_in\|takeaway\|delivery, guests, customer_id, name, phone, address, notes}` (`table_busy`) |
+| POST | `/rest/checks/{id}/lines {lines [{item_id, quantity, modifier_ids, note}], send}` · `/send` · `/split {line_ids}` · `/cancel` | kitchen status new → sent → cooking → ready → served |
+| POST | `/rest/checks/{id}/pay` | `{session_id, line_ids, tenders, change_method_id, customer_id, on_account, service_charge, tip, client_ref}` → a till sale; check closes when nothing is left |
+| POST | `/rest/check-lines/{id}/status {status}` · `/rest/check-lines/{id}/void` | |
+| GET | `/rest/kds[?station]` · `/rest/food-cost?from&to` | kitchen lines by age, stations · days `{food_sales, food_cost, food_cost_pct}` and dishes |
+| GET | `/pharma/search?q` · `/pharma/alternatives?item_id` · `/pharma/expiry[?days]` · `/pharma/controlled?from&to[&all=1]` | |
+| GET · PUT | `/pharma/settings` | `{block_expired, expiry_alert_days}` |
+| GET · POST | `/pharma/claims[?status&insurer_id]` · `/pharma/claims/{id}/submit\|settle\|reject` | settle `{method_id, date}` (same currency) moves the receivable to the box; reject writes it off |

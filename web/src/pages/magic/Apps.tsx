@@ -22,7 +22,8 @@ const PRICE: Record<AppId | 'wat' | 'mfg', string> = {
   gen: 'core', acc: 'core', col: 'core', msg: '8', stk: '8', pur: '5', net: '10', sat: '10', pos: '15', hr: '8', crm: '8', svc: '5', wat: '', mfg: '', prj: '8', flt: '5', web: '10', mkt: '8', ai: '10',
 };
 
-const SOON = ['electronics', 'furniture', 'wholesale', 'factory', 'restaurant', 'pharmacy'];
+// business packs: choosing one switches its apps on and sets its defaults on the server (demo data stays optional)
+const PACKS = ['supermarket', 'clothing', 'electronics', 'furniture', 'wholesale', 'restaurant', 'pharmacy', 'factory'];
 
 /** التطبيقات: switch modules on or off for this company (Odoo-style). Menus follow at once; the server refuses
  *  calls to switched-off apps. Core apps (subscriptions & billing, accounting, collections) stay on. */
@@ -49,9 +50,8 @@ export default function Apps({ me }: { me: Me }) {
     }
   }
 
-  // supermarket / clothing are business packs: the server sets the right apps and defaults (demo data stays optional)
   async function pickBusiness(b: string) {
-    if (b !== 'supermarket' && b !== 'clothing') { await save(apps, b); return; }
+    if (!PACKS.includes(b)) { await save(apps, b); return; }
     setBusy(true);
     setMsg(null);
     try {
@@ -80,10 +80,8 @@ export default function Apps({ me }: { me: Me }) {
               <option value="internet">{t('mx.apps.biz.internet')}</option>
               <option value="satellite">{t('mx.apps.biz.satellite')}</option>
               <option value="water">{t('mx.apps.biz.water')}</option>
-              <option value="supermarket">{t('mx.apps.biz.supermarket')}</option>
-              <option value="clothing">{t('mx.apps.biz.clothing')}</option>
-              <optgroup label={t('mx.apps.biz.soon')}>
-                {SOON.map((b) => <option key={b} value={b} disabled>{t(`mx.apps.biz.${b}`)} — {t('mx.apps.biz.soon')}</option>)}
+              <optgroup label={t('mx.apps.biz.packs')}>
+                {PACKS.map((b) => <option key={b} value={b}>{t(`mx.apps.biz.${b}`)}</option>)}
               </optgroup>
             </select>
           </label>

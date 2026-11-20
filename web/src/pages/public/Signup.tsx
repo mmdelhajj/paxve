@@ -9,6 +9,8 @@ import LangSwitch from '../../components/LangSwitch';
 import Logo from '../../components/Logo';
 import { PACKS, packName } from '../../l10n';
 
+// business packs (apps + defaults + demo data chosen at sign-up)
+const BIZ_PACKS = ['supermarket', 'clothing', 'electronics', 'furniture', 'wholesale', 'restaurant', 'pharmacy', 'factory'];
 const currencies = ['USD', 'LBP', 'EUR', 'GBP', 'SAR', 'AED', 'QAR', 'KWD', 'BHD', 'OMR', 'JOD', 'IQD', 'SYP', 'EGP', 'TRY', 'MAD', 'DZD', 'TND', 'CAD', 'AUD', 'CHF'];
 
 export default function Signup({ onSignedUp }: { onSignedUp: (m: Me) => void }) {
@@ -32,7 +34,7 @@ export default function Signup({ onSignedUp }: { onSignedUp: (m: Me) => void }) 
       try {
         const comps = await api<{ id: string; apps: string[] }[]>('/companies');
         if (comps[0]) {
-          if (biz === 'supermarket' || biz === 'clothing') await api(`/companies/${comps[0].id}/retail/packs/${biz}`, { method: 'POST', body: { demo: true } });
+          if (BIZ_PACKS.includes(biz)) await api(`/companies/${comps[0].id}/retail/packs/${biz}`, { method: 'POST', body: { demo: true } });
           else if (biz !== 'generator') await api(`/companies/${comps[0].id}/apps`, { method: 'PUT', body: { apps: comps[0].apps ?? [], business_type: biz } });
         }
       } catch { /* the pack can be chosen later from Retail → Business packs */ }
@@ -74,8 +76,8 @@ export default function Signup({ onSignedUp }: { onSignedUp: (m: Me) => void }) 
                   <Text size="xs" c="dimmed" mt={4}>{t('t2.packHint')}</Text>
                 </div>
                 <Select label={t('rt.signup.business')} allowDeselect={false} value={biz} onChange={(v) => v && setBiz(v)}
-                  data={['generator', 'internet', 'satellite', 'water', 'supermarket', 'clothing'].map((b) => ({ value: b, label: t(`rt.signup.b.${b}`) }))}
-                  description={biz === 'supermarket' || biz === 'clothing' ? t('rt.signup.demoHint') : undefined} />
+                  data={['generator', 'internet', 'satellite', 'water', ...BIZ_PACKS].map((b) => ({ value: b, label: t(`rt.signup.b.${b}`) }))}
+                  description={BIZ_PACKS.includes(biz) ? t('rt.signup.demoHint') : undefined} />
                 <SimpleGrid cols={2}>
                   <Select label={t('companies.base')} searchable data={currencies} value={f.base_currency} allowDeselect={false}
                     onChange={(v) => v && set('base_currency')(v)} />

@@ -420,6 +420,11 @@ export default function PosApp({ me, onLogout }: { me: Me; onLogout: () => void 
               <Menu.Item leftSection={<IconRefresh size={14} />} onClick={loadCatalog}>{t('pos.reload')}</Menu.Item>
               <Menu.Item leftSection={<IconDeviceDesktop size={14} />} onClick={() => window.open(`${window.location.pathname}#/pos-display`, 'paxve-display', 'width=900,height=600')}>{t('rt.pos.display')}</Menu.Item>
               {sessionId && <Menu.Item leftSection={<IconPlayerPause size={14} />} onClick={() => setHeldOpen(true)}>{t('rt.pos.heldList')}</Menu.Item>}
+            {company?.business_type === 'restaurant' && <>
+              <Menu.Item leftSection={<IconReceipt size={14} />} onClick={() => { window.location.hash = '#/resto'; }}>{t('vt.t.resto')}</Menu.Item>
+              <Menu.Item leftSection={<IconDeviceDesktop size={14} />} onClick={() => { window.location.hash = '#/kds'; }}>{t('vt.t.kds')}</Menu.Item>
+            </>}
+            {company?.business_type === 'wholesale' && <Menu.Item leftSection={<IconShoppingCart size={14} />} onClick={() => { window.location.hash = '#/van'; }}>{t('vt.t.van')}</Menu.Item>}
               <Menu.Label>{t('rt.pos.keys')}</Menu.Label>
               <Menu.Divider />
               {languages.map((l) => <Menu.Item key={l.code} onClick={() => applyLang(l.code)}>{l.label}</Menu.Item>)}
@@ -990,6 +995,19 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
   const [changeId, setChangeId] = useState<string | null>(defaultChange?.id ?? null);
   const [onAccount, setOnAccount] = useState(false);
   const [busy, setBusy] = useState(false);
+  // business packs: serials / IMEI (electronics), prescription and insurer's share (pharmacy), trade-in (electronics)
+  const serialLines = priced.filter((l) => l.item.tracking === 'serial');
+  const needRx = priced.some((l) => l.item.rx_required || l.item.controlled);
+  const [serials, setSerials] = useState<Record<number, string>>({});
+  const [rx, setRx] = useState({ doctor: '', number: '', patient: '' });
+  const [trade, setTrade] = useState<{ item_id: string; serial: string; value: string; note: string } | null>(null);
+  const [ins, setIns] = useState<{ insurer: { id: string; name: string } | null; pct: string; policy_no: string }>({ insurer: null, pct: '', policy_no: '' });
+  const [insPick, setInsPick] = useState(false);
+  const serialsOf = (l: Priced) => (serials[l.key] ?? '').split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean);
+  const serialsOk = serialLines.every((l) => { const n = serialsOf(l).length; return n === 0 || n === Number(l.qty); });
+  const rxOk = !needRx || (!!rx.doctor.trim() && !!rx.number.trim());
+  const tradeVal = trade && trade.item_id && Number(trade.value) > 0 ? Number(trade.value) : 0;
+  const insVal = ins.insurer && Number(ins.pct) > 0 ? round(total * Math.min(100, Number(ins.pct)) / 100, dec) : 0;
 
   // gift card and loyalty points paid on this sale (till currency)
   const giftPay = giftInfo && !giftInfo.expired && giftInfo.status === 'active' && giftInfo.currency === currency ? Math.min(Number(giftAmt || 0), Number(giftInfo.balance)) : 0;
@@ -1003,7 +1021,7 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
       if (!giftAmt) setGiftAmt(String(Math.min(Number(g.balance), total)));
     } catch (e) { setGiftInfo(null); notifyError(t, e); }
   }
-  let received = giftPay + pointsVal;
+  let received = giftPay + pointsVal + tradeVal + insVal;
   let missingRate = false;
   for (const m of cat.methods) {
     const a = Number(amounts[m.id] || 0);
@@ -1015,7 +1033,7 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
   const cm = cat.methods.find((m) => m.id === changeId);
   const change = extra > 0.00005 && cm ? roundChange(conv(extra, currency, cm.currency), decimalsOf(cm.currency), cm.change_rounding) : 0;
   const short = total - received > 0.01;
-  const canConfirm = !missingRate && (received > 0 || onAccount) && (!short || (onAccount && !!customer));
+  const canConfirm = !missingRate && (received > 0 || onAccount) && (!short || (onAccount && !!customer)) && serialsOk && rxOk;
 
   function exact(m: TillMethod) {
     const left = Math.max(0, total - received + conv(Number(amounts[m.id] || 0), m.currency, currency));
@@ -1031,7 +1049,11 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
     const ref = newClientRef();
     const body = {
       session_id: sessionId, customer_id: customer?.id ?? '', on_account: onAccount && !!customer, client_time: new Date().toISOString(),
-      lines: priced.map((l) => ({ item_id: l.item.id, quantity: l.qty, unit_price: l.price, discount_pct: l.discount })),
+      lines: priced.map((l) => ({ item_id: l.item.id, quantity: l.qty, unit_price: l.price, discount_pct: l.discount,
+        ...(serialsOf(l).length ? { serials: serialsOf(l) } : {}) })),
+      ...(needRx || rx.doctor.trim() ? { rx: { doctor: rx.doctor.trim(), number: rx.number.trim(), patient: rx.patient.trim() } } : {}),
+      ...(tradeVal > 0 && trade ? { trade_in: [{ item_id: trade.item_id, serial: trade.serial.trim(), value: String(tradeVal), note: trade.note.trim() }] } : {}),
+      ...(insVal > 0 && ins.insurer ? { insurance: { insurer_id: ins.insurer.id, pct: ins.pct, policy_no: ins.policy_no.trim(), patient: rx.patient.trim() } } : {}),
       tenders: cat.methods.filter((m) => Number(amounts[m.id] || 0) > 0).map((m) => ({ method_id: m.id, amount: amounts[m.id] })),
       change_method_id: extra > 0.00005 ? changeId ?? '' : '',
       apply_promos: online && promos, coupon: online && promos ? coupon : '',
@@ -1039,7 +1061,7 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
       gift_redeem: giftPay > 0 ? [{ code: giftCode.trim(), amount: String(giftPay) }] : [],
       redeem_points: pointsVal > 0 ? points : '',
     };
-    if (!online && (giftPay > 0 || pointsVal > 0 || giftSold.length)) { notifications.show({ color: 'red', message: t('rt.pos.needOnline') }); return; }
+    if (!online && (giftPay > 0 || pointsVal > 0 || giftSold.length || tradeVal > 0 || insVal > 0)) { notifications.show({ color: 'red', message: t('rt.pos.needOnline') }); return; }
     const local = (): PosOrderDetail => ({
       pending: true,
       order: {
@@ -1116,6 +1138,50 @@ function PayDialog({ cat, sessionId, customer, total, taxTotal, priced, online, 
             <Text w={110} ff="monospace" dir="ltr" mb={6}>= {formatAmount(pointsVal, dec)} {currency}</Text>
           </Group>
         )}
+        {serialLines.map((l) => (
+          <TextInput key={l.key} size="sm" dir="ltr" label={t('vt.pos.serials', { name: itemName(l.item, i18n.language), n: Number(l.qty) })}
+            placeholder={t('vt.pos.serialsHint')} value={serials[l.key] ?? ''} error={serialsOf(l).length && serialsOf(l).length !== Number(l.qty) ? t('vt.pos.serialsCount') : undefined}
+            onChange={(e) => { const v = e.currentTarget.value; setSerials((s) => ({ ...s, [l.key]: v })); }} />
+        ))}
+        {needRx && (
+          <Paper withBorder p="xs">
+            <Text size="sm" fw={700}>{t('vt.pos.rx')}</Text>
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
+              <TextInput size="sm" label={t('vt.pos.doctor')} required value={rx.doctor} onChange={(e) => { const v = e.currentTarget.value; setRx((x) => ({ ...x, doctor: v })); }} />
+              <TextInput size="sm" label={t('vt.pos.rxNumber')} required value={rx.number} onChange={(e) => { const v = e.currentTarget.value; setRx((x) => ({ ...x, number: v })); }} />
+              <TextInput size="sm" label={t('vt.pos.patient')} value={rx.patient} onChange={(e) => { const v = e.currentTarget.value; setRx((x) => ({ ...x, patient: v })); }} />
+            </SimpleGrid>
+          </Paper>
+        )}
+        {online && (
+          <Group gap="xs" wrap="wrap">
+            <Button size="xs" variant="light" onClick={() => setTrade(trade ? null : { item_id: '', serial: '', value: '', note: '' })}>{t('vt.pos.tradeIn')}</Button>
+            <Button size="xs" variant="light" onClick={() => (ins.insurer ? setIns({ insurer: null, pct: '', policy_no: '' }) : setInsPick(true))}>
+              {ins.insurer ? `${t('vt.pos.insurer')}: ${ins.insurer.name} ✕` : t('vt.pos.insurance')}</Button>
+          </Group>
+        )}
+        {trade && (
+          <Paper withBorder p="xs">
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="xs">
+              <Select size="sm" label={t('vt.pos.usedItem')} searchable value={trade.item_id || null} onChange={(v) => setTrade({ ...trade, item_id: v ?? '' })}
+                data={cat.items.filter((i) => i.kind === 'stock').map((i) => ({ value: i.id, label: `${i.code} · ${itemName(i, i18n.language)}` }))} />
+              <TextInput size="sm" dir="ltr" label={t('vt.pos.serial')} value={trade.serial} onChange={(e) => setTrade({ ...trade, serial: e.currentTarget.value })} />
+              <TextInput size="sm" dir="ltr" inputMode="decimal" label={t('vt.pos.tradeValue', { cur: currency })} value={trade.value}
+                onChange={(e) => setTrade({ ...trade, value: e.currentTarget.value.replace(/[^\d.]/g, '') })} />
+            </SimpleGrid>
+            <TextInput size="sm" mt={4} placeholder={t('vt.pos.condition')} value={trade.note} onChange={(e) => setTrade({ ...trade, note: e.currentTarget.value })} />
+          </Paper>
+        )}
+        {ins.insurer && (
+          <Group gap="xs" wrap="nowrap" align="flex-end">
+            <TextInput w={110} size="sm" dir="ltr" inputMode="decimal" label={t('vt.pos.insPct')} value={ins.pct}
+              onChange={(e) => { const v = e.currentTarget.value.replace(/[^\d.]/g, ''); setIns((x) => ({ ...x, pct: v })); }} />
+            <TextInput style={{ flex: 1 }} size="sm" label={t('vt.pos.policy')} value={ins.policy_no}
+              onChange={(e) => { const v = e.currentTarget.value; setIns((x) => ({ ...x, policy_no: v })); }} />
+            <Text w={130} ff="monospace" dir="ltr" mb={6}>= {formatAmount(insVal, dec)} {currency}</Text>
+          </Group>
+        )}
+        {insPick && <CustomerPicker onClose={() => setInsPick(false)} onPick={(c) => { setIns((x) => ({ ...x, insurer: { id: c.id, name: c.name }, pct: x.pct || '80' })); setInsPick(false); }} />}
         <Paper withBorder p="md" bg="var(--mantine-color-gray-0)">
           <SimpleGrid cols={2}>
             <div>

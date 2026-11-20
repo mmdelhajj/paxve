@@ -199,3 +199,21 @@ the "delivery board" item of the shared retail core and the warehouse depth gap 
 Still open here: storage capacity per bin (volume / weight limits), routes between warehouses with automatic replenishment
 (reorder rules still suggest purchases only), shipping carrier integrations and labels (Aramex, DHL), a route optimiser for trips
 (stops keep the order chosen), and the delivery slot booking by the customer.
+
+## Status after the business packs (phase 6a, 2026-11-20)
+
+Every business type of the plan above is now a real pack (sign-up, Apps page, Retail › Business packs), each with its apps,
+defaults and demo data, and the ribbon tab **Business** with its own screens:
+
+| Pack | Built |
+|---|---|
+| Electronics | serial / IMEI at the till and on invoices, serial history + warranty card, trade-in at the till, repairs, instalments |
+| Furniture | made-to-order options and price per m² (configurator), 30 % deposits on orders, delivery trip + assembly job, showroom report |
+| Wholesale | price tiers (price lists), credit limit blocked, routes, vans (load / sell offline from the phone / count + unload), commission |
+| Restaurant | tables and floor plan, modifiers, checks, kitchen display by station, split, service charge, tips, recipes = kits, food cost % |
+| Pharmacy | drug fields, search with alternatives, FEFO with expired lots blocked, prescription at the till, controlled register, insurance claims |
+| Factory | manufacturing apps with starter work centers, BoM and routing |
+
+Still open: split a bill equally (split is by lines), restaurant table reservations and a printed kitchen ticket (the KDS replaces
+it), van sales route optimisation and GPS of the van, drug interaction database and a national drug list import, insurance claim
+export files per insurer, furniture 3D / catalog PDF, auto parts and construction packs.
