@@ -410,33 +410,56 @@ function Product() {
   );
 }
 
-/** a simplified outline of Lebanon with a collector's route near Beirut */
+// Lebanon from Natural Earth 1:10m admin-0 countries (public domain), projected at 33.9°N and simplified to ~230 points
+// (scratchpad geo.cjs). Cities at their real coordinates; the inset zooms on Beirut and its northern suburbs, where a
+// collector's round runs Hamra → Achrafieh → Mar Mikhael → Bourj Hammoud → Sin el Fil → Jdeideh → Antelias → Dbayeh.
+const LB_PATH = 'M11 368.4L11.3 367.1L10.2 366.9L10 365.7L11.2 363.2L14.8 358.7L18.9 356.9L22.7 350.2L21.6 348.7L23.3 348.8L24 350.2L29.6 338L30.4 331.3L26.5 325.6L30.5 322.6L33.3 318.4L36.8 308.6L37.4 299.6L38.1 296.5L41.5 291.4L42.7 288.6L41.9 285.8L51.6 278.3L56.4 273.2L58.5 266.5L58.9 263.6L66 244.2L64.9 242.7L67.8 240.1L69.9 230.9L73.1 228.9L72.9 226.2L80.3 208.1L81 203.7L81.4 192.8L79 186.1L80 184.4L82 183.7L84.5 184.1L87.7 186L89 186L90.8 185L95.2 185.3L97.9 184.4L99.1 182.8L101.8 176.6L101.6 175.3L100.5 175.2L102.1 173.3L105.6 165.7L110 165.2L110.7 164.3L110.6 162.3L108.2 159.7L108.1 154.2L111.2 144.4L112 137.5L111.4 134.8L108.8 129.9L108.2 126.7L108.2 119.1L108.8 117.4L111.4 115.5L112 114.4L112.1 107.3L113 100.3L115.3 94.4L119.6 90.5L122.8 93.2L125.9 88.5L128.7 81.4L131.2 76.8L141.5 71.1L144.7 66.7L141.4 61.3L141.4 59.9L144.8 60.8L159.6 57L174.4 43.4L175.5 40.2L175.6 29.7L175.1 25L174 21L172 18.5L176 18.8L180.6 22.1L184.6 23.3L188.9 23.4L193.8 22.7L206.6 23.6L210.8 21.7L215 24.1L226.3 23.5L228.1 22.7L229.8 20.9L231.2 12.7L235.1 10L237.8 11.8L242.2 19.7L246 23.1L250.4 24.6L255 24.5L259.5 23L258.8 30.1L257.4 31.2L255.5 29.6L252.7 28.8L250 30.5L249.8 36.5L249 40L245.3 42.8L240.2 45.6L237.1 48.9L240 53.5L245.1 52.3L250.6 52L255.7 52.4L258.2 53.3L259.4 57.1L261.3 60L263.8 62.1L266.9 63.5L269.6 66.8L271 67.7L272.3 67.2L275.3 69.3L276.3 71.3L276.2 73.8L275 79L273.7 81.2L274.1 84.9L281 94.4L284.9 95.2L285.9 96.9L285.5 99.8L282.3 105.2L284.4 112.7L288.9 117.1L290 119.5L284.7 125.3L280.4 132.6L272.1 139.7L268.5 144.3L267 150.1L266 152.2L263 153.7L260.4 153.8L256.4 152.3L254.3 152.1L250.4 154.1L244.2 162L236.8 168.5L231.3 176.2L227.3 184.3L228.8 187.2L235.5 192.9L242.8 194.1L246 196.1L246.4 200.7L244.1 203.7L240.5 204.3L233.5 202.6L223.9 197.9L220.7 197.2L217.9 198.3L212.3 202.2L208.4 202.3L203.3 197.7L196.6 201.8L187 205.3L182.6 212.5L176.5 217.8L172.8 224.2L169.4 227.4L168 229.4L167.7 231.2L168.2 235.3L167.7 237.5L163.7 240L163 244.8L165.4 246.4L169.6 247.1L173.9 249.6L176.6 250.3L183.1 254.4L184.7 256.9L184.1 261.1L181.3 264.5L177.4 267L173.9 268.7L169.5 268.6L165.1 270L163 273L165.5 277.6L162.6 284.7L156.8 289.6L144.3 297.2L141.4 300.6L137.7 308.1L134.7 311.6L129.9 314.1L121.5 316L114.4 323.5L112.8 326.4L108.9 326.8L106.9 328L106.5 331L104 333.6L103.8 334.6L100.3 331.8L95.9 325.1L93.7 325.4L89.7 333.6L88.2 338.6L87.8 349.6L86.8 355.3L81.7 365.4L80.8 368.8L75.1 369.3L66.2 373.2L55.7 375.9L53.2 375.6L48.4 368.4L44.3 365.7L42 365.7L35.1 368L30 367.1L25.9 369.6Z';
+const LB_CITY: Record<string, [number, number]> = { beirut: [84.8, 188], tripoli: [148.6, 66.2], saida: [60.9, 263.5], tyre: [29.3, 327.7], zahle: [159.3, 198.6], baalbek: [216.8, 163.1], jounieh: [106.4, 168.5] };
+const LB_FRAME = [78.9, 175.4, 106.8, 202.3]; const LB_SCALE = 3.728; const LB_INSET_H = 100.3;
+const LB_ROUTE: [number, number][] = [[12.9, 92.8], [41.4, 100.7], [44.7, 91.7], [53.3, 96.5], [51.8, 112.4], [69.9, 95.6], [88.6, 77.3], [85.1, 58.0]];
+
 function LebanonMap() {
   const { t } = useTranslation();
-  const city = (k: string, x: number, y: number) => (
-    <g key={k}>
-      <circle cx={x} cy={y} r="2.6" fill="#8ea3c2" />
-      <text x={x + 7} y={y + 4} fontSize="11" fill="#a8afba">{t(`site.v3.field.${k}`)}</text>
-    </g>
-  );
-  const route: [number, number][] = [[88, 214], [94, 204], [101, 197], [108, 191], [115, 184], [109, 176], [101, 182]];
+  const [fx0, fy0, fx1, fy1] = LB_FRAME;
+  // the inset sits in the sea, north-west of Beirut; route points were computed for a 104-wide inset at (4, 48)
+  const ix = 2, iy = 34, iw = 94, k = iw / 104, ih = LB_INSET_H * k;
+  const route = LB_ROUTE.map(([x, y]): [number, number] => [ix + (x - 4) * k, iy + (y - 48) * k]);
+  const city = (k: string, end?: boolean) => {
+    const [x, y] = LB_CITY[k];
+    return (
+      <g key={k}>
+        <circle cx={x} cy={y} r={k === 'beirut' ? 3 : 2.3} fill={k === 'beirut' ? '#eceef1' : '#8ea3c2'} />
+        <text x={end ? x - 6 : x + 6} y={y + 4} textAnchor={end ? 'end' : 'start'} fontSize={k === 'beirut' ? 11.5 : 10.5}
+          fill={k === 'beirut' ? '#eceef1' : '#a8afba'}>{t(`site.v3.field.${k}`)}</text>
+      </g>
+    );
+  };
   return (
     <figure className="sx-map">
-      <svg viewBox="0 0 300 420" role="img" aria-label={t('site.v3.field.map')} direction="ltr">
-        <path d="M18 396 L36 355 L67 286 L81 245 L90 206 L112 185 L117 151 L119 120 L151 74 L175 29 L257 24 L288 120 L243 180 L180 240 L153 312 L135 348 L108 396 Z"
-          fill="#1d2633" stroke="#3a4657" strokeWidth="1.2" />
-        {city('tripoli', 151, 74)}{city('jounieh', 122, 172)}{city('zahle', 162, 216)}{city('baalbek', 218, 180)}
-        {city('saida', 67, 286)}{city('tyre', 36, 355)}
-        <circle cx="90" cy="206" r="3" fill="#eceef1" />
-        <text x="84" y="232" textAnchor="end" fontSize="11.5" fill="#eceef1">{t('site.v3.field.beirut')}</text>
-        <polyline points={route.map((p) => p.join(',')).join(' ')} fill="none" stroke="#f5a524" strokeWidth="1.6" strokeDasharray="3 3" />
-        {route.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3.2" fill={i < 4 ? '#19c3a5' : '#f5a524'} stroke="#15191f" strokeWidth="1" />)}
+      <svg viewBox="0 0 300 386" role="img" aria-label={t('site.v3.field.map')} direction="ltr">
+        <defs>
+          <filter id="sx-glow" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="3" /></filter>
+          <clipPath id="sx-inset"><rect x={ix} y={iy} width={iw} height={ih} rx="3" /></clipPath>
+        </defs>
+        <path d={LB_PATH} fill="none" stroke="#19c3a5" strokeOpacity=".22" strokeWidth="5" filter="url(#sx-glow)" />
+        <path d={LB_PATH} fill="#18212e" stroke="#5d6b80" strokeWidth="1" strokeLinejoin="round" />
+        {city('tripoli')}{city('jounieh')}{city('zahle')}{city('baalbek')}{city('saida')}{city('tyre')}{city('beirut', true)}
+        {/* the zoomed area on the map and its inset */}
+        <rect x={fx0} y={fy0} width={fx1 - fx0} height={fy1 - fy0} fill="none" stroke="#f5a524" strokeWidth=".8" strokeDasharray="2 2" />
+        <line x1={fx0} y1={fy0} x2={ix + iw} y2={iy} stroke="#f5a524" strokeOpacity=".4" strokeWidth=".6" />
+        <line x1={fx0} y1={fy1} x2={ix + iw} y2={iy + ih} stroke="#f5a524" strokeOpacity=".4" strokeWidth=".6" />
+        <rect x={ix} y={iy} width={iw} height={ih} rx="3" fill="#0b1a30" stroke="#3a4657" strokeWidth="1" />
+        <g clipPath="url(#sx-inset)">
+          <path d={LB_PATH} transform={`translate(${ix} ${iy}) scale(${LB_SCALE * k}) translate(${-fx0} ${-fy0})`} fill="#18212e" stroke="#5d6b80" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <polyline points={route.map((p) => p.join(',')).join(' ')} fill="none" stroke="#f5a524" strokeWidth="1.4" strokeDasharray="3 2.5" strokeLinejoin="round" />
+          {route.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3" fill={i < 5 ? '#19c3a5' : '#f5a524'} stroke="#0b1a30" strokeWidth="1" />)}
+        </g>
+        <text x={ix + 6} y={iy + ih - 6} fontSize="9.5" fill="#a8afba">{t('site.v3.field.beirut')}</text>
       </svg>
       <figcaption>{t('site.v3.field.map')}</figcaption>
     </figure>
   );
 }
-
 function Field() {
   const { t } = useTranslation();
   return (
