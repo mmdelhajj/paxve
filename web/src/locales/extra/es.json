@@ -944,6 +944,7 @@
   "nothing_to_revalue": "No se tiene ni se debe nada en moneda extranjera este mes",
   "nothing_to_undo": "No hay ningún paso que se pueda deshacer.",
   "on_account_needs_customer": "Elija un cliente para vender a cuenta",
+  "opening_control_account": "Los clientes, proveedores, stock, tarjetas regalo y puntos tienen sus propios saldos: clientes abiertos a través de Importar → saldos de apertura, proveedores con factura de proveedor de apertura, stock con recuento de stock.",
   "order_in_progress": "Este pedido tiene entregas o facturas. Anúlelos primero.",
   "org_blocked": "Esta organización está bloqueada. {{detail}}",
   "outside_area": "No estás en el lugar de trabajo ( {{detail}} de distancia).",

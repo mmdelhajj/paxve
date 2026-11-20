@@ -618,6 +618,7 @@ const fr: Messages = {
     },
   },
   errors: {
+    opening_control_account: 'Clients, fournisseurs, stock, cartes cadeaux et points ont leurs propres soldes : ouvrez les clients par Import → soldes d\'ouverture, les fournisseurs par une facture fournisseur d\'ouverture, le stock par un inventaire.',
     amount_too_large: 'Ce montant ou cette quantité est trop grand.', text_too_long: 'Ce texte est trop long.', name_too_long: 'Le nom est trop long (200 caractères au plus).',
     invalid_email: 'Cette adresse e-mail n\'est pas valide.', phone_too_long: 'Le numéro de téléphone est trop long.', no_companies_selected: 'Choisissez au moins une société, ou donnez accès à toutes les sociétés.',
     control_account: 'Seul un comptable peut passer à la main une écriture sur ces comptes ({{detail}}) : les soldes clients, fournisseurs, stock, cartes cadeaux ou points ne correspondraient plus. Utilisez le document adapté.',

@@ -944,6 +944,7 @@
   "nothing_to_revalue": "Nada é mantido ou devido em moeda estrangeira este mês",
   "nothing_to_undo": "Não há etapa que possa ser desfeita.",
   "on_account_needs_customer": "Escolha um cliente para vender por conta",
+  "opening_control_account": "Clientes, fornecedores, estoque, vale-presente e pontos possuem saldos próprios: clientes abertos através de Importação → saldos iniciais, fornecedores com fatura de fornecedor de abertura, estoque com contagem de estoque.",
   "order_in_progress": "Este pedido possui entregas ou faturas. Anule-os primeiro.",
   "org_blocked": "Esta organização está bloqueada. {{detail}}",
   "outside_area": "Você não está no local de trabalho ( {{detail}} de distância).",

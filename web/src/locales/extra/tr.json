@@ -944,6 +944,7 @@
   "nothing_to_revalue": "Bu ay yabancı para biriminde tutulan veya borçlu olunan hiçbir şey yok",
   "nothing_to_undo": "Geri alınabilecek hiçbir adım yoktur.",
   "on_account_needs_customer": "Hesaba satış yapmak için bir müşteri seçin",
+  "opening_control_account": "Müşteriler, tedarikçiler, stoklar, hediye kartları ve puanların kendi bakiyeleri vardır: İthalat yoluyla açık müşteriler → açılış bakiyeleri, açılış tedarikçi faturası olan tedarikçiler, stok sayımı olan stoklar.",
   "order_in_progress": "Bu siparişin teslimatları veya faturaları var. Önce onları geçersiz kılın.",
   "org_blocked": "Bu kuruluş engellendi. {{detail}}",
   "outside_area": "İşyerinde değilsiniz ( {{detail}} uzakta).",

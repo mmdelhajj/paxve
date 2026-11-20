@@ -254,9 +254,16 @@ func TestCostCentersBudgetsOpeningAndReports(t *testing.T) {
 	// opening balances: the difference goes to retained earnings
 	ob := o.c.ok("POST", o.p("/opening-balances"), map[string]any{"date": "2026-01-01", "lines": []any{
 		map[string]any{"account_id": o.accounts["512"], "debit": "1000"},
-		map[string]any{"account_id": o.accounts["401"], "credit": "300"}}}, 201).body
+		map[string]any{"account_id": o.accounts["421"], "credit": "300"}}}, 201).body
 	eqDec(t, "opening difference", ob["difference"], "700")
 	eqDec(t, "retained earnings from opening", o.baseBalance(t, "12"), "-700")
+	// suppliers' balances are opened with an opening bill, never typed on the payables account (audit C-M5)
+	if r := o.c.do("POST", o.p("/opening-balances"), map[string]any{"date": "2026-01-01", "lines": []any{
+		map[string]any{"account_id": o.accounts["401"], "credit": "300"}}}); r.status != 422 || str(r.body["error"]) != "opening_control_account" {
+		if o.accounts["401"] != "" {
+			t.Fatalf("opening on payables: %d %s", r.status, r.raw)
+		}
+	}
 
 	// a payment, then drill-down from its entry to the receipt
 	pay := o.c.ok("POST", o.p("/payments"), map[string]any{"customer_id": cust, "date": "2026-11-07", "currency": "USD",

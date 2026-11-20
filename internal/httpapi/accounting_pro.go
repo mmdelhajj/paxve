@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -738,9 +739,23 @@ func (s *Server) postOpeningBalances(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
+		// audit C-M5: receivables / payables / stock / gift-card / points accounts carry sub-ledgers. An opening amount
+		// typed straight on them would never show on a customer, supplier or item, so they are refused here:
+		// customers' openings go through Import → opening balances, suppliers' as an opening supplier bill.
+		var ctl []string
+		if err := tx.QueryRow(ctx, `SELECT coalesce(array_agg(id::text), '{}') FROM (
+				SELECT unnest(ARRAY[ar_account_id, ap_account_id, inventory_account_id, gift_liability_account_id, loyalty_liability_account_id]) AS id
+				FROM companies WHERE id = $1
+				UNION SELECT inventory_account_id FROM items WHERE company_id = $1) x WHERE id IS NOT NULL`, cid).Scan(&ctl); err != nil {
+			return nil, err
+		}
 		var lines []jline
 		diff := decimal.Zero // base debit - credit
 		for _, l := range in.Lines {
+			if slices.Contains(ctl, l.AccountID) && (strings.TrimSpace(l.Debit) != "" && strings.TrimSpace(l.Debit) != "0" ||
+				strings.TrimSpace(l.Credit) != "" && strings.TrimSpace(l.Credit) != "0") {
+				return nil, &apiError{status: http.StatusUnprocessableEntity, code: "opening_control_account"}
+			}
 			dr, ok1 := parseAmount(l.Debit)
 			cr, ok2 := parseAmount(l.Credit)
 			cur := strings.ToUpper(strings.TrimSpace(l.Currency))

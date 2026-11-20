@@ -944,6 +944,7 @@
   "nothing_to_revalue": "In diesem Monat wird nichts in einer Fremdwährung gehalten oder geschuldet",
   "nothing_to_undo": "Es gibt keinen Schritt, der rückgängig gemacht werden kann.",
   "on_account_needs_customer": "Wählen Sie einen Kunden aus, den Sie auf Rechnung verkaufen möchten",
+  "opening_control_account": "Kunden, Lieferanten, Lagerbestände, Geschenkkarten und Punkte haben ihre eigenen Salden: offene Kunden über Import → Eröffnungssalden, Lieferanten mit einer Eröffnungslieferantenrechnung, Lagerbestände mit einer Lagerbestandszählung.",
   "order_in_progress": "Zu dieser Bestellung gehören Lieferungen oder Rechnungen. Machen Sie sie zuerst ungültig.",
   "org_blocked": "Diese Organisation ist blockiert. {{detail}}",
   "outside_area": "Sie sind nicht am Arbeitsplatz ( {{detail}} entfernt).",

@@ -616,6 +616,7 @@ const en = {
     },
   },
   errors: {
+    opening_control_account: 'Customers, suppliers, stock, gift cards and points have their own balances: open customers through Import → opening balances, suppliers with an opening supplier bill, stock with a stock count.',
     amount_too_large: 'This amount or quantity is too large.', text_too_long: 'This text is too long.', name_too_long: 'The name is too long (200 characters at most).',
     invalid_email: 'This e-mail address is not valid.', phone_too_long: 'The phone number is too long.', no_companies_selected: 'Choose at least one company, or give access to all companies.',
     control_account: 'Only an accountant may post by hand to these accounts ({{detail}}): customer, supplier, stock, gift card or points balances would no longer match. Use the matching document instead.',
