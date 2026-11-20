@@ -1081,59 +1081,65 @@ func (s *Server) voidBill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		var number int64
-		var status, paid string
-		var je *string
-		err := tx.QueryRow(ctx, `SELECT number, status, paid::text, journal_entry_id::text FROM bills WHERE id = $1 AND company_id = $2 FOR UPDATE`,
-			id, cid).Scan(&number, &status, &paid, &je)
-		if err == pgx.ErrNoRows {
-			return nil, notFound()
-		}
-		if err != nil {
+		if err := voidBillTx(ctx, tx, cid, id, in.Reason); err != nil {
 			return nil, err
-		}
-		if status == "void" {
-			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
-		}
-		if p, _ := decimal.NewFromString(paid); !p.IsZero() {
-			return nil, &apiError{status: http.StatusConflict, code: "bill_has_payments"}
-		}
-		if je != nil { // a freight / customs bill made by a landed cost: its cost is already inside the stock value
-			var lc bool
-			if err := tx.QueryRow(ctx, `SELECT source = 'landed_cost' FROM journal_entries WHERE id = $1`, *je).Scan(&lc); err != nil {
-				return nil, err
-			}
-			if lc {
-				return nil, &apiError{status: http.StatusConflict, code: "landed_cost_bill"}
-			}
-		}
-		var rev *string
-		if je != nil {
-			var rid string
-			if err := tx.QueryRow(ctx, `SELECT reverse_journal_entry($1, current_date, $2)::text`, *je,
-				fmt.Sprintf("Void bill #%d %s", number, strings.TrimSpace(in.Reason))).Scan(&rid); err != nil {
-				return nil, err
-			}
-			rev = &rid
-		}
-		if err := reverseStockMoves(ctx, tx, cid, "bill", "bill_void", id, rev, fmt.Sprintf("Void bill #%d", number)); err != nil {
-			return nil, err
-		}
-		if _, err := tx.Exec(ctx, `UPDATE bills SET status = 'void', void_entry_id = $2,
-			notes = CASE WHEN $3 = '' THEN notes ELSE trim(notes || ' ' || $3) END WHERE id = $1`, id, rev, strings.TrimSpace(in.Reason)); err != nil {
-			return nil, err
-		}
-		var po *string
-		if err := tx.QueryRow(ctx, `SELECT purchase_order_id::text FROM bills WHERE id = $1`, id).Scan(&po); err != nil {
-			return nil, err
-		}
-		if po != nil {
-			if err := refreshPOBilled(ctx, tx, *po); err != nil {
-				return nil, err
-			}
 		}
 		return loadBill(ctx, tx, cid, id)
 	})
+}
+
+// voidBillTx voids an unpaid supplier bill: reversed entry, stock moves undone, purchase order re-opened.
+func voidBillTx(ctx context.Context, tx pgx.Tx, cid, id, reason string) error {
+	var number int64
+	var status, paid string
+	var je *string
+	err := tx.QueryRow(ctx, `SELECT number, status, paid::text, journal_entry_id::text FROM bills WHERE id = $1 AND company_id = $2 FOR UPDATE`,
+		id, cid).Scan(&number, &status, &paid, &je)
+	if err == pgx.ErrNoRows {
+		return notFound()
+	}
+	if err != nil {
+		return err
+	}
+	if status == "void" {
+		return &apiError{status: http.StatusConflict, code: "wrong_status"}
+	}
+	if p, _ := decimal.NewFromString(paid); !p.IsZero() {
+		return &apiError{status: http.StatusConflict, code: "bill_has_payments"}
+	}
+	if je != nil { // a freight / customs bill made by a landed cost: its cost is already inside the stock value
+		var lc bool
+		if err := tx.QueryRow(ctx, `SELECT source = 'landed_cost' FROM journal_entries WHERE id = $1`, *je).Scan(&lc); err != nil {
+			return err
+		}
+		if lc {
+			return &apiError{status: http.StatusConflict, code: "landed_cost_bill"}
+		}
+	}
+	var rev *string
+	if je != nil {
+		var rid string
+		if err := tx.QueryRow(ctx, `SELECT reverse_journal_entry($1, current_date, $2)::text`, *je,
+			fmt.Sprintf("Void bill #%d %s", number, strings.TrimSpace(reason))).Scan(&rid); err != nil {
+			return err
+		}
+		rev = &rid
+	}
+	if err := reverseStockMoves(ctx, tx, cid, "bill", "bill_void", id, rev, fmt.Sprintf("Void bill #%d", number)); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE bills SET status = 'void', void_entry_id = $2,
+		notes = CASE WHEN $3 = '' THEN notes ELSE trim(notes || ' ' || $3) END WHERE id = $1`, id, rev, strings.TrimSpace(reason)); err != nil {
+		return err
+	}
+	var po *string
+	if err := tx.QueryRow(ctx, `SELECT purchase_order_id::text FROM bills WHERE id = $1`, id).Scan(&po); err != nil {
+		return err
+	}
+	if po != nil {
+		return refreshPOBilled(ctx, tx, *po)
+	}
+	return nil
 }
 
 // reverseStockMoves undoes the stock moves of a document (incoming moves are taken out, outgoing put back),

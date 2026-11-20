@@ -317,6 +317,16 @@ func seedEverything(t *testing.T, o *org) {
 		"tenders": []any{map[string]any{"method_id": usd, "amount": "1"}}, "insurance": map[string]any{"insurer_id": cust2, "amount": "4", "patient": secretB},
 		"rx": map[string]any{"doctor": secretB, "number": "B1"}})
 	step(201, "POST", "/furn/orders/"+bso+"/deposit", map[string]any{"method_id": usd, "amount": "1"})
+
+	// phase 8: a branch, a tender with a bid, a blanket agreement, a layout and a dashboard
+	step(201, "POST", "/branches", map[string]any{"code": "B1", "name": secretB + " branch"})
+	btd := id(step(201, "POST", "/purchasing/tenders", map[string]any{"title": secretB + " tender", "currency": "USD",
+		"lines": []any{map[string]any{"description": secretB, "quantity": "2"}}}), "tender", "id")
+	step(201, "POST", "/purchasing/agreements", map[string]any{"supplier_id": sup, "title": secretB + " agreement", "currency": "USD",
+		"start_date": "2026-01-01", "end_date": "2027-12-31", "lines": []any{map[string]any{"description": secretB, "unit_price": "1", "quantity": "10"}}})
+	step(200, "PUT", "/doc-layouts/invoice", map[string]any{"header": secretB})
+	step(200, "PUT", "/dashboards/roles/company", map[string]any{"widgets": []any{map[string]any{"id": "a", "metric": "cash", "size": 1, "title": secretB}}})
+	_ = btd
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -418,6 +428,7 @@ var idTable = map[string]string{
 	"alerts": "smart_alerts", "scans": "ocr_scans", "answers": "ai_requests",
 	"routes": "sales_routes", "days": "van_days", "tables": "rest_tables", "modifiers": "rest_modifiers", "checks": "rest_checks",
 	"check-lines": "rest_check_lines",
+	"branches":    "branches", "users": "users", "tenders": "purchase_tenders", "agreements": "purchase_agreements",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -429,6 +440,8 @@ var paramValues = map[string][]string{
 	"op":     {"freeze", "unfreeze"},
 	"entity": {"customers", "suppliers", "items", "invoices", "employees"},
 	"key":    {"none"}, // business packs act on the caller's own company: only an unknown pack is swept
+	"doc":    {"nope"}, // layouts belong to the caller's company: only an unknown document type is swept
+	"role":   {"x"},    // role dashboards too: only an invalid role key
 }
 
 type sweepCall struct{ method, path, pattern string }

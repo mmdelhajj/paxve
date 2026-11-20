@@ -27,6 +27,7 @@ const sessionWindow = "12 hours"
 // touchSession checks that the signed-in session has not been revoked and refreshes last_seen_at
 // (at most every 5 minutes). Sessions created before tracking existed get a row on first use.
 func (s *Server) touchSession(ctx context.Context, sc db.Scope, sid string, r *http.Request) (string, error) {
+	idleOut := false
 	err := db.InTenant(ctx, s.Pool, sc, func(tx pgx.Tx) error {
 		if sid == "" || !isUUID(sid) {
 			return tx.QueryRow(ctx, `INSERT INTO user_sessions (user_id, ip, user_agent)
@@ -34,10 +35,24 @@ func (s *Server) touchSession(ctx context.Context, sc db.Scope, sid string, r *h
 		}
 		var revoked bool
 		var stale bool
-		err := tx.QueryRow(ctx, `SELECT revoked_at IS NOT NULL, last_seen_at < now() - interval '5 minutes'
-			FROM user_sessions WHERE id = $1 AND user_id = app_user()`, sid).Scan(&revoked, &stale)
+		var idle bool
+		// idle logout (phase 8): a session not seen for longer than the strictest idle time of the user's companies
+		// ends (last_seen_at is refreshed every 5 minutes, hence the margin)
+		err := tx.QueryRow(ctx, `SELECT revoked_at IS NOT NULL, last_seen_at < now() - interval '5 minutes',
+			coalesce((SELECT min(c.idle_logout_min) FROM companies c JOIN users u ON u.id = app_user()
+			          WHERE c.is_active AND c.idle_logout_min > 0 AND (u.company_ids IS NULL OR c.id = ANY (u.company_ids))), 0) > 0
+			  AND last_seen_at < now() - make_interval(mins => 5 + (SELECT min(c.idle_logout_min) FROM companies c JOIN users u ON u.id = app_user()
+			          WHERE c.is_active AND c.idle_logout_min > 0 AND (u.company_ids IS NULL OR c.id = ANY (u.company_ids))))
+			FROM user_sessions WHERE id = $1 AND user_id = app_user()`, sid).Scan(&revoked, &stale, &idle)
 		if errors.Is(err, pgx.ErrNoRows) || (err == nil && revoked) {
 			return errSessionRevoked
+		}
+		if err == nil && idle {
+			if _, err := tx.Exec(ctx, `UPDATE user_sessions SET revoked_at = now() WHERE id = $1`, sid); err != nil {
+				return err
+			}
+			idleOut = true
+			return nil
 		}
 		if err != nil {
 			return err
@@ -47,6 +62,9 @@ func (s *Server) touchSession(ctx context.Context, sc db.Scope, sid string, r *h
 		}
 		return err
 	})
+	if err == nil && idleOut {
+		return sid, errSessionRevoked
+	}
 	return sid, err
 }
 
@@ -484,7 +502,7 @@ func (s *Server) resetPassword(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getSecuritySettings(w http.ResponseWriter, r *http.Request) {
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		return queryJSONOne(ctx, tx, `SELECT require_mfa, password_min_length,
+		return queryJSONOne(ctx, tx, `SELECT require_mfa, password_min_length, password_complexity, password_expiry_days, sso_allowed,
 			(SELECT count(*) FROM users u WHERE u.is_active) AS users,
 			(SELECT count(*) FROM users u JOIN user_mfa m ON m.user_id = u.id WHERE u.is_active AND m.enabled_at IS NOT NULL) AS users_with_mfa
 			FROM tenants WHERE id = app_tenant()`)
@@ -493,10 +511,14 @@ func (s *Server) getSecuritySettings(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) putSecuritySettings(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		RequireMFA        *bool `json:"require_mfa"`
-		PasswordMinLength *int  `json:"password_min_length"`
+		RequireMFA         *bool `json:"require_mfa"`
+		PasswordMinLength  *int  `json:"password_min_length"`
+		PasswordComplexity *bool `json:"password_complexity"`
+		PasswordExpiryDays *int  `json:"password_expiry_days"`
+		SSOAllowed         *bool `json:"sso_allowed"`
 	}
-	if err := decode(w, r, &in); err != nil || (in.PasswordMinLength != nil && (*in.PasswordMinLength < 10 || *in.PasswordMinLength > 64)) {
+	if err := decode(w, r, &in); err != nil || (in.PasswordMinLength != nil && (*in.PasswordMinLength < 10 || *in.PasswordMinLength > 64)) ||
+		(in.PasswordExpiryDays != nil && (*in.PasswordExpiryDays < 0 || *in.PasswordExpiryDays > 730)) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -508,10 +530,12 @@ func (s *Server) putSecuritySettings(w http.ResponseWriter, r *http.Request) {
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
 		if _, err := tx.Exec(ctx, `UPDATE tenants SET require_mfa = coalesce($1, require_mfa),
-			password_min_length = coalesce($2, password_min_length) WHERE id = app_tenant()`, in.RequireMFA, in.PasswordMinLength); err != nil {
+			password_min_length = coalesce($2, password_min_length), password_complexity = coalesce($3, password_complexity),
+			password_expiry_days = coalesce($4, password_expiry_days), sso_allowed = coalesce($5, sso_allowed) WHERE id = app_tenant()`,
+			in.RequireMFA, in.PasswordMinLength, in.PasswordComplexity, in.PasswordExpiryDays, in.SSOAllowed); err != nil {
 			return nil, err
 		}
-		return queryJSONOne(ctx, tx, `SELECT require_mfa, password_min_length FROM tenants WHERE id = app_tenant()`)
+		return queryJSONOne(ctx, tx, `SELECT require_mfa, password_min_length, password_complexity, password_expiry_days, sso_allowed FROM tenants WHERE id = app_tenant()`)
 	})
 }
 

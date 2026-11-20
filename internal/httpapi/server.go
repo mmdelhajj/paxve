@@ -61,6 +61,7 @@ type Server struct {
 	apiKeyLimiter  *limiter       // failed API key attempts per IP
 	resetLimiter   *limiter       // password reset e-mails per IP / per address
 	mfaLimiter     *limiter       // wrong two-factor codes per user
+	oidcLimiter    *limiter       // failed Google / Microsoft sign-ins per IP
 	mux            *http.ServeMux // kept to replay approved requests
 	protected      []string       // patterns registered with Handle (the authenticated routes and the web app)
 
@@ -88,7 +89,7 @@ func New(pool, ownerPool *pgxpool.Pool, sessions *scs.SessionManager, webDir str
 	return &Server{Pool: pool, OwnerPool: ownerPool, Sessions: sessions, WebDir: webDir,
 		loginIP: newLimiter(100, 15*time.Minute), loginPair: newBackoff(5, 30*time.Second, 15*time.Minute, time.Hour),
 		loginEmail: newBackoff(10, time.Minute, 15*time.Minute, time.Hour), loginTrust: newTrustSet(30 * 24 * time.Hour), signupLimiter: newLimiter(20, time.Hour), portalLimiter: newLimiter(120, 10*time.Minute), platformAdmins: admins,
-		apiKeyLimiter: newLimiter(30, 15*time.Minute), resetLimiter: newLimiter(5, time.Hour), mfaLimiter: newLimiter(5, 15*time.Minute),
+		apiKeyLimiter: newLimiter(30, 15*time.Minute), resetLimiter: newLimiter(5, time.Hour), mfaLimiter: newLimiter(5, 15*time.Minute), oidcLimiter: newLimiter(20, 15*time.Minute),
 		platformContactPhone: strings.TrimSpace(os.Getenv("PAXVE_SALES_PHONE")), platformContactEmail: strings.TrimSpace(os.Getenv("PAXVE_SALES_EMAIL")),
 		ai: aiFromEnv()}
 }
@@ -1102,6 +1103,53 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/companies/{cid}/owner-summary", s.auth(s.ownerSummary))
 	mux.Handle("GET "+v+"/companies/{cid}/journal/{id}/source", s.auth(s.entrySource))
 
+	// phase 8: branches, inter-company, layouts, dashboards, sign-in, tenders and agreements
+	mux.Handle("GET "+v+"/companies/{cid}/branches", s.auth(s.listBranches))
+	mux.Handle("POST "+v+"/companies/{cid}/branches", s.auth(s.saveBranch))
+	mux.Handle("PATCH "+v+"/companies/{cid}/branches/{id}", s.auth(s.saveBranch))
+	mux.Handle("GET "+v+"/companies/{cid}/branches/users", s.auth(s.branchUsers))
+	mux.Handle("PUT "+v+"/companies/{cid}/branches/users/{uid}", s.auth(sessionOnly(s.setUserBranches)))
+	mux.Handle("PUT "+v+"/companies/{cid}/branches/assign", s.auth(s.assignBranch))
+	mux.Handle("GET "+v+"/companies/{cid}/branches/report", s.auth(s.branchReport))
+	mux.Handle("GET "+v+"/intercompany/links", s.auth(s.icLinks))
+	mux.Handle("POST "+v+"/intercompany/links", s.auth(sessionOnly(s.createICLink)))
+	mux.Handle("PATCH "+v+"/intercompany/links/{id}", s.auth(sessionOnly(s.updateICLink)))
+	mux.Handle("POST "+v+"/intercompany/sync", s.auth(s.icSyncNow))
+	mux.Handle("GET "+v+"/intercompany/docs", s.auth(s.icDocs))
+	mux.Handle("GET "+v+"/intercompany/transfers", s.auth(s.icTransfers))
+	mux.Handle("POST "+v+"/intercompany/transfers", s.auth(s.createICTransfer))
+	mux.Handle("POST "+v+"/intercompany/transfers/{id}/void", s.auth(s.voidICTransfer))
+	mux.Handle("GET "+v+"/companies/{cid}/doc-layouts", s.field(s.listDocLayouts))
+	mux.Handle("PUT "+v+"/companies/{cid}/doc-layouts/{doc}", s.auth(s.putDocLayout))
+	mux.Handle("GET "+v+"/companies/{cid}/dashboards/metrics", s.field(s.dashboardMetrics))
+	mux.Handle("GET "+v+"/companies/{cid}/dashboards/mine", s.field(s.myDashboard))
+	mux.Handle("PUT "+v+"/companies/{cid}/dashboards/mine", s.field(s.saveMyDashboard))
+	mux.Handle("DELETE "+v+"/companies/{cid}/dashboards/mine", s.field(s.resetMyDashboard))
+	mux.Handle("POST "+v+"/companies/{cid}/dashboards/data", s.field(s.dashboardData))
+	mux.Handle("GET "+v+"/companies/{cid}/dashboards/roles", s.auth(s.roleDashboards))
+	mux.Handle("PUT "+v+"/companies/{cid}/dashboards/roles/{role}", s.auth(s.saveRoleDashboard))
+	mux.Handle("DELETE "+v+"/companies/{cid}/dashboards/roles/{role}", s.auth(s.saveRoleDashboard))
+	mux.HandleFunc("GET "+v+"/auth/oidc/providers", s.oidcList)
+	mux.HandleFunc("GET "+v+"/auth/oidc/{provider}/start", s.oidcStart)
+	mux.HandleFunc("GET "+v+"/auth/oidc/{provider}/callback", s.oidcCallback)
+	mux.Handle("GET "+v+"/me/login-history", s.field(sessionOnly(s.myLoginHistory)))
+	mux.Handle("GET "+v+"/security/login-history", s.auth(s.orgLoginHistory))
+	mux.Handle("GET "+v+"/security/sso", s.auth(s.ssoStatus))
+	mux.Handle("GET "+v+"/companies/{cid}/idle-logout", s.field(s.getIdleLogout))
+	mux.Handle("PUT "+v+"/companies/{cid}/idle-logout", s.auth(s.putIdleLogout))
+	mux.Handle("GET "+v+"/companies/{cid}/purchasing/tenders", s.auth(s.listTenders))
+	mux.Handle("POST "+v+"/companies/{cid}/purchasing/tenders", s.auth(s.saveTender))
+	mux.Handle("GET "+v+"/companies/{cid}/purchasing/tenders/{id}", s.auth(s.getTender))
+	mux.Handle("PUT "+v+"/companies/{cid}/purchasing/tenders/{id}", s.auth(s.saveTender))
+	mux.Handle("POST "+v+"/companies/{cid}/purchasing/tenders/{id}/status", s.auth(s.tenderStatus))
+	mux.Handle("PUT "+v+"/companies/{cid}/purchasing/tenders/{id}/bids", s.auth(s.saveBid))
+	mux.Handle("POST "+v+"/companies/{cid}/purchasing/tenders/{id}/award", s.auth(s.awardTender))
+	mux.Handle("GET "+v+"/companies/{cid}/purchasing/agreements", s.auth(s.listAgreements))
+	mux.Handle("POST "+v+"/companies/{cid}/purchasing/agreements", s.auth(s.saveAgreement))
+	mux.Handle("GET "+v+"/companies/{cid}/purchasing/agreements/{id}", s.auth(s.getAgreement))
+	mux.Handle("PUT "+v+"/companies/{cid}/purchasing/agreements/{id}", s.auth(s.saveAgreement))
+	mux.Handle("POST "+v+"/companies/{cid}/purchasing/agreements/{id}/status", s.auth(s.agreementStatus))
+	mux.Handle("POST "+v+"/companies/{cid}/purchasing/agreements/{id}/order", s.auth(s.orderFromAgreement))
 	mux.Handle("/", spa(s.WebDir))
 
 	s.protected = mux.patterns
@@ -1187,6 +1235,11 @@ type Principal struct {
 	// platform owners without two-step sign-in: after this moment they must set it up (banner before)
 	PlatformMFADeadline *time.Time `json:"platform_mfa_deadline,omitempty"`
 	SessionID           string     `json:"-"`
+	// phase 8: the password is older than the organisation allows (only a password change is possible), the idle
+	// time after which the app signs out (strictest of the user's companies, 0 = never) and the user's branches
+	PasswordExpired bool     `json:"password_expired"`
+	IdleLogoutMin   int      `json:"idle_logout_min"`
+	BranchIDs       []string `json:"branch_ids"`
 
 	perms map[string]bool
 }
@@ -1242,7 +1295,11 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 			       u.role_id::text, coalesce(ro.name, ''), ro.permissions, ro.is_active,
 			       u.company_ids::text[], coalesce(m.enabled_at IS NOT NULL, false), t.require_mfa,
 			       tenant_state(t), t.paid_until::text, CASE WHEN t.paid_until IS NULL THEN NULL ELSE (t.paid_until + t.grace_days)::text END,
-			       CASE WHEN pp.apps IS NULL THEN NULL ELSE pp.apps || t.grandfathered_apps END, u.platform_mfa_deadline
+			       CASE WHEN pp.apps IS NULL THEN NULL ELSE pp.apps || t.grandfathered_apps END, u.platform_mfa_deadline,
+			       (t.password_expiry_days > 0 AND coalesce(u.password_changed_at, u.created_at) < now() - make_interval(days => t.password_expiry_days)),
+			       coalesce((SELECT min(c.idle_logout_min) FROM companies c WHERE c.is_active AND c.idle_logout_min > 0
+			                   AND (u.company_ids IS NULL OR c.id = ANY (u.company_ids))), 0),
+			       u.branch_ids::text[]
 			FROM users u JOIN tenants t ON t.id = u.tenant_id
 			LEFT JOIN platform_plans pp ON pp.code = t.plan
 			LEFT JOIN roles ro ON ro.id = u.role_id
@@ -1250,7 +1307,7 @@ func (s *Server) loadPrincipal(ctx context.Context, sc db.Scope) (*Principal, er
 			WHERE u.id = $1`, sc.UserID).
 			Scan(&p.ID, &p.TenantID, &p.TenantName, &p.Email, &p.FullName, &p.Role, &p.Locale, &p.Active, &p.Plan,
 				&p.TrialEndsAt, &p.RoleID, &p.RoleName, &custom, &roleActive, &p.CompanyIDs, &p.MFAEnabled, &p.MFARequired,
-				&p.SubState, &p.PaidUntil, &p.GraceEnds, &p.PlanApps, &p.PlatformMFADeadline)
+				&p.SubState, &p.PaidUntil, &p.GraceEnds, &p.PlanApps, &p.PlatformMFADeadline, &p.PasswordExpired, &p.IdleLogoutMin, &p.BranchIDs)
 	})
 	if err != nil {
 		return p, err
@@ -1325,6 +1382,10 @@ func (s *Server) authenticate(handler http.HandlerFunc, allowCollector bool) htt
 		}
 		if p.MFASetupRequired && p.APIKeyID == "" && !mfaSetupRoutes[route] {
 			writeErr(w, http.StatusForbidden, "mfa_setup_required")
+			return
+		}
+		if p.PasswordExpired && p.APIKeyID == "" && p.Support == nil && !mfaSetupRoutes[route] && route != "GET /me/login-history" {
+			writeErr(w, http.StatusForbidden, "password_expired")
 			return
 		}
 		readOnly := r.Method == http.MethodGet || r.Method == http.MethodHead

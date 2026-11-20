@@ -48,10 +48,7 @@ func (s *Server) consolidatedReport(w http.ResponseWriter, r *http.Request) {
 	}
 	p := principal(r)
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		type comp struct {
-			ID, Name, Base string
-			Rate           decimal.Decimal
-		}
+		type comp = consComp
 		rows, err := tx.Query(ctx, `SELECT id::text, name_en, base_currency::text FROM companies
 			WHERE is_active AND (coalesce(cardinality($1::uuid[]), 0) = 0 OR id = ANY ($1::uuid[])) ORDER BY name_en`, ids)
 		if err != nil {
@@ -226,10 +223,78 @@ func (s *Server) consolidatedReport(w http.ResponseWriter, r *http.Request) {
 			totals["equity"] = sums["equity"].StringFixed(2)
 			totals["current_result"] = res.StringFixed(2)
 			totals["liabilities_equity"] = sums["liability"].Add(sums["equity"]).Add(res).StringFixed(2)
-			return map[string]any{"report": report, "currency": target, "from": from, "to": to, "companies": companies,
-				"rows": out, "totals": totals, "current_result": resBy}, nil
+			resp := map[string]any{"report": report, "currency": target, "from": from, "to": to, "companies": companies,
+				"rows": out, "totals": totals, "current_result": resBy}
+			if q.Get("eliminate") == "1" {
+				if err := applyEliminations(ctx, tx, comps, report, from, to, resp, sums, res); err != nil {
+					return nil, err
+				}
+			}
+			return resp, nil
 		}
-		return map[string]any{"report": report, "currency": target, "from": from, "to": to, "companies": companies,
-			"rows": out, "totals": totals}, nil
+		resp := map[string]any{"report": report, "currency": target, "from": from, "to": to, "companies": companies,
+			"rows": out, "totals": totals}
+		if q.Get("eliminate") == "1" && report == "profit-loss" {
+			if err := applyEliminations(ctx, tx, comps, report, from, to, resp, sums, decimal.Zero); err != nil {
+				return nil, err
+			}
+		}
+		return resp, nil
 	})
+}
+
+// applyEliminations adds the inter-company eliminations to a consolidated balance sheet or P&L: each row gets its
+// "elimination" and "consolidated" amounts, rows only the eliminations know are added, and totals_after holds the
+// totals once eliminated.
+func applyEliminations(ctx context.Context, tx pgx.Tx, comps []consComp, report, from, to string, resp map[string]any,
+	sums map[string]decimal.Decimal, res decimal.Decimal) error {
+	elims, err := icEliminations(ctx, tx, comps, report, from, to)
+	if err != nil {
+		return err
+	}
+	rows := resp["rows"].([]map[string]any)
+	byKey := map[string]decimal.Decimal{}
+	names := map[string][2]string{}
+	adj := map[string]decimal.Decimal{}
+	list := []map[string]any{}
+	for _, e := range elims {
+		k := e.Code + "|" + e.Type
+		byKey[k] = byKey[k].Add(e.Amount)
+		names[k] = [2]string{e.Code, e.Name}
+		adj[e.Type] = adj[e.Type].Add(e.Amount)
+		list = append(list, map[string]any{"code": e.Code, "name": e.Name, "type": e.Type, "reason": e.Reason, "amount": e.Amount.StringFixed(2)})
+	}
+	seen := map[string]bool{}
+	for _, row := range rows {
+		k := row["code"].(string) + "|" + row["type"].(string)
+		seen[k] = true
+		t, _ := decimal.NewFromString(row["total"].(string))
+		row["elimination"] = byKey[k].StringFixed(2)
+		row["consolidated"] = t.Add(byKey[k]).StringFixed(2)
+	}
+	for k, v := range byKey {
+		if seen[k] {
+			continue
+		}
+		typ := k[strings.LastIndex(k, "|")+1:]
+		rows = append(rows, map[string]any{"code": names[k][0], "name": names[k][1], "type": typ, "amounts": map[string]string{},
+			"total": "0.00", "elimination": v.StringFixed(2), "consolidated": v.StringFixed(2)})
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		return rows[i]["code"].(string)+"|"+rows[i]["type"].(string) < rows[j]["code"].(string)+"|"+rows[j]["type"].(string)
+	})
+	resp["rows"] = rows
+	resp["eliminations"] = list
+	after := map[string]string{}
+	if report == "profit-loss" {
+		inc, exp := sums["income"].Add(adj["income"]), sums["expense"].Add(adj["expense"])
+		after["income"], after["expense"], after["net"] = inc.StringFixed(2), exp.StringFixed(2), inc.Sub(exp).StringFixed(2)
+	} else {
+		a, l, e := sums["asset"].Add(adj["asset"]), sums["liability"].Add(adj["liability"]), sums["equity"].Add(adj["equity"])
+		after["assets"], after["liabilities"], after["equity"] = a.StringFixed(2), l.StringFixed(2), e.StringFixed(2)
+		after["current_result"] = res.StringFixed(2)
+		after["liabilities_equity"] = l.Add(e).Add(res).StringFixed(2)
+	}
+	resp["totals_after"] = after
+	return nil
 }

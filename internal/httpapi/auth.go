@@ -69,6 +69,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if !auth.Verify(in.Password, hash) {
 		failed()
+		s.recordLoginFailure(ctx, tid, uid, email, r, "password", "wrong_password")
 		writeErr(w, http.StatusUnauthorized, "invalid_credentials")
 		return
 	}
@@ -117,6 +118,20 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 
 // completeLogin signs the session in: tracked session row, audit entry, principal.
 func (s *Server) completeLogin(w http.ResponseWriter, r *http.Request, sc db.Scope, mfa bool) {
+	method := "password"
+	if mfa {
+		method = "mfa"
+	}
+	p, err := s.startSession(r, sc, mfa, method)
+	if err != nil {
+		serverErr(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
+}
+
+// startSession signs the browser session in: tracked session row, audit entry, sign-in history, principal.
+func (s *Server) startSession(r *http.Request, sc db.Scope, mfa bool, method string) (*Principal, error) {
 	ctx := r.Context()
 	var sid string
 	err := db.InTenant(ctx, s.Pool, sc, func(tx pgx.Tx) error {
@@ -129,22 +144,23 @@ func (s *Server) completeLogin(w http.ResponseWriter, r *http.Request, sc db.Sco
 			INSERT INTO audit_log (tenant_id, user_id, action, entity, entity_id, ip, after)
 			VALUES (app_tenant(), app_user(), 'login', 'users', app_user(), nullif($1, '')::inet, jsonb_build_object('mfa', $2::boolean))`,
 			sc.IP, mfa)
-		return err
+		if err != nil {
+			return err
+		}
+		return insertLoginEvent(ctx, tx, sc.UserID, "", r, method, true, "")
 	})
 	if err != nil {
-		serverErr(w, r, err)
-		return
+		return nil, err
 	}
 	s.Sessions.Put(ctx, "uid", sc.UserID)
 	s.Sessions.Put(ctx, "tid", sc.TenantID)
 	s.Sessions.Put(ctx, "sid", sid)
 	p, err := s.loadPrincipal(ctx, sc)
 	if err != nil {
-		serverErr(w, r, err)
-		return
+		return nil, err
 	}
 	p.SessionID = sid
-	writeJSON(w, http.StatusOK, p)
+	return p, nil
 }
 
 // loginMFA is the second sign-in step: a code from the authenticator app or a one-time recovery code.
@@ -255,10 +271,17 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 // passwordProblem applies the organisation's password policy ("" = fine).
 func passwordProblem(ctx context.Context, tx pgx.Tx, pw, email string) (string, error) {
 	var minLen int
-	if err := tx.QueryRow(ctx, `SELECT password_min_length FROM tenants WHERE id = app_tenant()`).Scan(&minLen); err != nil {
+	var complexity bool
+	if err := tx.QueryRow(ctx, `SELECT password_min_length, password_complexity FROM tenants WHERE id = app_tenant()`).Scan(&minLen, &complexity); err != nil {
 		return "", err
 	}
-	return auth.CheckPassword(pw, email, minLen), nil
+	if code := auth.CheckPassword(pw, email, minLen); code != "" {
+		return code, nil
+	}
+	if complexity && !complexEnough(pw) {
+		return "weak_password_complexity", nil
+	}
+	return "", nil
 }
 
 // updateMe changes the user's own language or password. A new password ends the user's other sessions.
