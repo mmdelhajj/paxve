@@ -14,6 +14,7 @@ import PageHeader, { Confirm } from '../../components/PageHeader';
 import { billColor, type Bill, type BillDetail, type Item, type Supplier, type Warehouse } from './types';
 import { BillsTable } from './Suppliers';
 import { ccLabel, useCostCenters } from '../acc/common';
+import { LayoutBanner, LayoutFooter, LayoutStyle, useDocLayout } from '../../components/DocLayout';
 
 interface Totals { currency: string; count: number; total: string; paid: string; balance: string }
 
@@ -119,14 +120,17 @@ export function BillView({ id, canVoid, onClose, onChanged }: { id: string; canV
   const b = d?.bill;
   const dec = b ? decimalsOf(b.currency) : 2;
   const rtl = i18n.language === 'ar';
+  const lay = useDocLayout('bill');
   return (
     <Modal opened onClose={onClose} size="lg" title={b ? `${t('pur.bill')} #${b.number}` : t('pur.bill')}>
       {!d || !b ? <Center p="xl"><Loader size="sm" /></Center> : (
         <Stack>
-          <div className="print-doc" dir={rtl ? 'rtl' : 'ltr'}>
+          <div className="print-doc" data-doc="bill" dir={rtl ? 'rtl' : 'ltr'}>
+            <LayoutStyle type="bill" layout={lay} />
+            <LayoutBanner layout={lay} />
             <Group justify="space-between" align="flex-start">
               <div>
-                <Text fw={700} size="lg">{rtl && b.company_name_ar ? b.company_name_ar : b.company_name}</Text>
+                <Text fw={700} size="lg" className="doc-title">{rtl && b.company_name_ar ? b.company_name_ar : b.company_name}</Text>
                 <Text size="sm">{t('pur.bill')} #{b.number}{b.supplier_ref ? ` · ${b.supplier_ref}` : ''}</Text>
               </div>
               <div style={{ textAlign: 'end' }}>
@@ -155,6 +159,7 @@ export function BillView({ id, canVoid, onClose, onChanged }: { id: string; canV
                 {b.status !== 'void' && <tr><th colSpan={3}>{t('invoices.balance')}</th><th className="num">{formatAmount(b.balance, dec)} {b.currency}</th></tr>}
               </tfoot>
             </table>
+            <LayoutFooter layout={lay} qr={`${b.supplier_name} #${b.number} ${b.total} ${b.currency}`} />
           </div>
           {d.payments.length > 0 && (
             <Paper withBorder p="sm" className="no-print">

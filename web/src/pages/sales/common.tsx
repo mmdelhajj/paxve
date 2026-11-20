@@ -7,6 +7,7 @@ import { api } from '../../api';
 import { useCompany } from '../../company';
 import { openExternal } from '../../native';
 import { formatDate, notifyError } from '../../util';
+import { DocQR, qrTextOf, type DocLayout } from '../../components/DocLayout';
 
 export interface SaleItem {
   id: string; code: string; name: string; unit: string; kind: 'stock' | 'service' | 'consumable'; sale_price: string; sale_currency: string | null;
@@ -28,35 +29,45 @@ export interface DocCompany {
   company_name?: string; company_name_ar?: string; company_logo?: string; company_header?: string; company_footer?: string; company_tax_id?: string; company_tax_label?: string;
 }
 
-/** Header of a printed document: logo + company name + header text on one side, title / number / dates on the other. */
-export function DocHeader({ c, title, lines }: { c: DocCompany; title: string; lines: ReactNode[] }) {
+/** Header of a printed document: logo + company name + header text on one side, title / number / dates on the other.
+ *  layout: the company's choices for this document (logo size, title, header text); title2: the title in the layout's
+ *  second language. */
+export function DocHeader({ c, title, lines, layout, title2 }: { c: DocCompany; title: string; lines: ReactNode[]; layout?: DocLayout; title2?: string }) {
   const { t, i18n } = useTranslation();
   const rtl = i18n.language === 'ar';
+  const l = layout ?? {};
+  const logoH = l.logo_size === 'sm' ? 40 : l.logo_size === 'lg' ? 96 : 64;
+  const header = l.header || c.company_header;
   return (
-    <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
+    <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md" className="b-header">
       <Group gap="sm" align="flex-start" wrap="nowrap">
-        {c.company_logo ? <img src={c.company_logo} alt="" style={{ maxHeight: 64, maxWidth: 160, objectFit: 'contain' }} /> : null}
+        {c.company_logo && l.show_logo !== false ? <img className="f-logo" src={c.company_logo} alt="" style={{ maxHeight: logoH, maxWidth: logoH * 2.5, objectFit: 'contain' }} /> : null}
         <div>
           <Text fw={700} size="lg">{rtl && c.company_name_ar ? c.company_name_ar : c.company_name}</Text>
-          {c.company_header && <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>{c.company_header}</Text>}
-          {c.company_tax_id && <Text size="xs">{c.company_tax_label || t('docs.taxId')}: <span dir="ltr">{c.company_tax_id}</span></Text>}
+          {header && <Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>{header}</Text>}
+          {c.company_tax_id && <Text size="xs" className="f-tax_id">{c.company_tax_label || t('docs.taxId')}: <span dir="ltr">{c.company_tax_id}</span></Text>}
         </div>
       </Group>
       <div style={{ textAlign: 'end', flex: 'none' }}>
-        <Text fw={700} size="lg">{title}</Text>
-        {lines.map((l, i) => <Text size="sm" key={i}>{l}</Text>)}
+        <Text fw={700} size="lg" className="doc-title">{l.title ? `${l.title} ${title.replace(/^[^#]*/, '')}`.trim() : title}</Text>
+        {title2 && title2 !== title && <Text size="sm" className="doc-title" fw={600}>{title2}</Text>}
+        {lines.map((x, i) => <Text size="sm" key={i}>{x}</Text>)}
       </div>
     </Group>
   );
 }
 
-export function DocFooter({ c, terms }: { c: DocCompany; terms?: string }) {
+export function DocFooter({ c, terms, layout, qr }: { c: DocCompany; terms?: string; layout?: DocLayout; qr?: string }) {
   const { t } = useTranslation();
-  if (!terms && !c.company_footer) return null;
+  const l = layout ?? {};
+  const footer = l.footer || c.company_footer;
+  const q = qr ? qrTextOf(l, qr) : '';
+  if (!terms && !footer && !q) return null;
   return (
-    <div style={{ marginTop: 16 }}>
-      {terms && <><Text size="xs" fw={600}>{t('sales.terms')}</Text><Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>{terms}</Text></>}
-      {c.company_footer && <Text size="xs" ta="center" mt="sm" style={{ whiteSpace: 'pre-wrap' }}>{c.company_footer}</Text>}
+    <div style={{ marginTop: 16 }} className="b-footer">
+      {terms && <div className="f-terms"><Text size="xs" fw={600}>{t('sales.terms')}</Text><Text size="xs" style={{ whiteSpace: 'pre-wrap' }}>{terms}</Text></div>}
+      {footer && <Text size="xs" ta="center" mt="sm" className="f-footer" style={{ whiteSpace: 'pre-wrap' }}>{footer}</Text>}
+      {q && <DocQR text={q} />}
     </div>
   );
 }

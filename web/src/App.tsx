@@ -21,6 +21,7 @@ const Optout = lazy(() => import('./pages/public/Sign').then((m) => ({ default: 
 const MyAccounts = lazy(() => import('./pages/public/PortalMore').then((m) => ({ default: m.MyAccounts })));
 const PosDisplay = lazy(() => import('./pages/pos/PosApp').then((m) => ({ default: m.CustomerDisplay })));
 const ForcedMfa = lazy(() => import('./pages/Security').then((m) => ({ default: m.ForcedMfa })));
+const ForcedPassword = lazy(() => import('./pages/ent/ForcedPassword'));
 const Shell = lazy(() => import('./Shell'));
 
 // phase 6b: the installed apps (Paxve Field, Paxve Owner) open straight on the sign-in screen, not the marketing site
@@ -52,7 +53,7 @@ function DirectionSync() {
 }
 
 function usePublicRoute(): string {
-  const read = () => window.location.hash.replace(/^#\/?/, '').split('/')[0];
+  const read = () => window.location.hash.replace(/^#\/?/, '').split('/')[0].split('?')[0];
   const [r, setR] = useState(read);
   useEffect(() => {
     const f = () => setR(read());
@@ -112,6 +113,11 @@ function Root() {
     const logout = () => { api('/auth/logout', { method: 'POST' }).finally(() => setMe(null)); };
     const done = () => { api<Me>('/me').then(setMe).catch(() => setMe(null)); };
     return <Suspense fallback={fullPageLoader}><ForcedMfa onDone={done} onLogout={logout} /></Suspense>;
+  }
+  if (me.password_expired) {
+    const logout = () => { api('/auth/logout', { method: 'POST' }).finally(() => setMe(null)); };
+    const done = () => { api<Me>('/me').then(setMe).catch(() => setMe(null)); };
+    return <Suspense fallback={fullPageLoader}><ForcedPassword onDone={done} onLogout={logout} /></Suspense>;
   }
   return (
     <CompanyProvider>

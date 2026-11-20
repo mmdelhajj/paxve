@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert, Anchor, Box, Button, Center, Group, Paper, PasswordInput, PinInput, Stack, Text, TextInput, Title,
 } from '@mantine/core';
@@ -19,6 +19,18 @@ export default function Login({ onLogin }: { onLogin: (me: Me) => void }) {
   const [recovery, setRecovery] = useState<string | null>(null); // null = use the app code
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sso, setSso] = useState<string[]>([]);
+
+  // Google / Microsoft sign-in (phase 8): the provider sends the browser back to #/login?sso=mfa (two-step code
+  // still needed) or #/login?sso_error=<code>
+  useEffect(() => {
+    api<string[]>('/auth/oidc/providers').then(setSso).catch(() => setSso([]));
+    const q = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+    if (q.get('sso') === 'mfa') setStep('mfa');
+    const e = q.get('sso_error');
+    if (e) setError(t(`ep.sso.${e}`, { defaultValue: t('ep.sso.sso_failed') }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -102,6 +114,11 @@ export default function Login({ onLogin }: { onLogin: (me: Me) => void }) {
                   <Button type="submit" loading={busy} fullWidth>
                     {t('login.submit')}
                   </Button>
+                  {sso.map((p) => (
+                    <Button key={p} variant="default" fullWidth component="a" href={`/api/v1/auth/oidc/${p}/start`}>
+                      {t(`ep.sso.with_${p}`)}
+                    </Button>
+                  ))}
                   <Text size="sm" ta="center" c="dimmed">
                     {t('signup.noAccount')} <Anchor href="#/signup">{t('landing.startTrial')}</Anchor>
                   </Text>

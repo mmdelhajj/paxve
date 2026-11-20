@@ -14,6 +14,9 @@ export interface Me {
   trial_ends_at: string | null;
   is_platform_admin: boolean;
   platform_mfa_deadline?: string; // platform owner without two-step sign-in: must turn it on before this
+  password_expired?: boolean; // phase 8: only a password change is possible
+  idle_logout_min?: number; // sign out after this many idle minutes (0 = never)
+  branch_ids?: string[] | null;
   /** the organisation's Paxve plan: trial, active, grace (ended, still usable), expired (read-only), blocked */
   sub_state?: 'trial' | 'active' | 'grace' | 'expired' | 'blocked';
   paid_until?: string | null;

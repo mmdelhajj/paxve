@@ -5,6 +5,7 @@ import { api } from '../../api';
 import { useCompany } from '../../company';
 import { formatAmount, formatDate, formatDateTime, notifyError } from '../../util';
 import type { PrintLine } from '../../bt';
+import { LayoutFooter, LayoutStyle, useDocLayout } from '../../components/DocLayout';
 
 // ---------- types ----------
 
@@ -138,8 +139,10 @@ export function OrderReceipt({ d }: { d: PosOrderDetail }) {
   const o = d.order;
   const rtl = i18n.language === 'ar';
   const cd = decimalsOf(o.currency);
+  const lay = useDocLayout('receipt');
   return (
-    <div className="print-doc receipt" dir={rtl ? 'rtl' : 'ltr'}>
+    <div className="print-doc receipt" data-doc="receipt" dir={rtl ? 'rtl' : 'ltr'}>
+      <LayoutStyle type="receipt" layout={lay} />
       <Text fw={700} ta="center">{(rtl && o.company_name_ar ? o.company_name_ar : o.company_name) || ''}</Text>
       {o.company_header && <Text ta="center" size="xs" style={{ whiteSpace: 'pre-line' }}>{o.company_header}</Text>}
       {o.company_tax_id && <Text ta="center" size="xs">{t('docs.taxId')}: {o.company_tax_id}</Text>}
@@ -187,6 +190,7 @@ export function OrderReceipt({ d }: { d: PosOrderDetail }) {
       </table>
       <Divider my={6} variant="dashed" />
       <Text size="xs" ta="center" style={{ whiteSpace: 'pre-line' }}>{o.receipt_footer || t('payments.thanks')}</Text>
+      <LayoutFooter layout={lay} qr={`#${o.number} ${o.order_date ?? ''} ${o.total} ${o.currency}`} />
     </div>
   );
 }

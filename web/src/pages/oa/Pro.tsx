@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LayoutHead, LayoutTail } from '../../components/DocLayout';
 import type { TFunction } from 'i18next';
 import { api, ApiError, can, type Account, type Me } from '../../api';
 import { useCompany } from '../../company';
@@ -213,8 +214,9 @@ export default function PurchaseOrders({ me }: { me: Me }) {
             </div>
           ) : o && sel ? (
             <div className="mx-pay" style={{ overflow: 'auto' }}>
-              <div className="print-doc">
-                <h3 style={{ margin: 0 }}>{t(o.status === 'rfq' || o.status === 'sent' ? 'oa.po.rfqTitle' : 'oa.po.poTitle')} #{o.number}</h3>
+              <div className="print-doc" data-doc="po">
+                <LayoutHead type="po" />
+                <h3 style={{ margin: 0 }} className="doc-title">{t(o.status === 'rfq' || o.status === 'sent' ? 'oa.po.rfqTitle' : 'oa.po.poTitle')} #{o.number}</h3>
                 <small>{o.supplier_name} · {formatDate(o.order_date)}{o.expected_date ? ` → ${formatDate(o.expected_date)}` : ''} · <b>{t(`oa.po.st.${o.status}`)}</b>{o.late ? ` · ${t('oa.po.late')}` : ''}</small>
                 <table className="mx-table" style={{ marginTop: 6 }}>
                   <thead><tr><th>{t('oa.po.item')}</th><th className="num">{t('oa.po.qty')}</th><th className="num">{t('oa.po.price')}</th><th className="num">{t('fin.po.received')}</th><th className="num">{t('oa.po.billedQty')}</th>
@@ -236,6 +238,7 @@ export default function PurchaseOrders({ me }: { me: Me }) {
                   <tfoot><tr><th colSpan={(o.status === 'confirmed' || o.status === 'partial') && canCreate ? 6 : (o.status === 'billed' && canCreate ? 5 : 4)}>{t('oa.po.total')}</th><th className="num">{formatAmount(o.total, dec)} {o.currency}</th></tr></tfoot>
                 </table>
                 {o.notes && <p style={{ margin: '4px 0' }}>{o.notes}</p>}
+                <LayoutTail type="po" qr={`PO #${o.number} ${o.supplier_name} ${o.total} ${o.currency}`} />
               </div>
               {warn.length > 0 && <div className="mx-flash bad">{t('fin.match.title')}: {warn.join(' · ')}
                 {pendingConfirm && <div className="mx-row" style={{ gap: 6, marginTop: 6 }}>

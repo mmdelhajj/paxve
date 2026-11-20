@@ -16,6 +16,7 @@ import { zatcaQR } from '../../zatca';
 import Chatter from '../../components/Chatter';
 import { ensureBundle, langInfo, languages } from '../../i18n';
 import { CustomFieldsBox, EinvoiceButton } from '../fin/Finish';
+import { LayoutBanner, LayoutFooter, LayoutStyle, useDocLayout } from '../../components/DocLayout';
 
 interface InvoiceLegal {
   company_name?: string; company_tax_id?: string; company_tax_label?: string; company_invoice_title?: string;
@@ -118,24 +119,31 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
   useEffect(() => { const l = (d?.invoice as unknown as { customer_locale?: string | null } | undefined)?.customer_locale; if (l && l !== i18n.language) void ensureBundle(l).then(() => setPrintLang(l)); }, [d, i18n.language]);
   const pl = printLang || i18n.language;
   const pt = i18n.getFixedT(pl);
+  const lay = useDocLayout('invoice');
+  const t2 = lay.bilingual && lay.bilingual !== pl ? i18n.getFixedT(lay.bilingual) : null;
+  useEffect(() => { if (lay.bilingual) void ensureBundle(lay.bilingual); }, [lay.bilingual]);
 
   return (
     <Modal opened onClose={onClose} size="lg" title={inv ? `${inv.kind === 'refund' ? (inv.cheque_id ? t('stmt.kinds.cheque_return') : t('gap.refund')) : t('invoices.invoice')} #${inv.number}` : t('invoices.invoice')}>
       {!d || !inv ? <Center p="xl"><Loader size="sm" /></Center> : (
         <Stack>
-          <div className="print-doc" dir={langInfo(pl).dir} lang={pl}>
-            <DocHeader c={inv} title={`${inv.kind === 'refund' ? (inv.cheque_id ? pt('stmt.kinds.cheque_return') : pt('gap.refund')) : ((inv as unknown as InvoiceLegal).company_invoice_title || pt('invoices.invoice'))} #${inv.number}`} lines={[
-              ...(inv.period ? [inv.period] : []),
+          <div className="print-doc" data-doc="invoice" dir={langInfo(pl).dir} lang={pl}>
+            <LayoutStyle type="invoice" layout={lay} />
+            <DocHeader c={inv} layout={lay} title2={t2 ? (inv.kind === 'refund' ? t2('gap.refund') : t2('invoices.invoice')) : undefined} title={`${inv.kind === 'refund' ? (inv.cheque_id ? pt('stmt.kinds.cheque_return') : pt('gap.refund')) : ((inv as unknown as InvoiceLegal).company_invoice_title || pt('invoices.invoice'))} #${inv.number}`} lines={[
+              ...(inv.period ? [<span key="pe" className="f-period">{inv.period}</span>] : []),
               ...(inv.order_number ? [`${pt('sales.order')} SO-${inv.order_number}`] : []),
               `${pt('invoices.date')}: ${formatDate(inv.issue_date)}`,
-              `${pt('invoices.due')}: ${formatDate(inv.due_date)}`,
+              <span key="du" className="f-due_date">{pt('invoices.due')}: {formatDate(inv.due_date)}</span>,
               <Badge key="st" color={invoiceColor[inv.status]} variant="light" className="no-print">{pt(`invoices.statuses.${inv.status}`)}</Badge>,
             ]} />
-            <Divider my="sm" />
-            <Text fw={600}>{inv.customer_name} <Text span c="dimmed" size="sm">({inv.customer_code})</Text></Text>
-            <Text size="sm">{[inv.customer_phone, inv.area_name, inv.customer_address].filter(Boolean).join(' · ')}</Text>
-            {inv.meter_no && <Text size="sm">{pt('invoices.meter')}: {inv.meter_no}</Text>}
-            <table style={{ marginTop: 12 }}>
+            <div className="b-customer">
+              <Divider my="sm" className="doc-rule" />
+              <Text fw={600}>{inv.customer_name} <Text span c="dimmed" size="sm" className="f-customer_code">({inv.customer_code})</Text></Text>
+              <Text size="sm"><span className="f-customer_phone">{inv.customer_phone}{inv.customer_phone && (inv.area_name || inv.customer_address) ? ' · ' : ''}</span>
+                <span className="f-customer_address">{[inv.area_name, inv.customer_address].filter(Boolean).join(' · ')}</span></Text>
+              {inv.meter_no && <Text size="sm" className="f-meter">{pt('invoices.meter')}: {inv.meter_no}</Text>}
+            </div>
+            <table style={{ marginTop: 12 }} className="b-lines">
               <thead>
                 <tr><th>{pt('invoices.description')}</th><th className="num">{pt('invoices.amount')}</th></tr>
               </thead>
@@ -165,8 +173,8 @@ export function InvoiceView({ id, canVoid, onClose, onChanged }: { id: string; c
               </tfoot>
             </table>
             {inv.status === 'void' && <Text c="red" fw={700} mt="sm">{pt('invoices.statuses.void')} {inv.notes}</Text>}
-            <DocFooter c={inv} />
-            <InvoiceLegal inv={inv as unknown as InvoiceLegal} />
+            <div className="b-notes f-legal"><InvoiceLegal inv={inv as unknown as InvoiceLegal} /></div>
+            <DocFooter c={inv} layout={lay} qr={`${inv.customer_name} #${inv.number} ${inv.issue_date} ${inv.total} ${inv.currency}`} />
           </div>
           <div className="mx-row no-print" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             <label style={{ fontSize: 12 }}>{t('fin.printLang')} <select value={pl} onChange={(e) => { const v = e.currentTarget.value; void ensureBundle(v).then(() => setPrintLang(v)); }}>
@@ -313,9 +321,12 @@ export function Receipt({ d }: { d: PaymentDetail }) {
   const { decimalsOf } = useCompany();
   const p = d.payment;
   const rtl = i18n.language === 'ar';
+  const lay = useDocLayout('receipt');
   return (
-    <div className="print-doc receipt" dir={rtl ? 'rtl' : 'ltr'}>
-      <Text fw={700} ta="center">{rtl && p.company_name_ar ? p.company_name_ar : p.company_name}</Text>
+    <div className="print-doc receipt" data-doc="receipt" dir={rtl ? 'rtl' : 'ltr'}>
+      <LayoutStyle type="receipt" layout={lay} />
+      <Text fw={700} ta="center" className="doc-title">{rtl && p.company_name_ar ? p.company_name_ar : p.company_name}</Text>
+      <LayoutBanner layout={lay} />
       <Text ta="center" size="sm">{t('payments.receipt')} #{p.number || '…'} · {formatDate(p.payment_date)}</Text>
       {p.status === 'void' && <Text ta="center" c="red" fw={700}>{t('invoices.statuses.void')}</Text>}
       <Divider my={6} variant="dashed" />
@@ -348,7 +359,8 @@ export function Receipt({ d }: { d: PaymentDetail }) {
         : <MoneyList items={d.customer_balance.due} />}
       {d.customer_balance.credit.length > 0 && <MoneyList items={d.customer_balance.credit} kind="credit" />}
       <Divider my={6} variant="dashed" />
-      <Text size="xs" ta="center">{p.received_by ? `${t('payments.receivedBy')}: ${p.received_by} · ` : ''}{t('payments.thanks')}</Text>
+      <Text size="xs" ta="center"><span className="f-cashier">{p.received_by ? `${t('payments.receivedBy')}: ${p.received_by} · ` : ''}</span>{t('payments.thanks')}</Text>
+      <LayoutFooter layout={lay} qr={`${p.customer_name} #${p.number} ${p.payment_date} ${p.amount} ${p.currency}`} />
     </div>
   );
 }

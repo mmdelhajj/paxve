@@ -18,6 +18,7 @@ import { InvoiceView } from '../billing/docs';
 import type { Warehouse } from '../purchases/types';
 import { CustomerPicker, DocFooter, DocHeader, itemPrice, orderColor, SendDocButton, type DocCompany, type SaleItem } from './common';
 import Chatter from '../../components/Chatter';
+import { LayoutStyle, useDocLayout } from '../../components/DocLayout';
 
 export interface Order {
   id: string; number: number; order_number: number | null; customer_id: string; customer_code: string; customer_name: string;
@@ -403,6 +404,9 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
   const hasStock = d?.lines.some((l) => l.item_kind === 'stock');
   const leftToDeliver = d?.lines.some((l) => l.item_kind === 'stock' && Number(l.qty_delivered) < Number(l.quantity));
   const leftToInvoice = d?.lines.some((l) => Number(l.qty_invoiced) < Number(l.quantity));
+  const docType = isOrder ? 'order' : 'quote';
+  const lay = useDocLayout(docType);
+  const t2 = lay.bilingual && lay.bilingual !== i18n.language ? i18n.getFixedT(lay.bilingual) : null;
 
   return (
     <Modal opened onClose={onClose} size="xl" title={o ? `${isOrder ? t('sales.order') : t('sales.quote')} ${docNumber(o)}` : t('sales.quote')}>
@@ -414,8 +418,9 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
             {isOrder && hasStock && <Badge variant="dot">{t(`sales.delivery.${o.delivery_status ?? 'none'}`)}</Badge>}
             {isOrder && <Badge variant="dot">{t(`sales.invoicing.${o.invoice_status ?? 'none'}`)}</Badge>}
           </Group>
-          <div className="print-doc" dir={rtl ? 'rtl' : 'ltr'}>
-            <DocHeader c={o} title={proforma ? t('gp.pf.title') : isOrder ? t('sales.order') : t('sales.quote')} lines={[
+          <div className="print-doc" data-doc={docType} dir={rtl ? 'rtl' : 'ltr'}>
+            <LayoutStyle type={docType} layout={lay} />
+            <DocHeader c={o} layout={lay} title2={t2 ? (isOrder ? t2('sales.order') : t2('sales.quote')) : undefined} title={proforma ? t('gp.pf.title') : isOrder ? t('sales.order') : t('sales.quote')} lines={[
               <span dir="ltr" key="n">{proforma ? `PF-${o.order_number ?? o.number}` : docNumber(o)}</span>,
               ...(proforma ? [t('gp.pf.note')] : []),
               `${t('invoices.date')}: ${formatDate(o.order_date ?? o.quote_date)}`,
@@ -423,7 +428,7 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
             ]} />
             <Divider my="sm" />
             <Text fw={600}>{o.customer_name} <Text span c="dimmed" size="sm">({o.customer_code})</Text></Text>
-            <Text size="sm">{[o.customer_phone, o.customer_email, o.customer_address].filter(Boolean).join(' · ')}</Text>
+            <Text size="sm"><span className="f-customer_phone">{[o.customer_phone, o.customer_email].filter(Boolean).join(' · ')}</span>{o.customer_address ? <span className="f-customer_address"> · {o.customer_address}</span> : null}</Text>
             <table style={{ marginTop: 12 }}>
               <thead><tr>
                 <th>{t('invoices.description')}</th><th className="num">{t('invoices.qty')}</th><th className="num">{t('invoices.price')}</th>
@@ -453,7 +458,7 @@ export function OrderView({ id, me, onClose, onChanged }: { id: string; me: Me; 
               </tfoot>
             </table>
             {o.notes && <Text size="sm" mt="sm" style={{ whiteSpace: 'pre-wrap' }}>{o.notes}</Text>}
-            <DocFooter c={o} terms={o.terms} />
+            <DocFooter c={o} terms={o.terms} layout={lay} qr={`${o.customer_name} ${docNumber(o)} ${o.total} ${o.currency}`} />
           </div>
 
           {(d.deliveries.length > 0 || d.invoices.length > 0) && (
