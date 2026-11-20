@@ -830,6 +830,84 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET "+v+"/companies/{cid}/fleet/settings", s.auth(s.fleetSettings))
 	mux.Handle("PUT "+v+"/companies/{cid}/fleet/settings", s.auth(s.fleetSettings))
 
+	// phase 4: online store (app "web") — staff screens, then the public shop and order tracking
+	mux.Handle("GET "+v+"/companies/{cid}/shop/settings", s.auth(s.shopGetSettings))
+	mux.Handle("PUT "+v+"/companies/{cid}/shop/settings", s.auth(s.shopPutSettings))
+	mux.Handle("GET "+v+"/companies/{cid}/shop/zones", s.auth(s.shopZones))
+	mux.Handle("POST "+v+"/companies/{cid}/shop/zones", s.auth(s.shopSaveZone))
+	mux.Handle("PATCH "+v+"/companies/{cid}/shop/zones/{id}", s.auth(s.shopSaveZone))
+	mux.Handle("DELETE "+v+"/companies/{cid}/shop/zones/{id}", s.auth(s.shopDeleteZone))
+	mux.Handle("GET "+v+"/companies/{cid}/shop/products", s.auth(s.shopProducts))
+	mux.Handle("PATCH "+v+"/companies/{cid}/shop/products/{id}", s.auth(s.shopPatchProduct))
+	mux.Handle("GET "+v+"/companies/{cid}/shop/orders", s.auth(s.shopOrders))
+	mux.Handle("GET "+v+"/companies/{cid}/shop/orders/{id}", s.auth(s.shopGetOrder))
+	mux.Handle("POST "+v+"/companies/{cid}/shop/orders/{id}/{action}", s.auth(s.shopOrderAction))
+	mux.HandleFunc("GET "+v+"/shop/{slug}", s.shopHome)
+	mux.HandleFunc("GET "+v+"/shop/{slug}/items", s.shopItems)
+	mux.HandleFunc("GET "+v+"/shop/{slug}/items/{id}", s.shopItem)
+	mux.HandleFunc("GET "+v+"/shop/{slug}/items/{id}/image", s.shopItemImage)
+	mux.HandleFunc("POST "+v+"/shop/{slug}/cart", s.shopCart)
+	mux.HandleFunc("POST "+v+"/shop/{slug}/orders", s.shopPlaceOrder)
+	mux.HandleFunc("GET "+v+"/shop-orders/{token}", s.shopTrack)
+
+	// marketing (app "mkt"), the tracked link and the opt-out page
+	mux.Handle("GET "+v+"/companies/{cid}/mkt/overview", s.auth(s.mktOverview))
+	mux.Handle("GET "+v+"/companies/{cid}/mkt/lists", s.auth(s.mktLists))
+	mux.Handle("POST "+v+"/companies/{cid}/mkt/lists", s.auth(s.mktSaveList))
+	mux.Handle("PATCH "+v+"/companies/{cid}/mkt/lists/{id}", s.auth(s.mktSaveList))
+	mux.Handle("GET "+v+"/companies/{cid}/mkt/lists/{id}/members", s.auth(s.mktMembers))
+	mux.Handle("POST "+v+"/companies/{cid}/mkt/lists/{id}/members", s.auth(s.mktAddMembers))
+	mux.Handle("DELETE "+v+"/companies/{cid}/mkt/list-members/{id}", s.auth(s.mktDeleteMember))
+	mux.Handle("GET "+v+"/companies/{cid}/mkt/optouts", s.auth(s.mktOptouts))
+	mux.Handle("POST "+v+"/companies/{cid}/mkt/optouts", s.auth(s.mktAddOptout))
+	mux.Handle("DELETE "+v+"/companies/{cid}/mkt/optouts/{id}", s.auth(s.mktDeleteOptout))
+	mux.Handle("POST "+v+"/companies/{cid}/mkt/audience", s.auth(s.mktAudience))
+	mux.Handle("GET "+v+"/companies/{cid}/mkt/campaigns", s.auth(s.mktCampaigns))
+	mux.Handle("POST "+v+"/companies/{cid}/mkt/campaigns", s.auth(s.mktSaveCampaign))
+	mux.Handle("GET "+v+"/companies/{cid}/mkt/campaigns/{id}", s.auth(s.mktGetCampaign))
+	mux.Handle("PATCH "+v+"/companies/{cid}/mkt/campaigns/{id}", s.auth(s.mktSaveCampaign))
+	mux.Handle("POST "+v+"/companies/{cid}/mkt/campaigns/{id}/{action}", s.auth(s.mktCampaignAction))
+	mux.HandleFunc("GET "+v+"/r/{token}", s.mktClick)
+	mux.HandleFunc("GET "+v+"/optout/{token}", s.optoutInfo)
+	mux.HandleFunc("POST "+v+"/optout/{token}", s.optoutSubmit)
+
+	// recruitment and appraisals (app "hr"), the public careers page
+	mux.Handle("GET "+v+"/companies/{cid}/hr/job-positions", s.auth(s.talentJobs))
+	mux.Handle("POST "+v+"/companies/{cid}/hr/job-positions", s.auth(s.talentSaveJob))
+	mux.Handle("PATCH "+v+"/companies/{cid}/hr/job-positions/{id}", s.auth(s.talentSaveJob))
+	mux.Handle("GET "+v+"/companies/{cid}/hr/applicants", s.auth(s.talentApplicants))
+	mux.Handle("POST "+v+"/companies/{cid}/hr/applicants", s.auth(s.talentSaveApplicant))
+	mux.Handle("GET "+v+"/companies/{cid}/hr/applicants/{id}", s.auth(s.talentGetApplicant))
+	mux.Handle("PATCH "+v+"/companies/{cid}/hr/applicants/{id}", s.auth(s.talentSaveApplicant))
+	mux.Handle("POST "+v+"/companies/{cid}/hr/applicants/{id}/{action}", s.auth(s.talentApplicantAction))
+	mux.Handle("POST "+v+"/companies/{cid}/hr/interviews", s.auth(s.talentSaveInterview))
+	mux.Handle("PATCH "+v+"/companies/{cid}/hr/interviews/{id}", s.auth(s.talentSaveInterview))
+	mux.Handle("GET "+v+"/companies/{cid}/hr/recruitment-report", s.auth(s.talentReport))
+	mux.Handle("GET "+v+"/companies/{cid}/hr/appraisal-cycles", s.auth(s.talentCycles))
+	mux.Handle("POST "+v+"/companies/{cid}/hr/appraisal-cycles", s.auth(s.talentSaveCycle))
+	mux.Handle("PATCH "+v+"/companies/{cid}/hr/appraisal-cycles/{id}", s.auth(s.talentSaveCycle))
+	mux.Handle("POST "+v+"/companies/{cid}/hr/appraisal-cycles/{id}/{action}", s.auth(s.talentCycleAction))
+	mux.Handle("GET "+v+"/companies/{cid}/hr/appraisals", s.auth(s.talentAppraisals))
+	mux.Handle("GET "+v+"/companies/{cid}/hr/appraisals/{id}", s.auth(s.talentGetAppraisal))
+	mux.Handle("PATCH "+v+"/companies/{cid}/hr/appraisals/{id}", s.auth(s.talentReviewAppraisal))
+	mux.Handle("GET "+v+"/companies/{cid}/hr/appraisal-report", s.auth(s.talentAppraisalReport))
+	mux.Handle("GET "+v+"/companies/{cid}/self/appraisals", s.field(s.selfAppraisals))
+	mux.Handle("PATCH "+v+"/companies/{cid}/self/appraisals/{id}", s.field(s.selfReviewAppraisal))
+	mux.HandleFunc("GET "+v+"/careers/{slug}", s.careersHome)
+	mux.HandleFunc("POST "+v+"/careers/{slug}/jobs/{id}/apply", s.careersApply)
+
+	// e-sign (core) and the public signing page
+	mux.Handle("GET "+v+"/companies/{cid}/esign/requests", s.auth(s.esignRequests))
+	mux.Handle("POST "+v+"/companies/{cid}/esign/requests", s.auth(s.esignCreate))
+	mux.Handle("GET "+v+"/companies/{cid}/esign/requests/{id}", s.auth(s.esignGetRequest))
+	mux.Handle("POST "+v+"/companies/{cid}/esign/requests/{id}/{action}", s.auth(s.esignAction))
+	mux.Handle("GET "+v+"/companies/{cid}/esign/requests/{id}/certificate", s.auth(s.esignCertificate))
+	mux.HandleFunc("GET "+v+"/sign/{token}", s.signInfo)
+	mux.HandleFunc("GET "+v+"/sign/{token}/file", s.signFile)
+	mux.HandleFunc("GET "+v+"/sign/{token}/certificate", s.signFile)
+	mux.HandleFunc("POST "+v+"/sign/{token}", s.signSubmit)
+	mux.HandleFunc("POST "+v+"/sign/{token}/decline", s.signDecline)
+
 	// service desk and generator maintenance (app "svc")
 	mux.Handle("GET "+v+"/companies/{cid}/tickets", s.auth(s.listTickets))
 	mux.Handle("POST "+v+"/companies/{cid}/tickets", s.auth(s.createTicket))
@@ -1288,7 +1366,8 @@ func jsonOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// payment gateways post their callbacks as forms (audit C-M1); those routes need no cookie and verify the
 		// gateway's signature themselves, so the JSON-only CSRF guard does not apply to them
-		if strings.HasPrefix(r.URL.Path, v1+"/pay/webhook/") {
+		// the inbound e-mail services (Mailgun / SendGrid) post forms too; those routes are found by a secret token
+		if strings.HasPrefix(r.URL.Path, v1+"/pay/webhook/") || (strings.HasPrefix(r.URL.Path, v1+"/inbound/") && strings.HasSuffix(r.URL.Path, "/email")) {
 			next.ServeHTTP(w, r)
 			return
 		}

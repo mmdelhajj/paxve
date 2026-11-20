@@ -1280,6 +1280,10 @@ func (s *Server) inboundWhatsApp(w http.ResponseWriter, r *http.Request) {
 						} `json:"text"`
 						Caption string `json:"caption"`
 					} `json:"messages"`
+					Statuses []struct {
+						ID     string `json:"id"`
+						Status string `json:"status"`
+					} `json:"statuses"`
 				} `json:"value"`
 			} `json:"changes"`
 		} `json:"entry"`
@@ -1289,9 +1293,16 @@ func (s *Server) inboundWhatsApp(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 		Text string `json:"text"`
 	}
+	var receipts []string
 	if json.Unmarshal(body, &cloud) == nil && len(cloud.Entry) > 0 {
 		for _, e := range cloud.Entry {
 			for _, c := range e.Changes {
+				// delivery receipts of messages the company sent (campaign stats)
+				for _, st := range c.Value.Statuses {
+					if st.Status == "delivered" || st.Status == "read" {
+						receipts = append(receipts, st.ID)
+					}
+				}
 				names := map[string]string{}
 				for _, ct := range c.Value.Contacts {
 					names[ct.WaID] = ct.Profile.Name
@@ -1315,7 +1326,15 @@ func (s *Server) inboundWhatsApp(w http.ResponseWriter, r *http.Request) {
 		msgs = msgs[:50]
 	}
 	out := []map[string]any{}
+	if len(receipts) > 200 {
+		receipts = receipts[:200]
+	}
 	err = db.InTenant(r.Context(), s.Pool, sc, func(tx pgx.Tx) error {
+		for _, id := range receipts {
+			if err := markDelivered(r.Context(), tx, cid, id); err != nil {
+				return err
+			}
+		}
 		for _, m := range msgs {
 			if len(m.from) > 30 || len(m.name) > 120 {
 				continue

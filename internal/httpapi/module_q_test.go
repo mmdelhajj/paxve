@@ -260,6 +260,32 @@ func seedEverything(t *testing.T, o *org) {
 	bexp := id(step(201, "POST", "/expenses", map[string]any{"date": "2026-11-05", "account_id": o.accounts["611"], "method_id": bank, "amount": "2",
 		"description": secretB + " toll"}), "id")
 	step(201, "POST", "/fleet/vehicles/"+bveh+"/link-expense", map[string]any{"expense_id": bexp})
+
+	// phase 4: shop (address, zone, product text, an online order), marketing (list + members, opt-out, campaign sent),
+	// recruitment (position, applicant, interview), appraisals (cycle opened), e-sign (contract sent)
+	bslug := "b-" + randHex(4)
+	step(200, "PUT", "/shop/settings", map[string]any{"enabled": true, "slug": bslug, "title": secretB + " shop", "careers_enabled": true})
+	bzone := id(step(201, "POST", "/shop/zones", map[string]any{"name": secretB + " zone", "fee": "1"}), "id")
+	step(200, "PATCH", "/shop/products/"+item, map[string]any{"shop_description": secretB})
+	if r := newClient(t).do("POST", "/shop/"+bslug+"/orders", map[string]any{"name": secretB + " buyer", "phone": "70999111", "address": secretB,
+		"zone_id": bzone, "payment": "cod", "lines": []any{map[string]any{"item_id": item, "quantity": "1"}}}); r.status != 200 {
+		t.Errorf("seed online order: %d %s", r.status, r.raw)
+	}
+	blist := id(step(201, "POST", "/mkt/lists", map[string]any{"name": secretB + " list"}), "id")
+	step(200, "POST", "/mkt/lists/"+blist+"/members", map[string]any{"customer_ids": []any{cust}, "contacts": []any{map[string]any{"name": secretB, "phone": "70888777"}}})
+	step(201, "POST", "/mkt/optouts", map[string]any{"phone": "70777666", "reason": secretB})
+	bcamp := id(step(201, "POST", "/mkt/campaigns", map[string]any{"name": secretB + " campaign", "channel": "sms", "list_id": blist, "body": secretB + " {name}"}), "id")
+	step(200, "POST", "/mkt/campaigns/"+bcamp+"/send", map[string]any{})
+	step(201, "POST", "/mkt/campaigns", map[string]any{"name": secretB + " draft", "channel": "email", "list_id": blist, "body": secretB})
+	bpos := id(step(201, "POST", "/hr/job-positions", map[string]any{"title": secretB + " job", "is_published": true}), "id")
+	bapp := id(step(201, "POST", "/hr/applicants", map[string]any{"job_id": bpos, "name": secretB + " applicant"}), "applicant", "id")
+	step(201, "POST", "/hr/interviews", map[string]any{"applicant_id": bapp, "scheduled_at": "2026-11-25T10:00:00Z", "feedback": secretB})
+	bcy := id(step(201, "POST", "/hr/appraisal-cycles", map[string]any{"name": secretB + " cycle", "period_from": "2026-01-01", "period_to": "2026-12-31"}), "id")
+	step(200, "POST", "/hr/appraisal-cycles/"+bcy+"/open", map[string]any{"goals": []any{map[string]any{"title": secretB}}})
+	step(201, "POST", "/esign/requests", map[string]any{"doc_type": "contract", "title": secretB + " contract", "body": secretB, "send": true,
+		"signers": []any{map[string]any{"name": secretB, "phone": "70555444"}}})
+	step(201, "POST", "/esign/requests", map[string]any{"doc_type": "contract", "title": secretB + " draft", "body": secretB,
+		"signers": []any{map[string]any{"name": secretB, "email": "b@example.com"}}})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -355,6 +381,9 @@ var idTable = map[string]string{
 	"projects": "projects", "project-tasks": "project_tasks", "milestones": "project_milestones", "timesheets": "timesheets",
 	"project-links": "project_links", "service-jobs": "service_jobs", "sla-policies": "sla_policies", "rules": "automation_rules",
 	"fuel": "fleet_fuel_logs", "service-plans": "fleet_service_plans", "service-log": "fleet_service_log",
+	"zones": "shop_zones", "products": "items", "lists": "mkt_lists", "list-members": "mkt_list_members", "optouts": "mkt_optouts",
+	"campaigns": "mkt_campaigns", "job-positions": "job_positions", "applicants": "job_applicants", "interviews": "job_interviews",
+	"appraisal-cycles": "appraisal_cycles", "appraisals": "appraisals", "requests": "sign_requests",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -404,6 +433,9 @@ func sweepCalls(t *testing.T, cid string, ids map[string]string) []sweepCall {
 				}
 				if seg == "orders" && strings.Contains(cur, "/mfg/") {
 					tb = "mfg_orders"
+				}
+				if seg == "orders" && strings.Contains(cur, "/shop/") {
+					tb = "shop_orders"
 				}
 				if name == "oid" {
 					tb = "outages"

@@ -32,6 +32,10 @@ var moduleActions = []struct {
 	{"service", []string{"view", "create", "edit", "manage"}},
 	{"projects", []string{"view", "create", "edit", "manage"}},
 	{"fleet", []string{"view", "create", "manage"}},
+	{"website", []string{"view", "manage"}},
+	{"marketing", []string{"view", "create", "manage"}},
+	{"talent", []string{"view", "edit", "manage"}},
+	{"esign", []string{"view", "create"}},
 	{"pos", []string{"view", "create", "void", "manage", "approve"}},
 	{"suppliers", []string{"view", "create", "edit"}},
 	{"purchasing", []string{"view", "create", "void", "manage", "approve"}},
@@ -70,19 +74,20 @@ var (
 	// read access to the office modules (every office role, read-only included)
 	officeView = []string{"accounting.view", "customers.view", "billing.view", "collections.view", "sales.view",
 		"crm.view", "suppliers.view", "purchasing.view", "expenses.view", "stock.view", "assets.view", "bank.view",
-		"network.view", "messaging.view", "reports.view", "reports.export", "settings.view", "service.view", "projects.view", "fleet.view"}
+		"network.view", "messaging.view", "reports.view", "reports.export", "settings.view", "service.view", "projects.view", "fleet.view",
+		"website.view", "marketing.view", "esign.view"}
 	// day-to-day data entry
 	entryPerms = []string{"accounting.create", "customers.create", "customers.edit", "collections.create",
 		"sales.create", "crm.create", "crm.edit", "pos.view", "pos.create", "pos.void", "suppliers.create",
 		"suppliers.edit", "expenses.create", "stock.create", "network.create", "messaging.create", "service.create", "service.edit",
-		"projects.create", "projects.edit", "fleet.create"}
+		"projects.create", "projects.edit", "fleet.create", "marketing.create", "esign.create"}
 	// accountant: money, posting, voids, configuration of the modules
 	writePerms = []string{"accounting.edit", "accounting.void", "accounting.manage", "billing.create", "billing.void",
 		"billing.manage", "collections.edit", "collections.void", "sales.void", "crm.manage", "pos.manage",
 		"purchasing.create", "purchasing.void", "purchasing.manage", "expenses.void", "stock.void", "stock.manage",
 		"assets.create", "assets.edit", "assets.void", "payroll.view", "payroll.create", "payroll.edit", "payroll.void",
 		"bank.create", "bank.edit", "network.manage", "messaging.manage", "import.create", "audit.view", "service.manage", "sales.credit_override",
-		"projects.manage", "fleet.manage"}
+		"projects.manage", "fleet.manage", "website.manage", "marketing.manage", "talent.view", "talent.edit", "talent.manage"}
 )
 
 var presets = func() map[string][]string {
@@ -904,6 +909,64 @@ var routePerms = map[string]string{
 	"GET /companies/{cid}/fleet/reports/costs":               "reports.view",
 	"GET /companies/{cid}/fleet/settings":                    "fleet.view",
 	"PUT /companies/{cid}/fleet/settings":                    "fleet.manage",
+
+	// phase 4: online store (app "web")
+	"GET /companies/{cid}/shop/settings":              "website.view",
+	"PUT /companies/{cid}/shop/settings":              "website.manage",
+	"GET /companies/{cid}/shop/zones":                 "website.view",
+	"POST /companies/{cid}/shop/zones":                "website.manage",
+	"PATCH /companies/{cid}/shop/zones/{id}":          "website.manage",
+	"DELETE /companies/{cid}/shop/zones/{id}":         "website.manage",
+	"GET /companies/{cid}/shop/products":              "website.view",
+	"PATCH /companies/{cid}/shop/products/{id}":       "website.manage",
+	"GET /companies/{cid}/shop/orders":                "website.view",
+	"GET /companies/{cid}/shop/orders/{id}":           "website.view",
+	"POST /companies/{cid}/shop/orders/{id}/{action}": "website.view", // confirm needs sales.create, cancel sales.void (checked inside)
+	// marketing (app "mkt")
+	"GET /companies/{cid}/mkt/overview":                 "marketing.view",
+	"GET /companies/{cid}/mkt/lists":                    "marketing.view",
+	"POST /companies/{cid}/mkt/lists":                   "marketing.manage",
+	"PATCH /companies/{cid}/mkt/lists/{id}":             "marketing.manage",
+	"GET /companies/{cid}/mkt/lists/{id}/members":       "marketing.view",
+	"POST /companies/{cid}/mkt/lists/{id}/members":      "marketing.create",
+	"DELETE /companies/{cid}/mkt/list-members/{id}":     "marketing.create",
+	"GET /companies/{cid}/mkt/optouts":                  "marketing.view",
+	"POST /companies/{cid}/mkt/optouts":                 "marketing.create",
+	"DELETE /companies/{cid}/mkt/optouts/{id}":          "marketing.manage",
+	"POST /companies/{cid}/mkt/audience":                "marketing.view",
+	"GET /companies/{cid}/mkt/campaigns":                "marketing.view",
+	"POST /companies/{cid}/mkt/campaigns":               "marketing.create",
+	"GET /companies/{cid}/mkt/campaigns/{id}":           "marketing.view",
+	"PATCH /companies/{cid}/mkt/campaigns/{id}":         "marketing.create",
+	"POST /companies/{cid}/mkt/campaigns/{id}/{action}": "marketing.manage",
+	// recruitment and appraisals (app "hr")
+	"GET /companies/{cid}/hr/job-positions":                   "talent.view",
+	"POST /companies/{cid}/hr/job-positions":                  "talent.manage",
+	"PATCH /companies/{cid}/hr/job-positions/{id}":            "talent.manage",
+	"GET /companies/{cid}/hr/applicants":                      "talent.view",
+	"POST /companies/{cid}/hr/applicants":                     "talent.edit",
+	"GET /companies/{cid}/hr/applicants/{id}":                 "talent.view",
+	"PATCH /companies/{cid}/hr/applicants/{id}":               "talent.edit",
+	"POST /companies/{cid}/hr/applicants/{id}/{action}":       "talent.manage", // hire also needs payroll.create (checked inside)
+	"POST /companies/{cid}/hr/interviews":                     "talent.edit",
+	"PATCH /companies/{cid}/hr/interviews/{id}":               "talent.edit",
+	"GET /companies/{cid}/hr/recruitment-report":              "talent.view",
+	"GET /companies/{cid}/hr/appraisal-cycles":                "talent.view",
+	"POST /companies/{cid}/hr/appraisal-cycles":               "talent.manage",
+	"PATCH /companies/{cid}/hr/appraisal-cycles/{id}":         "talent.manage",
+	"POST /companies/{cid}/hr/appraisal-cycles/{id}/{action}": "talent.manage",
+	"GET /companies/{cid}/hr/appraisals":                      "talent.view",
+	"GET /companies/{cid}/hr/appraisals/{id}":                 "talent.view",
+	"PATCH /companies/{cid}/hr/appraisals/{id}":               "talent.edit",
+	"GET /companies/{cid}/hr/appraisal-report":                "talent.view",
+	"GET /companies/{cid}/self/appraisals":                    permAny, // the signed-in user's own appraisals
+	"PATCH /companies/{cid}/self/appraisals/{id}":             permAny, // their own self-review (checked inside)
+	// e-sign (core)
+	"GET /companies/{cid}/esign/requests":                  "esign.view",
+	"POST /companies/{cid}/esign/requests":                 "esign.create",
+	"GET /companies/{cid}/esign/requests/{id}":             "esign.view",
+	"POST /companies/{cid}/esign/requests/{id}/{action}":   "esign.create",
+	"GET /companies/{cid}/esign/requests/{id}/certificate": "esign.view",
 }
 
 // permForPattern returns the permission of a mux pattern ("" when the route is not declared).
