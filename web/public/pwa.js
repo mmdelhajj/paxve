@@ -21,10 +21,11 @@
   var link = document.querySelector('link[rel="manifest"]');
   if (link && app !== 'main') link.setAttribute('href', '/manifest-' + app + '.webmanifest');
   document.documentElement.setAttribute('data-app', app);
-  // keep the browser's install offer: the app shows its own "Install" button
+  // keep the browser's install offer for the app's own "Install" button. No preventDefault(): Chrome then logs
+  // "Banner not shown" on every page; letting the browser show its own install icon too is fine, and prompt()
+  // still works from our button.
   window.__pxvInstall = null;
   window.addEventListener('beforeinstallprompt', function (e) {
-    e.preventDefault();
     window.__pxvInstall = e;
     window.dispatchEvent(new Event('paxve:installable'));
   });

@@ -1577,7 +1577,10 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Content-Security-Policy",
-			"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; font-src 'self' data:; frame-ancestors 'none'")
+			// Cloudflare (the site's proxy) injects its Web Analytics beacon into every page: allow exactly that
+			// script and its report endpoint, nothing else from outside
+			"default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; "+
+				"style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; font-src 'self' data:; frame-ancestors 'none'")
 		next.ServeHTTP(w, r)
 	})
 }
