@@ -1,10 +1,9 @@
-/* Paxve mark colours. light = on white / light grounds, dark = on navy / dark grounds, icon = on the app-icon navy */
+/* Paxve mark colours: m1 = badge, m2 = dollar square, m3 = lira square. light = on light grounds, dark = on navy / dark grounds */
 .pxv-mark { display: block; flex: none; }
 .pxv-mark .m1 { fill: var(--pxv-m1); }
 .pxv-mark .m2 { fill: var(--pxv-m2); }
 .pxv-mark .m3 { fill: var(--pxv-m3); }
-.pxv-auto, .pxv-light { --pxv-m1: #0B1F3A; --pxv-m2: #1D4ED8; --pxv-m3: #0EA5A4; }
-.pxv-dark, [data-mantine-color-scheme="dark"] .pxv-auto { --pxv-m1: #FFFFFF; --pxv-m2: #7EA2F5; --pxv-m3: #2DD4BF; }
-.pxv-icon { --pxv-m1: #FFFFFF; --pxv-m2: #93B4FF; --pxv-m3: #5EEAD4; }
+.pxv-auto, .pxv-light, .pxv-icon { --pxv-m1: #0B1F3A; --pxv-m2: #FFFFFF; --pxv-m3: #2DD4BF; }
+.pxv-dark, [data-mantine-color-scheme="dark"] .pxv-auto { --pxv-m1: #FFFFFF; --pxv-m2: #0B1F3A; --pxv-m3: #0EA5A4; }
 .pxv-word { display: block; flex: none; }
 .pxv-lockup { display: inline-flex; align-items: center; direction: ltr; color: inherit; }

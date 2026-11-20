@@ -403,7 +403,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   return (
     <div className={`mx-app mx-biz-${biz}`}>
       <div className="mx-title">
-        <span className="mx-brand"><Mark size={24} tone="dark" /><Wordmark height={12} /></span>
+        <span className="mx-brand"><Mark size={32} tone="dark" style={{ marginBlock: -2, marginInlineEnd: 4 }} /><Wordmark height={12} /></span>
         <span>{companyName} — {year} — {me.full_name}</span>
         <span className="mx-sp" />
         {companies.length > 1 && (

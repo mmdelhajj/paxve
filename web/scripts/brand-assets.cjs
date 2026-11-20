@@ -11,19 +11,20 @@ const { chromium } = require('playwright');
 const pub = path.join(__dirname, '..', 'public');
 const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'components', 'Brand.tsx'), 'utf8');
 const pick = (n) => src.match(new RegExp(`export const ${n} = '([^']+)'`))[1];
-const A = pick('MARK_A'), B = pick('MARK_B'), WORD = pick('WORD');
+const BADGE = pick('MARK_BADGE'), A = pick('MARK_A'), B = pick('MARK_B'), WORD = pick('WORD');
 
 const NAVY = '#0B1F3A';
 const TONES = {
-  light: ['#0B1F3A', '#1D4ED8', '#0EA5A4'], // m1 dollar, m2 overlap, m3 lira
-  dark: ['#FFFFFF', '#7EA2F5', '#2DD4BF'],
-  icon: ['#FFFFFF', '#93B4FF', '#5EEAD4'],
+  light: ['#0B1F3A', '#FFFFFF', '#2DD4BF'], // m1 badge, m2 dollar square, m3 lira square
+  dark: ['#FFFFFF', '#0B1F3A', '#0EA5A4'],
+  icon: ['#0B1F3A', '#FFFFFF', '#5EEAD4'],
 };
 // one app = one colour on the lira square (the old letter icons used the same colours)
 const APPS = { main: '#5EEAD4', field: '#4ADE80', my: '#38BDF8', owner: '#FBBF24' };
 
-const markG = ([m1, m2, m3]) => `<path d="${A}" fill="${m1}"/><path d="${B}" fill="${m3}"/>`;
-const monoG = (c) => `<path d="${A} ${B}" fill="${c}"/>`;
+const inner = (m2, m3) => `<path d="${A}" fill="${m2}"/><path d="${B}" fill="${m3}"/>`;
+const markG = ([m1, m2, m3]) => `<path d="${BADGE}" fill="${m1}"/>` + inner(m2, m3);
+const monoG = (c) => `<path d="${BADGE} ${A} ${B}" fill="${c}" fill-rule="evenodd"/>`;
 const svg = (vb, body, extra = '') => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}"${extra}>${body}</svg>\n`;
 // lockup: mark (64 units) + wordmark with cap height 34 units, caps centred on the mark
 const S = 34 / 730;
@@ -33,9 +34,8 @@ const LOCK_VB = '0 0 208 64';
 function writeSvgs() {
   fs.mkdirSync(path.join(pub, 'brand'), { recursive: true });
   const w = (f, s) => fs.writeFileSync(path.join(pub, f), s);
-  // favicon: colour mark, switches to the dark-ground colours when the browser tab is dark
-  w('favicon.svg', svg('0 0 64 64', `<style>.a{fill:#0B1F3A}.b{fill:#0EA5A4}.x{fill:#1D4ED8}@media (prefers-color-scheme:dark){.a{fill:#FFFFFF}.b{fill:#2DD4BF}.x{fill:#7EA2F5}}</style>` +
-    `<path class="a" d="${A}"/><path class="b" d="${B}"/>`));
+  // favicon: the badge reads on light and dark tabs alike
+  w('favicon.svg', svg('0 0 64 64', markG(TONES.light)));
   w('brand/paxve-mark.svg', svg('0 0 64 64', markG(TONES.light)));
   w('brand/paxve-mark-dark.svg', svg('0 0 64 64', markG(TONES.dark)));
   w('brand/paxve-mark-mono.svg', svg('0 0 64 64', monoG(NAVY)));
@@ -43,17 +43,17 @@ function writeSvgs() {
   w('brand/paxve-logo.svg', svg(LOCK_VB, markG(TONES.light) + wordG(NAVY)));
   w('brand/paxve-logo-dark.svg', svg(LOCK_VB, markG(TONES.dark) + wordG('#FFFFFF')));
   w('brand/paxve-logo-mono.svg', svg(LOCK_VB, monoG(NAVY) + wordG(NAVY)));
-  w('brand/paxve-app-icon.svg', svg('0 0 64 64', `<rect width="64" height="64" rx="14" fill="${NAVY}"/><g transform="translate(5.5 5.5) scale(0.828)">${markG(TONES.icon)}</g>`));
+  w('brand/paxve-app-icon.svg', svg('0 0 64 64', markG(TONES.icon)));
 }
 
 // an icon: navy ground (rounded for "any", full bleed for maskable / iOS) and the mark at `share` of the side
 function iconHtml(size, lira, kind) {
-  const share = kind === 'any' ? 0.6 : kind === 'apple' ? 0.56 : 0.5; // visible mark (56 of 64 units) / side
-  const k = (share * size) / 56;
+  const share = kind === 'any' ? 0.6 : kind === 'apple' ? 0.56 : 0.5; // visible inner squares (40 of 64 units) / side
+  const k = (share * size) / 40;
   const off = size / 2 - 32 * k;
   const ground = kind === 'any' ? `<rect width="${size}" height="${size}" rx="${size * 0.22}" fill="${NAVY}"/>` : `<rect width="${size}" height="${size}" fill="${NAVY}"/>`;
-  const [m1, m2] = TONES.icon;
-  const body = ground + `<g transform="translate(${off} ${off}) scale(${k})">${markG([m1, m2, lira])}</g>`;
+  const [, m2] = TONES.icon;
+  const body = ground + `<g transform="translate(${off} ${off}) scale(${k})">${inner(m2, lira)}</g>`;
   return `<html><body style="margin:0;background:transparent">${svg(`0 0 ${size} ${size}`, body, ` width="${size}" height="${size}" style="display:block"`)}</body></html>`;
 }
 

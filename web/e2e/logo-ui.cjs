@@ -55,12 +55,12 @@ const ok = (n, c, x = '') => { console.log(`${c ? 'PASS' : 'FAIL'} ${n} ${x}`); 
   for (const p of ['/favicon.svg', '/icons/main-512.png', '/icons/field-192-maskable.png', '/icons/apple-touch-icon.png', '/og.png', '/brand/paxve-logo.svg', '/brand/paxve-mark-mono.svg']) {
     const r = await ctx.request.get(base + p); ok(`asset ${p}`, r.ok(), String(r.status()));
   }
-  const fav = await (await ctx.request.get(base + '/favicon.svg?v=5')).text();
-  ok('favicon is the new mark', fav.includes('M31 24h18') && !fav.includes('M22 48'));
+  const fav = await (await ctx.request.get(base + '/favicon.svg?v=6')).text();
+  ok('favicon is the badge mark', fav.includes('M14 0h36') && fav.includes('M33 28h14'));
   const html = await (await ctx.request.get(base + '/')).text();
-  ok('index links versioned favicon', html.includes('/favicon.svg?v=5'));
+  ok('index links versioned favicon', html.includes('/favicon.svg?v=6'));
   const sw = await (await ctx.request.get(base + '/sw.js?fresh=' + Date.now())).text();
-  ok('sw cache v6', sw.includes('paxve-shell-v6'));
+  ok('sw cache v9', sw.includes('paxve-shell-v9'));
   await browser.close();
   console.log(fails ? `FAILED ${fails}` : 'ALL PASS');
   process.exit(fails ? 1 : 0);
