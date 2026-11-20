@@ -169,28 +169,55 @@ const winKey = (page: string, param: string) => (PER_RECORD.has(page) ? `${page}
 
 let nextWin = 1;
 
-function loadWins(): Win[] {
+/** Open windows are remembered per browser tab, but only for the same user and company: a record window
+ * (a statement, a voucher, a customer) belongs to the company it was opened in, and must not reopen after
+ * signing in as someone else or switching company (it would ask for another company's record → 404). */
+interface SavedWins { uid: string; cid: string; wins: { page: string; param: string }[] }
+
+function readSaved(): SavedWins | null {
   try {
-    const v = JSON.parse(sessionStorage.getItem('paxve.wins') || '[]') as Win[];
-    if (Array.isArray(v)) return v.filter((w) => KNOWN.has(w.page)).map((w) => ({ ...w, id: nextWin++ }));
+    const v = JSON.parse(sessionStorage.getItem('paxve.wins') || 'null');
+    if (v && !Array.isArray(v) && Array.isArray(v.wins)) return v as SavedWins;
   } catch { /* storage unavailable */ }
-  return [];
+  return null;
+}
+
+function loadWins(uid: string): Win[] {
+  const s = readSaved();
+  if (!s || s.uid !== uid) return [];
+  return s.wins.filter((w) => KNOWN.has(w.page)).map((w) => ({ ...w, id: nextWin++ }));
+}
+
+/** the screen in the address bar, unless it is a record left over from another user's session in this tab */
+function startRoute(uid: string): [string, string] {
+  const [p, a] = readHash();
+  const s = readSaved();
+  if (PER_RECORD.has(p) && s && s.uid !== uid) return ['dashboard', ''];
+  return [p, a];
 }
 
 export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) => void; onLogout: () => void }) {
   const { t, i18n } = useTranslation();
   const { companies, company, setCompanyId } = useCompany();
   useIdleLogout(me.idle_logout_min ?? 0, onLogout);
-  const [[page, param], setRoute] = useState<[string, string]>(readHash);
+  const cid = company?.id ?? ''; // '' until the company list has loaded
+  const [start] = useState<[string, string]>(() => startRoute(me.id));
+  // the company the remembered windows were opened in (same user only)
+  const [savedCid] = useState<string>(() => { const s = readSaved(); return s && s.uid === me.id ? s.cid : ''; });
+  const [[page, param], setRoute] = useState<[string, string]>(start);
   const [wins, setWins] = useState<Win[]>(() => {
-    const [p, a] = readHash();
-    const saved = loadWins();
+    const [p, a] = start;
+    const saved = loadWins(me.id);
     const k = winKey(p, a);
     const hit = saved.find((w) => winKey(w.page, w.param) === k);
     if (hit) { hit.param = a; return saved; }
     return [...saved, { id: nextWin++, page: p, param: a }].slice(-12);
   });
-  const [active, setActive] = useState<number>(() => wins.find((w) => winKey(w.page, w.param) === winKey(...readHash()))?.id ?? wins[wins.length - 1]?.id ?? 0);
+  const [active, setActive] = useState<number>(() => wins.find((w) => winKey(w.page, w.param) === winKey(...start))?.id ?? wins[wins.length - 1]?.id ?? 0);
+  // a stale record address from another session was dropped: show that in the address bar too
+  useEffect(() => {
+    if (winKey(...start) !== winKey(...readHash())) history.replaceState(null, '', `#/${start[0]}${start[1] ? `/${start[1]}` : ''}`);
+  }, [start]);
   const [openTab, setOpenTab] = useState<string | null>(null);
   const [pinned, setPinned] = useState<boolean>(() => { try { return localStorage.getItem('paxve.ribbonPinned') === '1'; } catch { return false; } });
   const [pwOpen, pw] = useDisclosure(false);
@@ -252,8 +279,31 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   }, []);
 
   useEffect(() => {
-    try { sessionStorage.setItem('paxve.wins', JSON.stringify(wins.map(({ page: p, param: a }) => ({ page: p, param: a })))); } catch { /* */ }
-  }, [wins]);
+    if (!cid) return; // company not known yet: keep what was saved
+    const s: SavedWins = { uid: me.id, cid, wins: wins.map(({ page: p, param: a }) => ({ page: p, param: a })) };
+    try { sessionStorage.setItem('paxve.wins', JSON.stringify(s)); } catch { /* */ }
+  }, [wins, me.id, cid]);
+
+  // switching company (or reopening windows saved under another company) closes the record windows of the
+  // previous company: their ids belong to it
+  const cidRef = useRef(savedCid);
+  useEffect(() => {
+    if (!cid || cidRef.current === cid) return;
+    const prev = cidRef.current;
+    cidRef.current = cid;
+    if (!prev) return; // nothing remembered from another company
+    const ws = winsRef.current;
+    const keep = ws.filter((w) => !PER_RECORD.has(w.page));
+    if (keep.length === ws.length) return;
+    const next = keep.length ? keep : [{ id: nextWin++, page: 'dashboard', param: '' }];
+    setWins(next);
+    if (!next.some((w) => w.id === activeRef.current)) {
+      const last = next[next.length - 1];
+      setActive(last.id);
+      history.replaceState(null, '', `#/${last.page}${last.param ? `/${last.param}` : ''}`);
+      setRoute([last.page, last.param]);
+    }
+  }, [cid]);
 
   // global keys: F2 = الجباية (search), Ctrl+F4 closes the current window
   useEffect(() => {
