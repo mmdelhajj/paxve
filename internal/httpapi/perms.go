@@ -30,6 +30,8 @@ var moduleActions = []struct {
 	{"sales", []string{"view", "create", "void", "approve", "credit_override"}},
 	{"crm", []string{"view", "create", "edit", "manage"}},
 	{"service", []string{"view", "create", "edit", "manage"}},
+	{"projects", []string{"view", "create", "edit", "manage"}},
+	{"fleet", []string{"view", "create", "manage"}},
 	{"pos", []string{"view", "create", "void", "manage", "approve"}},
 	{"suppliers", []string{"view", "create", "edit"}},
 	{"purchasing", []string{"view", "create", "void", "manage", "approve"}},
@@ -68,17 +70,19 @@ var (
 	// read access to the office modules (every office role, read-only included)
 	officeView = []string{"accounting.view", "customers.view", "billing.view", "collections.view", "sales.view",
 		"crm.view", "suppliers.view", "purchasing.view", "expenses.view", "stock.view", "assets.view", "bank.view",
-		"network.view", "messaging.view", "reports.view", "reports.export", "settings.view", "service.view"}
+		"network.view", "messaging.view", "reports.view", "reports.export", "settings.view", "service.view", "projects.view", "fleet.view"}
 	// day-to-day data entry
 	entryPerms = []string{"accounting.create", "customers.create", "customers.edit", "collections.create",
 		"sales.create", "crm.create", "crm.edit", "pos.view", "pos.create", "pos.void", "suppliers.create",
-		"suppliers.edit", "expenses.create", "stock.create", "network.create", "messaging.create", "service.create", "service.edit"}
+		"suppliers.edit", "expenses.create", "stock.create", "network.create", "messaging.create", "service.create", "service.edit",
+		"projects.create", "projects.edit", "fleet.create"}
 	// accountant: money, posting, voids, configuration of the modules
 	writePerms = []string{"accounting.edit", "accounting.void", "accounting.manage", "billing.create", "billing.void",
 		"billing.manage", "collections.edit", "collections.void", "sales.void", "crm.manage", "pos.manage",
 		"purchasing.create", "purchasing.void", "purchasing.manage", "expenses.void", "stock.void", "stock.manage",
 		"assets.create", "assets.edit", "assets.void", "payroll.view", "payroll.create", "payroll.edit", "payroll.void",
-		"bank.create", "bank.edit", "network.manage", "messaging.manage", "import.create", "audit.view", "service.manage", "sales.credit_override"}
+		"bank.create", "bank.edit", "network.manage", "messaging.manage", "import.create", "audit.view", "service.manage", "sales.credit_override",
+		"projects.manage", "fleet.manage"}
 )
 
 var presets = func() map[string][]string {
@@ -824,6 +828,82 @@ var routePerms = map[string]string{
 	"POST /companies/{cid}/wh/stops/{id}/pod":       permAny, // the trip's driver, or stock.create (checked inside)
 	"POST /companies/{cid}/wh/stops/{id}/photo":     permAny, // the trip's driver, or stock.create (checked inside)
 	"GET /companies/{cid}/wh/stops/{id}/signature":  "stock.view",
+
+	// projects (phase 3)
+	"GET /companies/{cid}/prj/overview":                 "projects.view",
+	"GET /companies/{cid}/prj/projects":                 "projects.view",
+	"POST /companies/{cid}/prj/projects":                "projects.manage",
+	"GET /companies/{cid}/prj/projects/{id}":            "projects.view",
+	"PATCH /companies/{cid}/prj/projects/{id}":          "projects.manage",
+	"PUT /companies/{cid}/prj/projects/{id}/stages":     "projects.manage",
+	"GET /companies/{cid}/prj/projects/{id}/to-invoice": "projects.view",
+	"POST /companies/{cid}/prj/projects/{id}/invoice":   "billing.create",
+	"POST /companies/{cid}/prj/projects/{id}/link":      "projects.manage",
+	"DELETE /companies/{cid}/prj/project-links/{id}":    "projects.manage",
+	"GET /companies/{cid}/prj/linkable":                 "projects.manage",
+	"POST /companies/{cid}/prj/milestones":              "projects.manage",
+	"PATCH /companies/{cid}/prj/milestones/{id}":        "projects.edit",
+	"GET /companies/{cid}/prj/project-tasks":            "projects.view",
+	"POST /companies/{cid}/prj/project-tasks":           "projects.create",
+	"GET /companies/{cid}/prj/project-tasks/{id}":       "projects.view",
+	"PATCH /companies/{cid}/prj/project-tasks/{id}":     "projects.edit",
+	"GET /companies/{cid}/prj/timesheets":               "projects.view",
+	"POST /companies/{cid}/prj/timesheets":              "projects.create",
+	"PATCH /companies/{cid}/prj/timesheets/{id}":        "projects.create",
+	"DELETE /companies/{cid}/prj/timesheets/{id}":       "projects.create",
+	"GET /companies/{cid}/prj/timer":                    "projects.view",
+	"POST /companies/{cid}/prj/timer/{action}":          "projects.create",
+	"GET /companies/{cid}/prj/reports/profitability":    "reports.view",
+	// field service (phase 3)
+	"GET /companies/{cid}/fs/service-jobs":                "service.view",
+	"POST /companies/{cid}/fs/service-jobs":               "service.create",
+	"GET /companies/{cid}/fs/service-jobs/{id}":           permAny, // the job's technician, or service.view (checked inside)
+	"PATCH /companies/{cid}/fs/service-jobs/{id}":         "service.edit",
+	"POST /companies/{cid}/fs/service-jobs/{id}/{action}": permAny, // the technician, or service.edit (checked inside)
+	"PUT /companies/{cid}/fs/service-jobs/{id}/parts":     permAny, // the technician, or service.edit (checked inside)
+	"POST /companies/{cid}/fs/service-jobs/{id}/photo":    permAny, // the technician, or service.create (checked inside)
+	"GET /companies/{cid}/fs/service-jobs/{id}/signature": "service.view",
+	"POST /companies/{cid}/fs/service-jobs/{id}/invoice":  "billing.create",
+	"GET /companies/{cid}/fs/my-jobs":                     permAny, // the signed-in technician's own jobs
+	"GET /companies/{cid}/fs/parts-catalog":               permAny, // item names / codes / on hand for the technician's part picker
+	"GET /companies/{cid}/fs/board":                       "service.view",
+	"GET /companies/{cid}/sla/sla-policies":               "service.view",
+	"POST /companies/{cid}/sla/sla-policies":              "service.manage",
+	"PATCH /companies/{cid}/sla/sla-policies/{id}":        "service.manage",
+	"GET /companies/{cid}/sla/inbound":                    "service.manage",
+	"POST /companies/{cid}/sla/inbound/rotate":            "service.manage",
+	"GET /companies/{cid}/tickets/sla-report":             "service.view",
+	// automation rules
+	"GET /companies/{cid}/automation/meta":             "settings.view",
+	"GET /companies/{cid}/automation/rules":            "settings.view",
+	"POST /companies/{cid}/automation/rules":           "settings.manage",
+	"GET /companies/{cid}/automation/rules/{id}":       "settings.view",
+	"PATCH /companies/{cid}/automation/rules/{id}":     "settings.manage",
+	"DELETE /companies/{cid}/automation/rules/{id}":    "settings.manage",
+	"POST /companies/{cid}/automation/rules/{id}/test": "settings.view",
+	"POST /companies/{cid}/automation/rules/{id}/run":  "settings.manage",
+	"GET /companies/{cid}/automation/runs":             "settings.view",
+	"POST /companies/{cid}/automation/templates/{key}": "settings.manage",
+	"GET /companies/{cid}/record-tags":                 permAny, // the record type's own module permission is checked inside
+	// fleet (phase 3)
+	"GET /companies/{cid}/fleet/vehicles":                    "fleet.view",
+	"POST /companies/{cid}/fleet/vehicles":                   "fleet.manage",
+	"GET /companies/{cid}/fleet/vehicles/{id}":               "fleet.view",
+	"PATCH /companies/{cid}/fleet/vehicles/{id}":             "fleet.manage",
+	"POST /companies/{cid}/fleet/vehicles/{id}/link-expense": "fleet.manage",
+	"GET /companies/{cid}/fleet/fuel":                        "fleet.view",
+	"POST /companies/{cid}/fleet/fuel":                       "fleet.create",
+	"POST /companies/{cid}/fleet/fuel/{id}/void":             "fleet.manage",
+	"GET /companies/{cid}/fleet/service-plans":               "fleet.view",
+	"POST /companies/{cid}/fleet/service-plans":              "fleet.manage",
+	"PATCH /companies/{cid}/fleet/service-plans/{id}":        "fleet.manage",
+	"GET /companies/{cid}/fleet/service-log":                 "fleet.view",
+	"POST /companies/{cid}/fleet/service-log":                "fleet.create",
+	"POST /companies/{cid}/fleet/service-log/{id}/void":      "fleet.manage",
+	"GET /companies/{cid}/fleet/alerts":                      "fleet.view",
+	"GET /companies/{cid}/fleet/reports/costs":               "reports.view",
+	"GET /companies/{cid}/fleet/settings":                    "fleet.view",
+	"PUT /companies/{cid}/fleet/settings":                    "fleet.manage",
 }
 
 // permForPattern returns the permission of a mux pattern ("" when the route is not declared).

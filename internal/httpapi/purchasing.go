@@ -1426,100 +1426,144 @@ const expenseCols = `e.id, e.number, e.expense_date, e.account_id, a.code AS acc
 const expenseFrom = ` FROM expenses e JOIN accounts a ON a.id = e.account_id JOIN payment_methods m ON m.id = e.method_id
 	LEFT JOIN suppliers su ON su.id = e.supplier_id LEFT JOIN users u ON u.id = e.created_by`
 
-func (s *Server) createExpense(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Date        string `json:"date"`
-		AccountID   string `json:"account_id"`
-		MethodID    string `json:"method_id"`
-		Amount      string `json:"amount"`
-		Description string `json:"description"`
-		SupplierID  string `json:"supplier_id"`
-		TaxRateID   string `json:"tax_rate_id"`  // optional recoverable tax (input VAT)
-		TaxIncluded bool   `json:"tax_included"` // amount already includes the tax (default: the tax is added)
-		CostCenter  string `json:"cost_center_id"`
-	}
-	if !decodeBody(w, r, &in) {
-		return
-	}
+type expenseIn struct {
+	Date        string `json:"date"`
+	AccountID   string `json:"account_id"`
+	MethodID    string `json:"method_id"`
+	Amount      string `json:"amount"`
+	Description string `json:"description"`
+	SupplierID  string `json:"supplier_id"`
+	TaxRateID   string `json:"tax_rate_id"`  // optional recoverable tax (input VAT)
+	TaxIncluded bool   `json:"tax_included"` // amount already includes the tax (default: the tax is added)
+	CostCenter  string `json:"cost_center_id"`
+	ProjectID   string `json:"project_id"` // optional: charge it on a project
+	VehicleID   string `json:"vehicle_id"` // optional: charge it on a vehicle
+}
+
+func (in *expenseIn) valid() bool {
 	if in.Date == "" {
 		in.Date = today()
 	}
 	amt, ok := money(in.Amount)
-	if !validDate(in.Date) || !isUUID(in.AccountID) || !isUUID(in.MethodID) || !ok || !amt.IsPositive() ||
-		(in.SupplierID != "" && !isUUID(in.SupplierID)) || (in.TaxRateID != "" && !isUUID(in.TaxRateID)) {
+	return validDate(in.Date) && isUUID(in.AccountID) && isUUID(in.MethodID) && ok && amt.IsPositive() &&
+		(in.SupplierID == "" || isUUID(in.SupplierID)) && (in.TaxRateID == "" || isUUID(in.TaxRateID)) &&
+		(in.ProjectID == "" || isUUID(in.ProjectID)) && (in.VehicleID == "" || isUUID(in.VehicleID)) && len(in.Description) <= 2000
+}
+
+func (s *Server) createExpense(w http.ResponseWriter, r *http.Request) {
+	var in expenseIn
+	if !decodeBody(w, r, &in) {
+		return
+	}
+	if !in.valid() {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		ctx = withCostCenter(ctx, in.CostCenter)
-		set, err := loadBillingSettings(ctx, tx, cid)
+		id, err := createExpenseTx(ctx, tx, cid, in)
 		if err != nil {
-			return nil, err
-		}
-		if err := requirePostable(ctx, tx, cid, in.AccountID); err != nil {
-			return nil, err
-		}
-		methods, err := loadMethods(ctx, tx, cid)
-		if err != nil {
-			return nil, err
-		}
-		m, ok := methods[in.MethodID]
-		if !ok || !m.Active {
-			return nil, badRequest("invalid_tender")
-		}
-		if in.SupplierID != "" {
-			if _, err := lockSupplier(ctx, tx, cid, in.SupplierID); err != nil {
-				return nil, err
-			}
-		}
-		var number int64
-		if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'expense')`, cid).Scan(&number); err != nil {
-			return nil, err
-		}
-		desc := strings.TrimSpace(in.Description)
-		rate, err := resolveRate(ctx, tx, cid, set.Base, m.Currency, in.Date, "")
-		if err != nil {
-			return nil, err
-		}
-		tax, err := loadTaxRate(ctx, tx, cid, in.TaxRateID, "purchases")
-		if err != nil {
-			return nil, err
-		}
-		net, taxAmt, gross := amt, decimal.Zero, amt
-		if tax != nil {
-			dec, err := currencyDecimals(ctx, tx, m.Currency)
-			if err != nil {
-				return nil, err
-			}
-			if in.TaxIncluded {
-				net = amt.Mul(decimal.NewFromInt(100)).Div(decimal.NewFromInt(100).Add(tax.Rate)).Round(dec)
-				taxAmt = amt.Sub(net)
-			} else {
-				taxAmt = taxOn(amt, tax, dec)
-				gross = amt.Add(taxAmt)
-			}
-		}
-		jl := []jline{{Account: in.AccountID, Desc: desc, Currency: m.Currency, Debit: net, Rate: rate}}
-		var taxID *string
-		if tax != nil {
-			taxID = &tax.ID
-			jl = append(jl, jline{Account: tax.Account, Desc: tax.Name + " · " + desc, Currency: m.Currency, Debit: taxAmt, Rate: rate})
-		}
-		jl = append(jl, jline{Account: m.Account, Desc: m.Name, Currency: m.Currency, Credit: gross, Rate: rate})
-		je, err := postJournal(ctx, tx, cid, set, in.Date, fmt.Sprintf("Expense #%d · %s", number, desc), fmt.Sprintf("EXP-%d", number), "expense", jl)
-		if err != nil {
-			return nil, err
-		}
-		var id string
-		if err := tx.QueryRow(ctx, `INSERT INTO expenses (company_id, number, expense_date, account_id, method_id, currency, amount, description,
-			supplier_id, journal_entry_id, tax_rate_id, tax_amount)
-			VALUES ($1, $2, $3::date, $4, $5, $6, $7::numeric, $8, nullif($9, '')::uuid, $10, $11, $12::numeric) RETURNING id::text`,
-			cid, number, in.Date, in.AccountID, m.ID, m.Currency, gross.String(), desc, in.SupplierID, je, taxID, taxAmt.String()).Scan(&id); err != nil {
 			return nil, err
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+expenseCols+expenseFrom+` WHERE e.id = $1`, id)
 	})
+}
+
+// createExpenseTx posts one paid expense (Dr expense [+ input tax] / Cr the payment method) and links it to the
+// project / vehicle when given.
+func createExpenseTx(ctx context.Context, tx pgx.Tx, cid string, in expenseIn) (string, error) {
+	amt, _ := money(in.Amount)
+	ctx = withCostCenter(ctx, in.CostCenter)
+	set, err := loadBillingSettings(ctx, tx, cid)
+	if err != nil {
+		return "", err
+	}
+	if err := requirePostable(ctx, tx, cid, in.AccountID); err != nil {
+		return "", err
+	}
+	methods, err := loadMethods(ctx, tx, cid)
+	if err != nil {
+		return "", err
+	}
+	m, ok := methods[in.MethodID]
+	if !ok || !m.Active {
+		return "", badRequest("invalid_tender")
+	}
+	if in.SupplierID != "" {
+		if _, err := lockSupplier(ctx, tx, cid, in.SupplierID); err != nil {
+			return "", err
+		}
+	}
+	var number int64
+	if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'expense')`, cid).Scan(&number); err != nil {
+		return "", err
+	}
+	desc := strings.TrimSpace(in.Description)
+	rate, err := resolveRate(ctx, tx, cid, set.Base, m.Currency, in.Date, "")
+	if err != nil {
+		return "", err
+	}
+	tax, err := loadTaxRate(ctx, tx, cid, in.TaxRateID, "purchases")
+	if err != nil {
+		return "", err
+	}
+	net, taxAmt, gross := amt, decimal.Zero, amt
+	if tax != nil {
+		dec, err := currencyDecimals(ctx, tx, m.Currency)
+		if err != nil {
+			return "", err
+		}
+		if in.TaxIncluded {
+			net = amt.Mul(decimal.NewFromInt(100)).Div(decimal.NewFromInt(100).Add(tax.Rate)).Round(dec)
+			taxAmt = amt.Sub(net)
+		} else {
+			taxAmt = taxOn(amt, tax, dec)
+			gross = amt.Add(taxAmt)
+		}
+	}
+	jl := []jline{{Account: in.AccountID, Desc: desc, Currency: m.Currency, Debit: net, Rate: rate}}
+	var taxID *string
+	if tax != nil {
+		taxID = &tax.ID
+		jl = append(jl, jline{Account: tax.Account, Desc: tax.Name + " · " + desc, Currency: m.Currency, Debit: taxAmt, Rate: rate})
+	}
+	jl = append(jl, jline{Account: m.Account, Desc: m.Name, Currency: m.Currency, Credit: gross, Rate: rate})
+	je, err := postJournal(ctx, tx, cid, set, in.Date, fmt.Sprintf("Expense #%d · %s", number, desc), fmt.Sprintf("EXP-%d", number), "expense", jl)
+	if err != nil {
+		return "", err
+	}
+	var id string
+	if err := tx.QueryRow(ctx, `INSERT INTO expenses (company_id, number, expense_date, account_id, method_id, currency, amount, description,
+		supplier_id, journal_entry_id, tax_rate_id, tax_amount)
+		VALUES ($1, $2, $3::date, $4, $5, $6, $7::numeric, $8, nullif($9, '')::uuid, $10, $11, $12::numeric) RETURNING id::text`,
+		cid, number, in.Date, in.AccountID, m.ID, m.Currency, gross.String(), desc, in.SupplierID, je, taxID, taxAmt.String()).Scan(&id); err != nil {
+		return "", err
+	}
+	if in.ProjectID != "" {
+		var ok bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM projects WHERE id = $1 AND company_id = $2)`, in.ProjectID, cid).Scan(&ok); err != nil {
+			return "", err
+		}
+		if !ok {
+			return "", badRequest("invalid_project")
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO project_links (company_id, project_id, doc_type, doc_id) VALUES ($1, $2, 'expense', $3)`, cid, in.ProjectID, id); err != nil {
+			return "", err
+		}
+	}
+	if in.VehicleID != "" {
+		var ok bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM vehicles WHERE id = $1 AND company_id = $2)`, in.VehicleID, cid).Scan(&ok); err != nil {
+			return "", err
+		}
+		if !ok {
+			return "", badRequest("invalid_vehicle")
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO vehicle_costs (company_id, vehicle_id, expense_id) VALUES ($1, $2, $3)`, cid, in.VehicleID, id); err != nil {
+			return "", err
+		}
+	}
+	return id, nil
 }
 
 func (s *Server) listExpenses(w http.ResponseWriter, r *http.Request) {
@@ -1553,34 +1597,40 @@ func (s *Server) voidExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.run(w, r, http.StatusOK, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		var number int64
-		var status string
-		var je *string
-		err := tx.QueryRow(ctx, `SELECT number, status, journal_entry_id::text FROM expenses WHERE id = $1 AND company_id = $2 FOR UPDATE`,
-			id, cid).Scan(&number, &status, &je)
-		if err == pgx.ErrNoRows {
-			return nil, notFound()
-		}
-		if err != nil {
-			return nil, err
-		}
-		if status == "void" {
-			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
-		}
-		var rev *string
-		if je != nil {
-			var rid string
-			if err := tx.QueryRow(ctx, `SELECT reverse_journal_entry($1, current_date, $2)::text`, *je,
-				fmt.Sprintf("Void expense #%d", number)).Scan(&rid); err != nil {
-				return nil, err
-			}
-			rev = &rid
-		}
-		if _, err := tx.Exec(ctx, `UPDATE expenses SET status = 'void', void_entry_id = $2 WHERE id = $1`, id, rev); err != nil {
+		if err := voidExpenseTx(ctx, tx, cid, id); err != nil {
 			return nil, err
 		}
 		return map[string]bool{"ok": true}, nil
 	})
+}
+
+// voidExpenseTx reverses an expense's journal entry and marks it void.
+func voidExpenseTx(ctx context.Context, tx pgx.Tx, cid, id string) error {
+	var number int64
+	var status string
+	var je *string
+	err := tx.QueryRow(ctx, `SELECT number, status, journal_entry_id::text FROM expenses WHERE id = $1 AND company_id = $2 FOR UPDATE`,
+		id, cid).Scan(&number, &status, &je)
+	if err == pgx.ErrNoRows {
+		return notFound()
+	}
+	if err != nil {
+		return err
+	}
+	if status == "void" {
+		return &apiError{status: http.StatusConflict, code: "wrong_status"}
+	}
+	var rev *string
+	if je != nil {
+		var rid string
+		if err := tx.QueryRow(ctx, `SELECT reverse_journal_entry($1, current_date, $2)::text`, *je,
+			fmt.Sprintf("Void expense #%d", number)).Scan(&rid); err != nil {
+			return err
+		}
+		rev = &rid
+	}
+	_, err = tx.Exec(ctx, `UPDATE expenses SET status = 'void', void_entry_id = $2 WHERE id = $1`, id, rev)
+	return err
 }
 
 // ---- fuel usage and stock adjustments ----

@@ -239,6 +239,27 @@ func seedEverything(t *testing.T, o *org) {
 	}
 	bveh := id(step(201, "POST", "/wh/vehicles", map[string]any{"name": secretB + " van"}), "id")
 	step(201, "POST", "/wh/trips", map[string]any{"vehicle_id": bveh, "notes": secretB, "stops": []any{map[string]any{"address": secretB + " street"}}})
+
+	// phase 3: project (stages, task, milestone, timesheet, linked expense), service job with a part, SLA policy,
+	// automation rule with a dry run, fleet fuel / service plan / service log / linked expense
+	bprj := id(step(201, "POST", "/prj/projects", map[string]any{"name": secretB + " project", "customer_id": cust, "billing": "tm", "hourly_rate": "10"}), "project", "id")
+	step(201, "POST", "/prj/project-tasks", map[string]any{"project_id": bprj, "title": secretB + " task"})
+	step(201, "POST", "/prj/milestones", map[string]any{"project_id": bprj, "name": secretB + " milestone", "amount": "5"})
+	step(201, "POST", "/prj/timesheets", map[string]any{"project_id": bprj, "employee_id": emp, "hours": "1", "description": secretB})
+	step(201, "POST", "/expenses", map[string]any{"date": "2026-11-05", "account_id": o.accounts["611"], "method_id": bank, "amount": "3", "description": secretB + " prj",
+		"project_id": bprj})
+	bjob := id(step(201, "POST", "/fs/service-jobs", map[string]any{"customer_id": cust, "title": secretB + " job", "labour_rate": "5"}), "job", "id")
+	step(200, "PUT", "/fs/service-jobs/"+bjob+"/parts", map[string]any{"parts": []any{map[string]any{"item_id": item, "quantity": "1"}}})
+	step(201, "POST", "/sla/sla-policies", map[string]any{"name": secretB + " sla", "response_hours": "1", "resolution_hours": "2"})
+	brule := id(step(201, "POST", "/automation/rules", map[string]any{"name": secretB + " rule", "model": "ticket", "trigger": "scheduled",
+		"actions": []any{map[string]any{"type": "tag", "tag": "b"}}}), "id")
+	step(200, "POST", "/automation/rules/"+brule+"/test", map[string]any{})
+	step(201, "POST", "/fleet/fuel", map[string]any{"vehicle_id": bveh, "odometer": "100", "liters": "10", "notes": secretB})
+	bplan := id(step(201, "POST", "/fleet/service-plans", map[string]any{"vehicle_id": bveh, "task": secretB + " oil", "every_km": "5000"}), "id")
+	step(201, "POST", "/fleet/service-log", map[string]any{"plan_id": bplan, "notes": secretB})
+	bexp := id(step(201, "POST", "/expenses", map[string]any{"date": "2026-11-05", "account_id": o.accounts["611"], "method_id": bank, "amount": "2",
+		"description": secretB + " toll"}), "id")
+	step(201, "POST", "/fleet/vehicles/"+bveh+"/link-expense", map[string]any{"expense_id": bexp})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -331,6 +352,9 @@ var idTable = map[string]string{
 	"vehicles": "vehicles", "trips": "delivery_trips", "stops": "trip_stops",
 	"workcenters": "mfg_workcenters", "routings": "mfg_routings", "workorders": "mfg_workorders", "quality-points": "mfg_quality_points",
 	"quality-checks": "mfg_quality_checks", "quality-alerts": "mfg_quality_alerts",
+	"projects": "projects", "project-tasks": "project_tasks", "milestones": "project_milestones", "timesheets": "timesheets",
+	"project-links": "project_links", "service-jobs": "service_jobs", "sla-policies": "sla_policies", "rules": "automation_rules",
+	"fuel": "fleet_fuel_logs", "service-plans": "fleet_service_plans", "service-log": "fleet_service_log",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -477,8 +501,14 @@ func sweepBody(c sweepCall, ids map[string]string) any {
 		return map[string]any{"lines": []any{}}
 	case "/wh/stops/{id}/pod":
 		return map[string]any{"status": "failed", "note": "x"}
-	case "/wh/stops/{id}/photo":
+	case "/wh/stops/{id}/photo", "/fs/service-jobs/{id}/photo":
 		return map[string]any{"data": "iVBORw0KGgo="}
+	case "/fs/service-jobs/{id}/parts":
+		return map[string]any{"parts": []any{}}
+	case "/prj/projects/{id}/stages":
+		return map[string]any{"stages": []any{map[string]any{"name": "x"}}}
+	case "/fleet/vehicles/{id}/link-expense":
+		return map[string]any{"expense_id": ids["expenses"]}
 	case "/mfg/quality-checks/{id}":
 		return map[string]any{"result": "pass"}
 	case "/mfg/routings/{id}":

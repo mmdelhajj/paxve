@@ -145,6 +145,7 @@ func (s *Server) putBOSettings(w http.ResponseWriter, r *http.Request) {
 
 const employeeCols = `e.id, e.code, e.name, e.phone, e.position, e.hire_date, e.status, e.currency, e.salary::text AS salary,
 	e.transport::text AS transport, e.nssf_enrolled, e.method_id, m.name AS method_name, e.user_id, e.notes, e.created_at, e.cost_center_id,
+	e.hourly_cost::text AS hourly_cost,
 	coalesce((SELECT sum(a.amount - a.recovered) FROM employee_advances a WHERE a.employee_id = e.id), 0)::text AS advances_open`
 
 const employeeFrom = ` FROM employees e LEFT JOIN payment_methods m ON m.id = e.method_id`
@@ -172,6 +173,7 @@ type employeeIn struct {
 	UserID       *string `json:"user_id"`
 	Notes        *string `json:"notes"`
 	CostCenterID *string `json:"cost_center_id"`
+	HourlyCost   *string `json:"hourly_cost"` // timesheet cost per hour (base currency); empty / 0 = salary / 208
 }
 
 func (in *employeeIn) valid(create bool) bool {
@@ -187,7 +189,7 @@ func (in *employeeIn) valid(create bool) bool {
 	}
 	return (in.Name == nil || strings.TrimSpace(*in.Name) != "") && (in.Currency == nil || currencyRe.MatchString(*in.Currency)) &&
 		(in.HireDate == nil || validDate(*in.HireDate)) && (in.Status == nil || *in.Status == "active" || *in.Status == "inactive") &&
-		okMoney(in.Salary) && okMoney(in.Transport) && optUUID(in.MethodID) && optUUID(in.UserID) && optUUID(in.CostCenterID)
+		okMoney(in.Salary) && okMoney(in.Transport) && okMoney(in.HourlyCost) && optUUID(in.MethodID) && optUUID(in.UserID) && optUUID(in.CostCenterID)
 }
 
 func (s *Server) saveEmployee(w http.ResponseWriter, r *http.Request) {
@@ -252,6 +254,12 @@ func (s *Server) saveEmployee(w http.ResponseWriter, r *http.Request) {
 		if in.CostCenterID != nil {
 			if _, err := tx.Exec(ctx, `UPDATE employees SET cost_center_id = nullif($3, '')::uuid WHERE id = $1 AND company_id = $2`,
 				id, cid, *in.CostCenterID); err != nil {
+				return nil, err
+			}
+		}
+		if in.HourlyCost != nil {
+			if _, err := tx.Exec(ctx, `UPDATE employees SET hourly_cost = coalesce(nullif($3, '')::numeric, 0) WHERE id = $1 AND company_id = $2`,
+				id, cid, *in.HourlyCost); err != nil {
 				return nil, err
 			}
 		}

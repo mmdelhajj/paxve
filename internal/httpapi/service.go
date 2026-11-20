@@ -19,17 +19,25 @@ var (
 	ticketCategories = []string{"outage", "no_internet", "slow", "no_signal", "meter", "billing", "new_connection", "move", "disconnect", "complaint", "other"}
 	ticketPriorities = []string{"low", "normal", "high", "urgent"}
 	ticketStatuses   = []string{"new", "in_progress", "waiting", "done", "cancelled"}
-	ticketChannels   = []string{"phone", "whatsapp", "office", "portal", "field", "other"}
+	ticketChannels   = []string{"phone", "whatsapp", "office", "portal", "field", "email", "other"}
 )
 
+// sla_state: none (no policy) | ok | at_risk (less than a fifth of the resolution time left) | breached
 const ticketCols = `t.id, t.number, t.customer_id, c.name AS customer_name, c.code AS customer_code, t.subscription_id, t.category,
-	t.priority, t.status, t.subject, t.description, t.contact_phone, t.channel, t.assigned_to, au.full_name AS assigned_name, t.due_at,
+	t.priority, t.status, t.subject, t.description, t.contact_phone, t.contact_email, t.channel, t.assigned_to, au.full_name AS assigned_name, t.due_at,
 	t.resolved_at, t.resolution, cu.full_name AS created_by_name, t.created_at, t.updated_at,
 	(t.due_at IS NOT NULL AND t.due_at < now() AND t.status NOT IN ('done', 'cancelled')) AS overdue,
-	round(extract(epoch FROM (coalesce(t.resolved_at, now()) - t.created_at)) / 3600, 1) AS age_hours`
+	round(extract(epoch FROM (coalesce(t.resolved_at, now()) - t.created_at)) / 3600, 1) AS age_hours,
+	t.sla_policy_id, slp.name AS sla_name, t.response_due, t.resolution_due, t.first_response_at, t.escalated_at,
+	CASE WHEN t.sla_policy_id IS NULL OR t.status = 'cancelled' THEN 'none'
+	     WHEN coalesce(t.first_response_at, CASE WHEN t.resolved_at IS NULL THEN now() END) > t.response_due
+	       OR coalesce(t.resolved_at, now()) > t.resolution_due THEN 'breached'
+	     WHEN t.resolved_at IS NULL AND t.resolution_due - now() < (t.resolution_due - t.created_at) / 5 THEN 'at_risk'
+	     ELSE 'ok' END AS sla_state,
+	t.rating, t.rating_comment, t.rated_at, (SELECT count(*) FROM service_jobs sj WHERE sj.ticket_id = t.id) AS jobs, t.rating_token`
 
 const ticketFrom = ` FROM tickets t LEFT JOIN customers c ON c.id = t.customer_id LEFT JOIN users au ON au.id = t.assigned_to
-	LEFT JOIN users cu ON cu.id = t.created_by`
+	LEFT JOIN users cu ON cu.id = t.created_by LEFT JOIN sla_policies slp ON slp.id = t.sla_policy_id`
 
 // GET /companies/{cid}/tickets?status=open|all|<status>&customer_id=&q=
 func (s *Server) listTickets(w http.ResponseWriter, r *http.Request) {
@@ -106,6 +114,9 @@ func (s *Server) createTicket(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
+		if err := applySLA(ctx, tx, cid, id); err != nil {
+			return nil, err
+		}
 		return queryJSONOne(ctx, tx, `SELECT `+ticketCols+ticketFrom+` WHERE t.id = $1`, id)
 	})
 }
@@ -174,6 +185,22 @@ func (s *Server) updateTicket(w http.ResponseWriter, r *http.Request) {
 				cid, id, "status: "+old+" → "+*in.Status); err != nil {
 				return nil, err
 			}
+			// leaving "new" is the first response (for the SLA)
+			if old == "new" {
+				if _, err := tx.Exec(ctx, `UPDATE tickets SET first_response_at = coalesce(first_response_at, now()) WHERE id = $1`, id); err != nil {
+					return nil, err
+				}
+			}
+		}
+		if in.Priority != nil || in.Category != nil {
+			if err := applySLA(ctx, tx, cid, id); err != nil {
+				return nil, err
+			}
+		}
+		if in.Status != nil && *in.Status == "done" && old != "done" {
+			if err := ticketClosed(ctx, tx, cid, id); err != nil {
+				return nil, err
+			}
 		}
 		return queryJSONOne(ctx, tx, `SELECT `+ticketCols+ticketFrom+` WHERE t.id = $1`, id)
 	})
@@ -208,7 +235,7 @@ func (s *Server) addTicketNote(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return nil, notFound()
 		}
-		if _, err := tx.Exec(ctx, `UPDATE tickets SET updated_at = now() WHERE id = $1`, id); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE tickets SET updated_at = now(), first_response_at = coalesce(first_response_at, now()) WHERE id = $1`, id); err != nil {
 			return nil, err
 		}
 		var nid string

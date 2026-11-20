@@ -166,6 +166,10 @@ func recordTitle(ctx context.Context, tx pgx.Tx, typ, id string) string {
 		"subscription":   `SELECT c.name || ' · ' || p.name FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id WHERE s.id = $1`,
 		"instalment":     `SELECT 'Instalments #' || p.number || ' · ' || c.name FROM instalment_plans p JOIN customers c ON c.id = p.customer_id WHERE p.id = $1`,
 		"lead":           `SELECT title FROM crm_leads WHERE id = $1`,
+		"project":        `SELECT 'Project #' || number || ' · ' || name FROM projects WHERE id = $1`,
+		"project_task":   `SELECT 'Task #' || number || ' · ' || title FROM project_tasks WHERE id = $1`,
+		"service_job":    `SELECT 'Job #' || number || ' · ' || title FROM service_jobs WHERE id = $1`,
+		"vehicle":        `SELECT name || coalesce(' · ' || nullif(plate, ''), '') FROM vehicles WHERE id = $1`,
 	}[typ]
 	if q == "" {
 		return typ

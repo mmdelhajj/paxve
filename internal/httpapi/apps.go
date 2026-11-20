@@ -18,7 +18,7 @@ import (
 // (gen = subscriptions & billing, acc = accounting, col = collections) are always on. A route that
 // belongs to a switched-off app answers 403 "app_disabled", so the API and the UI agree.
 
-var knownApps = []string{"gen", "acc", "col", "msg", "stk", "pur", "net", "sat", "pos", "hr", "crm", "svc", "mfg"}
+var knownApps = []string{"gen", "acc", "col", "msg", "stk", "pur", "net", "sat", "pos", "hr", "crm", "svc", "mfg", "prj", "flt"}
 var coreApps = []string{"gen", "acc", "col"}
 
 // appRoutes: path fragment (after /companies/{cid}) → app. Checked in order; first match wins.
@@ -67,6 +67,10 @@ var appRoutes = []struct {
 	{"/reports/ap-aging", "pur", false},
 	{"/reports/expenses", "pur", false},
 	{"/tickets", "svc", false},
+	{"/fs/", "svc", false},
+	{"/sla/", "svc", false},
+	{"/prj/", "prj", false},
+	{"/fleet/", "flt", false},
 	{"/repairs", "svc", false},
 	{"/quote-templates", "crm", false},
 	{"/maintenance", "svc", false},
