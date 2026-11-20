@@ -2285,7 +2285,7 @@ const en = {
       noUse: 'No AI use this month yet.',
     },
     rt: {
-      tab: 'Route', you: 'You', noTiles: 'The map could not load (no internet?). The list and the Google Maps links still work.', saved: 'Location saved for {{name}}',
+      tab: 'Route', noLoc: 'no location', you: 'You', noTiles: 'The map could not load (no internet?). The list and the Google Maps links still work.', saved: 'Location saved for {{name}}',
       noGps: 'Could not get your location: allow location access and turn on GPS.', area: 'Area', allAreas: 'All areas', stops: 'Stops', nStops: '{{n}} stops',
       fromMe: 'Start from where I am', clearStart: 'Start from the first stop', summary: '{{n}} stops · {{km}} km', clickMap: 'Click on the map where {{name}} lives.', cancel: 'Cancel',
       openMaps: 'Directions (part {{n}})', order: 'Visiting order', customer: 'Customer', due: 'To collect', risk: 'Risk', km: 'km', bills: '{{n}} bills since {{since}}',

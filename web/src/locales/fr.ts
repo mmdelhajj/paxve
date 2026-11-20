@@ -2287,7 +2287,7 @@ const fr: Messages = {
       noUse: 'Aucune utilisation de l\'IA ce mois-ci.',
     },
     rt: {
-      tab: 'Tournée', you: 'Vous', noTiles: 'La carte n\'a pas pu se charger (pas d\'internet ?). La liste et les liens Google Maps fonctionnent.', saved: 'Position enregistrée pour {{name}}',
+      tab: 'Tournée', noLoc: 'sans position', you: 'Vous', noTiles: 'La carte n\'a pas pu se charger (pas d\'internet ?). La liste et les liens Google Maps fonctionnent.', saved: 'Position enregistrée pour {{name}}',
       noGps: 'Position introuvable : autorisez la localisation et activez le GPS.', area: 'Zone', allAreas: 'Toutes les zones', stops: 'Arrêts', nStops: '{{n}} arrêts',
       fromMe: 'Partir de ma position', clearStart: 'Partir du premier arrêt', summary: '{{n}} arrêts · {{km}} km', clickMap: 'Cliquez sur la carte là où habite {{name}}.', cancel: 'Annuler',
       openMaps: 'Itinéraire (partie {{n}})', order: 'Ordre des visites', customer: 'Client', due: 'À encaisser', risk: 'Risque', km: 'km', bills: '{{n}} factures depuis le {{since}}',

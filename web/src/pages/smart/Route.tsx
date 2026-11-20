@@ -69,7 +69,7 @@ export default function RouteView({ collector = false }: { collector?: boolean }
   const cur = d?.base_currency ?? '';
 
   return (
-    <div className="mx-col" style={{ gap: 6 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {!collector && <select aria-label={t('sm.rt.area')} value={area} onChange={(e) => setArea(e.currentTarget.value)}>
           <option value="">{t('sm.rt.allAreas')}</option>{areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>}
@@ -89,7 +89,28 @@ export default function RouteView({ collector = false }: { collector?: boolean }
         <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap' }}>
           {d.maps_links.map((l, i) => <a key={l} className="mx-btn sm" href={l} target="_blank" rel="noreferrer">{t('sm.rt.openMaps', { n: i + 1 })}</a>)}
         </div>)}
-      <section className="mx-box">
+      {collector && d && (
+        // phone: one card per visit, the GPS button under it
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <b>{t('sm.rt.order')}</b>
+          {[...d.stops, ...d.missing_location].map((s) => (
+            <div key={s.customer_id} className="mx-box" style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                {s.seq ? <b style={{ minWidth: 20 }}>{s.seq}.</b> : <small style={{ color: 'var(--mx-amber)' }}>{t('sm.rt.noLoc')}</small>}
+                <b>{s.name}</b><small dir="ltr">#{s.code}</small>
+                {s.risk_band && <span className={`mx-pill ${bandPill[s.risk_band] ?? ''}`}>{t(`sm.rk.band.${s.risk_band}`)}</span>}
+                <span className="mx-sp" style={{ flex: 1 }} />
+                <b dir="ltr">{formatAmount(String(s.due_base), 2)} {cur}</b>
+              </div>
+              <small>{s.address}{s.leg_km ? ` · ${s.leg_km.toFixed(1)} km` : ''} · {t('sm.rt.bills', { n: s.bills, since: formatDate(s.oldest_due) })}</small>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {s.phone && <a className="mx-btn sm" dir="ltr" href={`tel:${s.phone}`}>{s.phone}</a>}
+                <button className="mx-btn sm" onClick={() => void here(s)}>{t('sm.rt.here')}</button>
+              </div>
+            </div>))}
+          {d.stops.length === 0 && d.missing_location.length === 0 && <div className="mx-empty">{t('sm.rt.noStops')}</div>}
+        </div>)}
+      {!collector && <section className="mx-box">
         <h3>{t('sm.rt.order')}</h3>
         <div style={{ overflowX: 'auto' }}>
           <table className="mx-table">
@@ -109,8 +130,8 @@ export default function RouteView({ collector = false }: { collector?: boolean }
             </tbody>
           </table>
         </div>
-      </section>
-      {d && d.missing_location.length > 0 && (
+      </section>}
+      {!collector && d && d.missing_location.length > 0 && (
         <section className="mx-box">
           <h3>{t('sm.rt.missing', { n: d.missing_location.length })}</h3>
           <p style={{ margin: 0, padding: '0 8px' }}><small>{t('sm.rt.missingHelp')}</small></p>

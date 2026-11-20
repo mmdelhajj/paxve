@@ -6549,6 +6549,7 @@
    "missingHelp": "Müşterinin kapısında \"buradayım\" tuşuna basarak mekanı telefonun GPS'inden kaydedin. Ofiste ayrıca haritaya tıklayabilir veya koordinatları yazabilirsiniz.",
    "nStops": "{{n}} durak",
    "noGps": "Konumunuz alınamadı: Konum erişimine izin verin ve GPS'i açın.",
+   "noLoc": "konum yok",
    "noStops": "Yeri ve tahsil edilecek faturaları olan müşteri yok.",
    "noTiles": "Harita yüklenemedi (internet yok mu?). Liste ve Google Haritalar bağlantıları hâlâ çalışıyor.",
    "onMap": "Haritada seç",

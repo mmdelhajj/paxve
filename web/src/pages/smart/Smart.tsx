@@ -79,7 +79,7 @@ function Alerts({ me }: { me: Me }) {
   const manage = can(me, 'smart.manage');
   const act = (a: Alert, action: string) => void run(api(`${base}/smart/alerts/${a.id}/${action}`, { method: 'POST', body: { note: note[a.id] ?? '' } }));
   return (
-    <div className="mx-col" style={{ gap: 6 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div className="mx-row" style={{ gap: 6, flexWrap: 'wrap' }}>
         {KINDS.map((k) => {
           const s = d?.summary.find((x) => x.kind === k);
@@ -246,18 +246,19 @@ function Forecast() {
   const [f] = useLoad<Fc | null>(base && `${base}/smart/forecast`, null);
   if (!f) return <div className="mx-empty">…</div>;
   const sum = (w: FcWeek, keys: string[], side: 'in' | 'out') => keys.reduce((s, k) => s + (w[side][k] ?? 0), 0);
-  const data = f.weeks.map((w) => ({ week: formatDate(w.start), in: sum(w, IN_KEYS, 'in'), out: -sum(w, OUT_KEYS, 'out'), closing: w.closing, optimistic: w.optimistic, pessimistic: w.pessimistic }));
+  const data = f.weeks.map((w) => ({ week: w.start.slice(5).replace('-', '/'), in: sum(w, IN_KEYS, 'in'), out: -sum(w, OUT_KEYS, 'out'), closing: w.closing, optimistic: w.optimistic, pessimistic: w.pessimistic }));
   const cur = f.base_currency;
-  const kpi = (label: string, v: string, bad = false) => (
-    <div className="mx-box" style={{ padding: 10, minWidth: 160, flex: '1 1 160px' }}><small>{label}</small><div style={{ fontSize: 20, fontWeight: 700, color: bad ? 'var(--mx-red)' : undefined }} dir="ltr">{v}</div></div>);
+  const kpi = (label: string, v: string, bad = false, sub = '') => (
+    <div className="mx-box" style={{ padding: 10, minWidth: 160, flex: '1 1 160px' }}><small>{label}</small>
+      <div style={{ fontSize: 20, fontWeight: 700, color: bad ? 'var(--mx-red)' : undefined }}><span dir="ltr">{v}</span></div>{sub && <small>{sub}</small>}</div>);
   const a = f.assumptions;
   return (
-    <div className="mx-col" style={{ gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div className="mx-row" style={{ gap: 8, flexWrap: 'wrap' }}>
         {kpi(t('sm.fc.opening'), `${amt(f.opening)} ${cur}`)}
         {kpi(t('sm.fc.in13'), `${amt(f.weeks.reduce((s, w) => s + sum(w, IN_KEYS, 'in'), 0))} ${cur}`)}
         {kpi(t('sm.fc.out13'), `${amt(f.weeks.reduce((s, w) => s + sum(w, OUT_KEYS, 'out'), 0))} ${cur}`)}
-        {kpi(t('sm.fc.lowest'), `${amt(f.lowest)} ${cur}${f.lowest_week ? ` · ${formatDate(f.lowest_week)}` : ''}`, f.lowest < 0)}
+        {kpi(t('sm.fc.lowest'), `${amt(f.lowest)} ${cur}`, f.lowest < 0, f.lowest_week ? `${t('sm.fc.week')} ${formatDate(f.lowest_week)}` : '')}
         {f.local_rate && kpi(t('sm.fc.inLocal', { cur: f.local_currency }), `${amt(f.weeks[12].closing_local, 0)} ${f.local_currency}`)}
       </div>
       {f.first_negative_week
@@ -349,7 +350,7 @@ function Risk({ me }: { me: Me }) {
     base && `${base}/smart/risk?band=${band}&q=${encodeURIComponent(q)}`, null);
   const [msg, run] = useRun(reload);
   return (
-    <div className="mx-col" style={{ gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div className="mx-row" style={{ gap: 8, flexWrap: 'wrap' }}>
         {['high', 'medium', 'low'].map((b) => {
           const s = d?.summary.find((x) => x.band === b);

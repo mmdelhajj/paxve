@@ -6549,6 +6549,7 @@
    "missingHelp": "Na porta do cliente pressione “Estou aqui” para salvar o local no GPS do telefone. No escritório você também pode clicar no mapa ou digitar as coordenadas.",
    "nStops": "{{n}} paradas",
    "noGps": "Não foi possível obter sua localização: permita o acesso à localização e ative o GPS.",
+   "noLoc": "sem localização",
    "noStops": "Nenhum cliente com localização e contas a cobrar.",
    "noTiles": "O mapa não pôde carregar (sem internet?). A lista e os links do Google Maps ainda funcionam.",
    "onMap": "Escolha no mapa",

@@ -6549,6 +6549,7 @@
    "missingHelp": "Drücken Sie an der Tür des Kunden „Ich bin hier“, um den Ort im GPS des Telefons zu speichern. Im Büro können Sie auch auf die Karte klicken oder die Koordinaten eingeben.",
    "nStops": "{{n}} stoppt",
    "noGps": "Ihr Standort konnte nicht ermittelt werden: Erlauben Sie den Standortzugriff und aktivieren Sie GPS.",
+   "noLoc": "kein Standort",
    "noStops": "Kein Kunde mit Standort und Rechnungen zum Einzug.",
    "noTiles": "Die Karte konnte nicht geladen werden (kein Internet?). Die Liste und die Google Maps-Links funktionieren weiterhin.",
    "onMap": "Auf der Karte auswählen",
