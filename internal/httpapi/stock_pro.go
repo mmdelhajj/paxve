@@ -404,11 +404,12 @@ func (s *Server) putItemStockSettings(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Costing  *string `json:"costing"`
 		Tracking *string `json:"tracking"`
+		Warranty *int    `json:"warranty_months"` // repairs: months of warranty from the sale date
 	}
 	if !decodeBody(w, r, &in) {
 		return
 	}
-	if (in.Costing != nil && *in.Costing != "avg" && *in.Costing != "fifo") ||
+	if (in.Warranty != nil && (*in.Warranty < 0 || *in.Warranty > 240)) || (in.Costing != nil && *in.Costing != "avg" && *in.Costing != "fifo") ||
 		(in.Tracking != nil && *in.Tracking != "none" && *in.Tracking != "lot" && *in.Tracking != "serial") {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
@@ -445,8 +446,8 @@ func (s *Server) putItemStockSettings(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		if _, err := tx.Exec(ctx, `UPDATE items SET costing = coalesce($2, costing), tracking = coalesce($3, tracking) WHERE id = $1`,
-			id, in.Costing, in.Tracking); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE items SET costing = coalesce($2, costing), tracking = coalesce($3, tracking),
+			warranty_months = coalesce($4, warranty_months) WHERE id = $1`, id, in.Costing, in.Tracking, in.Warranty); err != nil {
 			return nil, err
 		}
 		return itemExtras(ctx, tx, cid, id)
@@ -454,7 +455,7 @@ func (s *Server) putItemStockSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func itemExtras(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
-	item, err := queryJSONOne(ctx, tx, `SELECT id, code, name, kind, unit, costing, tracking FROM items WHERE id = $1 AND company_id = $2`, id, cid)
+	item, err := queryJSONOne(ctx, tx, `SELECT id, code, name, kind, unit, costing, tracking, warranty_months FROM items WHERE id = $1 AND company_id = $2`, id, cid)
 	if err != nil {
 		return nil, err
 	}

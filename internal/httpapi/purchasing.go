@@ -830,6 +830,10 @@ func createBillTx(ctx context.Context, tx pgx.Tx, cid string, in billInput) (str
 		if err != nil {
 			return nil, err
 		}
+		fp, err := partnerFiscalPosition(ctx, tx, cid, "suppliers", in.SupplierID)
+		if err != nil {
+			return nil, err
+		}
 		if in.DueDate == "" { // payment terms: the supplier's, else the company's default
 			if err := tx.QueryRow(ctx, `SELECT ($1::date + coalesce((SELECT due_days FROM suppliers WHERE id = $2),
 				(SELECT default_due_days FROM companies WHERE id = $3), 0))::text`, in.BillDate, in.SupplierID, cid).Scan(&in.DueDate); err != nil {
@@ -916,6 +920,9 @@ func createBillTx(ctx context.Context, tx pgx.Tx, cid string, in billInput) (str
 			if ln.account == "" {
 				return nil, notSetup("expense")
 			}
+			if ln.wh == "" { // fiscal position: expense accounts only (stock stays on its inventory account)
+				ln.account = fp.account(ln.account)
+			}
 			if !isUUID(ln.account) {
 				return nil, badRequest("invalid_account")
 			}
@@ -927,7 +934,7 @@ func createBillTx(ctx context.Context, tx pgx.Tx, cid string, in billInput) (str
 			}
 			ln.amount = qty.Mul(price).Round(dec)
 			ln.value = ln.amount.DivRound(rate, 4) // base value, same rounding as the journal (tax excluded)
-			if ln.tax, err = loadTaxRate(ctx, tx, cid, l.TaxRateID, "purchases"); err != nil {
+			if ln.tax, err = loadTaxRate(ctx, tx, cid, fp.tax(l.TaxRateID), "purchases"); err != nil {
 				return nil, err
 			}
 			ln.taxAmount = taxOn(ln.amount, ln.tax, dec)

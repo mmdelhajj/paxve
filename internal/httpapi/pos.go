@@ -1247,6 +1247,11 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 		if walkIn && paid.LessThan(total) {
 			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "insufficient_payment", detail: total.String() + " " + g.Currency}
 		}
+		if !walkIn && in.OnAccount && paid.LessThan(total) { // the unpaid part goes on the customer's account
+			if err := checkCredit(ctx, tx, r, cid, customer, g.Currency, total.Sub(paid)); err != nil {
+				return nil, err
+			}
+		}
 		cb, _ := json.Marshal(cash)
 		var id string
 		if err := tx.QueryRow(ctx, `SELECT uuidv7()::text`).Scan(&id); err != nil {

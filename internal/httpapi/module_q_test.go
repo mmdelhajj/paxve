@@ -187,6 +187,17 @@ func seedEverything(t *testing.T, o *org) {
 	vtpl := id(step(201, "POST", "/items", map[string]any{"code": "BTPL", "name": secretB + " shirt", "kind": "stock"}), "id")
 	step(200, "PUT", "/items/"+vtpl+"/variant-setup", map[string]any{"attributes": []any{map[string]any{"name": "Size", "values": []any{"S", "M"}}}})
 	step(200, "POST", "/items/"+vtpl+"/variants/generate", map[string]any{})
+
+	// Odoo gaps: repair order, instalment plan, quotation template, fiscal position, chatter comment, activity, saved analysis
+	rep := id(step(201, "POST", "/repairs", map[string]any{"customer_id": cust, "device": secretB + " phone", "fault": secretB + " broken"}), "repair", "id")
+	step(200, "PUT", "/repairs/"+rep+"/lines", map[string]any{"lines": []any{map[string]any{"kind": "labour", "description": secretB, "quantity": "1", "unit_price": "5"}}})
+	step(201, "POST", "/instalments", map[string]any{"customer_id": cust, "currency": "USD", "months": 2, "notes": secretB,
+		"lines": []any{map[string]any{"description": secretB + " tv", "quantity": "1", "unit_price": "100"}}})
+	step(201, "POST", "/quote-templates", map[string]any{"name": secretB + " tpl", "lines": []any{}})
+	step(201, "POST", "/fiscal-positions", map[string]any{"name": secretB + " export", "kind": "export"})
+	step(201, "POST", "/chatter", map[string]any{"type": "customer", "id": cust, "body": secretB + " note"})
+	step(201, "POST", "/record-activities", map[string]any{"entity_type": "customer", "entity_id": cust, "summary": secretB + " call"})
+	step(201, "POST", "/analysis/reports", map[string]any{"name": secretB + " pivot", "spec": map[string]any{"source": "sales", "measure": "amount"}})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -273,6 +284,8 @@ var idTable = map[string]string{
 	"devices": "attendance_devices", "custom-fields": "custom_fields", "boms": "boms", "payment-gateways": "payment_gateways",
 	"payment-intents": "payment_intents", "attendance": "attendance",
 	"promotions": "promotions", "gift-cards": "gift_cards", "held": "pos_held_baskets",
+	"repairs": "repair_orders", "instalments": "instalment_plans", "quote-templates": "quote_templates", "fiscal-positions": "fiscal_positions",
+	"chatter": "record_messages", "record-activities": "record_activities", "reports": "analysis_reports",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -415,6 +428,14 @@ func sweepBody(c sweepCall, ids map[string]string) any {
 		return map[string]any{"done": true}
 	case "/tickets/{id}/notes":
 		return map[string]any{"body": "x"}
+	case "/repairs/{id}/lines":
+		return map[string]any{"lines": []any{}}
+	case "/quote-templates/{id}", "/fiscal-positions/{id}":
+		return map[string]any{"name": "x"}
+	case "/analysis/reports/{id}":
+		return map[string]any{"name": "x", "spec": map[string]any{"source": "sales", "measure": "amount"}}
+	case "/record-activities/{id}":
+		return map[string]any{"summary": "x"}
 	}
 	return map[string]any{} // PATCH routes: every field is optional
 }

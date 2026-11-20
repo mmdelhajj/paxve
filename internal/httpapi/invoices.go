@@ -156,113 +156,145 @@ func periodEnd(period string) string {
 	return t.AddDate(0, 1, -1).Format(time.DateOnly)
 }
 
-// createInvoice: a one-off invoice (installation, repair, sale…).
-func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		CustomerID       string `json:"customer_id"`
-		IssueDate        string `json:"issue_date"`
-		DueDate          string `json:"due_date"`
-		Currency         string `json:"currency"`
-		RevenueAccountID string `json:"revenue_account_id"`
-		Notes            string `json:"notes"`
-		Lines            []struct {
-			Description string `json:"description"`
-			Quantity    string `json:"quantity"`
-			UnitPrice   string `json:"unit_price"`
-			ItemID      string `json:"item_id"` // optional: sell a stock item (takes it out of stock at average cost)
-			WarehouseID string `json:"warehouse_id"`
-			TaxRateID   string `json:"tax_rate_id"`
-		} `json:"lines"`
-	}
-	if !decodeBody(w, r, &in) {
-		return
-	}
+type invoiceLineIn struct {
+	Description string `json:"description"`
+	Quantity    string `json:"quantity"`
+	UnitPrice   string `json:"unit_price"`
+	ItemID      string `json:"item_id"` // optional: sell a stock item (takes it out of stock at average cost)
+	WarehouseID string `json:"warehouse_id"`
+	TaxRateID   string `json:"tax_rate_id"`
+}
+
+type invoiceIn struct {
+	CustomerID       string          `json:"customer_id"`
+	IssueDate        string          `json:"issue_date"`
+	DueDate          string          `json:"due_date"`
+	Currency         string          `json:"currency"`
+	RevenueAccountID string          `json:"revenue_account_id"`
+	Notes            string          `json:"notes"`
+	Lines            []invoiceLineIn `json:"lines"`
+}
+
+func (in *invoiceIn) valid() bool {
 	if in.IssueDate == "" {
 		in.IssueDate = today()
 	}
-	if !validDate(in.IssueDate) || (in.DueDate != "" && (!validDate(in.DueDate) || in.DueDate < in.IssueDate)) || !currencyRe.MatchString(in.Currency) ||
-		len(in.Lines) == 0 || len(in.Lines) > 100 || (in.RevenueAccountID != "" && !isUUID(in.RevenueAccountID)) {
+	return validDate(in.IssueDate) && (in.DueDate == "" || (validDate(in.DueDate) && in.DueDate >= in.IssueDate)) && currencyRe.MatchString(in.Currency) &&
+		len(in.Lines) > 0 && len(in.Lines) <= 100 && (in.RevenueAccountID == "" || isUUID(in.RevenueAccountID))
+}
+
+// createInvoice: a one-off invoice (installation, repair, sale…).
+func (s *Server) createInvoice(w http.ResponseWriter, r *http.Request) {
+	var in invoiceIn
+	if !decodeBody(w, r, &in) {
+		return
+	}
+	if !in.valid() {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		set, err := loadBillingSettings(ctx, tx, cid)
+		id, err := createInvoiceTx(ctx, tx, r, cid, &in)
 		if err != nil {
-			return nil, err
-		}
-		name, err := lockCustomer(ctx, tx, cid, in.CustomerID)
-		if err != nil {
-			return nil, err
-		}
-		if in.DueDate == "" { // payment terms: the customer's, else the company's default (0 = due on the invoice date)
-			if err := tx.QueryRow(ctx, `SELECT ($1::date + coalesce((SELECT due_days FROM customers WHERE id = $2),
-				(SELECT default_due_days FROM companies WHERE id = $3), 0))::text`, in.IssueDate, in.CustomerID, cid).Scan(&in.DueDate); err != nil {
-				return nil, err
-			}
-		}
-		rev := in.RevenueAccountID
-		if rev == "" && set.Revenue != nil {
-			rev = *set.Revenue
-		}
-		if rev == "" {
-			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "billing_not_setup", detail: "revenue"}
-		}
-		if err := requirePostable(ctx, tx, cid, rev); err != nil {
-			return nil, err
-		}
-		dec, err := currencyDecimals(ctx, tx, in.Currency)
-		if err != nil {
-			return nil, err
-		}
-		lines := []invLine{}
-		sales := []saleLine{}
-		for _, l := range in.Lines {
-			q, ok1 := money(l.Quantity)
-			p, ok2 := money(l.UnitPrice)
-			lineRev := ""
-			var itemID, whID *string
-			if l.ItemID != "" {
-				it, err := loadItem(ctx, tx, cid, l.ItemID)
-				if err != nil {
-					return nil, err
-				}
-				if strings.TrimSpace(l.Description) == "" {
-					l.Description = it.Name
-				}
-				itemID = &it.ID
-				if (it.Kind == "stock" || it.Kind == "kit") && ok1 && q.IsPositive() { // a kit sells its components
-					wh, err := checkWarehouse(ctx, tx, cid, l.WarehouseID)
-					if err != nil {
-						return nil, err
-					}
-					whID = &wh
-					sales = append(sales, saleLine{ItemID: it.ID, WarehouseID: wh, Qty: q})
-				}
-				if it.Revenue != nil && in.RevenueAccountID == "" {
-					lineRev = *it.Revenue
-				}
-			}
-			if !ok1 || !ok2 || strings.TrimSpace(l.Description) == "" {
-				return nil, badRequest("bad_request")
-			}
-			tax, err := loadTaxRate(ctx, tx, cid, l.TaxRateID, "sales")
-			if err != nil {
-				return nil, err
-			}
-			amt := q.Mul(p).Round(dec)
-			lines = append(lines, invLine{Kind: "other", Description: strings.TrimSpace(l.Description), Quantity: q, UnitPrice: p, Amount: amt,
-				Tax: tax, TaxAmount: taxOn(amt, tax, dec), Revenue: lineRev, ItemID: itemID, WarehouseID: whID})
-		}
-		id, number, err := issueInvoice(ctx, tx, cid, set, in.CustomerID, name, nil, nil, in.IssueDate, in.DueDate, in.Currency, rev, in.Notes, lines)
-		if err != nil {
-			return nil, err
-		}
-		if err := postSaleCOGS(ctx, tx, cid, set, id, number, in.IssueDate, sales); err != nil {
 			return nil, err
 		}
 		return loadInvoice(ctx, tx, cid, id)
 	})
+}
+
+// createInvoiceTx issues a one-off invoice inside tx: customer payment terms, fiscal position (tax / account
+// mapping), credit-limit check (r == nil skips it) and stock out for stock items.
+func createInvoiceTx(ctx context.Context, tx pgx.Tx, r *http.Request, cid string, in *invoiceIn) (string, error) {
+	set, err := loadBillingSettings(ctx, tx, cid)
+	if err != nil {
+		return "", err
+	}
+	name, err := lockCustomer(ctx, tx, cid, in.CustomerID)
+	if err != nil {
+		return "", err
+	}
+	if in.DueDate == "" { // payment terms: the customer's, else the company's default (0 = due on the invoice date)
+		if err := tx.QueryRow(ctx, `SELECT ($1::date + coalesce((SELECT due_days FROM customers WHERE id = $2),
+			(SELECT default_due_days FROM companies WHERE id = $3), 0))::text`, in.IssueDate, in.CustomerID, cid).Scan(&in.DueDate); err != nil {
+			return "", err
+		}
+	}
+	fp, err := partnerFiscalPosition(ctx, tx, cid, "customers", in.CustomerID)
+	if err != nil {
+		return "", err
+	}
+	rev := in.RevenueAccountID
+	if rev == "" && set.Revenue != nil {
+		rev = *set.Revenue
+	}
+	if rev == "" {
+		return "", &apiError{status: http.StatusUnprocessableEntity, code: "billing_not_setup", detail: "revenue"}
+	}
+	rev = fp.account(rev)
+	if err := requirePostable(ctx, tx, cid, rev); err != nil {
+		return "", err
+	}
+	dec, err := currencyDecimals(ctx, tx, in.Currency)
+	if err != nil {
+		return "", err
+	}
+	lines := []invLine{}
+	sales := []saleLine{}
+	total := decimal.Zero
+	for _, l := range in.Lines {
+		q, ok1 := money(l.Quantity)
+		p, ok2 := money(l.UnitPrice)
+		lineRev := ""
+		var itemID, whID *string
+		if l.ItemID != "" {
+			it, err := loadItem(ctx, tx, cid, l.ItemID)
+			if err != nil {
+				return "", err
+			}
+			if strings.TrimSpace(l.Description) == "" {
+				l.Description = it.Name
+			}
+			itemID = &it.ID
+			if (it.Kind == "stock" || it.Kind == "kit") && ok1 && q.IsPositive() { // a kit sells its components
+				wh, err := checkWarehouse(ctx, tx, cid, l.WarehouseID)
+				if err != nil {
+					return "", err
+				}
+				whID = &wh
+				sales = append(sales, saleLine{ItemID: it.ID, WarehouseID: wh, Qty: q})
+			}
+			if it.Revenue != nil && in.RevenueAccountID == "" {
+				lineRev = fp.account(*it.Revenue)
+				if err := requirePostable(ctx, tx, cid, lineRev); err != nil {
+					return "", err
+				}
+			}
+		}
+		if !ok1 || !ok2 || strings.TrimSpace(l.Description) == "" {
+			return "", badRequest("bad_request")
+		}
+		tax, err := loadTaxRate(ctx, tx, cid, fp.tax(l.TaxRateID), "sales")
+		if err != nil {
+			return "", err
+		}
+		amt := q.Mul(p).Round(dec)
+		ta := taxOn(amt, tax, dec)
+		total = total.Add(amt).Add(ta)
+		lines = append(lines, invLine{Kind: "other", Description: strings.TrimSpace(l.Description), Quantity: q, UnitPrice: p, Amount: amt,
+			Tax: tax, TaxAmount: ta, Revenue: lineRev, ItemID: itemID, WarehouseID: whID})
+	}
+	if err := checkCredit(ctx, tx, r, cid, in.CustomerID, in.Currency, total); err != nil {
+		return "", err
+	}
+	id, number, err := issueInvoice(ctx, tx, cid, set, in.CustomerID, name, nil, nil, in.IssueDate, in.DueDate, in.Currency, rev, in.Notes, lines)
+	if err != nil {
+		return "", err
+	}
+	if err := postSaleCOGS(ctx, tx, cid, set, id, number, in.IssueDate, sales); err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 func (s *Server) listInvoices(w http.ResponseWriter, r *http.Request) {

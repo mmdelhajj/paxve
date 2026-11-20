@@ -118,22 +118,23 @@ func (s *Server) agingReport(w http.ResponseWriter, r *http.Request) {
 		bucket := `CASE WHEN $2::date - i.due_date <= 0 THEN 'current' WHEN $2::date - i.due_date <= 30 THEN 'd30'
 			WHEN $2::date - i.due_date <= 60 THEN 'd60' WHEN $2::date - i.due_date <= 90 THEN 'd90' ELSE 'over90' END`
 		sum := func(b string) string {
-			return fmt.Sprintf("coalesce(sum(i.total - i.paid) FILTER (WHERE %s = '%s'), 0)::text AS %s", bucket, b, b)
+			return fmt.Sprintf("coalesce(sum(i.balance) FILTER (WHERE %s = '%s'), 0)::text AS %s", bucket, b, b)
 		}
 		cols := strings.Join([]string{sum("current"), sum("d30"), sum("d60"), sum("d90"), sum("over90")}, ", ")
-		where := `i.company_id = $1 AND i.status IN ('open', 'partial') AND i.issue_date <= $2::date AND ($3 = '' OR c.area_id = $3::uuid)`
+		// ar_open_items: an invoice on instalments counts per instalment, each by its own due date
+		where := `i.company_id = $1 AND i.status IN ('open', 'partial') AND i.balance > 0 AND i.issue_date <= $2::date AND ($3 = '' OR c.area_id = $3::uuid)`
 		rows, err := queryJSON(ctx, tx, `
 			SELECT c.id AS customer_id, c.code, c.name, c.phone, ar.name AS area_name, i.currency, `+cols+`,
-			       sum(i.total - i.paid)::text AS total, count(*) AS invoices, min(i.due_date) AS oldest_due
-			FROM invoices i JOIN customers c ON c.id = i.customer_id LEFT JOIN areas ar ON ar.id = c.area_id
+			       sum(i.balance)::text AS total, count(DISTINCT i.id) AS invoices, min(i.due_date) AS oldest_due
+			FROM ar_open_items i JOIN customers c ON c.id = i.customer_id LEFT JOIN areas ar ON ar.id = c.area_id
 			WHERE `+where+`
 			GROUP BY c.id, c.code, c.name, c.phone, ar.name, i.currency
-			ORDER BY sum(i.total - i.paid) DESC, c.id LIMIT $4 OFFSET $5`, cid, asOf, area, limit+1, offset)
+			ORDER BY sum(i.balance) DESC, c.id LIMIT $4 OFFSET $5`, cid, asOf, area, limit+1, offset)
 		if err != nil {
 			return nil, err
 		}
-		totals, err := queryJSON(ctx, tx, `SELECT i.currency, `+cols+`, sum(i.total - i.paid)::text AS total
-			FROM invoices i JOIN customers c ON c.id = i.customer_id WHERE `+where+` GROUP BY i.currency ORDER BY i.currency`, cid, asOf, area)
+		totals, err := queryJSON(ctx, tx, `SELECT i.currency, `+cols+`, sum(i.balance)::text AS total
+			FROM ar_open_items i JOIN customers c ON c.id = i.customer_id WHERE `+where+` GROUP BY i.currency ORDER BY i.currency`, cid, asOf, area)
 		if err != nil {
 			return nil, err
 		}

@@ -65,6 +65,8 @@ var appRoutes = []struct {
 	{"/reports/ap-aging", "pur", false},
 	{"/reports/expenses", "pur", false},
 	{"/tickets", "svc", false},
+	{"/repairs", "svc", false},
+	{"/quote-templates", "crm", false},
 	{"/maintenance", "svc", false},
 	{"/message-providers", "msg", false},
 	{"/message-templates", "msg", false},

@@ -446,6 +446,9 @@ func (s *Server) StartDunningWorker(ctx context.Context) {
 				if err := s.RunLeaveAccruals(ctx); err != nil {
 					slog.Error("leave accrual worker", "err", err)
 				}
+				if err := s.RunActivityReminders(ctx); err != nil {
+					slog.Error("activity reminder worker", "err", err)
+				}
 				timer.Reset(6 * time.Hour)
 			}
 		}

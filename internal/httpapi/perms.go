@@ -27,7 +27,7 @@ var moduleActions = []struct {
 	{"customers", []string{"view", "create", "edit"}},
 	{"billing", []string{"view", "create", "void", "manage", "approve"}},
 	{"collections", []string{"view", "create", "edit", "void", "approve"}},
-	{"sales", []string{"view", "create", "void", "approve"}},
+	{"sales", []string{"view", "create", "void", "approve", "credit_override"}},
 	{"crm", []string{"view", "create", "edit", "manage"}},
 	{"service", []string{"view", "create", "edit", "manage"}},
 	{"pos", []string{"view", "create", "void", "manage", "approve"}},
@@ -78,7 +78,7 @@ var (
 		"billing.manage", "collections.edit", "collections.void", "sales.void", "crm.manage", "pos.manage",
 		"purchasing.create", "purchasing.void", "purchasing.manage", "expenses.void", "stock.void", "stock.manage",
 		"assets.create", "assets.edit", "assets.void", "payroll.view", "payroll.create", "payroll.edit", "payroll.void",
-		"bank.create", "bank.edit", "network.manage", "messaging.manage", "import.create", "audit.view", "service.manage"}
+		"bank.create", "bank.edit", "network.manage", "messaging.manage", "import.create", "audit.view", "service.manage", "sales.credit_override"}
 )
 
 var presets = func() map[string][]string {
@@ -705,6 +705,45 @@ var routePerms = map[string]string{
 	"PATCH /companies/{cid}/maintenance/tasks/{id}": "service.manage",
 	"GET /companies/{cid}/maintenance/log":          "service.view",
 	"POST /companies/{cid}/maintenance/log":         "service.create",
+	// Odoo gaps: credit limit, fiscal positions, quotation templates, instalments, chatter, activities, analysis, repairs
+	"GET /companies/{cid}/customers/{id}/credit":          "customers.view",
+	"PUT /companies/{cid}/customers/{id}/credit":          "customers.edit",
+	"GET /companies/{cid}/credit-settings":                "settings.view",
+	"PUT /companies/{cid}/credit-settings":                "settings.manage",
+	"GET /companies/{cid}/credit/report":                  "customers.view",
+	"GET /companies/{cid}/fiscal-positions":               "settings.view",
+	"POST /companies/{cid}/fiscal-positions":              "accounting.manage",
+	"PUT /companies/{cid}/fiscal-positions/{id}":          "accounting.manage",
+	"PUT /companies/{cid}/suppliers/{id}/fiscal-position": "suppliers.edit",
+	"GET /companies/{cid}/quote-templates":                "sales.view",
+	"POST /companies/{cid}/quote-templates":               "sales.create",
+	"PUT /companies/{cid}/quote-templates/{id}":           "sales.create",
+	"GET /companies/{cid}/instalments":                    "billing.view",
+	"POST /companies/{cid}/instalments":                   "billing.create",
+	"GET /companies/{cid}/instalments/{id}":               "billing.view",
+	"POST /companies/{cid}/instalments/{id}/{action}":     "billing.create",
+	"GET /companies/{cid}/chatter":                        permAny, // the record's own module permission is checked inside
+	"POST /companies/{cid}/chatter":                       permAny,
+	"DELETE /companies/{cid}/chatter/{id}":                permAny,
+	"GET /companies/{cid}/mentionable":                    permAny,
+	"GET /companies/{cid}/notifications":                  permAny, // the signed-in user's own
+	"POST /companies/{cid}/notifications/read":            permAny,
+	"GET /companies/{cid}/record-activities":              permAny, // own activities (managers: everyone's)
+	"POST /companies/{cid}/record-activities":             permAny,
+	"PATCH /companies/{cid}/record-activities/{id}":       permAny,
+	"POST /companies/{cid}/record-activities/{id}/done":   permAny,
+	"GET /companies/{cid}/analysis/sources":               permAny, // each source needs its module's view permission
+	"POST /companies/{cid}/analysis/run":                  permAny,
+	"GET /companies/{cid}/analysis/reports":               permAny,
+	"POST /companies/{cid}/analysis/reports":              permAny,
+	"PUT /companies/{cid}/analysis/reports/{id}":          permAny,
+	"GET /companies/{cid}/repairs":                        "service.view",
+	"POST /companies/{cid}/repairs":                       "service.create",
+	"GET /companies/{cid}/repairs/warranty":               "service.view",
+	"GET /companies/{cid}/repairs/{id}":                   "service.view",
+	"PATCH /companies/{cid}/repairs/{id}":                 "service.edit",
+	"PUT /companies/{cid}/repairs/{id}/lines":             "service.edit",
+	"POST /companies/{cid}/repairs/{id}/invoice":          "billing.create",
 }
 
 // permForPattern returns the permission of a mux pattern ("" when the route is not declared).

@@ -81,6 +81,14 @@ func writeOrderLines(ctx context.Context, tx pgx.Tx, cid, orderID, currency stri
 	if _, err := tx.Exec(ctx, `DELETE FROM sales_order_lines WHERE order_id = $1`, orderID); err != nil {
 		return err
 	}
+	var customer string
+	if err := tx.QueryRow(ctx, `SELECT customer_id::text FROM sales_orders WHERE id = $1`, orderID).Scan(&customer); err != nil {
+		return err
+	}
+	fp, err := partnerFiscalPosition(ctx, tx, cid, "customers", customer)
+	if err != nil {
+		return err
+	}
 	sub, taxT := decimal.Zero, decimal.Zero
 	for i, l := range lines {
 		q, ok1 := money(l.Quantity)
@@ -112,7 +120,7 @@ func writeOrderLines(ctx context.Context, tx pgx.Tx, cid, orderID, currency stri
 		if !ok1 || !ok2 || !ok3 || !q.IsPositive() || p.IsNegative() || d.IsNegative() || d.GreaterThan(decimal.NewFromInt(100)) || desc == "" {
 			return badRequest("invalid_line")
 		}
-		tax, err := loadTaxRate(ctx, tx, cid, l.TaxRateID, "sales")
+		tax, err := loadTaxRate(ctx, tx, cid, fp.tax(l.TaxRateID), "sales")
 		if err != nil {
 			return err
 		}
@@ -352,6 +360,14 @@ func (s *Server) orderAction(w http.ResponseWriter, r *http.Request) {
 			if status != "draft" && status != "sent" {
 				return nil, wrong
 			}
+			var cust, cur, tot string
+			if err := tx.QueryRow(ctx, `SELECT customer_id::text, currency::text, total::text FROM sales_orders WHERE id = $1`, id).Scan(&cust, &cur, &tot); err != nil {
+				return nil, err
+			}
+			amt, _ := decimal.NewFromString(tot)
+			if err := checkCredit(ctx, tx, r, cid, cust, cur, amt); err != nil {
+				return nil, err
+			}
 			var n int64
 			if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'sales_order')`, cid).Scan(&n); err != nil {
 				return nil, err
@@ -503,6 +519,13 @@ func (s *Server) deliverOrder(w http.ResponseWriter, r *http.Request) {
 		}
 		if status != "confirmed" {
 			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
+		}
+		var dcust string
+		if err := tx.QueryRow(ctx, `SELECT customer_id::text FROM sales_orders WHERE id = $1`, id).Scan(&dcust); err != nil {
+			return nil, err
+		}
+		if err := checkCredit(ctx, tx, r, cid, dcust, "", decimal.Zero); err != nil { // the order itself is already counted
+			return nil, err
 		}
 		set, err := loadBillingSettings(ctx, tx, cid)
 		if err != nil {
@@ -706,6 +729,13 @@ func (s *Server) invoiceOrder(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return nil, err
 		}
+		if err := checkCredit(ctx, tx, r, cid, customer, currency, decimal.Zero); err != nil { // the order is already counted
+			return nil, err
+		}
+		fp, err := partnerFiscalPosition(ctx, tx, cid, "customers", customer)
+		if err != nil {
+			return nil, err
+		}
 		revenue := ""
 		if rev != nil {
 			revenue = *rev
@@ -715,6 +745,7 @@ func (s *Server) invoiceOrder(w http.ResponseWriter, r *http.Request) {
 		if revenue == "" {
 			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "billing_not_setup", detail: "revenue"}
 		}
+		revenue = fp.account(revenue)
 		dec, err := currencyDecimals(ctx, tx, currency)
 		if err != nil {
 			return nil, err
@@ -759,7 +790,7 @@ func (s *Server) invoiceOrder(w http.ResponseWriter, r *http.Request) {
 			}
 			lineRev := ""
 			if l.revenue != nil && rev == nil {
-				lineRev = *l.revenue
+				lineRev = fp.account(*l.revenue)
 			}
 			unit := l.price
 			if !l.disc.IsZero() && q.IsPositive() {
