@@ -375,3 +375,30 @@ All under `/companies/{cid}`; app **stk** (dropship: **pur**). Bins are physical
 | POST · GET | `/wh/stops/{id}/pod` · `/wh/stops/{id}/photo` · `/wh/stops/{id}/signature` | `{status delivered\|failed, name, signature (PNG data URL), note, lat, lng}` · `{filename, data}` image |
 
 A sales order in a 2/3-step warehouse refuses `/sales/orders/{id}/deliver` (`use_warehouse_steps`) while its tasks are open.
+
+## Manufacturing pro (migration 00042)
+
+All under `/companies/{cid}`; app **mfg**. Order states: `draft → confirmed → progress → done | cancelled`.
+
+| Method | Path | Notes |
+|---|---|---|
+| POST · PUT | `/mfg/boms` · `/mfg/boms/{id}` | adds `{code, bom_type normal\|phantom\|subcontract, routing_id, subcontractor_id, subcontract_price, lead_days, version_note, byproducts [{item_id, quantity, cost_share}]}`; activating a version deactivates its family's others; a loop (`bom_cycle`) is refused |
+| POST | `/mfg/boms/{id}/new-version` · `/mfg/boms/{id}/activate` · `/mfg/boms/{id}/set-standard` | copy as next version (inactive) · make active · item standard cost = rolled-up unit cost |
+| GET | `/mfg/boms/{id}/structure?qty=` | multi-level tree: components (cost source stock\|standard\|bom), operations, by-products, `cost`, `unit_cost` |
+| POST | `/mfg/standard-cost` | `{item_id, standard_cost}` |
+| GET · POST · PATCH | `/mfg/workcenters[/{id}]` | `{code, name, capacity, hours_per_day, days_per_week, efficiency %, cost_per_hour, setup_min, notes, is_active}` |
+| GET · POST · GET · PUT | `/mfg/routings` · `/mfg/routings/{id}` | `{name, notes, is_active, operations [{name, workcenter_id, minutes (per BoM batch), instructions}]}` |
+| POST | `/mfg/orders` | adds `{deadline, origin, sales_order_id, confirm}`; phantom components are exploded |
+| POST | `/mfg/orders/{id}/confirm` · `/reserve` · `/unreserve` | confirm: work orders + checks + reservation |
+| POST | `/mfg/orders/{id}/produce` | `{date, quantity (now; less = backorder), scrap_qty, lots [{lot_no, expiry, quantity}], lines [{line_id, quantity, lots}], byproducts [{id, quantity}], bill (subcontracting, default true), supplier_ref}` → order + `backorder_id`; `quality_pending` / `components_not_sent` (409) |
+| POST | `/mfg/orders/{id}/scrap` · `/mfg/orders/{id}/send-components` | `{item_id, quantity, reason, date}` · `{date}` (subcontracting) |
+| GET | `/mfg/workorders?workcenter_id&status=open\|all\|…&order_id` · `/mfg/workorders/{id}` | with `running_since`, `worked_min`, `checks_todo`; detail adds checks, components, time logs |
+| POST | `/mfg/workorders/{id}/start` · `/pause` · `/finish` | finish `{minutes?, qty_done?}` → `all_done`; refused while a check of the work order is to do |
+| GET · POST · PATCH | `/mfg/quality-points[/{id}]` | `{name, trigger_on operation\|production\|receipt, item_id, workcenter_id, test_type passfail\|measure, norm, tol_min, tol_max, unit, instructions, is_active}` |
+| GET · POST | `/mfg/quality-checks?status&order_id&workorder_id&receipt_id` · `/mfg/quality-checks/{id}` | record `{result pass\|fail}` or `{measured}` (judged against the tolerances), `note`; a failure opens an alert |
+| GET · POST · PATCH | `/mfg/quality-alerts[?stage=open]` · `/mfg/quality-alerts/{id}` | `{title, item_id, order_id, priority 0-3, stage new\|progress\|done, root_cause, action, assigned_to}` |
+| GET · POST | `/mfg/mrp?warehouse_id` · `/mfg/mrp/run` | lines `{level, on_hand, incoming, demand, projected, min_qty, max_qty, suggest, kind mo\|po, supplier, need_date, order_date, sources}` · run `{warehouse_id, item_ids?}` → `{mos, pos, skipped}` |
+| GET | `/mfg/reports/status` · `/load?days` · `/variance?from&to` · `/shortages` | order status / late; work center load; planned vs actual vs standard; missing components |
+| GET | `/mfg/trace?q=` · `/mfg/trace?lot_id=` | lots matching · `{backward, forward}` trees (orders, lots, bills, deliveries, invoices, POS) |
+
+Accounts created on first use: production variance (5150 / 6089), subcontracting received not billed (2150 / 408).

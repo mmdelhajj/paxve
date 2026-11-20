@@ -157,9 +157,15 @@ export const RIBBON: RibbonTab[] = [
   },
   {
     id: 'mfg', label: 'fin.rib.mfg', color: '#6d4c41', app: 'mfg', tiles: [
-      { page: 'mfg', param: 'orders', label: 'fin.mfg.orders', icon: IconHammer, perm: 'stock.view' },
-      { page: 'mfg', param: 'boms', label: 'fin.mfg.boms', icon: IconListDetails, perm: 'stock.view' },
-      { page: 'mfg', param: 'scrap', label: 'fin.mfg.scrap', icon: IconPackage, perm: 'stock.manage' },
+      { page: 'mfg', param: 'orders', label: 'mf.m.orders', icon: IconHammer, perm: 'stock.view' },
+      { page: 'shopfloor', label: 'mf.t.floor', icon: IconDeviceMobileCog, perm: 'stock.view' },
+      { page: 'mfg', param: 'boms', label: 'mf.m.boms', icon: IconListDetails, perm: 'stock.view' },
+      { page: 'mfg', param: 'workcenters', label: 'mf.m.workcenters', icon: IconBuildingFactory2, perm: 'stock.view' },
+      { page: 'mfg', param: 'mrp', label: 'mf.m.mrp', icon: IconCalendarStats, perm: 'stock.view' },
+      { page: 'mfg', param: 'quality', label: 'mf.m.quality', icon: IconShieldCheck, perm: 'stock.view' },
+      { page: 'mfg', param: 'trace', label: 'mf.m.trace', icon: IconSitemap, perm: 'stock.view' },
+      { page: 'mfg', param: 'reports', label: 'mf.m.reports', icon: IconChartBar, perm: 'stock.view' },
+      { page: 'mfg', param: 'scrap', label: 'mf.m.scrap', icon: IconPackage, perm: 'stock.manage' },
     ],
   },
   {
@@ -259,7 +265,7 @@ export const RIBBON: RibbonTab[] = [
 /** Pages that are only reached from inside another page (detail screens), with the app they need. */
 export const PAGE_APP: Record<string, AppId | undefined> = {
   supplier: 'pur', item: 'stk', statement: undefined, customer: undefined, 'hr-extra': 'hr', claims: 'hr', mfg: 'mfg', 'supplier-prices': 'pur', retail: 'pos',
-  wh: 'stk', scan: 'stk', driver: undefined,
+  wh: 'stk', scan: 'stk', driver: undefined, shopfloor: 'mfg',
   gaps: undefined, // per screen: repairs need the service app (the server refuses them when it is off)
 };
 

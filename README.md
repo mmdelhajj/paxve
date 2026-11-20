@@ -153,6 +153,27 @@ stops, driver, route sheet; the driver confirms each stop from the phone with th
 place). Phone apps: `#/scan` (camera via BarcodeDetector or a Bluetooth / USB scanner; look up, receive a PO, do tasks, move,
 count a bin; moves, counts and tasks made offline are queued) and `#/driver` (also the **Deliveries** tab of the collector app).
 
+## Manufacturing pro (BoM versions, routings, work orders, MRP, quality, subcontracting, traceability)
+
+Ribbon tab **Manufacturing**. **Bills of materials** are versioned (versions of a BoM form a family; only one is active) and
+typed: *made here* (with a **routing**: operations on **work centers** with capacity, efficiency and cost per hour), *kit /
+phantom* (used as a component it is replaced by its own components) or *subcontracted* (a supplier makes it from components we
+send, at a service price). BoMs can have **by-products** with a share of the cost; the **structure** view shows the multi-level
+tree with the rolled-up cost, which can become the item's **standard cost**. **Manufacturing orders**: draft → confirmed (work
+orders created from the routing, quality checks created, components reserved without touching what other orders reserved; bins
+suggested by the warehouse's removal strategy) → in progress → done; **produce a part** and the rest becomes a **backorder**
+with its own work orders and checks; component and finished **lots / serials**; **scrap** on the order. **Costing**: components
++ work center time (actual minutes, else planned) + labour + overhead + subcontracting, less the by-products' share; an item
+with a standard cost enters stock at standard and the difference is posted to the **production variance** account.
+**Subcontracting**: components move to the subcontractor's warehouse; receiving books the service to "received not billed" and
+creates the subcontractor's bill that clears it. **MRP** per warehouse from confirmed sales orders, open orders' components and
+the reorder rules, top-down by BoM level, creates the manufacturing orders and the requests for quotation per supplier in one
+click. **Quality**: control points on an operation (per work center), on the finished product or on goods received; pass / fail
+or a measure judged against tolerances; a work order cannot finish nor an order be produced while a check is to do; a failure
+raises an **alert** followed to closure. **Traceability**: a lot or serial backward (what it is made of, which supplier) and
+forward (what was made with it, which customer). **Reports**: order status and late orders, work center load against capacity,
+cost variance (planned vs actual vs standard), missing components. **Shop floor** (`#/shopfloor`, tablet / phone): pick a work
+center, start / pause / finish with a live timer, record the checks, scrap a component.
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the

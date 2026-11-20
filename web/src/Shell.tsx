@@ -107,7 +107,6 @@ const SubsChange = lazy(() => named(import('./pages/fin/Finish'), 'SubsChange'))
 const SupplierPrices = lazy(() => named(import('./pages/fin/Finish'), 'SupplierPrices'));
 const Claims = lazy(() => named(import('./pages/fin/Finish'), 'Claims'));
 const CustomFields = lazy(() => named(import('./pages/fin/Finish'), 'CustomFields'));
-const Manufacturing = lazy(() => named(import('./pages/fin/Finish'), 'Manufacturing'));
 const HRExtra = lazy(() => named(import('./pages/fin/Finish'), 'HRExtra'));
 const OnlinePayments = lazy(() => named(import('./pages/fin/Finish'), 'OnlinePayments'));
 const EInvoice = lazy(() => named(import('./pages/fin/Finish'), 'EInvoice'));
@@ -116,6 +115,8 @@ const Gaps = lazy(() => import('./pages/gaps/Gaps'));
 const Wh = lazy(() => import('./pages/wh/Wh'));
 const WhScan = lazy(() => import('./pages/wh/Scan'));
 const WhDriver = lazy(() => import('./pages/wh/Driver'));
+const Mfg = lazy(() => import('./pages/mfg/Mfg'));
+const ShopFloor = lazy(() => import('./pages/mfg/ShopFloor'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -132,7 +133,7 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'print-bills', 'employees', 'payroll', 'assets', 'asset-register', 'recurring', 'bank-rec', 'crm', 'activities', 'quotes', 'orders',
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
-  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'my-sub', 'retail', 'gaps', 'wh', 'scan', 'driver']);
+  'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'my-sub', 'retail', 'gaps', 'wh', 'scan', 'driver', 'shopfloor']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -257,6 +258,9 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   }
 
   // full-screen modes that replace the whole shell
+  if (page === 'shopfloor') {
+    return <Suspense fallback={pageFallback}><ShopFloor me={me} onExit={() => { window.location.hash = '#/mfg/orders'; }} /></Suspense>;
+  }
   if (page === 'scan' || page === 'driver') {
     const exit = () => { window.location.hash = me.role === 'collector' ? '#/collect' : '#/wh/ops'; };
     return <Suspense fallback={pageFallback}>{page === 'scan' ? <WhScan me={me} onExit={exit} /> : <WhDriver me={me} onExit={exit} />}</Suspense>;
@@ -484,7 +488,7 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     'supplier-prices': () => <SupplierPrices me={me} />,
     claims: () => <Claims me={me} />,
     'custom-fields': () => <CustomFields me={me} />,
-    mfg: () => <Manufacturing me={me} initial={param} key={param} />,
+    mfg: () => <Mfg me={me} initial={param} key={param} />,
     retail: () => <Retail me={me} initial={param} key={param} />,
     gaps: () => <Gaps me={me} initial={param} key={param} />,
     wh: () => <Wh me={me} initial={param} key={param} />,
