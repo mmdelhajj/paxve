@@ -26,6 +26,69 @@ type retailPack struct {
 var retailPacks = []retailPack{
 	{Key: "supermarket", BusinessType: "supermarket", Apps: []string{"gen", "acc", "col", "msg", "stk", "pur", "pos", "hr", "crm"}},
 	{Key: "clothing", BusinessType: "clothing", Apps: []string{"gen", "acc", "col", "msg", "stk", "pur", "pos", "hr", "crm"}},
+	{Key: "electronics", BusinessType: "electronics", Apps: []string{"gen", "acc", "col", "msg", "stk", "pur", "pos", "hr", "crm", "svc"}},
+	{Key: "furniture", BusinessType: "furniture", Apps: []string{"gen", "acc", "col", "msg", "stk", "pur", "pos", "hr", "crm", "svc"}},
+	{Key: "wholesale", BusinessType: "wholesale", Apps: []string{"gen", "acc", "col", "msg", "stk", "pur", "pos", "hr", "crm"}},
+	{Key: "restaurant", BusinessType: "restaurant", Apps: []string{"gen", "acc", "col", "msg", "stk", "pur", "pos", "hr"}},
+	{Key: "pharmacy", BusinessType: "pharmacy", Apps: []string{"gen", "acc", "col", "msg", "stk", "pur", "pos", "hr", "crm"}},
+	{Key: "factory", BusinessType: "factory", Apps: []string{"gen", "acc", "col", "msg", "stk", "pur", "mfg", "hr", "crm"}},
+}
+
+// packDefaults: the settings each business pack turns on (idempotent: applying a pack again changes nothing more).
+func packDefaults(ctx context.Context, tx pgx.Tx, cid, key string) error {
+	exec := func(q string, args ...any) error {
+		_, err := tx.Exec(ctx, q, append([]any{cid}, args...)...)
+		return err
+	}
+	switch key {
+	case "supermarket", "clothing", "electronics", "pharmacy":
+		if err := exec(`INSERT INTO loyalty_programs (company_id, is_active, earn_per, point_value, min_redeem, tiers)
+			VALUES ($1, true, 1, 0.01, 100, '[{"name": "Silver", "min_points": 0, "multiplier": 1}, {"name": "Gold", "min_points": 2000, "multiplier": 1.5}]')
+			ON CONFLICT (company_id) DO NOTHING`); err != nil {
+			return err
+		}
+	}
+	if key == "furniture" || key == "wholesale" { // the main warehouse comes first (a van / showroom is never the default)
+		if _, err := defaultWarehouse(ctx, tx, cid); err != nil {
+			return err
+		}
+	}
+	switch key {
+	case "pharmacy": // FEFO with expired lots blocked, alerts 90 days before expiry
+		return exec(`UPDATE companies SET block_expired = true WHERE id = $1`)
+	case "furniture": // 30 % deposit and a showroom warehouse
+		if err := exec(`UPDATE companies SET deposit_pct = CASE WHEN deposit_pct = 0 THEN 30 ELSE deposit_pct END WHERE id = $1`); err != nil {
+			return err
+		}
+		return exec(`INSERT INTO warehouses (company_id, name, is_showroom)
+			SELECT $1, 'Showroom', true WHERE NOT EXISTS (SELECT 1 FROM warehouses WHERE company_id = $1 AND is_showroom)
+			ON CONFLICT (tenant_id, company_id, name) DO UPDATE SET is_showroom = true`)
+	case "wholesale": // sell on account with the credit limit enforced, 30 days terms, one van
+		if err := exec(`UPDATE companies SET credit_policy = 'block', default_due_days = CASE WHEN coalesce(default_due_days, 0) = 0 THEN 30 ELSE default_due_days END
+			WHERE id = $1`); err != nil {
+			return err
+		}
+		return exec(`INSERT INTO warehouses (company_id, name, is_van)
+			SELECT $1, 'Van 1', true WHERE NOT EXISTS (SELECT 1 FROM warehouses WHERE company_id = $1 AND is_van)
+			ON CONFLICT (tenant_id, company_id, name) DO UPDATE SET is_van = true`)
+	case "restaurant": // tables and the usual modifiers
+		if err := exec(`INSERT INTO rest_tables (company_id, name, area, seats, x, y)
+			SELECT $1, 'T' || n, CASE WHEN n <= 6 THEN 'Hall' ELSE 'Terrace' END, CASE WHEN n % 3 = 0 THEN 6 ELSE 4 END, ((n - 1) % 4) * 25, ((n - 1) / 4) * 30
+			FROM generate_series(1, 10) n WHERE NOT EXISTS (SELECT 1 FROM rest_tables WHERE company_id = $1)`); err != nil {
+			return err
+		}
+		return exec(`INSERT INTO rest_modifiers (company_id, name, name_i18n, grp, price, sort)
+			SELECT $1, m.name, jsonb_build_object('ar', m.ar), m.grp, m.price, m.sort FROM (VALUES
+			  ('Extra cheese', 'جبنة إضافية', 'Extras', 1.0, 1), ('Extra sauce', 'صلصة إضافية', 'Extras', 0.5, 2),
+			  ('No onion', 'بدون بصل', 'Without', 0, 3), ('No garlic', 'بدون ثوم', 'Without', 0, 4),
+			  ('Spicy', 'حار', 'Taste', 0, 5), ('Large', 'كبير', 'Size', 1.5, 6)) AS m(name, ar, grp, price, sort)
+			WHERE NOT EXISTS (SELECT 1 FROM rest_modifiers WHERE company_id = $1)`)
+	case "factory": // the usual work centers
+		return exec(`INSERT INTO mfg_workcenters (company_id, code, name, cost_per_hour)
+			SELECT $1, w.code, w.name, w.cost FROM (VALUES ('CUT', 'Cutting', 12.0), ('ASM', 'Assembly', 10.0), ('PNT', 'Painting', 9.0)) AS w(code, name, cost)
+			WHERE NOT EXISTS (SELECT 1 FROM mfg_workcenters WHERE company_id = $1)`)
+	}
+	return nil
 }
 
 func (s *Server) listPacks(w http.ResponseWriter, r *http.Request) {
@@ -79,10 +142,7 @@ func (s *Server) applyPack(w http.ResponseWriter, r *http.Request) {
 		if _, err := tx.Exec(ctx, `UPDATE companies SET apps = $2, business_type = $3, pack = $4 WHERE id = $1`, cid, apps, pk.BusinessType, pk.Key); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO loyalty_programs (company_id, is_active, earn_per, point_value, min_redeem, tiers)
-			VALUES ($1, true, 1, 0.01, 100, '[{"name": "Silver", "min_points": 0, "multiplier": 1}, {"name": "Gold", "min_points": 2000, "multiplier": 1.5}]')
-			ON CONFLICT (company_id) DO NOTHING`, cid)
-		return err
+		return packDefaults(ctx, tx, cid, pk.Key)
 	})
 	forgetApps(cid)
 	if err == pgx.ErrNoRows {
@@ -263,12 +323,34 @@ func (s *Server) packDemo(r *http.Request, cid, key string) (map[string]any, err
 			"value": "10", "min_amount": "100", "currency": base})
 		out["variants"] = variants
 		out["items"] = len(ids) + 2
+	default:
+		vout, verr := s.verticalDemo(r, cid, key, base, step, id, cats, func(c map[string]string, list []demoItem) map[string]string {
+			conv := make([]it, len(list))
+			for i, x := range list {
+				conv[i] = it{code: x.code, name: x.name, ar: x.ar, cat: x.cat, unit: x.unit, price: x.price, cost: x.cost, qty: x.qty}
+			}
+			return addItems(c, conv)
+		}, sql, &stock)
+		if verr != nil && err == nil {
+			err = verr
+		}
+		for k, v := range vout {
+			out[k] = v
+		}
 	}
+	// stock lines with nothing to bring in (made to order, recipes, trade-in items) are dropped
+	kept := stock[:0]
+	for _, l := range stock {
+		if q, _ := l["quantity"].(string); q != "" && q != "0" {
+			kept = append(kept, l)
+		}
+	}
+	stock = kept
 	// opening stock through a supplier bill, then a till
 	if len(stock) > 0 && sup != "" {
 		step(s.createBill, nil, map[string]any{"supplier_id": sup, "supplier_ref": "DEMO-1", "currency": base, "lines": stock})
 	}
-	if len(methods) > 0 {
+	if len(methods) > 0 && key != "factory" {
 		var n int
 		_ = db.InTenant(ctx, s.Pool, scope(r), func(tx pgx.Tx) error {
 			return tx.QueryRow(ctx, `SELECT count(*) FROM pos_registers WHERE company_id = $1`, cid).Scan(&n)

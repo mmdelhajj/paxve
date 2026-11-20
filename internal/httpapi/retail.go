@@ -43,6 +43,9 @@ func ensureRetailAccount(ctx context.Context, tx pgx.Tx, cid, col string) (strin
 		"gift_liability_account_id":    {"liability", "ap_account_id", "Gift cards and vouchers", "بطاقات الهدايا والقسائم", "Cartes cadeaux et bons", []string{"4196", "2410", "2450"}},
 		"loyalty_liability_account_id": {"liability", "ap_account_id", "Loyalty points to redeem", "نقاط الولاء المستحقة", "Points de fidélité à utiliser", []string{"4197", "2420", "2460"}},
 		"loyalty_expense_account_id":   {"expense", "default_expense_account_id", "Loyalty and promotions", "مصاريف الولاء والعروض", "Fidélité et promotions", []string{"6238", "6950", "6960"}},
+		"tips_liability_account_id":    {"liability", "ap_account_id", "Tips owed to staff", "إكراميات مستحقة للموظفين", "Pourboires dus au personnel", []string{"4198", "2430", "2470"}},
+		"tradein_account_id":           {"liability", "ap_account_id", "Trade-ins clearing", "حساب وسيط للأجهزة المستبدلة", "Reprises (compte d'attente)", []string{"4199", "2440", "2480"}},
+		"insurance_account_id":         {"asset", "ar_account_id", "Insurance claims receivable", "مطالبات التأمين المستحقة", "Créances sur assurances", []string{"4118", "1250", "1260"}},
 	}
 	sp, ok := specs[col]
 	if !ok {
@@ -92,8 +95,13 @@ func ensureSystemMethod(ctx context.Context, tx pgx.Tx, cid, kind, cur string) (
 		return id, err
 	}
 	col, name := "gift_liability_account_id", "Gift card "+cur
-	if kind == "loyalty" {
+	switch kind {
+	case "loyalty":
 		col, name = "loyalty_liability_account_id", "Loyalty points "+cur
+	case "tradein":
+		col, name = "tradein_account_id", "Trade-in "+cur
+	case "insurance":
+		col, name = "insurance_account_id", "Insurance "+cur
 	}
 	acc, err := ensureRetailAccount(ctx, tx, cid, col)
 	if err != nil {

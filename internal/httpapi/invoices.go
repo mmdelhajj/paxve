@@ -100,11 +100,11 @@ func issueInvoiceFor(ctx context.Context, tx pgx.Tx, cid string, set *billingSet
 	localCur, localRate, localTotal := localSnapshot(ctx, tx, cid, set, currency, issue, total)
 	var id string
 	if err := tx.QueryRow(ctx, `INSERT INTO invoices (company_id, number, customer_id, subscription_id, period, issue_date, due_date,
-		currency, total, journal_entry_id, notes, local_currency, local_rate, local_currency_total, sales_order_id, external_ref)
-		VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9::numeric, $10, $11, $12, $13::numeric, $14::numeric, $15, nullif($16, ''))
+		currency, total, journal_entry_id, notes, local_currency, local_rate, local_currency_total, sales_order_id, external_ref, salesman_id)
+		VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, $8, $9::numeric, $10, $11, $12, $13::numeric, $14::numeric, $15, nullif($16, ''), nullif($17, '')::uuid)
 		RETURNING id::text`,
 		cid, number, customerID, subscriptionID, period, issue, due, currency, total.String(), je, notes,
-		localCur, localRate, localTotal, salesOrderID, externalRef(ctx)).Scan(&id); err != nil {
+		localCur, localRate, localTotal, salesOrderID, externalRef(ctx), ctxSalesman(ctx)).Scan(&id); err != nil {
 		return "", 0, err
 	}
 	for i, l := range lines {
@@ -151,18 +151,27 @@ func withExternalRef(ctx context.Context, ref string) context.Context {
 }
 func externalRef(ctx context.Context) string { v, _ := ctx.Value(extRefKey{}).(string); return v }
 
+// salesman: the user credited with the sale (van sales, commission), stored with the invoice created under ctx.
+type salesmanKey struct{}
+
+func withSalesman(ctx context.Context, user string) context.Context {
+	return context.WithValue(ctx, salesmanKey{}, user)
+}
+func ctxSalesman(ctx context.Context) string { v, _ := ctx.Value(salesmanKey{}).(string); return v }
+
 func periodEnd(period string) string {
 	t, _ := time.Parse("2006-01", period)
 	return t.AddDate(0, 1, -1).Format(time.DateOnly)
 }
 
 type invoiceLineIn struct {
-	Description string `json:"description"`
-	Quantity    string `json:"quantity"`
-	UnitPrice   string `json:"unit_price"`
-	ItemID      string `json:"item_id"` // optional: sell a stock item (takes it out of stock at average cost)
-	WarehouseID string `json:"warehouse_id"`
-	TaxRateID   string `json:"tax_rate_id"`
+	Description string   `json:"description"`
+	Quantity    string   `json:"quantity"`
+	UnitPrice   string   `json:"unit_price"`
+	ItemID      string   `json:"item_id"` // optional: sell a stock item (takes it out of stock at average cost)
+	WarehouseID string   `json:"warehouse_id"`
+	TaxRateID   string   `json:"tax_rate_id"`
+	Lots        []lotQty `json:"lots"` // lots / serial numbers sold (tracked items); none = FEFO / oldest first
 }
 
 type invoiceIn struct {
@@ -242,11 +251,18 @@ func createInvoiceTx(ctx context.Context, tx pgx.Tx, r *http.Request, cid string
 	lines := []invLine{}
 	sales := []saleLine{}
 	total := decimal.Zero
+	cogsCtx := ctx
 	for _, l := range in.Lines {
 		q, ok1 := money(l.Quantity)
 		p, ok2 := money(l.UnitPrice)
 		lineRev := ""
 		var itemID, whID *string
+		if len(l.Lots) > 0 {
+			if l.ItemID == "" || len(l.Lots) > 200 {
+				return "", badRequest("invalid_lot")
+			}
+			cogsCtx = withLots(cogsCtx, l.ItemID, append(ctxLots(cogsCtx, l.ItemID), l.Lots...))
+		}
 		if l.ItemID != "" {
 			it, err := loadItem(ctx, tx, cid, l.ItemID)
 			if err != nil {
@@ -291,7 +307,7 @@ func createInvoiceTx(ctx context.Context, tx pgx.Tx, r *http.Request, cid string
 	if err != nil {
 		return "", err
 	}
-	if err := postSaleCOGS(ctx, tx, cid, set, id, number, in.IssueDate, sales); err != nil {
+	if err := postSaleCOGS(cogsCtx, tx, cid, set, id, number, in.IssueDate, sales); err != nil {
 		return "", err
 	}
 	return id, nil

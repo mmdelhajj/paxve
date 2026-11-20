@@ -228,12 +228,19 @@ func lotsIn(ctx context.Context, tx pgx.Tx, cid, moveID, item, wh, tracking, dat
 }
 
 // lotsOut takes the given lots, or the first to expire first (FEFO), then the oldest.
-func lotsOut(ctx context.Context, tx pgx.Tx, cid, moveID, item, wh string, qty decimal.Decimal) error {
+func lotsOut(ctx context.Context, tx pgx.Tx, cid, moveID, item, wh string, qty decimal.Decimal, source string) error {
 	type pick struct {
 		id, no, exp string
 		q           decimal.Decimal
 	}
 	picks := []pick{}
+	// pharmacies: an expired lot is never sold or used (it can still be scrapped, counted or sent back)
+	blockExpired := false
+	if src := source; src == "sale" || src == "pos" || src == "delivery" || src == "mfg_out" {
+		if err := tx.QueryRow(ctx, `SELECT block_expired FROM companies WHERE id = $1`, cid).Scan(&blockExpired); err != nil {
+			return err
+		}
+	}
 	if want := ctxLots(ctx, item); len(want) > 0 {
 		for _, l := range want {
 			var p pick
@@ -246,13 +253,17 @@ func lotsOut(ctx context.Context, tx pgx.Tx, cid, moveID, item, wh string, qty d
 				}
 				return err
 			}
+			if blockExpired && p.exp != "" && p.exp < today() {
+				return &apiError{status: http.StatusUnprocessableEntity, code: "lot_expired", detail: p.no}
+			}
 			p.q = l.Qty
 			picks = append(picks, p)
 		}
 	} else {
 		rows, err := tx.Query(ctx, `SELECT l.id::text, l.lot_no, coalesce(l.expiry::text, ''), lq.quantity::text FROM stock_lot_qty lq
 			JOIN stock_lots l ON l.id = lq.lot_id WHERE l.item_id = $1 AND lq.warehouse_id = $2 AND lq.quantity > 0
-			ORDER BY l.expiry NULLS LAST, l.created_at, l.lot_no`, item, wh)
+			  AND (NOT $3 OR l.expiry IS NULL OR l.expiry >= current_date)
+			ORDER BY l.expiry NULLS LAST, l.created_at, l.lot_no`, item, wh, blockExpired)
 		if err != nil {
 			return err
 		}
@@ -277,6 +288,9 @@ func lotsOut(ctx context.Context, tx pgx.Tx, cid, moveID, item, wh string, qty d
 			left = left.Sub(take)
 		}
 		if left.IsPositive() {
+			if blockExpired {
+				return &apiError{status: http.StatusUnprocessableEntity, code: "lot_insufficient", detail: "expired_blocked"}
+			}
 			return &apiError{status: http.StatusUnprocessableEntity, code: "lot_insufficient"}
 		}
 	}
@@ -322,7 +336,7 @@ func stockHooks(ctx context.Context, tx pgx.Tx, cid, moveID, item, wh string, qt
 		if qty.IsPositive() {
 			return lotsIn(ctx, tx, cid, moveID, item, wh, tracking, date, qty)
 		}
-		return lotsOut(ctx, tx, cid, moveID, item, wh, qty.Neg())
+		return lotsOut(ctx, tx, cid, moveID, item, wh, qty.Neg(), source)
 	}
 	return nil
 }
@@ -853,21 +867,31 @@ func (s *Server) postStockCount(w http.ResponseWriter, r *http.Request) {
 		if status != "draft" {
 			return nil, &apiError{status: http.StatusConflict, code: "wrong_status"}
 		}
+		if err := postCountTx(ctx, tx, cid, id, wh, date, number); err != nil {
+			return nil, err
+		}
+		return loadStockCount(ctx, tx, cid, id)
+	})
+}
+
+// postCountTx books the differences of draft count id (warehouse wh) and marks it posted.
+func postCountTx(ctx context.Context, tx pgx.Tx, cid, id, wh, date string, number int64) error {
+	{
 		set, err := loadBillingSettings(ctx, tx, cid)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		ps, err := loadPurchSettings(ctx, tx, cid)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if ps.Adjust == nil {
-			return nil, notSetup("stock_adjust")
+			return notSetup("stock_adjust")
 		}
 		rows, err := tx.Query(ctx, `SELECT item_id::text, (counted - expected)::text FROM stock_count_lines
 			WHERE count_id = $1 AND counted IS NOT NULL AND counted <> expected`, id)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		type diff struct {
 			item string
@@ -881,7 +905,7 @@ func (s *Server) postStockCount(w http.ResponseWriter, r *http.Request) {
 			return x, err
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 		type mv struct {
 			it         *itemInfo
@@ -894,20 +918,20 @@ func (s *Server) postStockCount(w http.ResponseWriter, r *http.Request) {
 		for _, d := range diffs {
 			it, err := loadItem(ctx, tx, cid, d.item)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			have, avg, err := lockStock(ctx, tx, it.ID, wh)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			var value decimal.Decimal
 			if d.d.IsNegative() {
 				q := d.d.Neg()
 				if have.LessThan(q) {
-					return nil, insufficientStock(it.Name, have)
+					return insufficientStock(it.Name, have)
 				}
 				if value, err = outValue(ctx, tx, it.ID, wh, have, avg, q); err != nil {
-					return nil, err
+					return err
 				}
 				jl = append(jl, jline{Account: *ps.Adjust, Desc: it.Name, Currency: set.Base, Debit: value, Rate: "1"},
 					jline{Account: *it.Inventory, Desc: it.Name, Currency: set.Base, Credit: value, Rate: "1"})
@@ -922,7 +946,7 @@ func (s *Server) postStockCount(w http.ResponseWriter, r *http.Request) {
 		if len(jl) > 0 {
 			e, err := postJournal(ctx, tx, cid, set, date, memo, fmt.Sprintf("CNT-%d", number), "stock", jl)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			je = &e
 		}
@@ -933,14 +957,14 @@ func (s *Server) postStockCount(w http.ResponseWriter, r *http.Request) {
 				err = stockIn(ctx, tx, cid, m.it.ID, wh, m.qty, m.value, date, "count", id, je, memo)
 			}
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 		if _, err := tx.Exec(ctx, `UPDATE stock_counts SET status = 'posted', posted_at = now(), journal_entry_id = $2 WHERE id = $1`, id, je); err != nil {
-			return nil, err
+			return err
 		}
-		return loadStockCount(ctx, tx, cid, id)
-	})
+		return nil
+	}
 }
 
 // POST /stock/counts/{id}/cancel (draft only)

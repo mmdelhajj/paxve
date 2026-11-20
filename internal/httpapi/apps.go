@@ -36,6 +36,11 @@ var appRoutes = []struct {
 	{"/retail/expiry", "stk", false},
 	{"/retail/", "pos", false},
 	{"/reports/retail", "pos", false},
+	{"/rest/", "pos", false},   // restaurant: tables, checks, kitchen display
+	{"/pharma/", "stk", false}, // pharmacy: drug search, expiry, controlled register, insurance claims
+	{"/van/", "stk", false},    // wholesale: routes, vans, commission
+	{"/furn/", "crm", false},   // furniture: configurator, deposits, delivery + assembly
+	{"/verticals/", "stk", true},
 	{"/employees", "hr", false},
 	{"/payroll", "hr", false},
 	{"/hr/", "hr", false},
@@ -193,7 +198,8 @@ func (s *Server) updateApps(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if in.BusinessType != nil && !slices.Contains([]string{"generator", "internet", "satellite", "water", "supermarket", "clothing"}, *in.BusinessType) {
+	if in.BusinessType != nil && !slices.Contains([]string{"generator", "internet", "satellite", "water", "supermarket", "clothing", "electronics", "furniture",
+		"wholesale", "restaurant", "pharmacy", "factory"}, *in.BusinessType) {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/shopspring/decimal"
 )
 
 // Void of fuel / adjustment documents, warehouse transfers and the stock movements report.
@@ -92,23 +93,38 @@ func (s *Server) createStockTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 	cid := r.PathValue("cid")
 	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
-		var locked bool
-		if err := tx.QueryRow(ctx, `SELECT coalesce(lock_date >= $2::date, false) FROM companies WHERE id = $1`, cid, in.Date).Scan(&locked); err != nil {
-			return nil, err
-		}
-		if locked {
-			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "period_locked"}
-		}
-		it, err := loadItem(ctx, tx, cid, in.ItemID)
+		id, err := transferTx(ctx, tx, cid, in.ItemID, in.From, in.To, qty, in.Date, in.Notes)
 		if err != nil {
 			return nil, err
 		}
+		return queryJSONOne(ctx, tx, `SELECT `+transferCols+transferFrom+` WHERE t.id = $1`, id)
+	})
+}
+
+// transferTx moves qty of an item between two warehouses of the company (value and lots follow).
+func transferTx(ctx context.Context, tx pgx.Tx, cid, item, from, to string, qty decimal.Decimal, date, notes string) (string, error) {
+	in := struct{ ItemID, From, To, Date, Notes string }{item, from, to, date, notes}
+	{
+		var locked bool
+		if err := tx.QueryRow(ctx, `SELECT coalesce(lock_date >= $2::date, false) FROM companies WHERE id = $1`, cid, in.Date).Scan(&locked); err != nil {
+			return "", err
+		}
+		if locked {
+			return "", &apiError{status: http.StatusUnprocessableEntity, code: "period_locked"}
+		}
+		it, err := loadItem(ctx, tx, cid, in.ItemID)
+		if err != nil {
+			return "", err
+		}
 		if it.Kind != "stock" {
-			return nil, badRequest("not_stock_item")
+			return "", badRequest("not_stock_item")
+		}
+		if in.From == in.To {
+			return "", badRequest("bad_request")
 		}
 		for _, wh := range []string{in.From, in.To} {
 			if _, err := checkWarehouse(ctx, tx, cid, wh); err != nil {
-				return nil, err
+				return "", err
 			}
 		}
 		// lock both stock rows in a fixed order (two opposite transfers at once cannot deadlock)
@@ -117,32 +133,32 @@ func (s *Server) createStockTransfer(w http.ResponseWriter, r *http.Request) {
 			first, second = second, first
 		}
 		if _, _, err := lockStock(ctx, tx, it.ID, first); err != nil {
-			return nil, err
+			return "", err
 		}
 		if _, _, err := lockStock(ctx, tx, it.ID, second); err != nil {
-			return nil, err
+			return "", err
 		}
 		have, avg, err := lockStock(ctx, tx, it.ID, in.From)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		if have.LessThan(qty) {
-			return nil, insufficientStock(it.Name, have)
+			return "", insufficientStock(it.Name, have)
 		}
 		value, err := outValue(ctx, tx, it.ID, in.From, have, avg, qty)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		var number int64
 		if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'stock_transfer')`, cid).Scan(&number); err != nil {
-			return nil, err
+			return "", err
 		}
 		var id string
 		notes := strings.TrimSpace(in.Notes)
 		if err := tx.QueryRow(ctx, `INSERT INTO stock_transfers (company_id, number, transfer_date, item_id, from_warehouse, to_warehouse, quantity, value, notes)
 			VALUES ($1, $2, $3::date, $4, $5, $6, $7::numeric, $8::numeric, $9) RETURNING id::text`,
 			cid, number, in.Date, it.ID, in.From, in.To, qty.String(), value.String(), notes).Scan(&id); err != nil {
-			return nil, err
+			return "", err
 		}
 		memo := fmt.Sprintf("Transfer #%d", number)
 		if notes != "" {
@@ -150,13 +166,13 @@ func (s *Server) createStockTransfer(w http.ResponseWriter, r *http.Request) {
 		}
 		lctx := withLotCarry(ctx) // the lots taken out arrive in the other warehouse
 		if err := stockOut(lctx, tx, cid, it.ID, in.From, qty, avg, value, in.Date, "transfer", id, nil, memo); err != nil {
-			return nil, err
+			return "", err
 		}
 		if err := stockIn(lctx, tx, cid, it.ID, in.To, qty, value, in.Date, "transfer", id, nil, memo); err != nil {
-			return nil, err
+			return "", err
 		}
-		return queryJSONOne(ctx, tx, `SELECT `+transferCols+transferFrom+` WHERE t.id = $1`, id)
-	})
+		return id, nil
+	}
 }
 
 func (s *Server) listStockTransfers(w http.ResponseWriter, r *http.Request) {

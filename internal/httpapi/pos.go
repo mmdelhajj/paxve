@@ -392,7 +392,8 @@ func (s *Server) posCatalog(w http.ResponseWriter, r *http.Request) {
 		rows, err := tx.Query(ctx, `SELECT it.id::text, it.code, it.name, it.name_i18n::text, it.kind, it.unit, it.barcode,
 			it.category_id::text, it.image, ip.price::text, it.sale_price::text, coalesce(it.sale_currency, $3)::text,
 			t.id::text, trim_scale(t.rate)::text, t.name, coalesce(st.quantity, 0)::text,
-			it.template_id::text, it.variant_values::text, it.sold_by_weight, it.plu, it.brand
+			it.template_id::text, it.variant_values::text, it.sold_by_weight, it.plu, it.brand, it.tracking, it.rx_required, it.controlled,
+			it.kitchen_station, it.active_ingredient
 			FROM items it
 			LEFT JOIN item_prices ip ON ip.item_id = it.id AND ip.currency = $2
 			LEFT JOIN tax_rates t ON t.id = it.sale_tax_rate_id AND t.is_active AND t.applies_to IN ('sales', 'both')
@@ -422,6 +423,11 @@ func (s *Server) posCatalog(w http.ResponseWriter, r *http.Request) {
 			ByWeight   bool            `json:"sold_by_weight"`
 			PLU        *int            `json:"plu"`
 			Brand      string          `json:"brand"`
+			Tracking   string          `json:"tracking"`
+			Rx         bool            `json:"rx_required"`
+			Controlled bool            `json:"controlled"`
+			Station    string          `json:"kitchen_station"`
+			Ingredient string          `json:"active_ingredient"`
 		}
 		items := []item{}
 		type raw struct {
@@ -435,7 +441,8 @@ func (s *Server) posCatalog(w http.ResponseWriter, r *http.Request) {
 			var x raw
 			if err := rows.Scan(&x.it.ID, &x.it.Code, &x.it.Name, &x.i18n, &x.it.Kind, &x.it.Unit, &x.it.Barcode, &x.it.CategoryID,
 				&x.it.Image, &x.list, &x.sale, &x.saleCur, &x.it.TaxID, &x.it.TaxRate, &x.it.TaxName, &x.it.Stock,
-				&x.it.TemplateID, &x.variant, &x.it.ByWeight, &x.it.PLU, &x.it.Brand); err != nil {
+				&x.it.TemplateID, &x.variant, &x.it.ByWeight, &x.it.PLU, &x.it.Brand, &x.it.Tracking, &x.it.Rx, &x.it.Controlled, &x.it.Station,
+				&x.it.Ingredient); err != nil {
 				rows.Close()
 				return nil, err
 			}
@@ -832,70 +839,130 @@ func (s *Server) closeSession(w http.ResponseWriter, r *http.Request) {
 // ---------------- orders ----------------
 
 type posLineIn struct {
-	ItemID      string `json:"item_id"`
-	Quantity    string `json:"quantity"`
-	UnitPrice   string `json:"unit_price"`   // "" = catalog price (changing it needs price-edit rights)
-	DiscountPct string `json:"discount_pct"` // 0..100 (needs price-edit rights)
+	ItemID      string   `json:"item_id"`
+	Quantity    string   `json:"quantity"`
+	UnitPrice   string   `json:"unit_price"`   // "" = catalog price (changing it needs price-edit rights)
+	DiscountPct string   `json:"discount_pct"` // 0..100 (needs price-edit rights)
+	Serials     []string `json:"serials"`      // serial / IMEI numbers sold (serial-tracked items: one per unit)
+	Note        string   `json:"note"`         // shown on the line (restaurant modifiers, size…)
+	trusted     bool     // price set by the server (restaurant check with modifiers): no price-edit right needed
+}
+
+type tradeInIn struct {
+	ItemID string `json:"item_id"` // the used item taken back (a stock item)
+	Serial string `json:"serial"`
+	Value  string `json:"value"` // agreed value, in the till's currency
+	Note   string `json:"note"`
+}
+
+type rxIn struct {
+	Doctor  string `json:"doctor"`
+	Patient string `json:"patient"`
+	Number  string `json:"number"`
+	Date    string `json:"date"`
+}
+
+type insuranceIn struct {
+	InsurerID string `json:"insurer_id"` // the insurance company (a customer)
+	Pct       string `json:"pct"`        // share paid by the insurer (0..100), or
+	Amount    string `json:"amount"`     // a fixed amount in the till's currency
+	PolicyNo  string `json:"policy_no"`
+	Patient   string `json:"patient"`
+}
+
+type posOrderIn struct {
+	ClientRef      string       `json:"client_ref"`
+	ClientTime     string       `json:"client_time"`
+	SessionID      string       `json:"session_id"`
+	CustomerID     string       `json:"customer_id"` // "" = the register's walk-in customer
+	Lines          []posLineIn  `json:"lines"`
+	Tenders        []tenderIn   `json:"tenders"`
+	ChangeMethodID string       `json:"change_method_id"`
+	OnAccount      bool         `json:"on_account"` // named customer: the unpaid part stays on their account
+	Notes          string       `json:"notes"`
+	ApplyPromos    bool         `json:"apply_promos"` // apply the active promotions (the till showed them)
+	Coupon         string       `json:"coupon"`
+	GiftSold       []giftIn     `json:"gift_sold"`      // gift cards sold in this sale
+	GiftRedeem     []giftIn     `json:"gift_redeem"`    // gift cards used to pay
+	RedeemPoints   string       `json:"redeem_points"`  // loyalty points used to pay (named customer)
+	TradeIn        []tradeInIn  `json:"trade_in"`       // used devices taken as part payment (electronics)
+	Rx             *rxIn        `json:"rx"`             // prescription (pharmacy; required for prescription / controlled items)
+	Insurance      *insuranceIn `json:"insurance"`      // insurer's share (pharmacy): booked as an insurance receivable + claim
+	ServiceCharge  bool         `json:"service_charge"` // add the company's service charge % (restaurant)
+	Tip            string       `json:"tip"`            // tip for the staff (a liability, not revenue)
+	checkID, table string       // restaurant check paid by this sale
+}
+
+func (in *posOrderIn) valid() bool {
+	in.ClientRef = strings.TrimSpace(in.ClientRef)
+	if in.Rx != nil && (len(in.Rx.Doctor) > 120 || len(in.Rx.Patient) > 120 || len(in.Rx.Number) > 60 || (in.Rx.Date != "" && !validDate(in.Rx.Date))) {
+		return false
+	}
+	if in.Insurance != nil && (!isUUID(in.Insurance.InsurerID) || len(in.Insurance.PolicyNo) > 60 || len(in.Insurance.Patient) > 120) {
+		return false
+	}
+	for _, l := range in.Lines {
+		if len(l.Serials) > 100 || len(l.Note) > 200 {
+			return false
+		}
+	}
+	return isUUID(in.SessionID) && len(in.Lines)+len(in.GiftSold) > 0 && len(in.Lines) <= 200 && len(in.Tenders) <= 10 && len(in.GiftSold) <= 10 &&
+		len(in.GiftRedeem) <= 5 && len(in.Coupon) <= 32 && len(in.TradeIn) <= 5 &&
+		(in.CustomerID == "" || isUUID(in.CustomerID)) && (in.ChangeMethodID == "" || isUUID(in.ChangeMethodID)) &&
+		(in.ClientRef == "" || (len(in.ClientRef) >= 8 && len(in.ClientRef) <= 64)) && len(in.Notes) <= 500
 }
 
 func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		ClientRef      string      `json:"client_ref"`
-		ClientTime     string      `json:"client_time"`
-		SessionID      string      `json:"session_id"`
-		CustomerID     string      `json:"customer_id"` // "" = the register's walk-in customer
-		Lines          []posLineIn `json:"lines"`
-		Tenders        []tenderIn  `json:"tenders"`
-		ChangeMethodID string      `json:"change_method_id"`
-		OnAccount      bool        `json:"on_account"` // named customer: the unpaid part stays on their account
-		Notes          string      `json:"notes"`
-		ApplyPromos    bool        `json:"apply_promos"` // apply the active promotions (the till showed them)
-		Coupon         string      `json:"coupon"`
-		GiftSold       []giftIn    `json:"gift_sold"`     // gift cards sold in this sale
-		GiftRedeem     []giftIn    `json:"gift_redeem"`   // gift cards used to pay
-		RedeemPoints   string      `json:"redeem_points"` // loyalty points used to pay (named customer)
-	}
+	var in posOrderIn
 	if !decodeBody(w, r, &in) {
 		return
 	}
-	in.ClientRef = strings.TrimSpace(in.ClientRef)
-	if !isUUID(in.SessionID) || len(in.Lines)+len(in.GiftSold) == 0 || len(in.Lines) > 200 || len(in.Tenders) > 10 || len(in.GiftSold) > 10 ||
-		len(in.GiftRedeem) > 5 || len(in.Coupon) > 32 ||
-		(in.CustomerID != "" && !isUUID(in.CustomerID)) || (in.ChangeMethodID != "" && !isUUID(in.ChangeMethodID)) ||
-		(in.ClientRef != "" && (len(in.ClientRef) < 8 || len(in.ClientRef) > 64)) || len(in.Notes) > 500 {
+	if !in.valid() {
 		writeErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
+	cid := r.PathValue("cid")
+	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
+		id, err := createPosOrderTx(ctx, tx, r, cid, &in)
+		if err != nil {
+			return nil, err
+		}
+		return loadPosOrder(ctx, tx, cid, id)
+	})
+}
+
+// createPosOrderTx books a till sale inside tx and returns the pos order id (an order already sent with the same
+// client_ref is returned as is).
+func createPosOrderTx(ctx context.Context, tx pgx.Tx, r *http.Request, cid string, in *posOrderIn) (string, error) {
 	var clientTime *time.Time
 	if in.ClientTime != "" {
 		if t, err := time.Parse(time.RFC3339, in.ClientTime); err == nil {
 			clientTime = &t
 		}
 	}
-	cid := r.PathValue("cid")
 	cashier := isCashier(r)
 	me := principal(r).ID
-	s.run(w, r, http.StatusCreated, func(ctx context.Context, tx pgx.Tx) (any, error) {
+	{
 		if in.ClientRef != "" {
 			var existing string
 			err := tx.QueryRow(ctx, `SELECT id::text FROM pos_orders WHERE company_id = $1 AND client_ref = $2`, cid, in.ClientRef).Scan(&existing)
 			if err == nil {
-				return loadPosOrder(ctx, tx, cid, existing) // sent again by a till that was offline
+				return existing, nil // sent again by a till that was offline
 			}
 			if err != pgx.ErrNoRows {
-				return nil, err
+				return "", err
 			}
 		}
 		g, err := lockOpenSession(ctx, tx, cid, in.SessionID)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		set, err := loadBillingSettings(ctx, tx, cid)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		if err := set.requireAR(); err != nil {
-			return nil, err
+			return "", err
 		}
 		rev := ""
 		if g.Revenue != nil {
@@ -904,7 +971,7 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			rev = *set.Revenue
 		}
 		if rev == "" {
-			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "billing_not_setup", detail: "revenue"}
+			return "", &apiError{status: http.StatusUnprocessableEntity, code: "billing_not_setup", detail: "revenue"}
 		}
 		customer := g.Customer
 		if in.CustomerID != "" {
@@ -912,40 +979,59 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 		}
 		walkIn := customer == g.Customer
 		if walkIn && in.OnAccount {
-			return nil, badRequest("on_account_needs_customer")
+			return "", badRequest("on_account_needs_customer")
 		}
 		name, err := lockCustomer(ctx, tx, cid, customer)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		date := today()
 		rc := newRateCache(ctx, tx, cid, set.Base, date)
 		dec, err := rc.decimals(g.Currency)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		canEdit := !cashier || g.CashierPriceEdit
 		lines := []invLine{}
 		sales := []saleLine{}
+		serialLots := map[string][]lotQty{} // item → serials sold
+		serialsJSON := []map[string]string{}
+		seenSerial := map[string]bool{}
+		needRx := false
 		for _, l := range in.Lines {
 			q, okq := money(l.Quantity)
 			if !okq || !q.IsPositive() || !isUUID(l.ItemID) {
-				return nil, badRequest("invalid_line")
+				return "", badRequest("invalid_line")
 			}
-			var name, kind string
+			var name, kind, tracking string
 			var listPrice, taxID, itRev *string
 			var salePrice, saleCur string
-			var sellable bool
+			var sellable, rx bool
 			err := tx.QueryRow(ctx, `SELECT it.name, it.kind, ip.price::text, it.sale_price::text, coalesce(it.sale_currency, $4)::text,
-				it.sale_tax_rate_id::text, it.revenue_account_id::text, it.is_sellable AND it.is_active
+				it.sale_tax_rate_id::text, it.revenue_account_id::text, it.is_sellable AND it.is_active, it.tracking, it.rx_required OR it.controlled
 				FROM items it LEFT JOIN item_prices ip ON ip.item_id = it.id AND ip.currency = $3
 				WHERE it.id = $1 AND it.company_id = $2`, l.ItemID, cid, g.Currency, set.Base).
-				Scan(&name, &kind, &listPrice, &salePrice, &saleCur, &taxID, &itRev, &sellable)
+				Scan(&name, &kind, &listPrice, &salePrice, &saleCur, &taxID, &itRev, &sellable, &tracking, &rx)
 			if err == pgx.ErrNoRows || (err == nil && !sellable) {
-				return nil, badRequest("invalid_item")
+				return "", badRequest("invalid_item")
 			}
 			if err != nil {
-				return nil, err
+				return "", err
+			}
+			needRx = needRx || rx
+			if len(l.Serials) > 0 {
+				if tracking != "serial" || !q.Equal(decimal.NewFromInt(int64(len(l.Serials)))) {
+					return "", &apiError{status: http.StatusUnprocessableEntity, code: "serials_mismatch", detail: name}
+				}
+				for _, sn := range l.Serials {
+					sn = strings.TrimSpace(sn)
+					if sn == "" || len(sn) > 100 || seenSerial[strings.ToLower(sn)] {
+						return "", badRequest("invalid_serial")
+					}
+					seenSerial[strings.ToLower(sn)] = true
+					serialLots[l.ItemID] = append(serialLots[l.ItemID], lotQty{Lot: sn, Qty: decimal.NewFromInt(1)})
+					serialsJSON = append(serialsJSON, map[string]string{"item_id": l.ItemID, "serial": sn})
+				}
 			}
 			// a named customer's price list (best quantity break in the till's currency) wins over the catalog price
 			var plPrice string
@@ -954,7 +1040,7 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 					JOIN price_list_items x ON x.list_id = p.id AND x.item_id = $2
 					WHERE c.id = $1 AND p.currency = $3 AND x.min_qty <= $4::numeric ORDER BY x.min_qty DESC LIMIT 1`,
 					customer, l.ItemID, g.Currency, q.String()).Scan(&plPrice); err != nil && err != pgx.ErrNoRows {
-					return nil, err
+					return "", err
 				}
 			}
 			if plPrice != "" {
@@ -962,15 +1048,15 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			}
 			price, err := itemPriceIn(rc, listPrice, salePrice, saleCur, g.Currency)
 			if err != nil {
-				return nil, err
+				return "", err
 			}
 			if strings.TrimSpace(l.UnitPrice) != "" {
 				p, ok := money(l.UnitPrice)
 				if !ok || p.IsNegative() {
-					return nil, badRequest("invalid_amount")
+					return "", badRequest("invalid_amount")
 				}
-				if !p.Equal(price) && !canEdit {
-					return nil, &apiError{status: http.StatusForbidden, code: "price_edit_forbidden"}
+				if !p.Equal(price) && !canEdit && !l.trusted {
+					return "", &apiError{status: http.StatusForbidden, code: "price_edit_forbidden"}
 				}
 				price = p
 			}
@@ -978,10 +1064,10 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			if strings.TrimSpace(l.DiscountPct) != "" {
 				d, ok := money(l.DiscountPct)
 				if !ok || d.IsNegative() || d.GreaterThan(decimal.NewFromInt(100)) {
-					return nil, badRequest("invalid_amount")
+					return "", badRequest("invalid_amount")
 				}
 				if d.IsPositive() && !canEdit {
-					return nil, &apiError{status: http.StatusForbidden, code: "price_edit_forbidden"}
+					return "", &apiError{status: http.StatusForbidden, code: "price_edit_forbidden"}
 				}
 				disc = d
 			}
@@ -993,6 +1079,12 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			desc := name
 			if disc.IsPositive() {
 				desc = fmt.Sprintf("%s (-%s%%)", name, disc.String())
+			}
+			if n := strings.TrimSpace(l.Note); n != "" {
+				desc += " · " + n
+			}
+			if len(l.Serials) > 0 {
+				desc += " · S/N " + strings.Join(l.Serials, ", ")
 			}
 			lineRev := ""
 			if itRev != nil && g.Revenue == nil {
@@ -1017,7 +1109,7 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			}
 			promos, _, conv, _, err := promoContext(ctx, tx, cid, g.Currency, g.ID, pc, in.Coupon, time.Now())
 			if err != nil {
-				return nil, err
+				return "", err
 			}
 			ids := []string{}
 			for _, l := range in.Lines {
@@ -1025,7 +1117,7 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			}
 			facts, err := lineFacts(ctx, tx, cid, ids)
 			if err != nil {
-				return nil, err
+				return "", err
 			}
 			pls := []promoLine{}
 			for i, l := range lines {
@@ -1033,7 +1125,7 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 				pls = append(pls, promoLine{ItemID: in.Lines[i].ItemID, CategoryID: f[0], Brand: f[1], TemplateID: f[2], Qty: l.Quantity, Amount: l.Amount})
 			}
 			if promoRes, err = evalPromotions(promos, pls, conv, dec); err != nil {
-				return nil, err
+				return "", err
 			}
 			for i := range lines {
 				if d := promoRes.Lines[i]; d.IsPositive() {
@@ -1042,6 +1134,45 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 					lines[i].Description += " · " + strings.Join(promoRes.LinePromos[i], ", ")
 				}
 			}
+		}
+		// pharmacy: prescription / controlled items need the prescription (doctor + number)
+		if needRx && (in.Rx == nil || strings.TrimSpace(in.Rx.Doctor) == "" || strings.TrimSpace(in.Rx.Number) == "") {
+			return "", &apiError{status: http.StatusUnprocessableEntity, code: "prescription_required"}
+		}
+		// restaurant: service charge (revenue, % of the food) and tip (owed to the staff)
+		extras := map[string]string{}
+		if in.ServiceCharge {
+			var pctS string
+			if err := tx.QueryRow(ctx, `SELECT trim_scale(service_charge_pct)::text FROM companies WHERE id = $1`, cid).Scan(&pctS); err != nil {
+				return "", err
+			}
+			pct, _ := decimal.NewFromString(pctS)
+			sub := decimal.Zero
+			for _, l := range lines {
+				sub = sub.Add(l.Amount)
+			}
+			if sc := sub.Mul(pct).Div(decimal.NewFromInt(100)).Round(dec); sc.IsPositive() {
+				lines = append(lines, invLine{Kind: "other", Description: fmt.Sprintf("Service charge %s%%", pct.String()), Quantity: decimal.NewFromInt(1),
+					UnitPrice: sc, Amount: sc})
+				extras["service_charge"] = sc.String()
+			}
+		}
+		if strings.TrimSpace(in.Tip) != "" {
+			tip, ok := money(in.Tip)
+			if !ok || tip.IsNegative() {
+				return "", badRequest("invalid_amount")
+			}
+			if tip = tip.Round(dec); tip.IsPositive() {
+				acc, err := ensureRetailAccount(ctx, tx, cid, "tips_liability_account_id")
+				if err != nil {
+					return "", err
+				}
+				lines = append(lines, invLine{Kind: "other", Description: "Tip", Quantity: decimal.NewFromInt(1), UnitPrice: tip, Amount: tip, Revenue: acc})
+				extras["tip"] = tip.String()
+			}
+		}
+		if in.checkID != "" {
+			extras["check_id"], extras["table"] = in.checkID, in.table
 		}
 		// gift cards sold: a liability, not revenue (no VAT on the card itself)
 		giftSold := decimal.Zero
@@ -1053,7 +1184,7 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 		if len(in.GiftSold) > 0 {
 			liab, err := ensureRetailAccount(ctx, tx, cid, "gift_liability_account_id")
 			if err != nil {
-				return nil, err
+				return "", err
 			}
 			for _, gs := range in.GiftSold {
 				amt, ok := money(gs.Amount)
@@ -1062,15 +1193,15 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 					code = newGiftCode()
 				}
 				if !ok || !amt.IsPositive() || !giftCodeRe.MatchString(code) {
-					return nil, badRequest("invalid_gift_card")
+					return "", badRequest("invalid_gift_card")
 				}
 				amt = amt.Round(dec)
 				var taken bool
 				if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM gift_cards WHERE company_id = $1 AND code = $2)`, cid, code).Scan(&taken); err != nil {
-					return nil, err
+					return "", err
 				}
 				if taken {
-					return nil, &apiError{status: http.StatusConflict, code: "gift_code_taken", detail: code}
+					return "", &apiError{status: http.StatusConflict, code: "gift_code_taken", detail: code}
 				}
 				lines = append(lines, invLine{Kind: "other", Description: "Gift card " + code, Quantity: decimal.NewFromInt(1), UnitPrice: amt,
 					Amount: amt, Revenue: liab})
@@ -1091,30 +1222,30 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			amt, ok := money(gr.Amount)
 			code := normGiftCode(gr.Code)
 			if !ok || !amt.IsPositive() || code == "" {
-				return nil, badRequest("invalid_gift_card")
+				return "", badRequest("invalid_gift_card")
 			}
 			var id, cur, bal, status string
 			var expired bool
 			err := tx.QueryRow(ctx, `SELECT id::text, currency::text, balance::text, status, (expires_on IS NOT NULL AND expires_on < current_date)
 				FROM gift_cards WHERE company_id = $1 AND code = $2 FOR UPDATE`, cid, code).Scan(&id, &cur, &bal, &status, &expired)
 			if err == pgx.ErrNoRows {
-				return nil, &apiError{status: http.StatusUnprocessableEntity, code: "gift_not_found", detail: code}
+				return "", &apiError{status: http.StatusUnprocessableEntity, code: "gift_not_found", detail: code}
 			}
 			if err != nil {
-				return nil, err
+				return "", err
 			}
 			b, _ := decimal.NewFromString(bal)
 			switch {
 			case status != "active" || expired:
-				return nil, &apiError{status: http.StatusUnprocessableEntity, code: "gift_not_active", detail: code}
+				return "", &apiError{status: http.StatusUnprocessableEntity, code: "gift_not_active", detail: code}
 			case cur != g.Currency:
-				return nil, &apiError{status: http.StatusUnprocessableEntity, code: "gift_currency", detail: cur}
+				return "", &apiError{status: http.StatusUnprocessableEntity, code: "gift_currency", detail: cur}
 			case amt.GreaterThan(b):
-				return nil, &apiError{status: http.StatusUnprocessableEntity, code: "gift_balance", detail: b.String() + " " + cur}
+				return "", &apiError{status: http.StatusUnprocessableEntity, code: "gift_balance", detail: b.String() + " " + cur}
 			}
 			mid, err := ensureSystemMethod(ctx, tx, cid, "gift", g.Currency)
 			if err != nil {
-				return nil, err
+				return "", err
 			}
 			sysTenders = append(sysTenders, tenderIn{MethodID: mid, Amount: amt.String()})
 			sysMethods[mid] = true
@@ -1124,7 +1255,7 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 		var prog *loyaltyProg
 		if !walkIn {
 			if prog, err = loadLoyalty(ctx, tx, cid); err != nil {
-				return nil, err
+				return "", err
 			}
 		}
 		pts := decimal.Zero
@@ -1132,25 +1263,25 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimSpace(in.RedeemPoints) != "" {
 			p, ok := money(in.RedeemPoints)
 			if !ok || walkIn || prog == nil || !prog.Active {
-				return nil, badRequest("invalid_points")
+				return "", badRequest("invalid_points")
 			}
 			if p.IsPositive() {
 				var have string
 				if err := tx.QueryRow(ctx, `SELECT loyalty_points::text FROM customers WHERE id = $1 FOR UPDATE`, customer).Scan(&have); err != nil {
-					return nil, err
+					return "", err
 				}
 				h, _ := decimal.NewFromString(have)
 				if p.GreaterThan(h) || p.LessThan(prog.MinRed) {
-					return nil, &apiError{status: http.StatusUnprocessableEntity, code: "not_enough_points", detail: h.String()}
+					return "", &apiError{status: http.StatusUnprocessableEntity, code: "not_enough_points", detail: h.String()}
 				}
 				v, err := rc.convert(p.Mul(prog.PointValue), set.Base, g.Currency)
 				if err != nil {
-					return nil, err
+					return "", err
 				}
 				if v = v.Round(dec); v.IsPositive() {
 					mid, err := ensureSystemMethod(ctx, tx, cid, "loyalty", g.Currency)
 					if err != nil {
-						return nil, err
+						return "", err
 					}
 					sysTenders = append(sysTenders, tenderIn{MethodID: mid, Amount: v.String()})
 					sysMethods[mid] = true
@@ -1159,47 +1290,121 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		qctx := quietCtx(ctx)
+		// trade-ins: the used device is a tender (clearing account); it enters stock after the sale
+		type tradeIn struct {
+			it           *itemInfo
+			serial, note string
+			value        decimal.Decimal
+		}
+		trades := []tradeIn{}
+		tradeJSON := []map[string]string{}
+		for _, ti := range in.TradeIn {
+			v, ok := money(ti.Value)
+			if !ok || !v.IsPositive() || len(ti.Serial) > 100 || len(ti.Note) > 200 {
+				return "", badRequest("invalid_trade_in")
+			}
+			it, err := loadItem(ctx, tx, cid, ti.ItemID)
+			if err != nil {
+				return "", err
+			}
+			_, tracking, err := itemStockMode(ctx, tx, it.ID)
+			if err != nil {
+				return "", err
+			}
+			if it.Kind != "stock" || it.Inventory == nil || (tracking == "serial" && strings.TrimSpace(ti.Serial) == "") {
+				return "", badRequest("invalid_trade_in")
+			}
+			v = v.Round(dec)
+			mid, err := ensureSystemMethod(ctx, tx, cid, "tradein", g.Currency)
+			if err != nil {
+				return "", err
+			}
+			sysTenders = append(sysTenders, tenderIn{MethodID: mid, Amount: v.String()})
+			sysMethods[mid] = true
+			redeemed = redeemed.Add(v)
+			trades = append(trades, tradeIn{it, strings.TrimSpace(ti.Serial), strings.TrimSpace(ti.Note), v})
+			tradeJSON = append(tradeJSON, map[string]string{"item_id": it.ID, "item": it.Name, "serial": strings.TrimSpace(ti.Serial), "value": v.String(),
+				"note": strings.TrimSpace(ti.Note)})
+		}
+		qctx := withSalesman(quietCtx(ctx), me) // the cashier is the salesman (commission report)
 		var number int64
 		if err := tx.QueryRow(ctx, `SELECT next_doc_number($1, 'pos_order')`, cid).Scan(&number); err != nil {
-			return nil, err
+			return "", err
 		}
 		notes := strings.TrimSpace(fmt.Sprintf("POS %s #%d %s", g.Name, number, strings.TrimSpace(in.Notes)))
 		invID, invNo, err := issueInvoiceFor(qctx, tx, cid, set, customer, name, nil, nil, nil, date, date, g.Currency, rev, notes, lines)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-		if err := postSaleCOGS(ctx, tx, cid, set, invID, invNo, date, sales); err != nil {
-			return nil, err
+		cogsCtx := ctx
+		for item, lots := range serialLots {
+			cogsCtx = withLots(cogsCtx, item, lots) // the serials the cashier scanned leave stock
+		}
+		if err := postSaleCOGS(cogsCtx, tx, cid, set, invID, invNo, date, sales); err != nil {
+			return "", err
 		}
 		var totalS string
 		if err := tx.QueryRow(ctx, `SELECT total::text FROM invoices WHERE id = $1`, invID).Scan(&totalS); err != nil {
-			return nil, err
+			return "", err
 		}
 		total, _ := decimal.NewFromString(totalS)
 		taxTotal := decimal.Zero
 		for _, l := range lines {
 			taxTotal = taxTotal.Add(l.TaxAmount)
 		}
+		// insurance: the insurer's share is a tender booked to the insurance receivable (claimed later)
+		var insAmt decimal.Decimal
+		var insurer, insurerName string
+		if in.Insurance != nil {
+			insurer = in.Insurance.InsurerID
+			if err := tx.QueryRow(ctx, `SELECT name FROM customers WHERE id = $1 AND company_id = $2`, insurer, cid).Scan(&insurerName); err != nil {
+				if err == pgx.ErrNoRows {
+					return "", badRequest("invalid_insurer")
+				}
+				return "", err
+			}
+			if p, ok := money(in.Insurance.Pct); ok && strings.TrimSpace(in.Insurance.Pct) != "" {
+				if p.IsNegative() || p.GreaterThan(decimal.NewFromInt(100)) {
+					return "", badRequest("invalid_amount")
+				}
+				insAmt = total.Mul(p).Div(decimal.NewFromInt(100)).Round(dec)
+			} else if a, ok := money(in.Insurance.Amount); ok {
+				insAmt = a.Round(dec)
+			} else {
+				return "", badRequest("invalid_amount")
+			}
+			if insAmt.IsNegative() || insAmt.GreaterThan(total) {
+				return "", badRequest("invalid_amount")
+			}
+			if insAmt.IsPositive() {
+				mid, err := ensureSystemMethod(ctx, tx, cid, "insurance", g.Currency)
+				if err != nil {
+					return "", err
+				}
+				sysTenders = append(sysTenders, tenderIn{MethodID: mid, Amount: insAmt.String()})
+				sysMethods[mid] = true
+				redeemed = redeemed.Add(insAmt)
+			}
+		}
 		var paymentID *string
 		paid := decimal.Zero
 		cash := []map[string]string{}
 		if redeemed.GreaterThan(total) {
-			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "redeem_over_total", detail: total.String() + " " + g.Currency}
+			return "", &apiError{status: http.StatusUnprocessableEntity, code: "redeem_over_total", detail: total.String() + " " + g.Currency}
 		}
 		allTenders := append(append([]tenderIn{}, in.Tenders...), sysTenders...)
 		if len(allTenders) == 0 {
 			if !in.OnAccount {
-				return nil, badRequest("payment_required")
+				return "", badRequest("payment_required")
 			}
 		} else {
 			for _, t := range in.Tenders {
 				if !g.hasMethod(t.MethodID) {
-					return nil, badRequest("invalid_tender")
+					return "", badRequest("invalid_tender")
 				}
 			}
 			if in.ChangeMethodID != "" && !g.hasMethod(in.ChangeMethodID) {
-				return nil, badRequest("change_method_required")
+				return "", badRequest("change_method_required")
 			}
 			pin := paymentIn{CustomerID: customer, Date: date, Currency: g.Currency, Tenders: allTenders, ChangeMethodID: in.ChangeMethodID, allowRetail: true,
 				Notes: fmt.Sprintf("POS %s #%d", g.Name, number)}
@@ -1210,7 +1415,7 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			}
 			pid, err := receivePayment(qctx, tx, cid, pin, false, me)
 			if err != nil {
-				return nil, err
+				return "", err
 			}
 			paymentID = &pid
 			var paidS string
@@ -1218,18 +1423,18 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			var chAmt string
 			if err := tx.QueryRow(ctx, `SELECT amount::text, change_method_id::text, change_currency::text, change_amount::text FROM payments WHERE id = $1`,
 				pid).Scan(&paidS, &chM, &chCur, &chAmt); err != nil {
-				return nil, err
+				return "", err
 			}
 			paid, _ = decimal.NewFromString(paidS)
 			rows, err := tx.Query(ctx, `SELECT method_id::text, currency::text, amount::text FROM payment_tenders WHERE payment_id = $1`, pid)
 			if err != nil {
-				return nil, err
+				return "", err
 			}
 			for rows.Next() {
 				var m, c, a string
 				if err := rows.Scan(&m, &c, &a); err != nil {
 					rows.Close()
-					return nil, err
+					return "", err
 				}
 				if sysMethods[m] {
 					continue // gift cards / points are not money in the drawer
@@ -1238,24 +1443,24 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			}
 			rows.Close()
 			if err := rows.Err(); err != nil {
-				return nil, err
+				return "", err
 			}
 			if ch, _ := decimal.NewFromString(chAmt); ch.IsPositive() && chM != nil {
 				cash = append(cash, map[string]string{"method_id": *chM, "currency": deref(chCur), "amount": ch.Neg().String()})
 			}
 		}
 		if walkIn && paid.LessThan(total) {
-			return nil, &apiError{status: http.StatusUnprocessableEntity, code: "insufficient_payment", detail: total.String() + " " + g.Currency}
+			return "", &apiError{status: http.StatusUnprocessableEntity, code: "insufficient_payment", detail: total.String() + " " + g.Currency}
 		}
 		if !walkIn && in.OnAccount && paid.LessThan(total) { // the unpaid part goes on the customer's account
 			if err := checkCredit(ctx, tx, r, cid, customer, g.Currency, total.Sub(paid)); err != nil {
-				return nil, err
+				return "", err
 			}
 		}
 		cb, _ := json.Marshal(cash)
 		var id string
 		if err := tx.QueryRow(ctx, `SELECT uuidv7()::text`).Scan(&id); err != nil {
-			return nil, err
+			return "", err
 		}
 		// loyalty points on what the customer really paid for (not the gift cards bought, not what points / cards paid)
 		earned := decimal.Zero
@@ -1263,10 +1468,10 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 			if spend := total.Sub(giftSold).Sub(redeemed); spend.IsPositive() {
 				base, err := rc.convert(spend, g.Currency, set.Base)
 				if err != nil {
-					return nil, err
+					return "", err
 				}
 				if earned, err = loyaltyEarn(ctx, tx, cid, set, prog, customer, base, "pos", id, date, fmt.Sprintf("Loyalty points · POS %s #%d", g.Name, number)); err != nil {
-					return nil, err
+					return "", err
 				}
 			}
 		}
@@ -1283,51 +1488,114 @@ func (s *Server) createPosOrder(w http.ResponseWriter, r *http.Request) {
 		if !walkIn && prog != nil && prog.Active {
 			var bal string
 			if err := tx.QueryRow(ctx, `SELECT (loyalty_points - $2::numeric)::text FROM customers WHERE id = $1`, customer, pts.String()).Scan(&bal); err != nil {
-				return nil, err
+				return "", err
 			}
 			loyJSON = map[string]string{"earned": earned.String(), "redeemed": pts.String(), "redeemed_value": ptsValue.String(), "balance": bal}
 		}
 		gb, _ := json.Marshal(giftJSON)
 		lb, _ := json.Marshal(loyJSON)
+		// verticals: serials, trade-ins, prescription, insurer's share (its claim), restaurant extras
+		var claimID string
+		var claimNo int64
+		insJSON := map[string]string{}
+		if insAmt.IsPositive() {
+			if err := tx.QueryRow(ctx, `SELECT uuidv7()::text, next_doc_number($1, 'pharma_claim')`, cid).Scan(&claimID, &claimNo); err != nil {
+				return "", err
+			}
+			insJSON = map[string]string{"insurer_id": insurer, "insurer": insurerName, "policy_no": strings.TrimSpace(in.Insurance.PolicyNo),
+				"amount": insAmt.String(), "claim_id": claimID, "claim_number": fmt.Sprint(claimNo)}
+		}
+		rxJSON := map[string]string{}
+		if in.Rx != nil {
+			rxJSON = map[string]string{"doctor": strings.TrimSpace(in.Rx.Doctor), "patient": strings.TrimSpace(in.Rx.Patient),
+				"number": strings.TrimSpace(in.Rx.Number), "date": in.Rx.Date}
+		}
+		sb, _ := json.Marshal(serialsJSON)
+		tb, _ := json.Marshal(tradeJSON)
+		rb, _ := json.Marshal(rxJSON)
+		ib, _ := json.Marshal(insJSON)
+		eb, _ := json.Marshal(extras)
 		if _, err := tx.Exec(ctx, `INSERT INTO pos_orders (id, company_id, session_id, register_id, number, kind, order_date, customer_id, currency,
-			total, tax_total, paid, invoice_id, payment_id, cash, client_ref, client_time, notes, promos, loyalty, gift)
-			VALUES ($20::uuid, $1, $2, $3, $4, 'sale', $5::date, $6, $7, $8::numeric, $9::numeric, $10::numeric, $11, $12, $13, nullif($14, ''), $15, $16, $17, $18, $19)`,
+			total, tax_total, paid, invoice_id, payment_id, cash, client_ref, client_time, notes, promos, loyalty, gift,
+			serials, tradein, rx, insurance, extras, check_id)
+			VALUES ($20::uuid, $1, $2, $3, $4, 'sale', $5::date, $6, $7, $8::numeric, $9::numeric, $10::numeric, $11, $12, $13, nullif($14, ''), $15, $16, $17, $18, $19,
+			$21, $22, $23, $24, $25, nullif($26, '')::uuid)`,
 			cid, in.SessionID, g.ID, number, date, customer, g.Currency, total.String(), taxTotal.String(), paid.String(),
-			invID, paymentID, cb, in.ClientRef, clientTime, strings.TrimSpace(in.Notes), promosJSON, lb, gb, id); err != nil {
-			return nil, err
+			invID, paymentID, cb, in.ClientRef, clientTime, strings.TrimSpace(in.Notes), promosJSON, lb, gb, id,
+			sb, tb, rb, ib, eb, in.checkID); err != nil {
+			return "", err
 		}
 		if promoRes != nil {
 			if err := recordPromoUses(ctx, tx, cid, "pos", id, g.Currency, promoRes.Applied); err != nil {
-				return nil, err
+				return "", err
 			}
 		}
 		for _, c := range sold {
 			if _, err := insertGiftCard(ctx, tx, cid, c.code, g.Currency, c.amt, map[bool]string{true: "", false: customer}[walkIn], "", "pos", id, ""); err != nil {
-				return nil, err
+				return "", err
 			}
 		}
 		for _, c := range used {
 			if _, err := tx.Exec(ctx, `UPDATE gift_cards SET balance = balance - $2::numeric, status = CASE WHEN balance - $2::numeric = 0 THEN 'used' ELSE status END
 				WHERE id = $1`, c.id, c.amt.String()); err != nil {
-				return nil, err
+				return "", err
 			}
 			if _, err := tx.Exec(ctx, `INSERT INTO gift_card_moves (company_id, card_id, kind, amount, source, source_id) VALUES ($1, $2, 'redeem', $3::numeric, 'pos', $4)`,
 				cid, c.id, c.amt.Neg().String(), id); err != nil {
-				return nil, err
+				return "", err
 			}
 		}
 		if pts.IsPositive() {
 			if _, err := tx.Exec(ctx, `INSERT INTO loyalty_moves (company_id, customer_id, kind, points, value, source, source_id, note)
 				VALUES ($1, $2, 'redeem', $3::numeric, $4::numeric, 'pos', $5, $6)`, cid, customer, pts.Neg().String(), ptsValue.Neg().String(), id,
 				fmt.Sprintf("POS %s #%d", g.Name, number)); err != nil {
-				return nil, err
+				return "", err
 			}
 			if _, err := tx.Exec(ctx, `UPDATE customers SET loyalty_points = loyalty_points - $2::numeric WHERE id = $1`, customer, pts.String()); err != nil {
-				return nil, err
+				return "", err
 			}
 		}
-		return loadPosOrder(ctx, tx, cid, id)
-	})
+		// trade-ins enter stock at the agreed value: Dr inventory / Cr trade-in clearing (the tender credited it)
+		if len(trades) > 0 {
+			clr, err := ensureRetailAccount(ctx, tx, cid, "tradein_account_id")
+			if err != nil {
+				return "", err
+			}
+			for _, t := range trades {
+				vb, err := rc.convert(t.value, g.Currency, set.Base)
+				if err != nil {
+					return "", err
+				}
+				vb = vb.Round(4)
+				memo := fmt.Sprintf("Trade-in · POS %s #%d · %s", g.Name, number, t.it.Name)
+				je, err := postJournal(ctx, tx, cid, set, date, memo, fmt.Sprintf("POS-%d", number), "pos", []jline{
+					{Account: *t.it.Inventory, Desc: t.it.Name, Currency: set.Base, Debit: vb},
+					{Account: clr, Desc: t.it.Name, Currency: set.Base, Credit: vb}})
+				if err != nil {
+					return "", err
+				}
+				ictx := ctx
+				if t.serial != "" {
+					ictx = withLots(ctx, t.it.ID, []lotQty{{Lot: t.serial, Qty: decimal.NewFromInt(1)}})
+				}
+				if err := stockIn(ictx, tx, cid, t.it.ID, g.Warehouse, decimal.NewFromInt(1), vb, date, "tradein", id, &je, memo); err != nil {
+					return "", err
+				}
+			}
+		}
+		if insAmt.IsPositive() {
+			patient := strings.TrimSpace(in.Insurance.Patient)
+			if patient == "" && in.Rx != nil {
+				patient = strings.TrimSpace(in.Rx.Patient)
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO pharma_claims (id, company_id, number, pos_order_id, insurer_id, patient, policy_no, currency, amount)
+				VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::numeric)`, claimID, cid, claimNo, id, insurer, patient,
+				strings.TrimSpace(in.Insurance.PolicyNo), g.Currency, insAmt.String()); err != nil {
+				return "", err
+			}
+		}
+		return id, nil
+	}
 }
 
 // lockOpenSession checks that the session is open (and keeps it open until this transaction ends).
@@ -1494,7 +1762,11 @@ func loadPosOrder(ctx context.Context, tx pgx.Tx, cid, id string) (any, error) {
 			change = json.RawMessage("null")
 		}
 	}
-	return map[string]json.RawMessage{"order": order, "lines": lines, "tenders": tenders, "change": change}, nil
+	extra, err := queryJSONOne(ctx, tx, `SELECT serials, tradein, rx, insurance, extras, check_id FROM pos_orders WHERE id = $1`, id)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]json.RawMessage{"order": order, "lines": lines, "tenders": tenders, "change": change, "vertical": extra}, nil
 }
 
 func (s *Server) getPosOrder(w http.ResponseWriter, r *http.Request) {

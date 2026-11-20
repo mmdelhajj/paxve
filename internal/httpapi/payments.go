@@ -122,7 +122,7 @@ func receivePayment(ctx context.Context, tx pgx.Tx, cid string, in paymentIn, co
 		if m.Kind == "cheque" { // cheque boxes are used only through the cheques register
 			return in.allowCheque
 		}
-		if m.Kind == "gift" || m.Kind == "loyalty" { // gift cards / points: only the till, which checks the card or the points
+		if m.Kind == "gift" || m.Kind == "loyalty" || m.Kind == "tradein" || m.Kind == "insurance" { // gift cards / points / trade-ins / insurance: only the till, which checks the card or the points
 			return in.allowRetail
 		}
 		return m.Active && (!collector || m.UserID == nil || *m.UserID == me)

@@ -298,6 +298,25 @@ func seedEverything(t *testing.T, o *org) {
 	step(201, "POST", "/smart/scans", map[string]any{"filename": secretB + ".png",
 		"data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="})
 	step(200, "PUT", "/customers/"+cust+"/location", map[string]any{"lat": 33.9, "lng": 35.5})
+
+	// phase 6a: business packs: van (route with a stop, open day, van sale), restaurant (table, modifier, check with a
+	// line sent to the kitchen), pharmacy (drug fields, an insurer's share at the till = a claim), furniture deposit
+	bme := str(c.ok("GET", "/me", nil, 200).body["id"])
+	step(200, "PUT", "/warehouses/"+wh2+"/vertical", map[string]any{"is_van": true, "van_user_id": bme})
+	step(200, "PUT", "/items/"+item+"/vertical", map[string]any{"active_ingredient": secretB, "kitchen_station": "grill"})
+	broute := id(step(201, "POST", "/van/routes", map[string]any{"name": secretB + " route", "warehouse_id": wh2}), "route", "id")
+	step(200, "PUT", "/van/routes/"+broute+"/stops", map[string]any{"customer_ids": []any{cust}})
+	step(201, "POST", "/van/days", map[string]any{"warehouse_id": wh2, "source_warehouse_id": main, "lines": []any{map[string]any{"item_id": item, "quantity": "3"}}})
+	step(201, "POST", "/van/sales", map[string]any{"customer_id": cust, "warehouse_id": wh2, "client_ref": "van-" + randHex(6),
+		"lines": []any{map[string]any{"item_id": item, "quantity": "1"}}})
+	btable := id(step(201, "POST", "/rest/tables", map[string]any{"name": secretB + " T1"}), "id")
+	step(201, "POST", "/rest/modifiers", map[string]any{"name": secretB + " extra", "price": "1"})
+	bcheck := id(step(201, "POST", "/rest/checks", map[string]any{"register_id": reg, "table_id": btable}), "check", "id")
+	step(200, "POST", "/rest/checks/"+bcheck+"/lines", map[string]any{"send": true, "lines": []any{map[string]any{"item_id": item, "quantity": "1", "note": secretB}}})
+	step(201, "POST", "/pos/orders", map[string]any{"session_id": sess, "lines": []any{map[string]any{"item_id": item, "quantity": "1"}},
+		"tenders": []any{map[string]any{"method_id": usd, "amount": "1"}}, "insurance": map[string]any{"insurer_id": cust2, "amount": "4", "patient": secretB},
+		"rx": map[string]any{"doctor": secretB, "number": "B1"}})
+	step(201, "POST", "/furn/orders/"+bso+"/deposit", map[string]any{"method_id": usd, "amount": "1"})
 }
 
 // companyIDs: one id of company cid for each company table (owner connection, no row security).
@@ -397,6 +416,8 @@ var idTable = map[string]string{
 	"campaigns": "mkt_campaigns", "job-positions": "job_positions", "applicants": "job_applicants", "interviews": "job_interviews",
 	"appraisal-cycles": "appraisal_cycles", "appraisals": "appraisals", "requests": "sign_requests",
 	"alerts": "smart_alerts", "scans": "ocr_scans", "answers": "ai_requests",
+	"routes": "sales_routes", "days": "van_days", "tables": "rest_tables", "modifiers": "rest_modifiers", "checks": "rest_checks",
+	"check-lines": "rest_check_lines",
 }
 
 var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -404,7 +425,7 @@ var paramRe = regexp.MustCompile(`\{([a-z]+)\}`)
 var paramValues = map[string][]string{
 	"type":   {"customers", "subscriptions", "opening_balances", "readings", "accounts"},
 	"kind":   {"fuel", "adjust"},
-	"action": {"confirm", "cancel", "send", "reopen", "unmatch", "ignore", "unignore"},
+	"action": {"confirm", "cancel", "send", "reopen", "unmatch", "ignore", "unignore", "submit"},
 	"op":     {"freeze", "unfreeze"},
 	"entity": {"customers", "suppliers", "items", "invoices", "employees"},
 	"key":    {"none"}, // business packs act on the caller's own company: only an unknown pack is swept
@@ -449,6 +470,9 @@ func sweepCalls(t *testing.T, cid string, ids map[string]string) []sweepCall {
 				}
 				if seg == "orders" && strings.Contains(cur, "/shop/") {
 					tb = "shop_orders"
+				}
+				if seg == "claims" && strings.Contains(cur, "/pharma/") {
+					tb = "pharma_claims"
 				}
 				if name == "oid" {
 					tb = "outages"
