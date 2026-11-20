@@ -671,7 +671,7 @@ function Payments() {
 
 // ---------- plans ----------
 
-const APPS = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt'];
+const APPS = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt', 'web', 'mkt'];
 
 function Plans({ plans, reload }: { plans: Plan[]; reload: () => void }) {
   const { t, i18n } = useTranslation();

@@ -442,3 +442,42 @@ New permission modules: `projects.view|create|edit|manage`, `fleet.view|create|m
 
 Public (no sign-in): `POST /inbound/{token}/email`, `GET|POST /inbound/{token}/whatsapp`, `GET|POST /rate/{token}` (`{rating 1-5, comment}`).
 Expenses accept `project_id` and `vehicle_id`; employees accept `hourly_cost`.
+
+## Online store, marketing, recruitment, appraisals, e-sign (migration 00044)
+
+All under `/companies/{cid}`. Apps: **web** (`/shop/…`, except `/shop/settings`), **mkt** (`/mkt/…`), **hr** (`/hr/job-positions`,
+`/hr/applicants`, `/hr/interviews`, `/hr/appraisal…`, `/self/appraisals`); e-sign is core. New permission modules:
+`website.view|manage`, `marketing.view|create|manage`, `talent.view|edit|manage`, `esign.view|create`.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET · PUT | `/shop/settings` | `{enabled, slug, title, tagline, banner (data URL), color, warehouse_id, price_list_id (sets the currency), currency, show_local, payments [cod pickup whish omt], pay_note, whatsapp, min_order, auto_confirm, hide_out_of_stock, featured [item ids], terms, careers_enabled, careers_intro}` (`slug_required`, `slug_taken`, `invalid_slug`) |
+| GET · POST · PATCH · DELETE | `/shop/zones[/{id}]` | `{name, fee, free_from, eta, seq, is_active}` (a used zone is switched off instead of deleted) |
+| GET · PATCH | `/shop/products[?q&category_id]` · `/shop/products/{id}` | `{shop_visible, shop_description}` (a template's variants follow) |
+| GET · GET · POST | `/shop/orders[?state=open\|received\|preparing\|on_the_way\|delivered\|cancelled&q]` · `/shop/orders/{id}` · `/shop/orders/{id}/confirm\|cancel` | confirm needs `sales.create`, cancel `sales.void` |
+| GET · POST · PATCH | `/mkt/overview` · `/mkt/lists[/{id}]` | `{name, description, is_active}` |
+| GET · POST · DELETE | `/mkt/lists/{id}/members` · `/mkt/list-members/{id}` | `{customer_ids, contacts [{name, phone, email}], audience}` → `{added}` |
+| GET · POST · DELETE | `/mkt/optouts[/{id}]` | `{customer_id \| phone \| email, channel all\|whatsapp\|sms\|email, reason}` |
+| POST | `/mkt/audience` | `{channel, audience {all_customers, area_ids, statuses, balance_min, overdue_days, tags, bought_days, not_bought_days, has_subscription}, list_id}` → `{total, reach, skipped, sample}` |
+| GET · POST · GET · PATCH | `/mkt/campaigns[/{id}]` | `{name, channel whatsapp\|sms\|email, audience, list_id, subject, body, link_url, promotion_id (coupon), scheduled_at (RFC 3339, "" clears), throttle_per_min}`; detail = campaign with `stats` + recipients |
+| POST | `/mkt/campaigns/{id}/send\|cancel\|test` | send = now, or `scheduled` when `scheduled_at` is later; test `{to}`; cancel drops what is still queued |
+| GET · POST · PATCH | `/hr/job-positions[/{id}]` | `{title, department, location, employment, description, requirements, salary_range, vacancies, is_published, status open\|closed}` |
+| GET · POST · GET · PATCH | `/hr/applicants[?job_id&stage&q]` · `/hr/applicants/{id}` | `{job_id, name, email, phone, source, stage, rating 0-5, cover_letter, expected_salary, notes, offer_salary, offer_currency, offer_start, refuse_reason}`; files / chatter type `applicant` |
+| POST | `/hr/applicants/{id}/offer\|hire\|refuse` | `{salary, currency, start, position, reason, notify}`; hire also needs `payroll.create` → employee (`already_hired`) |
+| POST · PATCH | `/hr/interviews[/{id}]` | `{applicant_id, scheduled_at, duration_min, interviewer_id, kind phone\|video\|onsite, location, status, rating 1-5, feedback}` |
+| GET | `/hr/recruitment-report` · `/hr/appraisal-report?cycle_id` | pipeline per position, sources, days to hire · scores, average, bands |
+| GET · POST · PATCH · POST | `/hr/appraisal-cycles[/{id}]` · `/hr/appraisal-cycles/{id}/open\|close` | `{name, period_from, period_to, due_date, self_review}`; open `{reviewer_id, goals [{title, weight}]}` |
+| GET · GET · PATCH | `/hr/appraisals[?cycle_id&employee_id]` · `/hr/appraisals/{id}` | reviewer: `{goals [{title, weight, target, manager 0-5, note}], reviewer_id, manager_comment, strengths, improvements, final_score, submit}` |
+| GET · PATCH | `/self/appraisals` · `/self/appraisals/{id}` | the employee: `{goals [{title, self}], self_comment, submit}` |
+| GET · POST · GET | `/esign/requests[?status]` · `/esign/requests/{id}` | create `{doc_type quote\|contract\|subscription\|upload, title, sales_order_id \| subscription_id \| body \| file {filename, data}, message, ordered, channel whatsapp\|sms\|email\|none, expires_on, auto_confirm, remind_days, signers [{name, email, phone, customer_id}], send}` |
+| POST · GET | `/esign/requests/{id}/send\|cancel\|remind` · `/esign/requests/{id}/certificate` | certificate = PDF |
+
+Public (no sign-in, rate limited per address): `GET /shop/{slug}`, `GET /shop/{slug}/items[?category&q&offset]`,
+`GET /shop/{slug}/items/{id}[/image]`, `POST /shop/{slug}/cart {lines [{item_id, quantity}], zone_id, delivery, coupon}`,
+`POST /shop/{slug}/orders {…cart, name, phone, email, address, payment, notes, website (honeypot)}` (`cart_changed` with the
+problems, `invalid_coupon`, `min_order`, `zone_required`), `GET /shop-orders/{token}`, `GET /careers/{slug}`,
+`POST /careers/{slug}/jobs/{id}/apply {name, email, phone, cover_letter, expected_salary, cv {filename, data}}`
+(`already_applied`, `bad_cv`), `GET /sign/{token}`, `GET /sign/{token}/file|certificate`,
+`POST /sign/{token} {method draw|type, signature (PNG data URL), typed_name, agree}` (`document_changed`, `expired`),
+`POST /sign/{token}/decline {reason}`, `GET /r/{token}` (tracked link, 302), `GET|POST /optout/{token} {all, reason}`.
+The WhatsApp inbound webhook also takes Cloud API `statuses` (delivered / read → the message is marked delivered).

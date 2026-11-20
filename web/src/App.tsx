@@ -13,6 +13,11 @@ const Portal = lazy(() => import('./pages/public/Portal'));
 const PaySim = lazy(() => import('./pages/fin/Finish').then((m) => ({ default: m.PaySim })));
 const Reset = lazy(() => import('./pages/public/Reset'));
 const Rate = lazy(() => import('./pages/public/Rate'));
+const Shop = lazy(() => import('./pages/public/Shop'));
+const OrderTrack = lazy(() => import('./pages/public/Shop').then((m) => ({ default: m.OrderTrack })));
+const Careers = lazy(() => import('./pages/public/Careers'));
+const SignPage = lazy(() => import('./pages/public/Sign'));
+const Optout = lazy(() => import('./pages/public/Sign').then((m) => ({ default: m.Optout })));
 const PosDisplay = lazy(() => import('./pages/pos/PosApp').then((m) => ({ default: m.CustomerDisplay })));
 const ForcedMfa = lazy(() => import('./pages/Security').then((m) => ({ default: m.ForcedMfa })));
 const Shell = lazy(() => import('./Shell'));
@@ -78,6 +83,13 @@ function Root() {
   if (route === 'pay-sim') return <Suspense fallback={fullPageLoader}><PaySim token={window.location.hash.replace(/^#\/?/, '').split('/')[1] ?? ''} /></Suspense>;
   if (resetToken) return <Suspense fallback={fullPageLoader}><Reset token={resetToken} /></Suspense>;
   if (route === 'rate') return <Suspense fallback={fullPageLoader}><Rate token={window.location.hash.replace(/^#\/?/, '').split('/')[1] ?? ''} /></Suspense>;
+  // phase 4 public pages: the online store, order tracking, careers, signing and marketing opt-out
+  const arg = window.location.hash.replace(/^#\/?/, '').split('/')[1] ?? '';
+  if (route === 'shop' && arg) return <Suspense fallback={fullPageLoader}><Shop /></Suspense>;
+  if (route === 'order' && arg) return <Suspense fallback={fullPageLoader}><OrderTrack token={arg} key={arg} /></Suspense>;
+  if (route === 'careers' && arg) return <Suspense fallback={fullPageLoader}><Careers slug={arg} key={arg} /></Suspense>;
+  if (route === 'sign' && arg) return <Suspense fallback={fullPageLoader}><SignPage token={arg} key={arg} /></Suspense>;
+  if (route === 'optout' && arg) return <Suspense fallback={fullPageLoader}><Optout token={arg} key={arg} /></Suspense>;
   if (me === undefined) return fullPageLoader;
   if (me === null) {
     const signedIn = (m: Me) => {

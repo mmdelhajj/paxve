@@ -13,12 +13,13 @@ import {
   IconBell, IconCalendarDollar, IconShieldCheck, IconTable, IconTemplate, IconDeviceMobileCog,
   IconBuildingWarehouse, IconTruckDelivery, IconBoxSeam, IconStack2, IconChartHistogram, IconSteeringWheel, IconSettings,
   IconRobot, IconLayoutKanban, IconCar, IconMapPin, IconClock, IconAlertTriangle, IconReportAnalytics, IconCalendarEvent, IconListCheck,
+  IconSpeakerphone, IconBriefcase, IconSignature, IconStars, IconWorldWww, IconMapPins, IconUserSearch, IconMailOff, IconShoppingBag, IconUserStar,
 } from '@tabler/icons-react';
 
 /** Apps a company can switch on or off (companies.apps). Core apps are always on. */
-export type AppId = 'gen' | 'acc' | 'col' | 'msg' | 'stk' | 'pur' | 'net' | 'sat' | 'pos' | 'hr' | 'crm' | 'svc' | 'mfg' | 'prj' | 'flt';
+export type AppId = 'gen' | 'acc' | 'col' | 'msg' | 'stk' | 'pur' | 'net' | 'sat' | 'pos' | 'hr' | 'crm' | 'svc' | 'mfg' | 'prj' | 'flt' | 'web' | 'mkt';
 export const CORE_APPS: AppId[] = ['gen', 'acc', 'col'];
-export const ALL_APPS: AppId[] = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt'];
+export const ALL_APPS: AppId[] = ['gen', 'acc', 'col', 'msg', 'stk', 'pur', 'net', 'sat', 'pos', 'hr', 'crm', 'svc', 'mfg', 'prj', 'flt', 'web', 'mkt'];
 
 export type Icon = typeof IconCash;
 
@@ -54,6 +55,7 @@ export const RIBBON: RibbonTab[] = [
       { page: 'exchange', label: 'ax.t.exchange', icon: IconCurrencyDollar, perm: 'collections.view' },
       { page: 'dashboard', label: 'mx.t.dashboard', icon: IconLayoutDashboard, perm: 'reports.view' },
       { page: 'gaps', param: 'inbox', label: 'gp.m.inbox', icon: IconBell, any: true },
+      { page: 'esign', label: 'es.t', icon: IconSignature, perm: 'esign.view' },
     ],
   },
   {
@@ -187,7 +189,25 @@ export const RIBBON: RibbonTab[] = [
       { page: 'quotes', label: 'mx.t.quotes', icon: IconFileDescription, perm: 'sales.view' },
       { page: 'orders', label: 'mx.t.orders', icon: IconShoppingCart, perm: 'sales.view' },
       { page: 'gaps', param: 'templates', label: 'gp.m.templates', icon: IconTemplate, perm: 'sales.view' },
+      { page: 'esign', label: 'es.t', icon: IconSignature, perm: 'esign.view' },
       { page: 'gaps', param: 'instalments', label: 'gp.m.instalments', icon: IconCalendarDollar, perm: 'billing.view' },
+    ],
+  },
+  {
+    id: 'web', label: 'sh.rib', color: '#0f766e', app: 'web', tiles: [
+      { page: 'webshop', param: 'orders', label: 'sh.m.orders', icon: IconShoppingBag, perm: 'website.view' },
+      { page: 'webshop', param: 'products', label: 'sh.m.products', icon: IconPackages, perm: 'website.view' },
+      { page: 'webshop', param: 'zones', label: 'sh.m.zones', icon: IconMapPins, perm: 'website.view' },
+      { page: 'webshop', param: 'settings', label: 'sh.m.settings', icon: IconWorldWww, perm: 'website.view' },
+      { page: 'retail', param: 'promos', label: 'mk.coupons', icon: IconDiscount2, perm: 'pos.view', app: 'pos' },
+    ],
+  },
+  {
+    id: 'mkt', label: 'mk.rib', color: '#be185d', app: 'mkt', tiles: [
+      { page: 'marketing', param: 'campaigns', label: 'mk.m.campaigns', icon: IconSpeakerphone, perm: 'marketing.view' },
+      { page: 'marketing', param: 'lists', label: 'mk.m.lists', icon: IconUsersGroup, perm: 'marketing.view' },
+      { page: 'marketing', param: 'optouts', label: 'mk.m.optouts', icon: IconMailOff, perm: 'marketing.view' },
+      { page: 'retail', param: 'promos', label: 'mk.coupons', icon: IconDiscount2, perm: 'pos.view', app: 'pos' },
     ],
   },
   {
@@ -251,7 +271,11 @@ export const RIBBON: RibbonTab[] = [
       { page: 'hr-extra', param: 'accruals', label: 'fin.hr.accruals', icon: IconHourglass, perm: 'payroll.view' },
       { page: 'hr-extra', param: 'devices', label: 'fin.hr.devices', icon: IconFingerprint, perm: 'payroll.view' },
       { page: 'hr', param: 'reports', label: 'hr2.m.reports', icon: IconChartBar, perm: 'payroll.view' },
+      { page: 'talent', param: 'positions', label: 'tl.m.positions', icon: IconBriefcase, perm: 'talent.view' },
+      { page: 'talent', param: 'applicants', label: 'tl.m.applicants', icon: IconUserSearch, perm: 'talent.view' },
+      { page: 'talent', param: 'appraisals', label: 'tl.m.appraisals', icon: IconStars, perm: 'talent.view' },
       { page: 'self', label: 'hr2.m.self', icon: IconId, any: true },
+      { page: 'my-appraisal', label: 'tl.my', icon: IconUserStar, any: true },
     ],
   },
   {
@@ -291,6 +315,7 @@ export const PAGE_APP: Record<string, AppId | undefined> = {
   supplier: 'pur', item: 'stk', statement: undefined, customer: undefined, 'hr-extra': 'hr', claims: 'hr', mfg: 'mfg', 'supplier-prices': 'pur', retail: 'pos',
   wh: 'stk', scan: 'stk', driver: undefined, shopfloor: 'mfg',
   projects: 'prj', fleet: 'flt', field: 'svc', tech: undefined, automation: undefined,
+  webshop: 'web', marketing: 'mkt', talent: 'hr', 'my-appraisal': 'hr', esign: undefined,
   gaps: undefined, // per screen: repairs need the service app (the server refuses them when it is off)
 };
 

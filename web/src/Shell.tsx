@@ -122,6 +122,11 @@ const Field = lazy(() => import('./pages/fsv/Field'));
 const Tech = lazy(() => named(import('./pages/fsv/Field'), 'Tech'));
 const Automation = lazy(() => import('./pages/auto/Automation'));
 const Fleet = lazy(() => import('./pages/fleet/Fleet'));
+const WebShop = lazy(() => import('./pages/web/WebShop'));
+const Marketing = lazy(() => import('./pages/mkt/Marketing'));
+const Talent = lazy(() => import('./pages/talent/Talent'));
+const SelfAppraisal = lazy(() => named(import('./pages/talent/Talent'), 'SelfAppraisal'));
+const ESign = lazy(() => import('./pages/esign/ESign'));
 
 const pageFallback = <Center p="xl"><Loader size="sm" /></Center>;
 
@@ -131,7 +136,7 @@ const PER_RECORD = new Set(['customer', 'supplier', 'item', 'statement', 'vouche
 const FULL = new Set(['jibaya', 'subscribers', 'daily', 'ledger', 'cash', 'invoices', 'customers', 'print-bills', 'trial-balance', 'profit-loss',
   'balance-sheet', 'aging', 'collections', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets', 'cash-flow', 'compare', 'opening-balances',
   'localization', 'translations', 'stock-pro', 'hr', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'platform', 'retail', 'gaps', 'wh',
-  'projects', 'field', 'automation', 'fleet']);
+  'projects', 'field', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'esign']);
 const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balance', 'ledger', 'companies', 'users', 'audit', 'developers',
   'customers', 'customer', 'readings', 'invoices', 'payments', 'billing-setup', 'profit-loss', 'balance-sheet', 'aging', 'collections',
   'cash', 'collect', 'platform', 'import', 'messages', 'suppliers', 'supplier', 'bills', 'supplier-payments', 'expenses', 'items', 'item',
@@ -140,7 +145,7 @@ const KNOWN = new Set(['dashboard', 'accounts', 'journal', 'rates', 'trial-balan
   'statements', 'statement', 'sales-report', 'pos', 'pos-setup', 'pos-sessions', 'pos-report', 'magic-import', 'security', 'approvals',
   'consolidated', 'jibaya', 'voucher', 'subscribers', 'daily', 'apps', 'cheques', 'exchange', 'fiscal-years', 'cost-centers', 'budgets',
   'cash-flow', 'compare', 'opening-balances', 'localization', 'translations', 'stock-pro', 'hr', 'self', 'service', 'po', 'dunning', 'fx-reval', 'deferrals', 'subs-change', 'supplier-prices', 'claims', 'custom-fields', 'mfg', 'hr-extra', 'online-pay', 'einvoice', 'my-sub', 'retail', 'gaps', 'wh', 'scan', 'driver', 'shopfloor',
-  'projects', 'field', 'tech', 'automation', 'fleet']);
+  'projects', 'field', 'tech', 'automation', 'fleet', 'webshop', 'marketing', 'talent', 'my-appraisal', 'esign']);
 
 interface Win { id: number; page: string; param: string }
 
@@ -506,6 +511,11 @@ function PageView({ me, onMe, page, param, active, apps }: { me: Me; onMe: (m: M
     field: () => <Field me={me} initial={param} key={param} />,
     automation: () => <Automation me={me} initial={param} key={param} />,
     fleet: () => <Fleet me={me} initial={param} key={param} />,
+    webshop: () => <WebShop me={me} initial={param} key={param} />,
+    marketing: () => <Marketing me={me} initial={param} key={param} />,
+    talent: () => <Talent me={me} initial={param} key={param} />,
+    'my-appraisal': () => <SelfAppraisal />,
+    esign: () => <ESign me={me} />,
     'hr-extra': () => <HRExtra me={me} initial={param} key={param} />,
     'online-pay': () => <OnlinePayments me={me} />,
     einvoice: () => <EInvoice me={me} />,

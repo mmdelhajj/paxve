@@ -201,6 +201,46 @@ log (litres per 100 km between full tanks, flags for a consumption jump or an od
 days with the service log, costs posted as expenses (fuel / maintenance accounts in Fleet → Settings) plus any expense charged
 to a vehicle, alerts and a cost report (cost per km).
 
+## Online store, marketing, recruitment, appraisals and e-sign (phase 4)
+
+**Online store** (app *web*, ribbon tab **Online store**): one public shop per company at `/#/shop/<address>` — Arabic-first,
+mobile-first, in the company colour, with logo, banner and tagline. The catalog is the company's items (photo, shop description,
+variants grouped under their template, categories, search), with the live stock of one warehouse and the prices of one price
+list (else each item's own price in the shop currency, converted at today's rate); prices also show in LBP. The cart is priced
+on the server exactly like the sales order: coupons and automatic promotions of the promotions engine, the item's sales tax,
+a delivery fee per zone (free above an amount). Checkout: delivery or pickup, cash on delivery / pay at pickup / Whish / OMT
+(with the company's payment note), minimum order, honeypot and per-address rate limits, or "order via WhatsApp" (a prefilled
+`wa.me` message). An order finds the customer by phone (or creates one) and becomes a normal **sales order (source "online")**,
+confirmed at once or by staff; it then follows the warehouse steps, the **delivery board** (send selected orders on a trip),
+delivery, invoice and collection. The customer gets a WhatsApp message with a **tracking page** (`/#/order/<token>`:
+received → preparing → on the way → delivered). Staff screens: online orders, what the shop shows (visible, featured,
+description), delivery zones, settings (address, look, warehouse, price list, payments, terms, the careers page) with the links
+and a catalog message to share on WhatsApp.
+
+**Marketing** (app *mkt*): mailing lists (customers, or contacts pasted / typed), the opt-out register, audiences by filters on
+the customers (area, status, balance, overdue days, tags, bought / not bought in N days, with / without subscription), campaigns
+over WhatsApp / SMS / e-mail through the normal message queue with variables (`{name} {company} {coupon} {link} {shop} {optout}`),
+a coupon from the promotions, a **tracked link** (`/api/v1/r/<token>`), an automatic **opt-out link** (`/#/optout/<token>`),
+scheduled sending (background worker) and a throttle per minute; a test send; stats from the queue: sent, **delivered**
+(WhatsApp Cloud delivery receipts through the inbound webhook), failed, skipped (opted out / no phone / no e-mail), clicked,
+opted out. Opted-out people are never messaged again.
+
+**Recruitment** (app *hr*, permission module *talent*): job positions published on a public **careers page**
+(`/#/careers/<address>`, apply with a CV up to 5 MB, kept as an attachment), the applicant pipeline as a kanban (new →
+screening → interview → offer → hired / refused), ratings, interviews with interviewer, feedback and score, the **offer**
+(sent by WhatsApp or e-mail) and the **hire**, which creates the employee file (salary, currency, start date — payroll uses it
+like any employee), copies the CV to it and closes a filled position. **Appraisals**: review cycles; opening one gives every
+active employee an appraisal with weighted goals; employees score themselves on **My appraisal**, the reviewer scores and
+comments, closing the cycle fixes the final scores; report with the average and the spread.
+
+**E-sign** (core, ribbon *Daily* and *CRM*): a quotation, a subscription agreement (generated from the plan and the company's
+terms), a contract text or an uploaded PDF / picture is sent for signature — one public link per signer (`/#/sign/<token>`),
+in order or all at once, by WhatsApp / SMS / e-mail. Signers draw or type their signature (always stored as a picture) and
+agree; each signature keeps the IP, time, browser and the document's **SHA-256** (a quotation changed after sending is refused).
+Every step goes to an append-only audit trail; reminders every N days (5 at most), expiry, decline with a reason. When everyone
+has signed, a **certificate PDF** (document text, hash, signatures, audit trail) is stored on the request, the quotation /
+subscription and sent to the signers; a quotation signed online is accepted and can **confirm itself** into a sales order.
+
 ## How Paxve compares
 
 See [docs/GAP_ANALYSIS.md](docs/GAP_ANALYSIS.md): feature-by-feature comparison with Odoo 19 and the usual SMB ERPs, and the
