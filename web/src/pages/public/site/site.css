@@ -55,8 +55,8 @@
 .sx-topin { display: flex; align-items: center; gap: 8px; height: 64px; }
 .sx-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; color: var(--ink); font-family: var(--display); font-weight: 600; font-size: 19px; }
 .sx-brand { gap: 8px; direction: ltr; color: #0D2743; }
-/* logo sizes: header 30 px high (phone 26), footer 26 px */
-.sx-footbrand .sx-brand .pxv-word { height: 26px; width: auto; }
+/* logo sizes: header 36 px high on computers (phone 26), footer 28 px */
+.sx-footbrand .sx-brand .pxv-word { height: 28px; width: auto; }
 @media (max-width: 720px) { .sx-brand .pxv-word { height: 26px; width: auto; } }
 .sx-brand .nm { display: block; }
 .sx-nav { display: flex; align-items: center; gap: 2px; margin-inline-start: 22px; }

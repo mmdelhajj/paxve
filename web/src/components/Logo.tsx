@@ -4,7 +4,7 @@ import { Wordmark } from './Brand';
 export default function Logo({ size = 'lg' }: { size?: 'lg' | 'xl' }) {
   return (
     <span className="pxv-lockup">
-      <Wordmark height={size === 'xl' ? 44 : 26} />
+      <Wordmark height={size === 'xl' ? 56 : 26} />
     </span>
   );
 }
