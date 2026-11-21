@@ -2,7 +2,7 @@
 // Traced from the owner's artwork with potrace (8x upscale, smoothed). Path data is in potrace units: wrap it in
 // TRACE (y flipped, 1/4 scale) to get artwork pixels of the 8x image (4648 x 1232).
 // The small mark (favicon, app icons, tight spots) is the swoosh x alone on a navy rounded badge.
-import type { CSSProperties } from 'react';
+import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 import './brand.css';
 
 export const TRACE = 'translate(0 1232) scale(0.25 -0.25)';
@@ -27,10 +27,41 @@ export function Mark({ size = 28, tone = 'auto', style, title }: { size?: number
   );
 }
 
-/** The logo "Paxve" (ink = current text colour, swoosh = teal); height = height of the letters in px. */
+/** Nudges an element so its top-left corner lands on a whole device pixel. A logo centred in a column often starts at
+ *  e.g. x = 872.81: every edge is then split across two pixels and looks blurry on ordinary (1x) screens. */
+function usePixelSnap<T extends SVGElement>() {
+  const ref = useRef<T>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let raf = 0;
+    const snap = () => {
+      el.style.transform = '';
+      const r = el.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const off = (v: number) => (Math.round(v * dpr) - v * dpr) / dpr;
+      const dx = off(r.left), dy = off(r.top);
+      if (dx || dy) el.style.transform = `translate(${dx}px, ${dy}px)`;
+    };
+    const later = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(snap); };
+    snap();
+    void document.fonts?.ready.then(later); // text above the logo can move it once the fonts arrive
+    const t = window.setTimeout(later, 800);
+    const ro = new ResizeObserver(later);
+    ro.observe(document.documentElement);
+    window.addEventListener('resize', later);
+    return () => { cancelAnimationFrame(raf); window.clearTimeout(t); ro.disconnect(); window.removeEventListener('resize', later); };
+  }, []);
+  return ref;
+}
+
+/** The logo "Paxve" (ink = current text colour, swoosh = teal); height = height of the letters in px. Whole-pixel size
+ *  and position keep it crisp on 1x screens. */
 export function Wordmark({ height = 16, style }: { height?: number; style?: CSSProperties }) {
+  const ref = usePixelSnap<SVGSVGElement>();
+  const h = Math.round(height), w = Math.round((h * 4565) / 1152);
   return (
-    <svg className="pxv-word" viewBox={WORD_VB} height={height} width={+(height * 4565 / 1152).toFixed(2)}
+    <svg ref={ref} className="pxv-word" viewBox={WORD_VB} height={h} width={w} preserveAspectRatio="xMidYMid meet"
       style={style} role="img" aria-label="Paxve" focusable="false">
       <g transform={TRACE}><path d={WORD_INK} fill="currentColor" /><path d={WORD_X} className="x" /></g>
     </svg>
