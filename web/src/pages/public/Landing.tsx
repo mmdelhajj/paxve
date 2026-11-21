@@ -9,7 +9,7 @@ import { errorText } from '../../util';
 import { isNativeApp } from '../../native';
 import InstallApp from '../../components/InstallApp';
 import { Icon } from './site/icons';
-import { Mark as BrandMark, Wordmark } from '../../components/Brand';
+import { Wordmark } from '../../components/Brand';
 
 // The public marketing site (signed-out visitors at paxve.com): home, one page per business type (#/for/<type>) and the
 // privacy / terms pages. Arabic first. Product images are real screens of a demo company (web/public/site/*.webp,
@@ -202,7 +202,7 @@ function Header({ go }: { go: (id: string) => void }) {
 function Brand() {
   return (
     <a className="sx-brand" href="#/" aria-label="Paxve">
-      <BrandMark size={32} tone="light" /><span className="nm"><Wordmark height={27} /></span>
+      <span className="nm"><Wordmark height={30} /></span>
     </a>
   );
 }

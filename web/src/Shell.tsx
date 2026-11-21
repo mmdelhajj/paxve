@@ -6,7 +6,7 @@ import { IconChevronDown, IconEye, IconKey, IconLogout, IconShieldLock } from '@
 import { useTranslation } from 'react-i18next';
 import { api, can, planHas, type Me, type Rate } from './api';
 import { useCompany } from './company';
-import { Mark, Wordmark } from './components/Brand';
+import { Wordmark } from './components/Brand';
 import { applyLang, languages } from './i18n';
 import { formatAmount, notifyError, notifySaved, today } from './util';
 import { ALL_APPS, appOfPage, RIBBON, tileOf, type Tile } from './ribbon';
@@ -403,7 +403,7 @@ export default function Shell({ me, onMe, onLogout }: { me: Me; onMe: (m: Me) =>
   return (
     <div className={`mx-app mx-biz-${biz}`}>
       <div className="mx-title">
-        <span className="mx-brand"><Mark size={20} tone="dark" style={{ marginInlineEnd: 5 }} /><Wordmark height={16} /></span>
+        <span className="mx-brand"><Wordmark height={18} /></span>
         <span>{companyName} — {year} — {me.full_name}</span>
         <span className="mx-sp" />
         {companies.length > 1 && (

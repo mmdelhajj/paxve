@@ -13,9 +13,9 @@ const ok = (n, c, x = '') => { console.log(`${c ? 'PASS' : 'FAIL'} ${n} ${x}`); 
     await ctx.addInitScript((l) => { try { localStorage.setItem('paxve.lang', l); localStorage.setItem('i18nextLng', l); } catch (e) {} }, lang);
     const page = await ctx.newPage();
     const errs = []; page.on('pageerror', (e) => errs.push(String(e)));
-    await page.goto(`${base}/#/`); await page.waitForSelector('.sx-brand .pxv-mark', { timeout: 30000 });
+    await page.goto(`${base}/#/`); await page.waitForSelector('.sx-brand .pxv-word', { timeout: 30000 });
     await page.waitForTimeout(800);
-    ok(`site mark ${lang} ${w}`, await page.locator('.sx-brand .pxv-mark').first().isVisible());
+    ok(`site logo ${lang} ${w}`, await page.locator('.sx-brand .pxv-word').first().isVisible());
     ok(`no old P mark ${lang} ${w}`, (await page.locator('.sx-mark').count()) === 0);
     await page.screenshot({ path: `${out}/site-${lang}-${w}.png`, clip: { x: 0, y: 0, width: w, height: Math.min(h, 220) } });
     if (w === 1440 && lang === 'ar') {
@@ -47,20 +47,20 @@ const ok = (n, c, x = '') => { console.log(`${c ? 'PASS' : 'FAIL'} ${n} ${x}`); 
     pg.on('response', (r) => { if (r.url().includes('/api/v1/me')) meS.push(r.status()); });
     await pg.goto(`${base}/#/dashboard`); await pg.waitForTimeout(6000); console.log('me', meS.join(','));
     await pg.screenshot({ path: `${out}/after-login.png` });
-    await pg.waitForSelector('.mx-title .pxv-mark', { timeout: 30000 }).catch(() => {}); await pg.waitForTimeout(1500);
+    await pg.waitForSelector('.mx-title .pxv-word', { timeout: 30000 }).catch(() => {}); await pg.waitForTimeout(1500);
     await pg.screenshot({ path: `${out}/shell.png`, clip: { x: 0, y: 0, width: 1280, height: 160 } });
-    ok('shell mark', await pg.locator('.mx-title .pxv-mark').isVisible());
+    ok('shell logo', await pg.locator('.mx-title .pxv-word').isVisible());
   }
   // assets
   for (const p of ['/favicon.svg', '/icons/main-512.png', '/icons/field-192-maskable.png', '/icons/apple-touch-icon.png', '/og.png', '/brand/paxve-logo.svg', '/brand/paxve-mark-mono.svg']) {
     const r = await ctx.request.get(base + p); ok(`asset ${p}`, r.ok(), String(r.status()));
   }
-  const fav = await (await ctx.request.get(base + '/favicon.svg?v=9')).text();
-  ok('favicon is the badge mark', fav.includes('M15 0h34') && fav.includes('M26.5 12h11'));
+  const fav = await (await ctx.request.get(base + '/favicon.svg?v=10')).text();
+  ok('favicon is the swoosh-x mark', fav.includes('M15 0h34') && fav.includes('scale(0.03556)'));
   const html = await (await ctx.request.get(base + '/')).text();
-  ok('index links versioned favicon', html.includes('/favicon.svg?v=9'));
+  ok('index links versioned favicon', html.includes('/favicon.svg?v=10'));
   const sw = await (await ctx.request.get(base + '/sw.js?fresh=' + Date.now())).text();
-  ok('sw cache v12', sw.includes('paxve-shell-v12'));
+  ok('sw cache v13', sw.includes('paxve-shell-v13'));
   await browser.close();
   console.log(fails ? `FAILED ${fails}` : 'ALL PASS');
   process.exit(fails ? 1 : 0);

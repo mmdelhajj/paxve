@@ -1,10 +1,12 @@
-/* Paxve mark colours: m1 = badge, m2 = middle line + trunk, m3 = top / bottom lines. light = on light grounds, dark = on navy / dark grounds */
+/* Paxve logo colours. Wordmark: ink = currentColor, swoosh x = --pxv-x. Mark: m1 = badge, m2 = x strokes, m3 = swoosh */
 .pxv-mark { display: block; flex: none; }
 .pxv-mark .m1 { fill: var(--pxv-m1); }
 .pxv-mark .m2 { fill: var(--pxv-m2); }
 .pxv-mark .m3 { fill: var(--pxv-m3); }
-.pxv-auto, .pxv-light, .pxv-icon { --pxv-m1: #041632; --pxv-m2: #FFFFFF; --pxv-m3: #2DD4BF; }
-.pxv-dark, [data-mantine-color-scheme="dark"] .pxv-auto { --pxv-m1: #FFFFFF; --pxv-m2: #041632; --pxv-m3: #00929A; }
+.pxv-auto, .pxv-light, .pxv-icon { --pxv-m1: #0D2743; --pxv-m2: #FFFFFF; --pxv-m3: #2DD4BF; }
+.pxv-dark, [data-mantine-color-scheme="dark"] .pxv-auto { --pxv-m1: #FFFFFF; --pxv-m2: #0D2743; --pxv-m3: #06A4A2; }
 .pxv-word { display: block; flex: none; }
-.pxv-lockup { display: inline-flex; align-items: center; direction: ltr; color: #041632; }
+.pxv-word .x { fill: var(--pxv-x, #06A4A2); }
+.mx-title .pxv-word, [data-mantine-color-scheme="dark"] .pxv-word { --pxv-x: #2DD4BF; }
+.pxv-lockup { display: inline-flex; align-items: center; direction: ltr; color: #0D2743; }
 [data-mantine-color-scheme="dark"] .pxv-lockup { color: #FFFFFF; }

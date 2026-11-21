@@ -1,5 +1,5 @@
-// Builds every Paxve brand file from one source: the "ledger cedar" mark (ledger lines stacked into a cedar on a
-// navy badge) and the Sora 700 wordmark outlined to paths (same data as src/components/Brand.tsx).
+// Builds every Paxve brand file from one source: the owner's wordmark "Paxve" with the teal swoosh x (traced to paths,
+// data in src/components/Brand.tsx); the small mark is the swoosh x on a navy badge.
 // Writes public/favicon.svg, public/brand/*.svg, public/icons/*.png (4 apps x 192/512 x any/maskable, apple-touch) and
 // public/og.png. Run in the Playwright image:
 //   docker run --rm -v /srv/paxve/web:/web -w /web/e2e -e NODE_PATH=/web/e2e/node_modules \
@@ -11,46 +11,39 @@ const { chromium } = require('playwright');
 const pub = path.join(__dirname, '..', 'public');
 const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'components', 'Brand.tsx'), 'utf8');
 const pick = (n) => src.match(new RegExp(`export const ${n} = '([^']+)'`))[1];
-const BADGE = pick('MARK_BADGE'), A = pick('MARK_A'), B = pick('MARK_B'), WORD = pick('WORD');
+const BADGE = pick('MARK_BADGE'), INK = pick('WORD_INK'), X = pick('WORD_X'), XINK = pick('X_INK');
+const TRACE = pick('TRACE'), X_FIT = pick('X_FIT'), WORD_VB = pick('WORD_VB');
 
-const NAVY = '#041632';
-const TONES = {
-  light: ['#041632', '#FFFFFF', '#2DD4BF'], // badge, middle line + trunk, top / bottom lines
-  dark: ['#FFFFFF', '#041632', '#00929A'],
-};
-// one app = one colour on the top / bottom lines of its icon
-const APPS = { main: '#2DD4BF', field: '#4ADE80', my: '#38BDF8', owner: '#FBBF24' };
+const NAVY = '#0D2743', TEAL = '#06A4A2', TEAL_LIGHT = '#2DD4BF';
+// one app = one colour on the swoosh of its icon
+const APPS = { main: TEAL_LIGHT, field: '#4ADE80', my: '#38BDF8', owner: '#FBBF24' };
 
-const inner = (m2, m3) => `<path d="${A}" fill="${m2}"/><path d="${B}" fill="${m3}"/>`;
-const markG = ([m1, m2, m3]) => `<path d="${BADGE}" fill="${m1}"/>` + inner(m2, m3);
-const monoG = (c) => `<path d="${BADGE} ${A} ${B}" fill="${c}" fill-rule="evenodd"/>`;
 const svg = (vb, body, extra = '') => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}"${extra}>${body}</svg>\n`;
-// lockup: badge (64 units) = 1.2 x cap height, caps centred on the badge, gap 0.31 cap
-const CAP = 64 / 1.2, S = CAP / 730;
-const wordG = (c) => `<path transform="translate(${(64 + 0.31 * CAP - 82 * S).toFixed(3)} ${(32 + CAP / 2).toFixed(3)}) scale(${S.toFixed(6)})" fill="${c}" d="${WORD}"/>`;
-const LOCK_VB = '0 0 292 64';
+const wordG = (ink, x) => `<g transform="${TRACE}"><path d="${INK}" fill="${ink}"/><path d="${X}" fill="${x}"/></g>`;
+const xG = (ink, x) => `<g transform="${TRACE}"><path d="${XINK}" fill="${ink}"/><path d="${X}" fill="${x}"/></g>`;
+const markG = (badge, ink, x) => `<path d="${BADGE}" fill="${badge}"/><g transform="${X_FIT}">${xG(ink, x)}</g>`;
 
 function writeSvgs() {
   fs.mkdirSync(path.join(pub, 'brand'), { recursive: true });
   const w = (f, s) => fs.writeFileSync(path.join(pub, f), s);
-  w('favicon.svg', svg('0 0 64 64', markG(TONES.light))); // the navy badge reads on light and dark tabs
-  w('brand/paxve-mark.svg', svg('0 0 64 64', markG(TONES.light)));
-  w('brand/paxve-mark-dark.svg', svg('0 0 64 64', markG(TONES.dark)));
-  w('brand/paxve-mark-mono.svg', svg('0 0 64 64', monoG(NAVY)));
-  w('brand/paxve-mark-white.svg', svg('0 0 64 64', monoG('#FFFFFF')));
-  w('brand/paxve-logo.svg', svg(LOCK_VB, markG(TONES.light) + wordG(NAVY)));
-  w('brand/paxve-logo-dark.svg', svg(LOCK_VB, markG(TONES.dark) + wordG('#FFFFFF')));
-  w('brand/paxve-logo-mono.svg', svg(LOCK_VB, monoG(NAVY) + wordG(NAVY)));
-  w('brand/paxve-app-icon.svg', svg('0 0 64 64', markG(TONES.light)));
+  w('favicon.svg', svg('0 0 64 64', markG(NAVY, '#FFFFFF', TEAL_LIGHT)));
+  w('brand/paxve-mark.svg', svg('0 0 64 64', markG(NAVY, '#FFFFFF', TEAL_LIGHT)));
+  w('brand/paxve-mark-dark.svg', svg('0 0 64 64', markG('#FFFFFF', NAVY, TEAL)));
+  w('brand/paxve-mark-mono.svg', svg('0 0 64 64', markG(NAVY, '#FFFFFF', '#FFFFFF')));
+  w('brand/paxve-mark-white.svg', svg('0 0 64 64', markG('#FFFFFF', NAVY, NAVY)));
+  w('brand/paxve-logo.svg', svg(WORD_VB, wordG(NAVY, TEAL)));
+  w('brand/paxve-logo-dark.svg', svg(WORD_VB, wordG('#FFFFFF', TEAL_LIGHT)));
+  w('brand/paxve-logo-mono.svg', svg(WORD_VB, wordG(NAVY, NAVY)));
+  w('brand/paxve-app-icon.svg', svg('0 0 64 64', markG(NAVY, '#FFFFFF', TEAL_LIGHT)));
 }
 
-// an icon: navy ground (rounded for "any", full bleed for maskable / iOS) and the cedar at `share` of the side
-function iconHtml(size, lira, kind) {
-  const share = kind === 'any' ? 0.66 : kind === 'apple' ? 0.6 : 0.52; // cedar (42 x 42 of 64 units) / side
-  const k = (share * size) / 42;
-  const off = size / 2 - 32 * k;
+// an icon: navy ground (rounded for "any", full bleed for maskable / iOS) and the swoosh x at `share` of the side
+function iconHtml(size, swoosh, kind) {
+  const share = kind === 'any' ? 0.64 : kind === 'apple' ? 0.6 : 0.5; // x width (1125 artwork px) / side
+  const k = (share * size) / 1125;
+  const tx = size / 2 - (1780 + 562.5) * k, ty = size / 2 - (289 + 439.5) * k;
   const ground = kind === 'any' ? `<rect width="${size}" height="${size}" rx="${size * 0.23}" fill="${NAVY}"/>` : `<rect width="${size}" height="${size}" fill="${NAVY}"/>`;
-  const body = ground + `<g transform="translate(${off} ${off - k}) scale(${k})">${inner('#FFFFFF', lira)}</g>`;
+  const body = ground + `<g transform="translate(${tx} ${ty}) scale(${k})">${xG('#FFFFFF', swoosh)}</g>`;
   return `<html><body style="margin:0;background:transparent">${svg(`0 0 ${size} ${size}`, body, ` width="${size}" height="${size}" style="display:block"`)}</body></html>`;
 }
 function ogHtml() {
@@ -71,10 +64,10 @@ function ogHtml() {
   p{margin:0;font-weight:500;font-size:27px;color:#B6C3D6;line-height:1.6}
   .url{position:absolute;right:124px;bottom:80px;font-weight:500;font-size:24px;color:#7EA2F5;direction:ltr}
   </style></head><body><div class="og">
-  ${svg('0 0 64 64', markG(TONES.dark), ' class="big"')}
+  ${svg('0 0 64 64', markG('#FFFFFF', NAVY, NAVY), ' class="big"')}
   <div class="rule"></div>
   <div class="in">
-    ${svg(LOCK_VB, markG(TONES.dark) + wordG('#FFFFFF'), ' class="lock" width="438" height="96"')}
+    ${svg(WORD_VB, wordG('#FFFFFF', TEAL_LIGHT), ' class="lock" width="336" height="85"')}
     <h1>نظام إدارة الأعمال<br><b>بالدولار والليرة</b></h1>
     <p>محاسبة · جباية · مخزون · نقاط بيع · متجر · تطبيقات للجابي والمالك</p>
   </div>
